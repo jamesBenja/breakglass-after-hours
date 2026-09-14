@@ -49,9 +49,11 @@ canvas {
   right: 14px;
   top: 14px;
   z-index: 8;
-  width: 300px;
-  max-width: 38vw;
-  background: rgba(10, 10, 10, 0.88);
+  width: 330px;
+  max-width: 43vw;
+  max-height: calc(100vh - 54px);
+  overflow: auto;
+  background: rgba(10, 10, 10, 0.9);
   border: 1px solid #393939;
   border-radius: 10px;
   padding: 12px;
@@ -72,6 +74,11 @@ canvas {
   gap: 6px;
   flex-wrap: wrap;
 }
+button,
+input,
+select {
+  font: inherit;
+}
 button {
   background: #242424;
   color: #eee;
@@ -90,6 +97,9 @@ button:hover {
   background: radial-gradient(circle at center, #202020, #050505 70%);
   display: grid;
   place-items: center;
+  overflow: auto;
+  padding: 18px;
+  box-sizing: border-box;
 }
 .card {
   width: min(540px, 84vw);
@@ -99,6 +109,9 @@ button:hover {
   padding: 25px;
   box-shadow: 0 30px 100px #000;
 }
+.avatar-card {
+  width: min(680px, 90vw);
+}
 .card h1 {
   font-size: 23px;
   margin: 0 0 8px;
@@ -106,6 +119,37 @@ button:hover {
 .card p {
   color: #aaa;
   line-height: 1.5;
+}
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 16px 0;
+}
+.avatar-grid label {
+  display: grid;
+  gap: 4px;
+  color: #bdbdbd;
+  font-size: 12px;
+}
+.avatar-grid .wide {
+  grid-column: 1 / -1;
+}
+.avatar-grid .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.avatar-grid input:not([type='checkbox']),
+.avatar-grid select,
+.control-grid select {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1c1c1f;
+  color: #eee;
+  border: 1px solid #4b4b50;
+  border-radius: 7px;
+  padding: 8px 9px;
 }
 small {
   color: #777;
@@ -116,6 +160,51 @@ kbd {
   border-bottom-width: 2px;
   border-radius: 4px;
   padding: 1px 5px;
+}
+.control-grid {
+  display: grid;
+  gap: 9px;
+}
+.control-grid label {
+  display: grid;
+  gap: 4px;
+  color: #bbb;
+  font-size: 11px;
+}
+.mixer-strip {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) minmax(110px, 1.7fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 0;
+  border-bottom: 1px solid #27272a;
+  font-size: 11px;
+}
+.mixer-strip input[type='range'],
+.control-grid input[type='range'] {
+  width: 100%;
+  accent-color: #bbb;
+}
+.mixer-meter {
+  color: #8ed2b5;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+}
+.dj-decks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.dj-deck {
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px;
+  background: #151519;
+}
+.dj-deck strong {
+  display: block;
+  margin-bottom: 5px;
 }
 #floorTag {
   position: fixed;
@@ -173,4 +262,33 @@ kbd {
 }
 canvas:focus {
   outline: none;
+}
+
+@media (max-width: 720px) {
+  #hud {
+    left: 8px;
+    top: 8px;
+    max-width: calc(100vw - 32px);
+  }
+  #hint {
+    display: none;
+  }
+  #panel {
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: 46px;
+    width: auto;
+    max-width: none;
+    max-height: 42vh;
+  }
+  .avatar-grid {
+    grid-template-columns: 1fr;
+  }
+  .avatar-grid .wide {
+    grid-column: auto;
+  }
+  .dj-decks {
+    grid-template-columns: 1fr;
+  }
 }
