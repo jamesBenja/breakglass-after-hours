@@ -16,11 +16,9 @@ const stateLabel = (value) => {
 };
 
 /**
- * Small, deliberately game-like bar loop.
- *
- * Alcohol raises a persistent intoxication value that changes player handling/animation. Water
- * lowers it, intoxication also decays slowly while the game is running, and bartenders cut the
- * player off at the upper end instead of allowing an unlimited stack.
+ * Game-like kitchen/bar loop. Alcohol and caffeine are deliberately kept as separate state:
+ * coffee can temporarily reduce the player's handling impairment, but it does not remove the
+ * underlying intoxication or bypass the bartender cut-off.
  */
 export class BarServiceSystem {
   constructor({ state, player, ui, sceneManager, saveState = () => {} }) {
@@ -30,7 +28,7 @@ export class BarServiceSystem {
     this.sceneManager = sceneManager;
     this.saveState = saveState;
     this.elapsedSinceSave = 0;
-    this.player?.setIntoxication?.(this.state?.data?.intoxication ?? 0);
+    this.syncPlayer();
   }
 
   get level() {
@@ -40,7 +38,26 @@ export class BarServiceSystem {
   set level(value) {
     if (!this.state?.data) return;
     this.state.data.intoxication = clamp(Number(value) || 0);
-    this.player?.setIntoxication?.(this.state.data.intoxication);
+    this.syncPlayer();
+  }
+
+  get caffeine() {
+    return clamp(Number(this.state?.data?.caffeine) || 0);
+  }
+
+  set caffeine(value) {
+    if (!this.state?.data) return;
+    this.state.data.caffeine = clamp(Number(value) || 0);
+    this.syncPlayer();
+  }
+
+  get effectiveIntoxication() {
+    // At maximum coffee alertness roughly 58% of the alcohol handling effect remains.
+    return clamp(this.level * (1 - this.caffeine * 0.42));
+  }
+
+  syncPlayer() {
+    this.player?.setIntoxication?.(this.effectiveIntoxication);
   }
 
   bartenderName(id) {
@@ -77,15 +94,39 @@ export class BarServiceSystem {
     this.panel(id, `${this.bartenderName(id)} hands you a water.`);
   }
 
+  coffee() {
+    if (!this.state?.data) return;
+    this.caffeine = Math.min(1, this.caffeine + 0.62);
+    this.state.data.coffeesMade =
+      Math.max(0, Math.floor(Number(this.state.data.coffeesMade) || 0)) + 1;
+    this.saveState();
+    this.coffeePanel('You make an espresso on the kitchen machine.');
+  }
+
+  coffeePanel(lead = '') {
+    const coffees = Math.max(0, Math.floor(Number(this.state?.data?.coffeesMade) || 0));
+    const alertness = Math.round(this.caffeine * 100);
+    this.ui.panel(
+      'KITCHEN · COFFEE MACHINE',
+      `${lead ? `${lead} ` : ''}Coffee raises alertness and temporarily reduces the game's steering/sway effects, but your underlying alcohol level stays at ${Math.round(this.level * 100)}%. Alertness: ${alertness}% · ${coffees} coffee${coffees === 1 ? '' : 's'} made.`,
+      [
+        ['Make espresso', () => this.coffee()],
+        ['Back', () => this.ui.panel('KITCHEN', 'Step away from the coffee machine.')],
+      ],
+    );
+  }
+
   panel(id, lead = '') {
     const name = this.bartenderName(id);
     const intoxication = this.level;
     const cutOff = intoxication >= 0.82;
     const drinks = Math.max(0, Math.floor(Number(this.state?.data?.drinksServed) || 0));
-    const status = `You feel ${stateLabel(intoxication)} · ${(intoxication * 100).toFixed(0)}% intoxication · ${drinks} alcoholic drink${drinks === 1 ? '' : 's'} served this save.`;
+    const effective = this.effectiveIntoxication;
+    const coffeeNote = this.caffeine > 0.04 ? ` Coffee has handling effects down to ${Math.round(effective * 100)}% for now.` : '';
+    const status = `You feel ${stateLabel(effective)} · ${Math.round(intoxication * 100)}% underlying intoxication · ${drinks} alcoholic drink${drinks === 1 ? '' : 's'} served this save.${coffeeNote}`;
     this.ui.panel(
       `${name.toUpperCase()} · KITCHEN BAR`,
-      `${lead ? `${lead} ` : ''}${status}${cutOff ? ' The bar will only serve water until you sober up a bit.' : ''}`,
+      `${lead ? `${lead} ` : ''}${status}${cutOff ? ' The bar will only serve water until the underlying level drops.' : ''}`,
       [
         ...(!cutOff ? DRINKS.map((drink) => [drink.label, () => this.order(id, drink)]) : []),
         ['Water', () => this.water(id)],
@@ -95,9 +136,13 @@ export class BarServiceSystem {
   }
 
   handle(target) {
+    if (this.sceneManager.current?.definition?.id !== 'downstairs') return false;
+    if (target?.action === 'coffee') {
+      this.coffeePanel();
+      return true;
+    }
     const id = target?.npcId ?? target?.id;
-    if (this.sceneManager.current?.definition?.id !== 'downstairs' || !BARTENDERS.has(id))
-      return false;
+    if (!BARTENDERS.has(id)) return false;
     this.state?.meet?.(id);
     this.saveState();
     this.panel(id);
@@ -105,11 +150,19 @@ export class BarServiceSystem {
   }
 
   update(dt) {
-    if (!this.state?.data || this.level <= 0) return;
-    // Roughly fourteen minutes of continuous play from maximum intoxication back to clear.
-    const before = this.level;
-    this.level = before - dt * 0.0012;
-    if (Math.abs(this.level - before) > 0.00001) this.elapsedSinceSave += dt;
+    if (!this.state?.data) return;
+    const beforeAlcohol = this.level;
+    const beforeCaffeine = this.caffeine;
+    // Alcohol clears slowly. The coffee gameplay boost wears off much faster.
+    if (beforeAlcohol > 0) this.state.data.intoxication = clamp(beforeAlcohol - dt * 0.0012);
+    if (beforeCaffeine > 0) this.state.data.caffeine = clamp(beforeCaffeine - dt * 0.0032);
+    this.syncPlayer();
+    if (
+      Math.abs(this.level - beforeAlcohol) > 0.00001 ||
+      Math.abs(this.caffeine - beforeCaffeine) > 0.00001
+    ) {
+      this.elapsedSinceSave += dt;
+    }
     if (this.elapsedSinceSave >= 8) {
       this.saveState();
       this.elapsedSinceSave = 0;
@@ -119,8 +172,11 @@ export class BarServiceSystem {
   snapshot() {
     return {
       intoxication: this.level,
-      label: stateLabel(this.level),
+      effectiveIntoxication: this.effectiveIntoxication,
+      caffeine: this.caffeine,
+      label: stateLabel(this.effectiveIntoxication),
       drinksServed: Math.max(0, Math.floor(Number(this.state?.data?.drinksServed) || 0)),
+      coffeesMade: Math.max(0, Math.floor(Number(this.state?.data?.coffeesMade) || 0)),
     };
   }
 }
