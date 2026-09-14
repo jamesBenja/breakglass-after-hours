@@ -5,7 +5,7 @@ import { CrowdSystem } from '../crowd/CrowdSystem.js';
 import { LightingRig } from '../lighting/LightingRig.js';
 import { AlleySystem } from '../alley/AlleySystem.js';
 import { RoofSystem } from '../roof/RoofSystem.js';
-import { MaddoxSystem } from '../pets/MaddoxSystem.js';
+import { CompanionMaddoxSystem } from '../pets/CompanionMaddoxSystem.js';
 import { disposeObject } from './disposeObject.js';
 
 export async function createLevel(definition, builders, assets) {
@@ -48,7 +48,7 @@ export async function createLevel(definition, builders, assets) {
   const lighting = definition.lightingRig ? new LightingRig(scene, definition.lightingRig) : null;
   const alley = definition.alleySystem ? new AlleySystem(gameplay, definition.alleySystem) : null;
   const roof = definition.roofSystem ? new RoofSystem(gameplay, definition.roofSystem) : null;
-  const maddox = definition.maddox ? new MaddoxSystem(gameplay, definition.maddox) : null;
+  const maddox = definition.maddox ? new CompanionMaddoxSystem(gameplay, definition.maddox) : null;
   return {
     scene,
     definition,
@@ -63,7 +63,7 @@ export async function createLevel(definition, builders, assets) {
     roof,
     maddox,
     geometrySource: model ? 'model' : 'blockout',
-    update(dt, audio) {
+    update(dt, audio, playerPosition = null) {
       const metrics =
         typeof audio?.metrics === 'function'
           ? audio.metrics()
@@ -78,7 +78,7 @@ export async function createLevel(definition, builders, assets) {
       lighting?.update(dt, metrics);
       alley?.update(dt, metrics);
       roof?.update(dt, metrics);
-      maddox?.update(dt, metrics);
+      maddox?.update(dt, metrics, playerPosition);
     },
     dispose() {
       maddox?.dispose();
