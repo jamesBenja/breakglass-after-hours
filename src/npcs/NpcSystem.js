@@ -25,12 +25,22 @@ export class NpcSystem {
     return dialogues[id] ?? null;
   }
 
-  update(dt, musicPlaying) {
+  update(dt, audioState) {
     this.elapsed += dt;
+    const metrics =
+      typeof audioState === 'boolean'
+        ? { playing: audioState, energy: audioState ? 0.5 : 0, bass: audioState ? 0.5 : 0 }
+        : (audioState ?? { playing: false, energy: 0, bass: 0 });
+    const energy = Math.max(0, Math.min(1, metrics.energy ?? 0));
+    const bass = Math.max(0, Math.min(1, metrics.bass ?? energy));
+    const amount = metrics.playing ? 0.035 + energy * 0.14 : 0;
+    const speed = 0.34 - bass * 0.12;
     for (const npc of this.npcs) {
       npc.group.position.y =
-        npc.baseY + (musicPlaying ? Math.abs(Math.sin(this.elapsed / 0.23 + npc.phase)) * 0.12 : 0);
-      npc.group.rotation.y = musicPlaying ? Math.sin(this.elapsed / 0.4 + npc.phase) * 0.18 : 0;
+        npc.baseY + (metrics.playing ? Math.abs(Math.sin(this.elapsed / speed + npc.phase)) * amount : 0);
+      npc.group.rotation.y = metrics.playing
+        ? Math.sin(this.elapsed / (0.48 - energy * 0.18) + npc.phase) * (0.1 + energy * 0.2)
+        : 0;
     }
   }
 
