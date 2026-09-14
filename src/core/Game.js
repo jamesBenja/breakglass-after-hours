@@ -358,7 +358,7 @@ export class Game {
       const alleyState = alleyLevel?.alley?.snapshot?.();
       if (alleyState && alleyState.policeVisits > this.lastPoliceVisits) {
         this.lastPoliceVisits = alleyState.policeVisits;
-        ui.warning(
+        this.ui.warning(
           alleyState.policeVisits >= 2
             ? 'Police have returned to Breakglass. The party is being shut down.'
             : 'Police have arrived in the alley. Go outside and talk to them before this escalates.',

@@ -1,9 +1,30 @@
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
 export const ATTACKS = {
-  light: { duration: 0.24, hitStart: 0.075, hitEnd: 0.17, range: 0.145, damage: 7, knockback: 0.026 },
-  heavy: { duration: 0.48, hitStart: 0.19, hitEnd: 0.32, range: 0.195, damage: 13, knockback: 0.048 },
-  special: { duration: 0.66, hitStart: 0.27, hitEnd: 0.43, range: 0.255, damage: 18, knockback: 0.075 },
+  light: {
+    duration: 0.24,
+    hitStart: 0.075,
+    hitEnd: 0.17,
+    range: 0.145,
+    damage: 7,
+    knockback: 0.026,
+  },
+  heavy: {
+    duration: 0.48,
+    hitStart: 0.19,
+    hitEnd: 0.32,
+    range: 0.195,
+    damage: 13,
+    knockback: 0.048,
+  },
+  special: {
+    duration: 0.66,
+    hitStart: 0.27,
+    hitEnd: 0.43,
+    range: 0.255,
+    damage: 18,
+    knockback: 0.075,
+  },
 };
 
 const fighter = (side, x) => ({
@@ -54,7 +75,13 @@ export function commandFight(state, side, action, pressed = true) {
   else if (action === 'jump' && pressed && actor.y <= 0.001 && actor.stun <= 0) {
     actor.vy = 0.88;
     emit(state, { type: 'jump', side });
-  } else if (ATTACKS[action] && pressed && !actor.attack && actor.cooldown <= 0 && actor.stun <= 0) {
+  } else if (
+    ATTACKS[action] &&
+    pressed &&
+    !actor.attack &&
+    actor.cooldown <= 0 &&
+    actor.stun <= 0
+  ) {
     actor.attack = action;
     actor.attackTime = 0;
     actor.attackHit = false;

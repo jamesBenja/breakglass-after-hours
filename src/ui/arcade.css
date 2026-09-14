@@ -5,11 +5,17 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   gap: 8px;
-  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   box-sizing: border-box;
   background: #050407;
   color: #f5f1f5;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    sans-serif;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;

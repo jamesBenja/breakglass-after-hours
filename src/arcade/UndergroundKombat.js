@@ -80,7 +80,8 @@ export class UndergroundKombat {
     const top = this.document.createElement('div');
     top.className = 'kombat-topbar';
     const brand = this.document.createElement('div');
-    brand.innerHTML = '<strong>BREAKGLASS UNDERGROUND KOMBAT</strong><span>single player · cabinet prototype</span>';
+    brand.innerHTML =
+      '<strong>BREAKGLASS UNDERGROUND KOMBAT</strong><span>single player · cabinet prototype</span>';
     const exit = this.document.createElement('button');
     exit.className = 'kombat-exit';
     exit.textContent = 'EXIT CABINET';
@@ -211,10 +212,17 @@ export class UndergroundKombat {
     if (!this.audio?.context) return;
     if (kind === 'hit') {
       this.audio.kick?.();
-      this.audio.tone?.(guarded ? 880 : detail === 'special' ? 52 : 110, 0.12, 'sawtooth', guarded ? 0.035 : 0.07);
+      this.audio.tone?.(
+        guarded ? 880 : detail === 'special' ? 52 : 110,
+        0.12,
+        'sawtooth',
+        guarded ? 0.035 : 0.07,
+      );
     } else if (kind === 'finish') {
       const root = detail === 'player' ? 110 : 73.4;
-      [1, 1.25, 1.5, 2].forEach((ratio, index) => this.audio.tone?.(root * ratio, 0.28, 'square', 0.045, index * 0.07));
+      [1, 1.25, 1.5, 2].forEach((ratio, index) =>
+        this.audio.tone?.(root * ratio, 0.28, 'square', 0.045, index * 0.07),
+      );
     } else if (detail === 'special') {
       this.audio.tone?.(65.4, 0.18, 'sawtooth', 0.05);
     } else if (detail === 'heavy') {
@@ -230,7 +238,13 @@ export class UndergroundKombat {
     ctx.strokeRect(x, y, 70 * scale, 142 * scale);
     for (const offset of [42, 103]) {
       ctx.beginPath();
-      ctx.arc(x + 35 * scale, y + offset * scale, (offset === 42 ? 22 : 28) * scale, 0, Math.PI * 2);
+      ctx.arc(
+        x + 35 * scale,
+        y + offset * scale,
+        (offset === 42 ? 22 : 28) * scale,
+        0,
+        Math.PI * 2,
+      );
       ctx.fillStyle = '#242631';
       ctx.fill();
       ctx.strokeStyle = '#666a78';
@@ -326,7 +340,7 @@ export class UndergroundKombat {
     ctx.strokeStyle = '#ddd';
     ctx.lineWidth = 2;
     ctx.strokeRect(x, y, width, 18);
-    const amount = width * Math.max(0, hp) / 100;
+    const amount = (width * Math.max(0, hp)) / 100;
     ctx.fillStyle = hp > 45 ? '#79e48f' : hp > 20 ? '#f0c85a' : '#ed5d68';
     ctx.fillRect(reverse ? x + width - amount : x, y, amount, 18);
     ctx.fillStyle = '#fff';
@@ -375,7 +389,15 @@ export class UndergroundKombat {
 
     const barWidth = Math.max(110, Math.min(240, w * 0.34));
     this.drawHealth(ctx, 20, 34, barWidth, this.state.player.hp, false, 'FADER FURY');
-    this.drawHealth(ctx, w - 20 - barWidth, 34, barWidth, this.state.opponent.hp, true, 'FEEDBACK FIEND');
+    this.drawHealth(
+      ctx,
+      w - 20 - barWidth,
+      34,
+      barWidth,
+      this.state.opponent.hp,
+      true,
+      'FEEDBACK FIEND',
+    );
     ctx.fillStyle = '#fff';
     ctx.font = '800 23px system-ui';
     ctx.textAlign = 'center';
@@ -390,7 +412,12 @@ export class UndergroundKombat {
       ctx.textAlign = 'center';
       ctx.fillStyle = '#fff';
       ctx.font = `900 ${Math.max(25, Math.min(46, w * 0.07))}px system-ui`;
-      const headline = this.state.winner === 'player' ? 'FADER FURY WINS' : this.state.winner === 'draw' ? 'DOUBLE BOOKING' : 'FEEDBACK FIEND WINS';
+      const headline =
+        this.state.winner === 'player'
+          ? 'FADER FURY WINS'
+          : this.state.winner === 'draw'
+            ? 'DOUBLE BOOKING'
+            : 'FEEDBACK FIEND WINS';
       ctx.fillText(headline, w / 2, h * 0.46);
       ctx.font = '700 15px system-ui';
       ctx.fillStyle = '#f4b1db';
@@ -409,7 +436,13 @@ export class UndergroundKombat {
         const rect = this.canvas.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
-        if (x >= w / 2 - buttonW / 2 && x <= w / 2 + buttonW / 2 && y >= h * 0.6 && y <= h * 0.6 + buttonH) this.rematch();
+        if (
+          x >= w / 2 - buttonW / 2 &&
+          x <= w / 2 + buttonW / 2 &&
+          y >= h * 0.6 &&
+          y <= h * 0.6 + buttonH
+        )
+          this.rematch();
       };
     } else this.canvas.onclick = null;
     ctx.restore();
