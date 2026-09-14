@@ -1,7 +1,9 @@
 import { WebGLRenderer, PCFSoftShadowMap } from 'three';
 import { AssetLoader } from '../assets/AssetLoader.js';
 import { assetManifest } from '../assets/manifest.js';
+import { normalizeAvatar } from '../avatar/profile.js';
 import { AudioEngine } from '../audio/AudioEngine.js';
+import { DjMixer } from '../dj/DjMixer.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { InputController } from '../player/InputController.js';
 import { FollowCamera } from '../player/FollowCamera.js';
@@ -9,6 +11,9 @@ import { SceneManager } from '../scenes/SceneManager.js';
 import { createUpstairsScene } from '../scenes/UpstairsScene.js';
 import { createBelowScene } from '../scenes/BelowScene.js';
 import { GameState } from '../state/GameState.js';
+import { StudioSession } from '../studio/StudioSession.js';
+import { StudioPlayback } from '../studio/StudioPlayback.js';
+import { MicrophoneRecorder } from '../studio/MicrophoneRecorder.js';
 import { InteractionSystem } from '../interactions/InteractionSystem.js';
 import { createActions } from '../interactions/createActions.js';
 
@@ -31,6 +36,7 @@ export class Game {
       }
     }
     this.state = new GameState(storage, (message) => ui.warning(message));
+    ui.setAvatarProfile?.(this.state.data.avatar);
     this.assets = new AssetLoader(assetManifest, {
       baseUrl: new URL(import.meta.env.BASE_URL, document.baseURI).href,
       onWarning: (message) => ui.warning(message),
@@ -45,7 +51,11 @@ export class Game {
         this.save();
       },
     });
-    this.player = new PlayerController();
+    this.studio = new StudioSession(this.state.data.studio);
+    this.studioPlayback = new StudioPlayback(this.audio);
+    this.micRecorder = new MicrophoneRecorder(this.audio);
+    this.dj = new DjMixer(this.audio);
+    this.player = new PlayerController(this.state.data.avatar);
     this.input = new InputController();
     this.camera = new FollowCamera(innerWidth / innerHeight);
     this.renderer = new WebGLRenderer({ antialias: true });
@@ -57,6 +67,14 @@ export class Game {
     this.renderer.domElement.setAttribute('aria-label', 'Breakglass game view');
     document.body.prepend(this.renderer.domElement);
     this.input.bindCamera(this.renderer.domElement);
+
+    this.stopAll = () => {
+      this.studioPlayback.stop();
+      this.dj.stop();
+      this.audio.stop();
+      this.micRecorder.cancel();
+    };
+
     this.sceneManager = new SceneManager({
       scenes: this.scenes,
       player: this.player,
@@ -66,7 +84,13 @@ export class Game {
       },
       onEnter: (level) => {
         this.interactions.setLevel(level.definition);
-        this.camera.configure(level.definition.cameraOffset, this.player.position, level.collision);
+        this.camera.configure(
+          level.definition.cameraOffset,
+          this.player.position,
+          level.collision,
+          level.definition.camera,
+        );
+        this.player.object.visible = !this.camera.isFirstPerson;
         ui.floorTag.textContent = level.definition.title;
         ui.panel(...level.definition.intro);
         this.state.visit(level.definition.id);
@@ -81,6 +105,12 @@ export class Game {
         player: this.player,
         ui,
         state: this.state,
+        studio: this.studio,
+        studioPlayback: this.studioPlayback,
+        micRecorder: this.micRecorder,
+        dj: this.dj,
+        stopAll: this.stopAll,
+        saveState: () => this.save(),
         canAct,
       }),
     );
@@ -100,7 +130,7 @@ export class Game {
     this.onContextLost = (event) => {
       event.preventDefault();
       this.input.setEnabled(false);
-      this.audio.stop();
+      this.stopAll();
       this.save();
       ui.fatal(new Error('The graphics context was lost'));
     };
@@ -120,7 +150,10 @@ export class Game {
     const sameLayout =
       !definition.layoutRevision || definition.layoutRevision === this.state.data.layoutRevision;
     this.sceneManager.start(this.state.data.sceneId, sameLayout ? this.state.data.position : null);
-    this.ui.ready(async () => {
+    this.ui.ready(async (avatarProfile) => {
+      this.state.data.avatar = normalizeAvatar(avatarProfile ?? this.state.data.avatar);
+      this.state.data.avatarConfigured = true;
+      this.player.applyAvatar(this.state.data.avatar);
       try {
         await this.audio.init();
       } catch {
@@ -141,10 +174,16 @@ export class Game {
     if (elapsed > 0) this.fps += (1 / elapsed - this.fps) * 0.03;
     if (this.started && !document.hidden) {
       if (this.input.consume('debug')) this.state.data.debug = !this.state.data.debug;
-      if (this.input.consume('stopAudio')) this.audio.stop();
+      if (this.input.consume('stopAudio')) this.stopAll();
       this.sceneManager.update(dt);
       if (!this.sceneManager.changing) {
         if (this.input.consume('recenter')) this.camera.recenter();
+        if (
+          this.input.consume('toggleView') &&
+          this.sceneManager.current.definition.id === 'downstairs'
+        ) {
+          this.camera.toggleMode();
+        }
         const cameraInput = this.input.cameraInput(dt);
         this.camera.orbit(cameraInput.orbit);
         this.camera.zoom(cameraInput.zoom);
@@ -159,6 +198,7 @@ export class Game {
       } else {
         this.input.clear();
       }
+      this.dj.update(dt);
       this.sceneManager.current.update(dt, this.audio);
       this.saveElapsed += dt;
       if (this.saveElapsed >= 2) {
@@ -168,6 +208,7 @@ export class Game {
     }
     const level = this.sceneManager.current;
     this.camera.update(dt, this.player.position, level.collision);
+    this.player.object.visible = !this.camera.isFirstPerson;
     this.ui.update({
       level,
       player: this.player,
@@ -175,6 +216,7 @@ export class Game {
       audio: this.audio,
       state: this.state.data,
       camera: this.camera,
+      dj: this.dj,
       transitionPhase: this.sceneManager.phase,
       fps: this.fps,
     });
@@ -182,6 +224,7 @@ export class Game {
   }
 
   save() {
+    this.state.data.studio = this.studio.snapshot();
     if (this.started && this.sceneManager.current) {
       this.state.save(
         this.sceneManager.current.definition.id,
@@ -201,6 +244,9 @@ export class Game {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.renderer.domElement.removeEventListener('webglcontextlost', this.onContextLost);
     this.input.dispose();
+    this.micRecorder.dispose();
+    this.studioPlayback.dispose();
+    this.dj.dispose();
     this.player.dispose();
     this.sceneManager.dispose();
     await this.audio.dispose();
