@@ -55,6 +55,18 @@ export function createGameSpace() {
     prop('dead-bass-stack', 404, 650, 1.05, 0.75, 1.65, 0x191b1d, { kind: 'equipment' }),
     prop('instrument-rack', 270, 625, 0.72, 2.1, 1.55, 0x6a4a35, { kind: 'equipment' }),
     prop('mic-locker', 274, 665, 0.7, 0.55, 1.45, 0x58636a, { kind: 'equipment' }),
+
+    // Historic Neve Suite: placement is GAME dressing informed by the 2019 console photo,
+    // not a claim of surveyed historic furniture coordinates.
+    prop('neve-console', 426, 790, 3.45, 0.95, 1.35, 0x342f2a, { kind: 'equipment' }),
+    prop('neve-monitor-left', 405, 775, 0.58, 0.5, 1.95, 0x151719, { kind: 'equipment' }),
+    prop('neve-monitor-right', 451, 775, 0.58, 0.5, 1.95, 0x151719, { kind: 'equipment' }),
+    prop('neve-side-rack', 461, 821, 0.72, 0.72, 1.72, 0x34383a, { kind: 'equipment' }),
+    prop('neve-tape-machine', 396, 880, 1.02, 0.82, 1.62, 0x5a5d5d, { kind: 'equipment' }),
+
+    // Storage archive shelving. Reel labels/content remain intentionally generic until
+    // catalogued source metadata is attached to each playable tape.
+    prop('tape-archive-shelves', 470, 1025, 0.8, 2.4, 1.9, 0x51483e, { kind: 'equipment' }),
   ];
   // Replace just the west end of the floor with a real descending stair run.
   const stairFloors = [0, 1, 2, 3].map((i) => {
