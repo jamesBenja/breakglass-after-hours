@@ -94,6 +94,13 @@ const normalizeStem = (stem, index) => ({
       : null,
 });
 
+const isUntouchedPrototype = (value = {}) => {
+  if (Math.floor(Number(value.takeCounter) || 0) !== 0) return false;
+  if (value.name && value.name !== 'Breakglass Session') return false;
+  if (!Array.isArray(value.stems) || value.stems.length !== DEFAULT_STEMS.length) return !value.stems;
+  return value.stems.every((stem, index) => stem?.id === DEFAULT_STEMS[index].id && !stem?.assetId);
+};
+
 export function normalizeStudioSession(value = {}) {
   const setup = { ...DEFAULT_SETUP, ...(value.setup ?? {}) };
   setup.guitar = gearById(GUITARS, setup.guitar).id;
@@ -105,14 +112,20 @@ export function normalizeStudioSession(value = {}) {
   setup.eq = gearById(PROCESSORS.eq, setup.eq).id;
   setup.compressor = gearById(PROCESSORS.compressor, setup.compressor).id;
 
-  const sourceStems = Array.isArray(value.stems) && value.stems.length ? value.stems : DEFAULT_STEMS;
+  const upgrade = isUntouchedPrototype(value);
+  const sourceStems = upgrade
+    ? DANCE_SHOES_STEMS
+    : Array.isArray(value.stems) && value.stems.length
+      ? value.stems
+      : DANCE_SHOES_STEMS;
   const stems = sourceStems.slice(0, 12).map(normalizeStem);
 
   return {
-    name:
-      typeof value.name === 'string' && value.name.trim()
+    name: upgrade
+      ? 'Dance Shoes · BG Mix'
+      : typeof value.name === 'string' && value.name.trim()
         ? value.name.trim().slice(0, 48)
-        : 'Breakglass Session',
+        : 'Dance Shoes · BG Mix',
     setup,
     stems,
     takeCounter: Math.max(0, Math.floor(Number(value.takeCounter) || 0)),
