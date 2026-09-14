@@ -8,6 +8,7 @@ import { DjMixer } from '../dj/DjMixer.js';
 import { BarServiceSystem } from '../gameplay/BarServiceSystem.js';
 import { LightingControlSystem } from '../gameplay/LightingControlSystem.js';
 import { MaddoxInteractionSystem } from '../gameplay/MaddoxInteractionSystem.js';
+import { PoliceInteractionSystem } from '../gameplay/PoliceInteractionSystem.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { InputController } from '../player/InputController.js';
 import { FollowCamera } from '../player/FollowCamera.js';
@@ -35,6 +36,8 @@ export class Game {
     this.scenes = new Map();
     this.saveElapsed = 0;
     this.fps = 60;
+    this.evacuationStarted = false;
+    this.lastPoliceVisits = 0;
     let storage = options.storage;
     if (!('storage' in options)) {
       try {
@@ -85,6 +88,26 @@ export class Game {
       this.dj.stop();
       this.audio.stop();
       this.micRecorder.cancel();
+    };
+
+    this.beginEvacuation = () => {
+      if (this.evacuationStarted) return;
+      this.evacuationStarted = true;
+      this.stopAll();
+      this.scenes.get('alley')?.alley?.beginEvacuation?.();
+      for (const level of this.scenes.values()) {
+        if (!level.crowd) continue;
+        level.crowd.min = 0;
+        level.crowd.idle = 0;
+        level.crowd.targetAttendance = 0;
+        level.crowd.danceShare = 0;
+      }
+      ui.warning('Police have shut the party down. Everyone has to leave.');
+      ui.panel(
+        'PARTY EVACUATION',
+        'Police have ended the event. The music is off and the crowd is clearing out of Breakglass.',
+        [],
+      );
     };
 
     this.sceneManager = new SceneManager({
@@ -140,6 +163,11 @@ export class Game {
       saveState: () => this.save(),
     });
 
+    this.policeInteraction = new PoliceInteractionSystem({
+      ui,
+      sceneManager: this.sceneManager,
+    });
+
     const canAct = () => this.started && !this.sceneManager.changing && !document.hidden;
     const baseActions = createActions({
       audio: this.audio,
@@ -159,6 +187,7 @@ export class Game {
       canAct,
     });
     this.interactions = new InteractionSystem((target) => {
+      if (this.policeInteraction.handle(target)) return;
       if (this.maddoxInteraction.handle(target)) return;
       if (this.lightingControl.handle(target)) return;
       if (this.barService.handle(target)) return;
@@ -267,7 +296,22 @@ export class Game {
       }
       this.barService.update(dt);
       this.dj.update(dt);
-      this.sceneManager.current.update(dt, this.audio);
+      const currentLevel = this.sceneManager.current;
+      currentLevel.update(dt, this.audio);
+      const alleyLevel = this.scenes.get('alley');
+      if (alleyLevel && alleyLevel !== currentLevel) {
+        alleyLevel.alley?.update(dt, this.audio.metrics?.() ?? { playing: this.audio.playing });
+      }
+      const alleyState = alleyLevel?.alley?.snapshot?.();
+      if (alleyState && alleyState.policeVisits > this.lastPoliceVisits) {
+        this.lastPoliceVisits = alleyState.policeVisits;
+        ui.warning(
+          alleyState.policeVisits >= 2
+            ? 'Police have returned to Breakglass. The party is being shut down.'
+            : 'Police have arrived in the alley. Go outside and talk to them before this escalates.',
+        );
+      }
+      if (alleyState?.evacuationRequired) this.beginEvacuation();
       this.saveElapsed += dt;
       if (this.saveElapsed >= 2) {
         this.save();
