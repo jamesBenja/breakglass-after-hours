@@ -5,18 +5,29 @@ const NOTE = {
   G2: 98.0,
   A2: 110,
   C3: 130.81,
-  E3: 164.81,
-  G3: 196,
   A3: 220,
   C4: 261.63,
-  E4: 329.63,
-  G4: 392,
+};
+
+const MIC_COLOR = {
+  'dynamic-57': { frequency: 3200, gain: 3.5, q: 1.1 },
+  ribbon: { frequency: 5200, gain: -2.5, q: 0.7 },
+  'fet-condenser': { frequency: 6500, gain: 2.8, q: 0.8 },
+  'tube-condenser': { frequency: 900, gain: 2.4, q: 0.65 },
+  'dynamic-7b': { frequency: 2200, gain: 1.2, q: 0.9 },
+};
+
+const COMP = {
+  'fet-comp': { threshold: -24, ratio: 7, attack: 0.003, release: 0.12 },
+  'opto-comp': { threshold: -18, ratio: 3.2, attack: 0.03, release: 0.35 },
+  'vca-comp': { threshold: -20, ratio: 4.5, attack: 0.012, release: 0.18 },
+  none: { threshold: 0, ratio: 1, attack: 0.003, release: 0.1 },
 };
 
 /**
  * Small multitrack transport for the prototype. Generated stems are intentionally simple,
- * but each stem has its own gain/pan bus so the Spectra UI is already a real mixer.
- * Recorded AudioBuffers can replace generated parts without changing the session model.
+ * but each stem already owns a real WebAudio channel strip: input -> modeled mic/EQ color ->
+ * compressor -> fader -> pan. Recorded AudioBuffers can replace generated parts in place.
  */
 export class StudioPlayback {
   constructor(audio, timers = globalThis) {
@@ -39,13 +50,43 @@ export class StudioPlayback {
     let bus = this.buses.get(stem.id);
     if (bus) return bus;
     const context = this.audio.context;
-    const gain = context.createGain();
+    const input = context.createGain();
+    const color = context.createBiquadFilter();
+    color.type = 'peaking';
+    color.frequency.value = 1800;
+    color.Q.value = 0.8;
+    color.gain.value = 0;
+    const compressor = context.createDynamicsCompressor();
+    const fader = context.createGain();
     const pan = typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
-    gain.connect(pan ?? this.audio.master);
+    input.connect(color);
+    color.connect(compressor);
+    compressor.connect(fader);
+    fader.connect(pan ?? this.audio.master);
     pan?.connect(this.audio.master);
-    bus = { gain, pan };
+    bus = { input, color, compressor, fader, pan };
     this.buses.set(stem.id, bus);
+    this.configureProcessing(stem, bus);
     return bus;
+  }
+
+  configureProcessing(stem, bus) {
+    const context = this.audio.context;
+    if (!context || !bus) return;
+    const time = context.currentTime;
+    const processing = stem.processing ?? {};
+    const mic = MIC_COLOR[processing.mic] ?? { frequency: 1800, gain: 0, q: 0.8 };
+    let eqGain = mic.gain;
+    if (processing.eq === 'spectra-eq') eqGain += 1.4;
+    if (processing.eq === 'broad-musical') eqGain += 2.2;
+    bus.color.frequency.setTargetAtTime(mic.frequency, time, 0.03);
+    bus.color.Q.setTargetAtTime(mic.q, time, 0.03);
+    bus.color.gain.setTargetAtTime(eqGain, time, 0.03);
+    const comp = COMP[processing.compressor] ?? COMP.none;
+    bus.compressor.threshold.setTargetAtTime(comp.threshold, time, 0.03);
+    bus.compressor.ratio.setTargetAtTime(comp.ratio, time, 0.03);
+    bus.compressor.attack.setTargetAtTime(comp.attack, time, 0.03);
+    bus.compressor.release.setTargetAtTime(comp.release, time, 0.03);
   }
 
   updateMix(session = this.session) {
@@ -55,14 +96,14 @@ export class StudioPlayback {
     for (const stem of session.stems) {
       activeIds.add(stem.id);
       const bus = this.ensureBus(stem);
+      this.configureProcessing(stem, bus);
       const target = stem.mute ? 0 : stem.level;
-      bus.gain.gain.setTargetAtTime(target, time, 0.025);
+      bus.fader.gain.setTargetAtTime(target, time, 0.025);
       if (bus.pan) bus.pan.pan.setTargetAtTime(stem.pan ?? 0, time, 0.025);
     }
     for (const [id, bus] of this.buses) {
       if (activeIds.has(id)) continue;
-      bus.gain.disconnect();
-      bus.pan?.disconnect();
+      for (const node of Object.values(bus)) node?.disconnect?.();
       this.buses.delete(id);
     }
   }
@@ -137,8 +178,23 @@ export class StudioPlayback {
   }
 
   renderStem(stem, step, when) {
-    const bus = this.ensureBus(stem).gain;
+    const bus = this.ensureBus(stem).input;
     if (stem.mute) return;
+    const recording = this.session?.recordings.get(stem.id);
+    if (recording) {
+      if (step === 0) {
+        const source = this.audio.context.createBufferSource();
+        source.buffer = recording;
+        source.connect(bus);
+        source.onended = () => {
+          source.disconnect();
+          this.sources.delete(source);
+        };
+        this.sources.add(source);
+        source.start(this.audio.context.currentTime + when);
+      }
+      return;
+    }
     if (stem.kind === 'drums') {
       if (step % 4 === 0) this.kick(bus, when);
       if (step % 2 === 1) this.noise(bus, when + 0.01, 0.035, 0.055);
@@ -179,20 +235,6 @@ export class StudioPlayback {
             when,
           });
       }
-      return;
-    }
-
-    const recording = this.session?.recordings.get(stem.id);
-    if (recording && step === 0) {
-      const source = this.audio.context.createBufferSource();
-      source.buffer = recording;
-      source.connect(bus);
-      source.onended = () => {
-        source.disconnect();
-        this.sources.delete(source);
-      };
-      this.sources.add(source);
-      source.start(this.audio.context.currentTime + when);
     }
   }
 
@@ -239,10 +281,7 @@ export class StudioPlayback {
 
   dispose() {
     this.stop();
-    for (const bus of this.buses.values()) {
-      bus.gain.disconnect();
-      bus.pan?.disconnect();
-    }
+    for (const bus of this.buses.values()) for (const node of Object.values(bus)) node?.disconnect?.();
     this.buses.clear();
     this.session = null;
   }
