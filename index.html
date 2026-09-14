@@ -106,6 +106,10 @@
       </div>
     </div>
 
+    <button id="uiToggle" type="button" aria-pressed="false" aria-label="Hide game interface">
+      HIDE UI
+    </button>
+
     <div id="mobileControls" aria-label="Touch game controls">
       <div class="touch-pad" aria-label="Movement controls">
         <span></span>
@@ -129,6 +133,29 @@
     </div>
 
     <pre id="debug" hidden aria-label="Game debug information"></pre>
+    <script>
+      (() => {
+        const button = document.getElementById('uiToggle');
+        const sync = () => {
+          const hidden = document.body.classList.contains('ui-minimal');
+          button.textContent = hidden ? 'SHOW UI' : 'HIDE UI';
+          button.setAttribute('aria-pressed', String(hidden));
+          button.setAttribute('aria-label', hidden ? 'Show game interface' : 'Hide game interface');
+        };
+        const toggle = () => {
+          document.body.classList.toggle('ui-minimal');
+          sync();
+          document.querySelector('canvas')?.focus();
+        };
+        button.addEventListener('click', toggle);
+        document.addEventListener('keydown', (event) => {
+          const tag = event.target?.tagName?.toLowerCase();
+          if (event.repeat || ['input', 'select', 'textarea'].includes(tag)) return;
+          if (event.key.toLowerCase() === 'h') toggle();
+        });
+        sync();
+      })();
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
