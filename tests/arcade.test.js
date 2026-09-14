@@ -20,7 +20,7 @@ test('underground kombat attacks damage an in-range opponent and blocking reduce
 });
 
 test('single-player CPU closes distance and a finished round reports a winner', () => {
-  const state = createFightState({ mode: 'cpu', roundTime: 1 });
+  const state = createFightState({ mode: 'cpu', roundTime: 1, cpuGrace: 0 });
   state.player.x = 0.15;
   state.opponent.x = 0.85;
   const start = state.opponent.x;
@@ -30,4 +30,17 @@ test('single-player CPU closes distance and a finished round reports a winner', 
   stepFight(state, 1 / 60, () => 0.6);
   assert.equal(state.status, 'finished');
   assert.equal(state.winner, 'player');
+});
+
+test('single-player opening grace holds the CPU and round clock briefly', () => {
+  const state = createFightState({ mode: 'cpu', roundTime: 60, cpuGrace: 1.5 });
+  state.player.x = 0.15;
+  state.opponent.x = 0.85;
+  const start = state.opponent.x;
+  for (let i = 0; i < 60; i++) stepFight(state, 1 / 60, () => 0.6);
+  assert.equal(state.opponent.x, start);
+  assert.equal(state.time, 60);
+  for (let i = 0; i < 45; i++) stepFight(state, 1 / 60, () => 0.6);
+  assert.ok(state.opponent.x < start);
+  assert.ok(state.time < 60);
 });
