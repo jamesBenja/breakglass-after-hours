@@ -17,7 +17,10 @@ export function buildBelowBlockout(downScene) {
   // ---------------- BELOW: based on actual technical diagram ----------------
   // Main club room ratio approx 45'3" x 26'.
   floor(downScene, 0, 0, 12.2, 7.0, mainFloor);
-  wall(0, -3.5, 12.2, 0.24);
+  // South wall is split at the coat-check/alley corridor so the exit is physically visible.
+  wall(-1.275, -3.5, 9.65, 0.24);
+  wall(5.875, -3.5, 0.45, 0.24);
+  doorwayFrame(downScene, 4.6, -3.38, 'horizontal', 'ALLEY / COAT CHECK');
   // West wall is split around the real-world relationship to Take A Break so the room is playable.
   wall(-6.1, -1.7, 0.24, 3.6);
   wall(-6.1, 2.45, 0.24, 2.1);
