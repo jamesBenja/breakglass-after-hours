@@ -46,7 +46,7 @@ export function buildBelowBlockout(downScene) {
   wall(1.9, 5.1, 0.24, 2.7);
   label(downScene, 'STORAGE', -1.6, 2.8, 5.1, 0.4);
 
-  // Service + production + bar stack right.
+  // Service stack right. The physical bar now lives back inside the kitchen at the north end.
   floor(downScene, 7.65, 4.8, 2.8, 3.2, serviceFloor);
   floor(downScene, 7.65, 1.5, 2.8, 2.6, serviceFloor);
   floor(downScene, 7.65, -1.4, 2.8, 3.0, mat(0x4d2f2d));
@@ -54,9 +54,9 @@ export function buildBelowBlockout(downScene) {
   wall(7.65, 6.4, 2.8, 0.24);
   wall(7.65, -2.9, 2.8, 0.24);
   box(downScene, 0.95, 0.035, 1.28, mat(0xb75c50), 6.08, 0.018, -1.3);
-  label(downScene, 'KITCHEN', 7.65, 2.55, 4.8, 0.32);
+  label(downScene, 'KITCHEN + BAR', 7.65, 2.55, 4.8, 0.3);
   label(downScene, 'PRODUCTION', 7.65, 2.55, 1.5, 0.3);
-  label(downScene, 'BAR', 7.65, 2.55, -1.4, 0.35);
+  label(downScene, 'SERVICE', 7.65, 2.55, -1.4, 0.32);
 
   // Coat check / alley entrance. The previous version had a hidden scene trigger here but no
   // legible physical route; this visible stair run now points players directly to the alley.
@@ -187,18 +187,22 @@ export function buildBelowFixtures(downScene) {
   for (const x of [-9.28, -9.03]) cyl(downScene, 0.045, 0.06, mat(0xd7b05f), x, 0.83, -0.57);
   label(downScene, 'ARCADE', -9.15, 2.0, -0.02, 0.22, '#d9c4ee');
 
-  // Usable-bar landmark and stools. Bartender characters are spawned from level data.
-  box(downScene, 3.5, 1.0, 0.9, MAT.wood, 7.25, 0.5, -1.45);
-  for (const x of [6.55, 7.25, 7.95, 8.65]) {
-    cyl(downScene, 0.22, 0.62, MAT.metal, x, 0.31, -2.28);
-    cyl(downScene, 0.3, 0.08, mat(0x4e2729), x, 0.66, -2.28);
+  // Kitchen bar: moved back to the north end of the service room and reversed. Guests approach
+  // from the south; Courtney and Simla work from the north side against the back bar.
+  const counterZ = 4.42;
+  box(downScene, 2.58, 1.0, 0.82, MAT.wood, 7.65, 0.5, counterZ);
+  box(downScene, 2.68, 0.075, 0.9, mat(0xb18a61), 7.65, 1.025, counterZ);
+  for (const x of [6.78, 7.36, 7.94, 8.52]) {
+    cyl(downScene, 0.22, 0.62, MAT.metal, x, 0.31, 3.55);
+    cyl(downScene, 0.3, 0.08, mat(0x4e2729), x, 0.66, 3.55);
   }
-  // Back bar shelves, bottles, taps and glasses make Courtney/Simla's station feel occupied.
+
+  // Back bar shelves and bottles hug the kitchen's north wall, behind the bartenders.
   const shelf = mat(0x6f523d, 0.78, 0.03);
   for (const y of [1.05, 1.62, 2.19]) {
-    box(downScene, 2.55, 0.07, 0.28, shelf, 7.75, y, -0.18);
-    for (let i = 0; i < 10; i++) {
-      const x = 6.62 + i * 0.25;
+    box(downScene, 2.35, 0.07, 0.24, shelf, 7.65, y, 6.08);
+    for (let i = 0; i < 9; i++) {
+      const x = 6.7 + i * 0.235;
       const bottleHeight = 0.18 + ((i + Math.round(y * 10)) % 3) * 0.045;
       cyl(
         downScene,
@@ -207,15 +211,16 @@ export function buildBelowFixtures(downScene) {
         mat([0x526a48, 0x74503c, 0x6a5178, 0x8c7646][i % 4], 0.38, 0.04),
         x,
         y + bottleHeight / 2 + 0.04,
-        -0.18,
+        6.0,
       );
     }
   }
-  for (const x of [6.75, 7.08, 7.41]) {
-    cyl(downScene, 0.035, 0.44, MAT.metal, x, 1.28, -1.05);
-    box(downScene, 0.18, 0.05, 0.1, MAT.metal, x, 1.49, -1.1);
+  // Taps now sit on the bartender/north side of the counter rather than facing into the wall.
+  for (const x of [7.28, 7.65, 8.02]) {
+    cyl(downScene, 0.035, 0.44, MAT.metal, x, 1.28, 4.72);
+    box(downScene, 0.18, 0.05, 0.1, MAT.metal, x, 1.49, 4.68);
   }
-  label(downScene, 'COURTNEY + SIMLA', 7.55, 2.6, -1.5, 0.25, '#ffc9b0');
+  label(downScene, 'COURTNEY + SIMLA · BAR', 7.65, 2.62, 5.45, 0.23, '#ffc9b0');
 
   // Alley exit details are intentionally bright enough to find through the crowd.
   box(downScene, 1.45, 0.34, 0.08, mat(0x3f6c55, 0.45, 0.04), 4.6, 2.45, -3.33);
