@@ -152,7 +152,7 @@ test('camera clears diagonal walls and recovers after a tight corridor orbit', (
   assert.ok(camera.clearance > 5);
 });
 
-test('optional four-hop route reaches the polygon roof and drops back into the circulation loop', () => {
+test('optional four-hop route reaches the polygon roof and descends by the same overlook path', () => {
   const level = createUpstairsDefinition('B'),
     world = new CollisionWorld(level.navigation),
     player = new PlayerController(),
@@ -189,7 +189,32 @@ test('optional four-hop route reaches the polygon roof and drops back into the c
     );
   }
   assert.equal(player.groundTarget, 'polygon-perch');
-  follow(player, world, ['galleryS', 'gallerySE', 'eastJunction', 'entry'], camera);
+
+  for (const [x, y, z] of [...overlookRoute].reverse().slice(1)) {
+    let landed = false;
+    for (let i = 0; i < 360; i++) {
+      const dx = x - player.position.x,
+        dz = z - player.position.z,
+        d = Math.hypot(dx, dz);
+      if (d < 0.12 && player.grounded && Math.abs(player.position.y - y) < 0.06) {
+        landed = true;
+        break;
+      }
+      const strength = Math.min(1, d / 0.35);
+      player.update(
+        1 / 60,
+        { x: d ? (dx / d) * strength : 0, z: d ? (dz / d) * strength : 0 },
+        world,
+      );
+      camera.update(1 / 60, player.position, world);
+    }
+    assert.ok(
+      landed,
+      `descent ${x},${y},${z} blocked: ${player.position.toArray()} / ${player.collisionTarget}`,
+    );
+  }
+
+  follow(player, world, ['live', 'galleryNE', 'galleryE', 'gallerySE', 'eastJunction', 'entry'], camera);
   assert.equal(player.grounded, true);
   assert.equal(player.position.y, 0);
   player.dispose();
