@@ -6,6 +6,7 @@ import { AudioEngine } from '../audio/AudioEngine.js';
 import { SpatialAudioSystem } from '../audio/SpatialAudioSystem.js';
 import { DjMixer } from '../dj/DjMixer.js';
 import { BarServiceSystem } from '../gameplay/BarServiceSystem.js';
+import { LightingControlSystem } from '../gameplay/LightingControlSystem.js';
 import { MaddoxInteractionSystem } from '../gameplay/MaddoxInteractionSystem.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { InputController } from '../player/InputController.js';
@@ -126,6 +127,11 @@ export class Game {
       saveState: () => this.save(),
     });
 
+    this.lightingControl = new LightingControlSystem({
+      ui,
+      sceneManager: this.sceneManager,
+    });
+
     this.maddoxInteraction = new MaddoxInteractionSystem({
       state: this.state,
       ui,
@@ -154,6 +160,7 @@ export class Game {
     this.interactions = new InteractionSystem(
       (target) => {
         if (this.maddoxInteraction.handle(target)) return;
+        if (this.lightingControl.handle(target)) return;
         if (this.barService.handle(target)) return;
         baseActions(target);
       },
