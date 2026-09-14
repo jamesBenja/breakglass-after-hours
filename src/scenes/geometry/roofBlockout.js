@@ -68,7 +68,17 @@ export function buildRoofBlockout(root) {
     const height = 2.4 + ((i * 7) % 5) * 0.72;
     box(root, 2.1, height, 1.8, skyline, x, height / 2 - 0.2, 14 + (i % 3) * 1.1);
     if (i % 2 === 0) {
-      for (let w = 0; w < 3; w++) box(root, 0.18, 0.24, 0.03, windowMat, x - 0.45 + w * 0.45, 1 + w * 0.55, 13.08 + (i % 3) * 1.1);
+      for (let w = 0; w < 3; w++)
+        box(
+          root,
+          0.18,
+          0.24,
+          0.03,
+          windowMat,
+          x - 0.45 + w * 0.45,
+          1 + w * 0.55,
+          13.08 + (i % 3) * 1.1,
+        );
     }
   }
 

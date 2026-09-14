@@ -66,7 +66,8 @@ export class LightingRig {
     this.config = config;
     this.elapsed = 0;
     this.preset = 'warmup';
-    this.palette = config.palette && LIGHTING_PALETTES[config.palette] ? config.palette : 'breakglass';
+    this.palette =
+      config.palette && LIGHTING_PALETTES[config.palette] ? config.palette : 'breakglass';
     this.haze = 0;
     this.lasersEnabled = false;
     this.lastMetrics = {
@@ -271,8 +272,7 @@ export class LightingRig {
 
     for (const fixture of this.fixtures) {
       const drift = 0.5 + 0.5 * Math.sin(this.elapsed * 0.7 + fixture.phase);
-      const musicPulse = preset.pulse *
-        (energy * 0.24 + bass * 0.18 + beat * 0.62 + vibe * 0.42);
+      const musicPulse = preset.pulse * (energy * 0.24 + bass * 0.18 + beat * 0.62 + vibe * 0.42);
       const skillLift = metrics.playing ? 0.05 + vibe * 0.12 + mixQuality * 0.08 : 0;
       fixture.light.intensity =
         fixture.baseIntensity * preset.intensity * (0.62 + skillLift + musicPulse + drift * 0.08);

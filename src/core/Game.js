@@ -157,15 +157,12 @@ export class Game {
       saveState: () => this.save(),
       canAct,
     });
-    this.interactions = new InteractionSystem(
-      (target) => {
-        if (this.maddoxInteraction.handle(target)) return;
-        if (this.lightingControl.handle(target)) return;
-        if (this.barService.handle(target)) return;
-        baseActions(target);
-      },
-      this.state,
-    );
+    this.interactions = new InteractionSystem((target) => {
+      if (this.maddoxInteraction.handle(target)) return;
+      if (this.lightingControl.handle(target)) return;
+      if (this.barService.handle(target)) return;
+      baseActions(target);
+    }, this.state);
     this.onResize = () => {
       this.camera.resize(innerWidth, innerHeight);
       this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -195,7 +192,12 @@ export class Game {
   }
 
   async initialize() {
-    for (const factory of [createUpstairsScene, createBelowScene, createAlleyScene, createRoofScene]) {
+    for (const factory of [
+      createUpstairsScene,
+      createBelowScene,
+      createAlleyScene,
+      createRoofScene,
+    ]) {
       const level = await factory(this.assets, this.spatialPass);
       this.scenes.set(level.definition.id, level);
     }

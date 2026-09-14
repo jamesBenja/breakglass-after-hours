@@ -34,7 +34,11 @@ export class RoofSystem {
     this.group.name = 'roof-throwback-ambience';
     root.add(this.group);
 
-    this.junkMaterial = new MeshStandardMaterial({ color: 0x85745f, roughness: 0.88, metalness: 0.04 });
+    this.junkMaterial = new MeshStandardMaterial({
+      color: 0x85745f,
+      roughness: 0.88,
+      metalness: 0.04,
+    });
     this.junk = new Mesh(new BoxGeometry(0.18, 0.12, 0.22), this.junkMaterial);
     this.junk.name = 'roof-junk-in-flight';
     this.junk.visible = false;
@@ -57,7 +61,13 @@ export class RoofSystem {
       puff.position.set(smoker[0], smoker[1] + phase * 0.6, smoker[2]);
       puff.scale.setScalar(0.55 + phase * 0.9);
       this.group.add(puff);
-      this.smoke.push({ puff, material, smoker, phase: phase * Math.PI * 2, speed: 0.18 + seeded(i, 92) * 0.18 });
+      this.smoke.push({
+        puff,
+        material,
+        smoker,
+        phase: phase * Math.PI * 2,
+        speed: 0.18 + seeded(i, 92) * 0.18,
+      });
     }
   }
 

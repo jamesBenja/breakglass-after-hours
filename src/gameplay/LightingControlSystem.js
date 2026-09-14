@@ -33,12 +33,48 @@ export class LightingControlSystem {
             this.open();
           },
         ]),
-        ['Warmup intensity', () => { rig.applyPreset('warmup'); this.open(); }],
-        ['Party intensity', () => { rig.applyPreset('party'); this.open(); }],
-        ['Peak intensity', () => { rig.applyPreset('peak'); this.open(); }],
-        [snapshot.lasers ? 'Lasers off' : 'Lasers on', () => { rig.toggleLasers(); this.open(); }],
-        ['More haze', () => { rig.adjustHaze(0.15); this.open(); }],
-        ['Less haze', () => { rig.adjustHaze(-0.15); this.open(); }],
+        [
+          'Warmup intensity',
+          () => {
+            rig.applyPreset('warmup');
+            this.open();
+          },
+        ],
+        [
+          'Party intensity',
+          () => {
+            rig.applyPreset('party');
+            this.open();
+          },
+        ],
+        [
+          'Peak intensity',
+          () => {
+            rig.applyPreset('peak');
+            this.open();
+          },
+        ],
+        [
+          snapshot.lasers ? 'Lasers off' : 'Lasers on',
+          () => {
+            rig.toggleLasers();
+            this.open();
+          },
+        ],
+        [
+          'More haze',
+          () => {
+            rig.adjustHaze(0.15);
+            this.open();
+          },
+        ],
+        [
+          'Less haze',
+          () => {
+            rig.adjustHaze(-0.15);
+            this.open();
+          },
+        ],
       ],
     );
   }

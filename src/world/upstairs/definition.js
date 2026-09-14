@@ -158,13 +158,7 @@ export function createUpstairsDefinition(pass = 'B') {
         at(430, 980),
       ],
       napPoints: [at(310, 820), at(575, 790), at(365, 635), at(430, 980)],
-      roofLeadRoute: [
-        at(515, 850),
-        at(535, 974),
-        at(480, 988),
-        at(430, 1015),
-        at(435, 1075, 1.4),
-      ],
+      roofLeadRoute: [at(515, 850), at(535, 974), at(480, 988), at(430, 1015), at(435, 1075, 1.4)],
     },
     npcs: [
       {
