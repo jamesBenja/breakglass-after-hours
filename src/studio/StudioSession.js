@@ -30,6 +30,70 @@ export const DEFAULT_STEMS = [
   { id: 'synth', label: 'Synth / Keys', kind: 'synth', level: 0.58, pan: 0.18, mute: false },
 ];
 
+export const DANCE_SHOES_STEMS = [
+  {
+    id: 'dance-shoes-drums',
+    label: 'Dance Shoes · Drums',
+    kind: 'drums',
+    level: 0.78,
+    pan: 0,
+    mute: false,
+    assetId: 'dance-shoes-drums',
+    source: 'Breakglass multitrack',
+  },
+  {
+    id: 'dance-shoes-bass',
+    label: 'Dance Shoes · Bass',
+    kind: 'bass',
+    level: 0.74,
+    pan: 0,
+    mute: false,
+    assetId: 'dance-shoes-bass',
+    source: 'Breakglass multitrack',
+  },
+  {
+    id: 'dance-shoes-synths-fx',
+    label: 'Dance Shoes · Synths + FX',
+    kind: 'synth',
+    level: 0.66,
+    pan: 0.08,
+    mute: false,
+    assetId: 'dance-shoes-synths-fx',
+    source: 'Breakglass multitrack',
+  },
+  {
+    id: 'dance-shoes-vox',
+    label: 'Dance Shoes · Vocals',
+    kind: 'vocal',
+    level: 0.7,
+    pan: 0,
+    mute: false,
+    assetId: 'dance-shoes-vox',
+    source: 'Breakglass multitrack',
+  },
+];
+
+const normalizeStem = (stem, index) => ({
+  id: typeof stem.id === 'string' ? stem.id.slice(0, 32) : `stem-${index}`,
+  label: typeof stem.label === 'string' ? stem.label.slice(0, 40) : `Stem ${index + 1}`,
+  kind: typeof stem.kind === 'string' ? stem.kind.slice(0, 24) : 'audio',
+  level: clamp(Number(stem.level) || 0, 0, 1),
+  pan: clamp(Number(stem.pan) || 0, -1, 1),
+  mute: stem.mute === true,
+  assetId: typeof stem.assetId === 'string' ? stem.assetId.slice(0, 64) : null,
+  source: typeof stem.source === 'string' ? stem.source.slice(0, 80) : 'session',
+  processing:
+    stem.processing && typeof stem.processing === 'object'
+      ? {
+          mic: typeof stem.processing.mic === 'string' ? stem.processing.mic : null,
+          amp: typeof stem.processing.amp === 'string' ? stem.processing.amp : null,
+          eq: typeof stem.processing.eq === 'string' ? stem.processing.eq : null,
+          compressor:
+            typeof stem.processing.compressor === 'string' ? stem.processing.compressor : null,
+        }
+      : null,
+});
+
 export function normalizeStudioSession(value = {}) {
   const setup = { ...DEFAULT_SETUP, ...(value.setup ?? {}) };
   setup.guitar = gearById(GUITARS, setup.guitar).id;
@@ -42,25 +106,7 @@ export function normalizeStudioSession(value = {}) {
   setup.compressor = gearById(PROCESSORS.compressor, setup.compressor).id;
 
   const sourceStems = Array.isArray(value.stems) && value.stems.length ? value.stems : DEFAULT_STEMS;
-  const stems = sourceStems.slice(0, 12).map((stem, index) => ({
-    id: typeof stem.id === 'string' ? stem.id.slice(0, 32) : `stem-${index}`,
-    label: typeof stem.label === 'string' ? stem.label.slice(0, 40) : `Stem ${index + 1}`,
-    kind: typeof stem.kind === 'string' ? stem.kind.slice(0, 24) : 'audio',
-    level: clamp(Number(stem.level) || 0, 0, 1),
-    pan: clamp(Number(stem.pan) || 0, -1, 1),
-    mute: stem.mute === true,
-    source: typeof stem.source === 'string' ? stem.source.slice(0, 80) : 'session',
-    processing:
-      stem.processing && typeof stem.processing === 'object'
-        ? {
-            mic: typeof stem.processing.mic === 'string' ? stem.processing.mic : null,
-            amp: typeof stem.processing.amp === 'string' ? stem.processing.amp : null,
-            eq: typeof stem.processing.eq === 'string' ? stem.processing.eq : null,
-            compressor:
-              typeof stem.processing.compressor === 'string' ? stem.processing.compressor : null,
-          }
-        : null,
-  }));
+  const stems = sourceStems.slice(0, 12).map(normalizeStem);
 
   return {
     name:
@@ -101,6 +147,15 @@ export class StudioSession {
     return item;
   }
 
+  loadTemplate(id) {
+    if (id !== 'dance-shoes') return false;
+    this.name = 'Dance Shoes · BG Mix';
+    this.stems = DANCE_SHOES_STEMS.map((stem, index) => normalizeStem(stem, index));
+    this.takeCounter = 0;
+    this.recordings.clear();
+    return true;
+  }
+
   addTake(kind, label, source = 'gameplay', processing = null) {
     this.takeCounter += 1;
     const id = `${kind}-${this.takeCounter}`;
@@ -111,6 +166,7 @@ export class StudioSession {
       level: 0.68,
       pan: 0,
       mute: false,
+      assetId: null,
       source,
       processing: processing ? { ...processing } : null,
     };
@@ -148,7 +204,10 @@ export class StudioSession {
     return {
       name: this.name,
       setup: { ...this.setup },
-      stems: this.stems.map((stem) => ({ ...stem, processing: stem.processing ? { ...stem.processing } : null })),
+      stems: this.stems.map((stem) => ({
+        ...stem,
+        processing: stem.processing ? { ...stem.processing } : null,
+      })),
       takeCounter: this.takeCounter,
     };
   }
