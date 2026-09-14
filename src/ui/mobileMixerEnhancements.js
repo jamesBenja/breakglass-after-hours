@@ -200,18 +200,13 @@ Hud.prototype.djMixer = function mobileDjMixer(mixer, tracks, { onChange = () =>
 
     const transport = this.document.createElement('div');
     transport.className = 'mobile-dj-transport';
-    const play = makeButton(
-      this.document,
-      state.playing ? 'STOP' : 'PLAY',
-      'primary',
-      async () => {
-        if (mixer.decks[deckId].playing) mixer.stopDeck(deckId);
-        else await mixer.playDeck(deckId);
-        refreshMetrics();
-        renderDeckTabs();
-        renderFocusedDeck();
-      },
-    );
+    const play = makeButton(this.document, state.playing ? 'STOP' : 'PLAY', 'primary', async () => {
+      if (mixer.decks[deckId].playing) mixer.stopDeck(deckId);
+      else await mixer.playDeck(deckId);
+      refreshMetrics();
+      renderDeckTabs();
+      renderFocusedDeck();
+    });
     const sync = makeButton(this.document, 'SYNC', '', () => {
       mixer.sync(deckId);
       refreshMetrics();
@@ -421,7 +416,9 @@ Hud.prototype.studioMixer = function mobileStudioMixer(
 
   const renderStrip = () => {
     stripHost.replaceChildren();
-    const stem = session.stems.find((candidate) => candidate.id === session._mobileFocusStem) ?? session.stems[0];
+    const stem =
+      session.stems.find((candidate) => candidate.id === session._mobileFocusStem) ??
+      session.stems[0];
     if (!stem) return;
 
     const header = this.document.createElement('div');
@@ -430,16 +427,26 @@ Hud.prototype.studioMixer = function mobileStudioMixer(
     name.textContent = stem.label;
     const switches = this.document.createElement('div');
     switches.className = 'mobile-stem-switches';
-    const mute = makeButton(this.document, stem.mute ? 'UNMUTE' : 'MUTE', stem.mute ? 'active' : '', () => {
-      session.toggleMute(stem.id);
-      onMix();
-      renderStrip();
-    });
-    const solo = makeButton(this.document, stem.solo ? 'UNSOLO' : 'SOLO', stem.solo ? 'active' : '', () => {
-      session.toggleSolo(stem.id);
-      onMix();
-      renderStrip();
-    });
+    const mute = makeButton(
+      this.document,
+      stem.mute ? 'UNMUTE' : 'MUTE',
+      stem.mute ? 'active' : '',
+      () => {
+        session.toggleMute(stem.id);
+        onMix();
+        renderStrip();
+      },
+    );
+    const solo = makeButton(
+      this.document,
+      stem.solo ? 'UNSOLO' : 'SOLO',
+      stem.solo ? 'active' : '',
+      () => {
+        session.toggleSolo(stem.id);
+        onMix();
+        renderStrip();
+      },
+    );
     switches.append(mute, solo);
     header.append(name, switches);
     stripHost.appendChild(header);
