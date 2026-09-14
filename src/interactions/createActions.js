@@ -75,11 +75,18 @@ export function createActions({
       return { mode: 'drums', label: kit.label };
     }
     if (kind === 'piano') {
-      return { mode: 'piano', label: 'Piano', baseMidi: 48, wave: 'triangle', duration: 0.72, volume: 0.062 };
+      return {
+        mode: 'piano',
+        label: 'Piano',
+        baseMidi: 48,
+        wave: 'triangle',
+        duration: 0.72,
+        volume: 0.062,
+      };
     }
     if (kind === 'synth') {
       const synth = gearById(SYNTHS, studio.setup.synth);
-      const baseMidi = synth.id === 'mono-bass' ? 36 : synth.id === 'organ' ? 48 : 48;
+      const baseMidi = synth.id === 'mono-bass' ? 36 : 48;
       return {
         mode: 'synth',
         label: synth.label,
@@ -100,7 +107,12 @@ export function createActions({
       mode: instrumentType,
       label: `${instrument.label} → ${amp.label}`,
       baseMidi: instrumentType === 'bass' ? 31 : 43,
-      wave: amp.character === 'crunch' ? 'sawtooth' : instrument.voice === 'warm' ? 'triangle' : 'sawtooth',
+      wave:
+        amp.character === 'crunch'
+          ? 'sawtooth'
+          : instrument.voice === 'warm'
+            ? 'triangle'
+            : 'sawtooth',
       duration: instrumentType === 'bass' ? 0.38 : 0.5,
       volume: amp.id === 'bass-stack' ? 0.085 : 0.06,
       octaveLayer: instrumentType === 'bass',
@@ -114,13 +126,18 @@ export function createActions({
     compressor: studio.setup.compressor,
   });
 
-  const startPerformance = (kind, { record = false, back = () => {}, stemKind = kind } = {}) => {
+  const startPerformance = (
+    kind,
+    { record = false, back = () => {}, stemKind = kind } = {},
+  ) => {
     if (!keyboardPerformance) return;
     studioPlayback?.stop?.();
     dj?.stop?.();
     const config = performanceConfig(kind);
     keyboardPerformance.start(config, { record });
-    const title = record ? `${config.label.toUpperCase()} · RECORDING` : `${config.label.toUpperCase()} · PLAY`;
+    const title = record
+      ? `${config.label.toUpperCase()} · RECORDING`
+      : `${config.label.toUpperCase()} · PLAY`;
     const actions = record
       ? [
           [
@@ -217,7 +234,10 @@ export function createActions({
             }, instrumentPanel),
         ],
         ['Quick audition', previewInstrument],
-        ['Play with keyboard', () => startPerformance(type, { back: instrumentPanel, stemKind: type })],
+        [
+          'Play with keyboard',
+          () => startPerformance(type, { back: instrumentPanel, stemKind: type }),
+        ],
         [
           'Record playable take → console',
           () => startPerformance(type, { record: true, back: instrumentPanel, stemKind: type }),
@@ -308,29 +328,42 @@ export function createActions({
       return;
     }
     const kit = gearById(DRUM_KITS, studio.setup.drums);
-    panel('LIVE ROOM · DRUM STATION', `Current kit: ${kit.label}. Play it as seven keyboard pads.`, [
+    panel(
+      'LIVE ROOM · DRUM STATION',
+      `Current kit: ${kit.label}. Play it as seven keyboard pads.`,
       [
-        'Choose drum kit',
-        () =>
-          choose(
-            'CHOOSE A DRUM KIT',
-            DRUM_KITS,
-            studio.setup.drums,
-            (item) => studio.select('drums', item.id),
-            drumsPanel,
-          ),
+        [
+          'Choose drum kit',
+          () =>
+            choose(
+              'CHOOSE A DRUM KIT',
+              DRUM_KITS,
+              studio.setup.drums,
+              (item) => studio.select('drums', item.id),
+              drumsPanel,
+            ),
+        ],
+        [
+          'Play kit with keyboard',
+          () => startPerformance('drums', { back: drumsPanel, stemKind: 'drums' }),
+        ],
+        [
+          'Record drum performance → console',
+          () =>
+            startPerformance('drums', {
+              record: true,
+              back: drumsPanel,
+              stemKind: 'drums',
+            }),
+        ],
       ],
-      ['Play kit with keyboard', () => startPerformance('drums', { back: drumsPanel, stemKind: 'drums' })],
-      [
-        'Record drum performance → console',
-        () => startPerformance('drums', { record: true, back: drumsPanel, stemKind: 'drums' }),
-      ],
-    ]);
+    );
   };
 
   const synthPanel = () => {
     if (!studio) {
       audio.tone(329, 0.35, 'sawtooth', 0.07);
+      audio.tone(493, 0.27, 'square', 0.04, 0.08);
       return;
     }
     const synth = gearById(SYNTHS, studio.setup.synth);
@@ -346,10 +379,18 @@ export function createActions({
             synthPanel,
           ),
       ],
-      ['Play with keyboard', () => startPerformance('synth', { back: synthPanel, stemKind: 'synth' })],
+      [
+        'Play with keyboard',
+        () => startPerformance('synth', { back: synthPanel, stemKind: 'synth' }),
+      ],
       [
         'Record keys take → console',
-        () => startPerformance('synth', { record: true, back: synthPanel, stemKind: 'synth' }),
+        () =>
+          startPerformance('synth', {
+            record: true,
+            back: synthPanel,
+            stemKind: 'synth',
+          }),
       ],
     ]);
   };
@@ -357,7 +398,10 @@ export function createActions({
   const pianoPanel = () => {
     if (!hasStudio) return audio.chord(220);
     panel('LIVE ROOM · PIANO', 'The piano is playable from the computer keyboard.', [
-      ['Play piano', () => startPerformance('piano', { back: pianoPanel, stemKind: 'keys' })],
+      [
+        'Play piano',
+        () => startPerformance('piano', { back: pianoPanel, stemKind: 'keys' }),
+      ],
       [
         'Record piano take → console',
         () => startPerformance('piano', { record: true, back: pianoPanel, stemKind: 'keys' }),
@@ -392,7 +436,10 @@ export function createActions({
               },
             );
             if (result.buffer) studio.attachRecording(stem.id, result.buffer);
-            else ui.warning?.('Vocal captured, but this browser could not decode it for in-game playback yet.');
+            else
+              ui.warning?.(
+                'Vocal captured, but this browser could not decode it for in-game playback yet.',
+              );
             rememberStudio();
             consolePanel();
           },
@@ -435,7 +482,8 @@ export function createActions({
     if (!ui.document || !ui.buttons) return;
     const button = ui.document.createElement('button');
     button.textContent = label;
-    button.onclick = () => Promise.resolve(action()).catch((error) => ui.warning?.(error.message));
+    button.onclick = () =>
+      Promise.resolve(action()).catch((error) => ui.warning?.(error.message));
     ui.buttons.appendChild(button);
   };
 
@@ -525,7 +573,8 @@ export function createActions({
     pattern.forEach((ratio, index) => {
       const when = index * 0.42;
       audio.tone(tape.root * ratio, 0.5, index % 2 ? 'triangle' : 'sine', 0.045, when);
-      if (index % 2 === 0) audio.tone(tape.root * ratio * 2, 0.25, 'triangle', 0.018, when + 0.03);
+      if (index % 2 === 0)
+        audio.tone(tape.root * ratio * 2, 0.25, 'triangle', 0.018, when + 0.03);
     });
     globalThis.setTimeout?.(() => audio.clearExternalTransport?.('archive'), 4200);
   };
@@ -632,33 +681,29 @@ export function createActions({
     const alley = sceneManager.current.alley;
     if (!alley) return;
     const snapshot = alley.snapshot();
-    panel(
-      'BREAKGLASS ALLEY',
-      `${snapshot.occupancy} people are outside. ${snapshot.warning}`,
+    panel('BREAKGLASS ALLEY', `${snapshot.occupancy} people are outside. ${snapshot.warning}`, [
       [
-        [
-          'Talk quietly',
-          () => {
-            alley.chat(0.025);
-            alleySocialPanel();
-          },
-        ],
-        [
-          'Get the group excited',
-          () => {
-            alley.chat(0.22);
-            alleySocialPanel();
-          },
-        ],
-        [
-          'Remind everyone to keep it down',
-          () => {
-            alley.quiet(0.24);
-            alleySocialPanel();
-          },
-        ],
+        'Talk quietly',
+        () => {
+          alley.chat(0.025);
+          alleySocialPanel();
+        },
       ],
-    );
+      [
+        'Get the group excited',
+        () => {
+          alley.chat(0.22);
+          alleySocialPanel();
+        },
+      ],
+      [
+        'Remind everyone to keep it down',
+        () => {
+          alley.quiet(0.24);
+          alleySocialPanel();
+        },
+      ],
+    ]);
   };
 
   const actions = {
