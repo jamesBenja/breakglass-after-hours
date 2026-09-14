@@ -47,8 +47,16 @@ const CHARACTER_LOOKS = {
     outfit: 0x472d46,
     accent: 0xb66b93,
     hairStyle: 'bob',
+    prop: 'bar',
   },
-  simla: { skin: 0x9d7258, hair: 0x1f1917, outfit: 0x345444, accent: 0x6ea886, hairStyle: 'long' },
+  simla: {
+    skin: 0x9d7258,
+    hair: 0x1f1917,
+    outfit: 0x345444,
+    accent: 0x6ea886,
+    hairStyle: 'long',
+    prop: 'bar',
+  },
   jashim: {
     skin: 0x9a6b50,
     hair: 0x201817,
@@ -98,7 +106,6 @@ function createCharacter(npc) {
   const torso = new Mesh(new CapsuleGeometry(0.24, 0.53, 4, 8), bodyMat);
   torso.position.y = 1.03;
   torso.castShadow = true;
-  // A small collar/lapel breaks up the capsule silhouette without needing high-poly clothing.
   const collar = new Mesh(new BoxGeometry(0.18, 0.12, 0.045), accentMat);
   collar.position.set(0, 0.2, 0.225);
   collar.rotation.z = 0.08;
@@ -134,8 +141,6 @@ function createCharacter(npc) {
   }
   const hairBaseY = hair.position.y;
 
-  // Sleeves use the outfit material and terminate in separate hands, which makes walking and
-  // dancing animation read more like people than bare capsule limbs.
   const leftArm = new Mesh(new CapsuleGeometry(0.075, 0.38, 3, 6), bodyMat);
   const rightArm = leftArm.clone();
   leftArm.material = bodyMat;
@@ -184,6 +189,13 @@ function createCharacter(npc) {
     prop.position.set(0.31, 1.03, 0.18);
     prop.rotation.z = 0.35;
     group.add(prop);
+  } else if (look.prop === 'bar') {
+    // Small translucent-looking tumbler proxy. Keeping it as simple geometry makes the serving
+    // animation cheap enough to use on mobile while still clearly reading as a drink handoff.
+    prop = new Mesh(new BoxGeometry(0.085, 0.18, 0.085), accentMat);
+    prop.position.set(0.3, 1.02, 0.2);
+    prop.rotation.z = 0.06;
+    group.add(prop);
   }
 
   return {
@@ -197,6 +209,7 @@ function createCharacter(npc) {
     leftLeg,
     rightLeg,
     prop,
+    propKind: look.prop ?? null,
   };
 }
 
@@ -207,6 +220,7 @@ export class NpcSystem {
       const model = createCharacter(npc);
       const position = npc.anchor ? definition.anchors[npc.anchor].position : npc.position;
       model.group.position.fromArray(position ?? [0, 0, 0]);
+      if (Number.isFinite(npc.rotationY)) model.group.rotation.y = npc.rotationY;
       root.add(model.group);
       const route = (npc.route ?? []).map((point) => new Vector3().fromArray(point));
       return {
@@ -225,6 +239,7 @@ export class NpcSystem {
         speed: npc.speed ?? 0.48,
         phase: index * 2.1,
         photoPulse: 0,
+        servePulse: 0,
         moving: false,
       };
     });
@@ -263,6 +278,13 @@ export class NpcSystem {
     return true;
   }
 
+  triggerServe(id) {
+    const npc = this.get(id);
+    if (!npc || npc.role !== 'bartender') return false;
+    npc.servePulse = 1.15;
+    return true;
+  }
+
   dialogue(id) {
     return dialogues[id] ?? null;
   }
@@ -278,8 +300,9 @@ export class NpcSystem {
 
     for (const npc of this.npcs) {
       npc.photoPulse = Math.max(0, npc.photoPulse - dt);
+      npc.servePulse = Math.max(0, npc.servePulse - dt);
       npc.moving = false;
-      if (npc.route.length > 1 && npc.photoPulse <= 0) {
+      if (npc.route.length > 1 && npc.photoPulse <= 0 && npc.servePulse <= 0) {
         const target = npc.route[npc.routeIndex % npc.route.length];
         const dx = target.x - npc.group.position.x;
         const dz = target.z - npc.group.position.z;
@@ -321,6 +344,18 @@ export class NpcSystem {
         npc.leftArm.rotation.x = -1.0 * lift;
       } else if (npc.prop && ['nora', 'james'].includes(npc.id)) {
         npc.prop.position.set(0.31, 1.22, 0.19);
+      }
+
+      if (npc.role === 'bartender' && npc.propKind === 'bar' && npc.prop) {
+        if (npc.servePulse > 0) {
+          const phase = 1 - clamp(npc.servePulse / 1.15);
+          const reach = Math.sin(Math.min(1, phase * 1.3) * Math.PI) * 0.42;
+          npc.prop.position.set(0.18, 1.1 + reach * 0.2, 0.2 + reach);
+          npc.rightArm.rotation.x = -0.25 - reach * 1.65;
+          npc.leftArm.rotation.x = -0.12 - reach * 0.45;
+        } else {
+          npc.prop.position.set(0.3, 1.02, 0.2);
+        }
       }
     }
   }
