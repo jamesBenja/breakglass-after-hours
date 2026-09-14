@@ -46,7 +46,7 @@ export function createUpstairsDefinition(pass = 'B') {
   ];
   return {
     id: 'upstairs',
-    layoutRevision: 'a103-spatial-2',
+    layoutRevision: 'a103-spatial-3',
     pass,
     title: 'UPSTAIRS — BREAKGLASS STUDIOS',
     model: 'upstairs-building',
@@ -65,7 +65,7 @@ export function createUpstairsDefinition(pass = 'B') {
     spawns: gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) },
     intro: [
       'THIRD FLOOR',
-      'Circle the polygonal suite. The Live Room is beyond its angled shoulder; Mixing Suite A and the Clark stair are to the west.',
+      'Build a session: choose gear in the Dead Room and Live Room, record parts, then mix them on the Spectra console.',
     ],
     rooms: floorRooms,
     solids,
@@ -77,9 +77,27 @@ export function createUpstairsDefinition(pass = 'B') {
     closedSuites,
     navigation: { allowAirborne: true, boundary: footprint, surfaces, obstacles: solids },
     anchors: {
-      drums: { name: 'Drum kit', position: at(583, 632), radius: 1.7, action: 'drums' },
+      drums: { name: 'Drum station', position: at(583, 632), radius: 1.7, action: 'drums' },
       piano: { name: 'Piano', position: at(647, 750), radius: 1.6, action: 'piano' },
-      synth: { name: 'Synth', position: at(590, 824), radius: 1.6, action: 'synth' },
+      synth: { name: 'Synth + organ station', position: at(590, 824), radius: 1.6, action: 'synth' },
+      instruments: {
+        name: 'Guitar + bass rack',
+        position: at(305, 625),
+        radius: 1.7,
+        action: 'instruments',
+      },
+      amps: {
+        name: 'Dead Room amps',
+        position: at(365, 605),
+        radius: 1.8,
+        action: 'amps',
+      },
+      micLocker: {
+        name: 'Microphone locker',
+        position: at(305, 665),
+        radius: 1.55,
+        action: 'mics',
+      },
       console: {
         name: 'Spectra console',
         position: at(254, 809, pass === 'B' ? 0.28 : 0),
