@@ -1,23 +1,33 @@
-import { Group, Mesh, CapsuleGeometry, SphereGeometry, MeshStandardMaterial } from 'three';
+import {
+  Group,
+  Mesh,
+  CapsuleGeometry,
+  SphereGeometry,
+  BoxGeometry,
+  MeshStandardMaterial,
+} from 'three';
 import { disposeObject } from '../scenes/disposeObject.js';
+import { avatarPalette, normalizeAvatar } from '../avatar/profile.js';
 
 export class PlayerController {
-  constructor() {
+  constructor(profile) {
     this.object = new Group();
     this.object.name = 'player';
-    const body = new Mesh(
-      new CapsuleGeometry(0.32, 0.9, 4, 8),
-      new MeshStandardMaterial({ color: 0xdddddd, roughness: 0.8, metalness: 0.08 }),
-    );
-    body.position.y = 0.77;
-    body.castShadow = true;
-    const head = new Mesh(
-      new SphereGeometry(0.29, 16, 12),
-      new MeshStandardMaterial({ color: 0xb9997b, roughness: 0.8, metalness: 0.08 }),
-    );
-    head.position.y = 1.62;
-    head.castShadow = true;
-    this.object.add(body, head);
+    this.bodyMaterial = new MeshStandardMaterial({ roughness: 0.8, metalness: 0.08 });
+    this.skinMaterial = new MeshStandardMaterial({ roughness: 0.82, metalness: 0.02 });
+    this.hairMaterial = new MeshStandardMaterial({ roughness: 0.88, metalness: 0.01 });
+    this.body = new Mesh(new CapsuleGeometry(0.32, 0.9, 4, 8), this.bodyMaterial);
+    this.body.position.y = 0.77;
+    this.body.castShadow = true;
+    this.head = new Mesh(new SphereGeometry(0.29, 16, 12), this.skinMaterial);
+    this.head.position.y = 1.62;
+    this.head.castShadow = true;
+    this.hair = new Mesh(new BoxGeometry(0.48, 0.18, 0.43), this.hairMaterial);
+    this.hair.position.y = 1.84;
+    this.hair.castShadow = true;
+    this.object.add(this.body, this.head, this.hair);
+    this.applyAvatar(profile);
+
     this.speed = 5.8;
     this.velocity = { x: 0, z: 0 };
     this.coyoteRemaining = 0;
@@ -34,6 +44,35 @@ export class PlayerController {
 
   get position() {
     return this.object.position;
+  }
+
+  applyAvatar(profile) {
+    this.avatar = normalizeAvatar(profile);
+    this.bodyMaterial.color.setHex(avatarPalette.outfit[this.avatar.outfit]);
+    this.skinMaterial.color.setHex(avatarPalette.skin[this.avatar.skinTone]);
+    this.hairMaterial.color.setHex(avatarPalette.hair[this.avatar.hair]);
+
+    const bodyScale =
+      this.avatar.body === 'slim' ? [0.88, 1.02, 0.88] : this.avatar.body === 'broad' ? [1.13, 1.0, 1.08] : [1, 1, 1];
+    this.body.scale.set(...bodyScale);
+    this.head.scale.setScalar(this.avatar.body === 'broad' ? 1.04 : 1);
+
+    this.hair.visible = this.avatar.hair !== 'bald' && this.avatar.hair !== 'buzz';
+    if (this.avatar.hair === 'bob') {
+      this.hair.scale.set(1.12, 1.7, 1.15);
+      this.hair.position.y = 1.78;
+    } else if (this.avatar.hair === 'long') {
+      this.hair.scale.set(1.05, 2.5, 1.1);
+      this.hair.position.y = 1.7;
+    } else {
+      this.hair.scale.set(1, 1, 1);
+      this.hair.position.y = 1.84;
+    }
+    if (this.avatar.hair === 'buzz') {
+      this.hair.visible = true;
+      this.hair.scale.set(1.02, 0.35, 1.02);
+      this.hair.position.y = 1.85;
+    }
   }
 
   spawn(position, collision) {
