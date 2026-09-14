@@ -1,4 +1,5 @@
 import './ui/styles.css';
+import './ui/mobilePerformance.css';
 import { Game } from './core/Game.js';
 import { Hud } from './ui/Hud.js';
 
