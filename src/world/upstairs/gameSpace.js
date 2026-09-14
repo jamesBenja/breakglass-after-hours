@@ -13,7 +13,9 @@ export function createGameSpace() {
     prop('listening-deck', 260, 828, 4.7, 3.5, 0.28, 0x98724f, {
       name: 'Mixing Suite A · listening platform',
     }),
-    prop('drum-riser', 583, 606, 3.5, 2.7, 0.28, 0x7a5038, { name: 'Live Room · drum riser' }),
+    prop('drum-riser', 583, 606, 3.5, 2.7, 0.28, 0x7a5038, {
+      name: 'Live Room · drum riser',
+    }),
     prop('overlook-step', 557, 849, 0.8, 1.55, 0.3, 0xbba166, { name: 'Overlook step' }),
     prop('live-overlook', 583, 849, 1.8, 1.55, 1.1, 0xa58555, {
       name: 'Live Room · polygon overlook',
@@ -27,11 +29,21 @@ export function createGameSpace() {
     }),
     prop('live-case-low', 678, 650, 1.1, 1.2, 0.3, 0x567274, { name: 'Flight case' }),
     prop('live-case-mid', 678, 678, 1.1, 1.2, 0.85, 0x527075, { name: 'Flight case' }),
-    prop('live-case-high', 678, 706, 1.1, 1.2, 1.45, 0x527075, { name: 'Live Room · case perch' }),
-    prop('dead-room-bench', 290, 552, 2.7, 0.9, 0.3, 0x6b7c73, { name: 'Dead Room · quiet nook' }),
-    prop('storage-case-low', 374, 1060, 1.2, 1.2, 0.3, 0x847156, { name: 'Storage cases' }),
-    prop('storage-case-mid', 403, 1060, 1.2, 1.2, 0.85, 0x847156, { name: 'Storage cases' }),
-    prop('storage-perch', 435, 1075, 1.3, 1.5, 1.4, 0x847156, { name: 'Storage · hidden perch' }),
+    prop('live-case-high', 678, 706, 1.1, 1.2, 1.45, 0x527075, {
+      name: 'Live Room · case perch',
+    }),
+    prop('dead-room-bench', 290, 552, 2.7, 0.9, 0.3, 0x6b7c73, {
+      name: 'Dead Room · quiet nook',
+    }),
+    prop('storage-case-low', 374, 1060, 1.2, 1.2, 0.3, 0x847156, {
+      name: 'Storage cases',
+    }),
+    prop('storage-case-mid', 403, 1060, 1.2, 1.2, 0.85, 0x847156, {
+      name: 'Storage cases',
+    }),
+    prop('storage-perch', 435, 1075, 1.3, 1.5, 1.4, 0x847156, {
+      name: 'Storage · hidden perch',
+    }),
     prop('kitchen-bench', 781, 612, 2, 0.85, 0.3, 0x9b7757, { name: 'Bar / Kitchen' }),
   ];
   // Actual blocking envelopes for equipment; anchors sit on the listening side.
@@ -65,8 +77,9 @@ export function createGameSpace() {
     prop('neve-tape-machine', 396, 880, 1.02, 0.82, 1.62, 0x5a5d5d, { kind: 'equipment' }),
 
     // Storage archive shelving. Reel labels/content remain intentionally generic until
-    // catalogued source metadata is attached to each playable tape.
-    prop('tape-archive-shelves', 470, 1025, 0.8, 2.4, 1.9, 0x51483e, { kind: 'equipment' }),
+    // catalogued source metadata is attached to each playable tape. It hugs the west wall so
+    // the east-hand storage circulation remains fully traversable.
+    prop('tape-archive-shelves', 362, 1027, 0.65, 2.2, 1.9, 0x51483e, { kind: 'equipment' }),
   ];
   // Replace just the west end of the floor with a real descending stair run.
   const stairFloors = [0, 1, 2, 3].map((i) => {
