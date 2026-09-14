@@ -52,7 +52,10 @@ export async function createLevel(definition, builders, assets) {
     lighting,
     geometrySource: model ? 'model' : 'blockout',
     update(dt, audio) {
-      const metrics = audio.metrics();
+      const metrics =
+        typeof audio?.metrics === 'function'
+          ? audio.metrics()
+          : { playing: !!audio?.playing, energy: audio?.playing ? 0.5 : 0, bass: audio?.playing ? 0.5 : 0, beat: 0 };
       npcs.update(dt, metrics);
       lighting?.update(dt, metrics);
     },
