@@ -116,7 +116,8 @@ export class InputController {
     this.onPointerMove = (event) => {
       if (!this.enabled || !this.dragging) return;
       if (this.touchPointerId != null && event.pointerId !== this.touchPointerId) return;
-      const movementX = event.pointerType === 'touch' ? event.clientX - this.touchLastX : event.movementX;
+      const movementX =
+        event.pointerType === 'touch' ? event.clientX - this.touchLastX : event.movementX;
       this.touchLastX = event.clientX;
       this.cameraDelta -= movementX * 0.006;
       event.preventDefault();
