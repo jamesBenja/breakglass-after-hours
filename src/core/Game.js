@@ -13,6 +13,7 @@ import { SceneManager } from '../scenes/SceneManager.js';
 import { createUpstairsScene } from '../scenes/UpstairsScene.js';
 import { createBelowScene } from '../scenes/BelowScene.js';
 import { createAlleyScene } from '../scenes/AlleyScene.js';
+import { createRoofScene } from '../scenes/RoofScene.js';
 import { GameState } from '../state/GameState.js';
 import { StudioSession } from '../studio/StudioSession.js';
 import { StudioPlayback } from '../studio/StudioPlayback.js';
@@ -142,10 +143,13 @@ export class Game {
       saveState: () => this.save(),
       canAct,
     });
-    this.interactions = new InteractionSystem((target) => {
-      if (this.barService.handle(target)) return;
-      baseActions(target);
-    });
+    this.interactions = new InteractionSystem(
+      (target) => {
+        if (this.barService.handle(target)) return;
+        baseActions(target);
+      },
+      this.state,
+    );
     this.onResize = () => {
       this.camera.resize(innerWidth, innerHeight);
       this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -175,7 +179,7 @@ export class Game {
   }
 
   async initialize() {
-    for (const factory of [createUpstairsScene, createBelowScene, createAlleyScene]) {
+    for (const factory of [createUpstairsScene, createBelowScene, createAlleyScene, createRoofScene]) {
       const level = await factory(this.assets, this.spatialPass);
       this.scenes.set(level.definition.id, level);
     }
