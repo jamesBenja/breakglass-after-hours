@@ -45,7 +45,7 @@ export const roofLevel = {
   },
   intro: [
     'THE ROOF',
-    'You found the old roof route. James, Jace and Dave are hanging out the way the founders did in the early days: beers, cigarettes, half-finished stories and occasional attempts to land junk in the alley dumpster.',
+    'You found the old roof route. Maddox comes up with you while James, Jace and Dave hang out the way the founders did in the early days: beers, cigarettes, half-finished stories and occasional attempts to land junk in the alley dumpster.',
   ],
   navigation: {
     surfaces: [surface('roof-deck', 'Breakglass roof', -7.78, 7.78, -4.78, 4.78)],
@@ -62,6 +62,24 @@ export const roofLevel = {
     hatch: anchor('Hidden hatch back to the studio', HATCH_APPROACH, 1.55, 'travel', {
       target: 'upstairs@roofReturn',
     }),
+  },
+  maddox: {
+    name: 'Maddox',
+    companionOnly: true,
+    start: [-3.05, 0, -1.95],
+    radius: 1.4,
+    speed: 0.84,
+    roamPoints: [
+      [-3.05, 0, -1.95],
+      [-1.9, 0, 1.8],
+      [2.2, 0, 1.9],
+      [4.9, 0, -0.8],
+      [2.8, 0, -2.7],
+    ],
+    napPoints: [
+      [-2.0, 0, 2.3],
+      [2.55, 0, 2.15],
+    ],
   },
   npcs: [
     {
