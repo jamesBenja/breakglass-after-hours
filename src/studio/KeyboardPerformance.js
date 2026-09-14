@@ -52,12 +52,17 @@ export class KeyboardPerformance {
       const key = event.key.toLowerCase();
       if (key === 'escape') {
         event.preventDefault();
+        event.stopImmediatePropagation?.();
         this.stop();
         return;
       }
       const handled = this.config?.mode === 'drums' ? key in DRUM_KEYS : key in TONAL_KEYS;
       if (!handled) return;
       event.preventDefault();
+      // Some performance keys overlap movement/camera shortcuts. This listener is registered
+      // before InputController, so stopping propagation keeps Z-M exclusively musical while
+      // performance mode is active.
+      event.stopImmediatePropagation?.();
       this.playKey(key);
     };
     target?.addEventListener?.('keydown', this.onKeyDown);
@@ -133,12 +138,7 @@ export class KeyboardPerformance {
     if (semitone == null) return false;
     const midi = this.config.baseMidi + semitone;
     const frequency = midiToFrequency(midi);
-    this.audio.tone(
-      frequency,
-      this.config.duration,
-      this.config.wave,
-      this.config.volume,
-    );
+    this.audio.tone(frequency, this.config.duration, this.config.wave, this.config.volume);
     if (this.config.octaveLayer) {
       this.audio.tone(
         frequency * 2,
