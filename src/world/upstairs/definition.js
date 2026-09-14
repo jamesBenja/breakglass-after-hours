@@ -59,7 +59,7 @@ export function createUpstairsDefinition(pass = 'B') {
     spawns: gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) },
     intro: [
       'THIRD FLOOR',
-      'Build a session, explore the tape archive, mix on the Spectra console, or enter the historic Neve Suite.',
+      'Build a session, play the instruments, explore the tape archive, mix on the Spectra console, or enter the historic Neve Suite.',
     ],
     rooms: floorRooms,
     solids,
@@ -130,6 +130,39 @@ export function createUpstairsDefinition(pass = 'B') {
         target: 'downstairs',
       },
     },
-    npcs: [],
+    npcs: [
+      {
+        id: 'james',
+        name: 'James',
+        role: 'host',
+        position: at(520, 780),
+        route: [at(520, 780), at(590, 730), at(340, 725), at(486, 890), at(430, 980)],
+        speed: 0.43,
+      },
+      {
+        id: 'jace',
+        name: 'Jace',
+        role: 'producer',
+        position: at(304, 810),
+        route: [at(304, 810), at(355, 727), at(492, 769), at(535, 974), at(304, 868)],
+        speed: 0.36,
+      },
+      {
+        id: 'zander',
+        name: 'Zander',
+        role: 'tech',
+        position: at(365, 635),
+        route: [at(365, 635), at(415, 995), at(254, 809), at(365, 635)],
+        speed: 0.39,
+      },
+      {
+        id: 'boogaloo',
+        name: 'Boogaloo',
+        role: 'artist',
+        position: at(600, 790),
+        route: [at(600, 790), at(590, 824), at(386, 692), at(597, 774)],
+        speed: 0.48,
+      },
+    ],
   };
 }
