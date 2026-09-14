@@ -25,28 +25,17 @@ export function createUpstairsDefinition(pass = 'B') {
     ...floorRooms.map((r, i) => ({ ...r, y: 0, priority: i })),
     ...[...platforms, ...fixtures].map((p) => ({ ...p, y: p.y2, priority: 20 })),
     ...stairFloors.map((p) => ({ ...p, y: p.y2, priority: 30 })),
-    ...(gameSpace
-      ? [
-          {
-            ...centralSuite,
-            id: 'polygon-perch',
-            name: 'Historic Neve Suite · GAME roof perch',
-            y: centralSuite.y2,
-            priority: 40,
-          },
-        ]
-      : []),
   ];
   return {
     id: 'upstairs',
-    layoutRevision: 'a103-spatial-4-neve',
+    layoutRevision: 'a103-spatial-5-open-neve',
     pass,
     title: 'UPSTAIRS — BREAKGLASS STUDIOS',
     model: 'upstairs-building',
     provenance: {
       status: 'A-103 topology / historical Neve Suite / GAME circulation',
       reference: PLAN_SOURCE,
-      note: 'Traced room relationships; widened polygon gallery and Clark landing for traversal. Central suite historical use comes from Breakglass; Neve equipment placement is photo-informed gameplay dressing.',
+      note: 'Traced room relationships; widened polygon gallery and Clark landing for traversal. The historic Neve Suite is intentionally open-topped in the game so its console, tape machine and archive activity remain visible from the third-person camera.',
     },
     background: 0x171d24,
     fog: [45, 100],
