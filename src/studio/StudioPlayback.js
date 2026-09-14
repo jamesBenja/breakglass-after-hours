@@ -26,11 +26,7 @@ const COMP = {
 
 /**
  * Multitrack transport. Every stem owns a real WebAudio channel strip:
- * input -> modeled mic/EQ color -> compressor -> fader -> pan.
- *
- * When a session contains aligned assetId stems, those decoded files start together through
- * independent channel strips. If the web assets are not installed yet, the same session falls
- * back to generated prototype parts so development never hard-fails on missing media.
+ * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
  */
 export class StudioPlayback {
   constructor(audio, timers = globalThis) {
@@ -61,15 +57,25 @@ export class StudioPlayback {
     color.frequency.value = 1800;
     color.Q.value = 0.8;
     color.gain.value = 0;
+    const low = context.createBiquadFilter();
+    low.type = 'lowshelf';
+    low.frequency.value = 180;
+    low.gain.value = 0;
+    const high = context.createBiquadFilter();
+    high.type = 'highshelf';
+    high.frequency.value = 4200;
+    high.gain.value = 0;
     const compressor = context.createDynamicsCompressor();
     const fader = context.createGain();
     const pan = typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
     input.connect(color);
-    color.connect(compressor);
+    color.connect(low);
+    low.connect(high);
+    high.connect(compressor);
     compressor.connect(fader);
     fader.connect(pan ?? this.audio.master);
     pan?.connect(this.audio.master);
-    bus = { input, color, compressor, fader, pan };
+    bus = { input, color, low, high, compressor, fader, pan };
     this.buses.set(stem.id, bus);
     this.configureProcessing(stem, bus);
     return bus;
@@ -98,12 +104,15 @@ export class StudioPlayback {
     if (!session || !this.audio.context) return;
     const time = this.audio.context.currentTime;
     const activeIds = new Set();
+    const anySolo = session.stems.some((stem) => stem.solo);
     for (const stem of session.stems) {
       activeIds.add(stem.id);
       const bus = this.ensureBus(stem);
       this.configureProcessing(stem, bus);
-      const target = stem.mute ? 0 : stem.level;
-      bus.fader.gain.setTargetAtTime(target, time, 0.025);
+      bus.low.gain.setTargetAtTime((stem.low ?? 0) * 15, time, 0.025);
+      bus.high.gain.setTargetAtTime((stem.high ?? 0) * 15, time, 0.025);
+      const audible = !stem.mute && (!anySolo || stem.solo);
+      bus.fader.gain.setTargetAtTime(audible ? stem.level : 0, time, 0.025);
       if (bus.pan) bus.pan.pan.setTargetAtTime(stem.pan ?? 0, time, 0.025);
     }
     for (const [id, bus] of this.buses) {
@@ -243,7 +252,8 @@ export class StudioPlayback {
 
   renderStem(stem, step, when) {
     const bus = this.ensureBus(stem).input;
-    if (stem.mute) return;
+    const anySolo = this.session?.stems.some((candidate) => candidate.solo);
+    if (stem.mute || (anySolo && !stem.solo)) return;
     const recording = this.session?.recordings.get(stem.id);
     if (recording) {
       if (step === 0) {
