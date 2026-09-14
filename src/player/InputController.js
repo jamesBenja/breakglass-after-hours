@@ -38,6 +38,10 @@ export class InputController {
     this.zoomDelta = 0;
     this.keys = new Set();
     this.actions = new Set();
+    this.touchDirections = new Set();
+    this.touchBindings = [];
+    this.touchPointerId = null;
+    this.touchLastX = 0;
     this.onKeyDown = (event) => {
       const key = event.key.toLowerCase();
       if (!this.enabled || !handled.has(key) || event.altKey || event.ctrlKey || event.metaKey)
@@ -63,9 +67,11 @@ export class InputController {
 
   clear() {
     this.dragging = false;
+    this.touchPointerId = null;
     this.cameraDelta = this.zoomDelta = 0;
     this.keys.clear();
     this.actions.clear();
+    this.touchDirections.clear();
   }
 
   consume(action) {
@@ -75,10 +81,14 @@ export class InputController {
   movement() {
     const x =
       Number(this.keys.has('d') || this.keys.has('arrowright')) -
-      Number(this.keys.has('a') || this.keys.has('arrowleft'));
+      Number(this.keys.has('a') || this.keys.has('arrowleft')) +
+      Number(this.touchDirections.has('right')) -
+      Number(this.touchDirections.has('left'));
     const z =
       Number(this.keys.has('s') || this.keys.has('arrowdown')) -
-      Number(this.keys.has('w') || this.keys.has('arrowup'));
+      Number(this.keys.has('w') || this.keys.has('arrowup')) +
+      Number(this.touchDirections.has('down')) -
+      Number(this.touchDirections.has('up'));
     const length = Math.hypot(x, z) || 1;
     return { x: x / length, z: z / length };
   }
@@ -94,17 +104,27 @@ export class InputController {
   bindCamera(canvas) {
     this.canvas = canvas;
     this.onPointerDown = (event) => {
-      if (this.enabled && event.button === 2) {
-        this.dragging = true;
-        canvas.setPointerCapture(event.pointerId);
-        event.preventDefault();
-      }
+      if (!this.enabled) return;
+      const isTouch = event.pointerType === 'touch';
+      if (!isTouch && event.button !== 2) return;
+      this.dragging = true;
+      this.touchPointerId = isTouch ? event.pointerId : null;
+      this.touchLastX = event.clientX;
+      canvas.setPointerCapture(event.pointerId);
+      event.preventDefault();
     };
     this.onPointerMove = (event) => {
-      if (this.enabled && this.dragging) this.cameraDelta -= event.movementX * 0.006;
+      if (!this.enabled || !this.dragging) return;
+      if (this.touchPointerId != null && event.pointerId !== this.touchPointerId) return;
+      const movementX = event.pointerType === 'touch' ? event.clientX - this.touchLastX : event.movementX;
+      this.touchLastX = event.clientX;
+      this.cameraDelta -= movementX * 0.006;
+      event.preventDefault();
     };
-    this.onPointerUp = () => {
+    this.onPointerUp = (event) => {
+      if (this.touchPointerId != null && event.pointerId !== this.touchPointerId) return;
       this.dragging = false;
+      this.touchPointerId = null;
     };
     this.onContextMenu = (event) => event.preventDefault();
     this.onWheel = (event) => {
@@ -121,6 +141,54 @@ export class InputController {
     canvas.addEventListener('wheel', this.onWheel, { passive: false });
   }
 
+  bindTouchControls(root = document) {
+    const controls = root.getElementById?.('mobileControls');
+    if (!controls) return;
+
+    const bind = (element, type, listener) => {
+      element.addEventListener(type, listener, { passive: false });
+      this.touchBindings.push([element, type, listener]);
+    };
+
+    for (const button of controls.querySelectorAll('[data-move]')) {
+      const direction = button.dataset.move;
+      const press = (event) => {
+        if (!this.enabled) return;
+        this.touchDirections.add(direction);
+        button.classList.add('pressed');
+        button.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+      };
+      const release = (event) => {
+        this.touchDirections.delete(direction);
+        button.classList.remove('pressed');
+        event.preventDefault();
+      };
+      bind(button, 'pointerdown', press);
+      bind(button, 'pointerup', release);
+      bind(button, 'pointercancel', release);
+      bind(button, 'pointerleave', release);
+    }
+
+    for (const button of controls.querySelectorAll('[data-action]')) {
+      const action = button.dataset.action;
+      const press = (event) => {
+        if (!this.enabled) return;
+        this.actions.add(action);
+        button.classList.add('pressed');
+        event.preventDefault();
+      };
+      const release = (event) => {
+        button.classList.remove('pressed');
+        event.preventDefault();
+      };
+      bind(button, 'pointerdown', press);
+      bind(button, 'pointerup', release);
+      bind(button, 'pointercancel', release);
+      bind(button, 'pointerleave', release);
+    }
+  }
+
   dispose() {
     if (this.canvas) {
       for (const [type, listener] of [
@@ -133,6 +201,10 @@ export class InputController {
       ])
         this.canvas.removeEventListener(type, listener);
     }
+    for (const [element, type, listener] of this.touchBindings) {
+      element.removeEventListener(type, listener);
+    }
+    this.touchBindings = [];
     this.clear();
     this.target.removeEventListener('keydown', this.onKeyDown);
     this.target.removeEventListener('keyup', this.onKeyUp);
