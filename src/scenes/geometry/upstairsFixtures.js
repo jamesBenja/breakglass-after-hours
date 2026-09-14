@@ -19,6 +19,7 @@ export function buildStudioEquipment(root, definition) {
     const group = new Group();
     group.name = fixture.id;
     group.position.set((fixture.x1 + fixture.x2) / 2, 0, (fixture.z1 + fixture.z2) / 2);
+    group.rotation.y = fixture.rotationY ?? 0;
     root.add(group);
     const w = fixture.x2 - fixture.x1,
       d = fixture.z2 - fixture.z1;
