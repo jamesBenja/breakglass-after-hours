@@ -29,7 +29,7 @@ export function createUpstairsDefinition(pass = 'B') {
   const spawns = gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) };
   return {
     id: 'upstairs',
-    layoutRevision: 'a103-spatial-7-roof-passage',
+    layoutRevision: 'a103-spatial-8-maddox',
     pass,
     title: 'UPSTAIRS — BREAKGLASS STUDIOS',
     model: 'upstairs-building',
@@ -52,7 +52,7 @@ export function createUpstairsDefinition(pass = 'B') {
     },
     intro: [
       'THIRD FLOOR',
-      'Build a session, play the instruments, explore the tape archive, mix on the Spectra console, enter the historic Neve Suite, and keep an eye out for the less obvious parts of the building.',
+      'Build a session, play the instruments, explore the tape archive, mix on the Spectra console, enter the historic Neve Suite, and say hello to Maddox if you see him wandering around.',
     ],
     rooms: floorRooms,
     solids,
@@ -127,11 +127,12 @@ export function createUpstairsDefinition(pass = 'B') {
         action: 'liveArchive',
       },
       roofPassage: {
-        name: 'Unmarked roof hatch',
+        name: 'Hidden roof hatch',
         position: at(435, 1075, 1.4),
         radius: 1.5,
         action: 'travel',
         target: 'roof@hatch',
+        requires: 'roofSecretUnlocked',
       },
       stairs: {
         name: 'Clark stair → Below',
@@ -140,6 +141,30 @@ export function createUpstairsDefinition(pass = 'B') {
         action: 'travel',
         target: 'downstairs',
       },
+    },
+    maddox: {
+      name: 'Maddox',
+      start: at(530, 785),
+      radius: 1.4,
+      speed: 0.78,
+      roamPoints: [
+        at(530, 785),
+        at(600, 760),
+        at(515, 850),
+        at(422, 721),
+        at(355, 727),
+        at(320, 805),
+        at(386, 692),
+        at(430, 980),
+      ],
+      napPoints: [at(310, 820), at(575, 790), at(365, 635), at(430, 980)],
+      roofLeadRoute: [
+        at(515, 850),
+        at(535, 974),
+        at(480, 988),
+        at(430, 1015),
+        at(435, 1075, 1.4),
+      ],
     },
     npcs: [
       {
