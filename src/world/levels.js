@@ -134,6 +134,7 @@ export const levels = {
       jashim: anchor('Jashim', [-0.7, 0, 0.6], 1.2, 'dialogue'),
       courtney: anchor('Courtney', [7.05, 0, -1.0], 1.15, 'dialogue'),
       simla: anchor('Simla', [8.05, 0, -1.0], 1.15, 'dialogue'),
+      devin: anchor('Devin', [-4.95, 0, 2.7], 1.2, 'devin'),
       installation: anchor('Take A Break installation', [-8.75, 0, 1.85], 1.5, 'installation'),
     },
     npcs: [
@@ -141,6 +142,7 @@ export const levels = {
       { id: 'jashim', anchor: 'jashim', color: 0x60728f },
       { id: 'courtney', anchor: 'courtney', color: 0x8b5e83 },
       { id: 'simla', anchor: 'simla', color: 0x5a806a },
+      { id: 'devin', anchor: 'devin', color: 0x4b6e7d },
       { id: 'friend', position: [2.8, 0, 0.7], color: 0x7e5b78 },
     ],
   },
