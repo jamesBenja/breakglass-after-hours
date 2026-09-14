@@ -188,9 +188,15 @@ export class Game {
         this.camera.orbit(cameraInput.orbit);
         this.camera.zoom(cameraInput.zoom);
         if (this.input.consume('dance')) this.player.dance();
+
+        let movement = movementOverride ?? this.camera.worldMovement(this.input.movement());
+        if (!movementOverride && this.sceneManager.current.crowd) {
+          const crowdScale = this.sceneManager.current.crowd.movementScaleAt(this.player.position);
+          movement = { x: movement.x * crowdScale, z: movement.z * crowdScale };
+        }
         this.player.update(
           dt,
-          movementOverride ?? this.camera.worldMovement(this.input.movement()),
+          movement,
           this.sceneManager.current.collision,
           this.input.consume('jump'),
         );
