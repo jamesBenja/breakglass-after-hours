@@ -14,6 +14,8 @@ export class AudioEngine {
     this.timers = timers;
     this.context = null;
     this.master = null;
+    this.analyser = null;
+    this.frequencyData = null;
     this.voices = new Map();
     this.timer = null;
     this.trackId = null;
@@ -33,9 +35,50 @@ export class AudioEngine {
       this.context = this.contextFactory();
       this.master = this.context.createGain();
       this.master.gain.value = 0.48;
-      this.master.connect(this.context.destination);
+      if (typeof this.context.createAnalyser === 'function') {
+        this.analyser = this.context.createAnalyser();
+        this.analyser.fftSize = 256;
+        this.analyser.smoothingTimeConstant = 0.74;
+        this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount);
+        this.master.connect(this.analyser);
+        this.analyser.connect(this.context.destination);
+      } else {
+        // Test harnesses and older WebAudio implementations can still play without analysis.
+        this.master.connect(this.context.destination);
+      }
     }
     if (this.context.state === 'suspended') await this.context.resume();
+  }
+
+  /**
+   * Small, serializable signal snapshot for lighting, NPC energy and future multiplayer sync.
+   * Real decoded tracks use an AnalyserNode; synthesized placeholders still expose a stable
+   * transport beat so visual systems remain useful before catalogue audio is installed.
+   */
+  metrics() {
+    if (!this.context || !this.playing) return { playing: false, energy: 0, bass: 0, beat: 0 };
+
+    let energy = 0.46;
+    let bass = 0.5;
+    if (this.analyser && this.frequencyData) {
+      this.analyser.getByteFrequencyData(this.frequencyData);
+      let total = 0;
+      let low = 0;
+      const lowBins = Math.max(2, Math.floor(this.frequencyData.length * 0.12));
+      for (let i = 0; i < this.frequencyData.length; i++) {
+        const value = this.frequencyData[i] / 255;
+        total += value;
+        if (i < lowBins) low += value;
+      }
+      energy = Math.min(1, (total / this.frequencyData.length) * 2.2);
+      bass = Math.min(1, (low / lowBins) * 1.8);
+    }
+
+    const interval = TRACKS[this.trackId]?.interval ?? 0.25;
+    const phase = ((this.context.currentTime % interval) + interval) % interval;
+    const transportBeat = Math.max(0, 1 - phase / Math.max(0.045, interval * 0.42));
+    const beat = Math.min(1, transportBeat * (0.55 + bass * 0.65));
+    return { playing: true, energy, bass, beat };
   }
 
   voice(source, ...nodes) {
@@ -187,8 +230,12 @@ export class AudioEngine {
   async dispose() {
     this.stop();
     this.master?.disconnect();
+    this.analyser?.disconnect();
     if (this.context && this.context.state !== 'closed') await this.context.close();
     this.context = null;
+    this.master = null;
+    this.analyser = null;
+    this.frequencyData = null;
     this.hatBuffer = null;
   }
 }
