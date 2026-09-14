@@ -15,6 +15,7 @@ body {
 }
 canvas {
   display: block;
+  touch-action: none;
 }
 #hud {
   position: fixed;
@@ -237,6 +238,66 @@ kbd {
   letter-spacing: 0.15em;
   color: #aaa;
 }
+#mobileControls {
+  display: none;
+}
+.touch-pad,
+.touch-actions {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.touch-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 48px);
+  grid-template-rows: repeat(3, 48px);
+  gap: 4px;
+}
+.touch-pad button,
+.touch-actions button {
+  min-width: 0;
+  padding: 0;
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(18, 18, 18, 0.78);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(8px);
+  -webkit-tap-highlight-color: transparent;
+}
+.touch-pad button {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  font-size: 18px;
+}
+.touch-center {
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+.touch-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(52px, 1fr));
+  gap: 6px;
+  width: min(50vw, 220px);
+  align-self: end;
+}
+.touch-actions button {
+  height: 48px;
+  border-radius: 13px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.touch-actions .touch-primary {
+  grid-column: span 2;
+}
+.touch-pad button.pressed,
+.touch-actions button.pressed {
+  background: rgba(84, 84, 84, 0.94);
+  transform: translateY(1px);
+}
 
 [hidden] {
   display: none !important;
@@ -266,21 +327,24 @@ canvas:focus {
 
 @media (max-width: 720px) {
   #hud {
-    left: 8px;
-    top: 8px;
+    left: max(8px, env(safe-area-inset-left));
+    top: max(8px, env(safe-area-inset-top));
     max-width: calc(100vw - 32px);
   }
   #hint {
     display: none;
   }
   #panel {
-    left: 8px;
-    right: 8px;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
     top: auto;
-    bottom: 46px;
+    bottom: calc(168px + env(safe-area-inset-bottom));
     width: auto;
     max-width: none;
-    max-height: 42vh;
+    max-height: 34vh;
+  }
+  #floorTag {
+    bottom: calc(146px + env(safe-area-inset-bottom));
   }
   .avatar-grid {
     grid-template-columns: 1fr;
@@ -290,5 +354,47 @@ canvas:focus {
   }
   .dj-decks {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #mobileControls {
+    position: fixed;
+    z-index: 12;
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px;
+    pointer-events: none;
+  }
+  #mobileControls button {
+    pointer-events: auto;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  #hud b {
+    font-size: 12px;
+  }
+  #status {
+    font-size: 10px;
+  }
+  .touch-pad {
+    grid-template-columns: repeat(3, 44px);
+    grid-template-rows: repeat(3, 44px);
+  }
+  .touch-pad button {
+    width: 44px;
+    height: 44px;
+  }
+  .touch-actions {
+    width: min(46vw, 190px);
+  }
+  .touch-actions button {
+    height: 44px;
+    font-size: 10px;
   }
 }
