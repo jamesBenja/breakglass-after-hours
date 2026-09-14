@@ -5,9 +5,6 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -15,8 +12,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Use Node 22
         uses: actions/setup-node@v4
@@ -35,13 +30,5 @@ jobs:
       - name: Production build
         run: pnpm build
 
-      - name: Apply Prettier once
-        run: |
-          pnpm exec prettier --write src tests scripts index.html vite.config.js
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src tests scripts index.html vite.config.js
-            git commit -m "Apply Prettier formatting"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
+      - name: Formatting
+        run: pnpm run format:check
