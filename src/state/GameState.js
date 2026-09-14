@@ -1,3 +1,5 @@
+import { ARCHIVE_TAPE_IDS } from '../archive/tapeArchive.js';
+import { LIVE_ARCHIVE_IDS } from '../archive/liveArchive.js';
 import { normalizeAvatar } from '../avatar/profile.js';
 import { normalizeStudioSession } from '../studio/StudioSession.js';
 import { LEVEL_IDS } from '../world/levels.js';
@@ -9,12 +11,17 @@ export const TRACK_IDS = [
   '3am-tool',
   'got-you-dancin',
   'in-flux',
+  'in-flux-just-be',
+  'in-flux-breath',
+  'in-flux-break',
+  'in-flux-gingele',
   'atrakar',
   'dubki',
+  'paharpur',
+  'fakir',
+  'bhab',
   'diet-cake',
 ];
-export const ARCHIVE_TAPE_IDS = ['two-inch-a', 'two-inch-b', 'quarter-inch-mix'];
-export const LIVE_ARCHIVE_IDS = ['fieldnote-launch-2026'];
 const CONTACT_IDS = [
   'nora',
   'james',
