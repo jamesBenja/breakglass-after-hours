@@ -38,29 +38,30 @@ export function createActions({
     );
   };
 
+  const hasStudio = !!studio;
+  const hasDj = !!dj && typeof ui.djMixer === 'function';
+
   const rememberStudio = () => {
+    if (!studio || !state) return;
     state.data.studio = studio.snapshot();
     saveState();
   };
 
   const choose = (title, collection, current, onSelect, back) =>
-    panel(
-      title,
-      `Current: ${gearById(collection, current).label}`,
-      [
-        ...collection.map((item) => [
-          `${item.id === current ? '✓ ' : ''}${item.label}`,
-          () => {
-            onSelect(item);
-            rememberStudio();
-            back();
-          },
-        ]),
-        ['Back', back],
-      ],
-    );
+    panel(title, `Current: ${gearById(collection, current).label}`, [
+      ...collection.map((item) => [
+        `${item.id === current ? '✓ ' : ''}${item.label}`,
+        () => {
+          onSelect(item);
+          rememberStudio();
+          back();
+        },
+      ]),
+      ['Back', back],
+    ]);
 
   const previewInstrument = () => {
+    if (!studio) return;
     if (studio.setup.instrumentType === 'bass') {
       const bass = gearById(BASSES, studio.setup.bass);
       const amp = gearById(AMPS, studio.setup.amp);
@@ -80,6 +81,7 @@ export function createActions({
   };
 
   const instrumentPanel = () => {
+    if (!studio) return;
     const type = studio.setup.instrumentType;
     const instrument =
       type === 'bass'
@@ -136,6 +138,7 @@ export function createActions({
   };
 
   const ampPanel = () => {
+    if (!studio) return;
     const amp = gearById(AMPS, studio.setup.amp);
     const type = studio.setup.instrumentType;
     const instrument =
@@ -145,7 +148,14 @@ export function createActions({
     panel('DEAD ROOM · AMP WALL', `${instrument.label} is plugged into ${amp.label}.`, [
       [
         'Choose amp',
-        () => choose('CHOOSE AN AMP', AMPS, studio.setup.amp, (item) => studio.select('amp', item.id), ampPanel),
+        () =>
+          choose(
+            'CHOOSE AN AMP',
+            AMPS,
+            studio.setup.amp,
+            (item) => studio.select('amp', item.id),
+            ampPanel,
+          ),
       ],
       ['Play through amp', previewInstrument],
       [
@@ -165,6 +175,7 @@ export function createActions({
   };
 
   const micPanel = () => {
+    if (!studio) return;
     const mic = gearById(MICS, studio.setup.mic);
     const eq = gearById(PROCESSORS.eq, studio.setup.eq);
     const compressor = gearById(PROCESSORS.compressor, studio.setup.compressor);
@@ -174,11 +185,25 @@ export function createActions({
       [
         [
           'Choose microphone',
-          () => choose('CHOOSE A MICROPHONE', MICS, studio.setup.mic, (item) => studio.select('mic', item.id), micPanel),
+          () =>
+            choose(
+              'CHOOSE A MICROPHONE',
+              MICS,
+              studio.setup.mic,
+              (item) => studio.select('mic', item.id),
+              micPanel,
+            ),
         ],
         [
           'Choose EQ',
-          () => choose('CHOOSE EQ', PROCESSORS.eq, studio.setup.eq, (item) => studio.select('eq', item.id), micPanel),
+          () =>
+            choose(
+              'CHOOSE EQ',
+              PROCESSORS.eq,
+              studio.setup.eq,
+              (item) => studio.select('eq', item.id),
+              micPanel,
+            ),
         ],
         [
           'Choose compressor',
@@ -196,11 +221,23 @@ export function createActions({
   };
 
   const drumsPanel = () => {
+    if (!studio) {
+      audio.kick();
+      audio.hat(0.11);
+      return;
+    }
     const kit = gearById(DRUM_KITS, studio.setup.drums);
     panel('LIVE ROOM · DRUM STATION', `Current kit: ${kit.label}.`, [
       [
         'Choose drum kit',
-        () => choose('CHOOSE A DRUM KIT', DRUM_KITS, studio.setup.drums, (item) => studio.select('drums', item.id), drumsPanel),
+        () =>
+          choose(
+            'CHOOSE A DRUM KIT',
+            DRUM_KITS,
+            studio.setup.drums,
+            (item) => studio.select('drums', item.id),
+            drumsPanel,
+          ),
       ],
       [
         'Play kit',
@@ -228,11 +265,23 @@ export function createActions({
   };
 
   const synthPanel = () => {
+    if (!studio) {
+      audio.tone(329, 0.35, 'sawtooth', 0.07);
+      audio.tone(493, 0.27, 'square', 0.04, 0.08);
+      return;
+    }
     const synth = gearById(SYNTHS, studio.setup.synth);
     panel('LIVE ROOM · SYNTH + ORGAN STATION', `Current instrument: ${synth.label}.`, [
       [
         'Choose synth / organ',
-        () => choose('CHOOSE KEYS', SYNTHS, studio.setup.synth, (item) => studio.select('synth', item.id), synthPanel),
+        () =>
+          choose(
+            'CHOOSE KEYS',
+            SYNTHS,
+            studio.setup.synth,
+            (item) => studio.select('synth', item.id),
+            synthPanel,
+          ),
       ],
       [
         'Play',
@@ -258,8 +307,8 @@ export function createActions({
   };
 
   const recordVocal = async () => {
-    if (!micRecorder.supported) {
-      ui.warning('This browser cannot record the computer microphone here.');
+    if (!micRecorder?.supported) {
+      ui.warning?.('This browser cannot record the computer microphone here.');
       return;
     }
     await micRecorder.start();
@@ -273,13 +322,21 @@ export function createActions({
           async () => {
             const result = await micRecorder.stop();
             if (!result) return;
-            const stem = studio.addTake('vocal', `Vocal take ${studio.takeCounter + 1}`, 'browser-microphone', {
-              mic: studio.setup.mic,
-              eq: studio.setup.eq,
-              compressor: studio.setup.compressor,
-            });
+            const stem = studio.addTake(
+              'vocal',
+              `Vocal take ${studio.takeCounter + 1}`,
+              'browser-microphone',
+              {
+                mic: studio.setup.mic,
+                eq: studio.setup.eq,
+                compressor: studio.setup.compressor,
+              },
+            );
             if (result.buffer) studio.attachRecording(stem.id, result.buffer);
-            else ui.warning('Vocal captured, but this browser could not decode it for in-game playback yet.');
+            else
+              ui.warning?.(
+                'Vocal captured, but this browser could not decode it for in-game playback yet.',
+              );
             rememberStudio();
             consolePanel();
           },
@@ -296,13 +353,20 @@ export function createActions({
   };
 
   const consolePanel = () => {
+    if (!studio || !studioPlayback || typeof ui.studioMixer !== 'function') {
+      panel('CONTROL ROOM', 'Load a session and hear the room become active.', [
+        ['Play Night Bus', () => audio.play('night-bus')],
+        ['Stop', () => audio.stop()],
+      ]);
+      return;
+    }
     ui.studioMixer(studio, {
       onMix: () => {
         studioPlayback.updateMix(studio);
         rememberStudio();
       },
       onPlay: async () => {
-        dj.stop();
+        dj?.stop?.();
         audio.stop();
         await studioPlayback.play(studio);
       },
@@ -312,14 +376,24 @@ export function createActions({
   };
 
   const appendButton = (label, action) => {
+    if (!ui.document || !ui.buttons) return;
     const button = ui.document.createElement('button');
     button.textContent = label;
-    button.onclick = () => Promise.resolve(action()).catch((error) => ui.warning(error.message));
+    button.onclick = () =>
+      Promise.resolve(action()).catch((error) => ui.warning?.(error.message));
     ui.buttons.appendChild(button);
   };
 
   const djPanel = () => {
-    studioPlayback.stop();
+    if (!hasDj) {
+      panel('DJ BOOTH', 'Pick a selection. The floor reacts.', [
+        ['Glass Floor', () => audio.play('glass-floor')],
+        ['3AM Tool', () => audio.play('3am-tool')],
+        ['Stop decks', () => audio.stop()],
+      ]);
+      return;
+    }
+    studioPlayback?.stop?.();
     audio.stop();
     const rig = sceneManager.current.lighting;
     ui.djMixer(dj, DJ_TRACKS, {
@@ -354,7 +428,8 @@ export function createActions({
 
   const actions = {
     drums: drumsPanel,
-    piano: () =>
+    piano: () => {
+      if (!hasStudio) return audio.chord(220);
       panel('LIVE ROOM · PIANO', 'Play the piano or send a new piano part to the session.', [
         ['Play chord', () => audio.chord(220)],
         [
@@ -368,7 +443,8 @@ export function createActions({
             rememberStudio();
           },
         ],
-      ]),
+      ]);
+    },
     synth: synthPanel,
     instruments: instrumentPanel,
     amps: ampPanel,
@@ -379,15 +455,15 @@ export function createActions({
       panel(
         'TAKE A BREAK · INSTALLATION',
         'A persistent immersive work lives here even when Below is in rehearsal/off-hours mode. Spatial-media playback comes next.',
-        [['Stay a minute', () => player.dance(35 / 60)]],
+        player ? [['Stay a minute', () => player.dance(35 / 60)]] : [],
       ),
     travel: (target) => sceneManager.request(target.target),
     dialogue: (target) => {
-      const dialogue = sceneManager.current.npcs.dialogue(target.id);
+      const dialogue = sceneManager.current.npcs?.dialogue?.(target.id);
       if (!dialogue) return;
-      state.meet(target.id);
+      state?.meet?.(target.id);
       saveState();
-      panel(dialogue.title, dialogue.text, [['Dance', () => player.dance(80 / 60)]]);
+      panel(dialogue.title, dialogue.text, player ? [['Dance', () => player.dance(80 / 60)]] : []);
     },
   };
 
