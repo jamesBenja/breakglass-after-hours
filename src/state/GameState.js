@@ -15,6 +15,48 @@ export const TRACK_IDS = [
 ];
 export const ARCHIVE_TAPE_IDS = ['two-inch-a', 'two-inch-b', 'quarter-inch-mix'];
 export const LIVE_ARCHIVE_IDS = ['fieldnote-launch-2026'];
+const CONTACT_IDS = [
+  'nora',
+  'james',
+  'jace',
+  'zander',
+  'boogaloo',
+  'jashim',
+  'courtney',
+  'simla',
+  'devin',
+  'bouncer',
+];
+
+const normalizePhoto = (photo) => {
+  if (!photo || typeof photo !== 'object') return null;
+  const dataUrl = typeof photo.dataUrl === 'string' ? photo.dataUrl : '';
+  if (!dataUrl.startsWith('data:image/jpeg') || dataUrl.length > 350000) return null;
+  return {
+    id: typeof photo.id === 'string' ? photo.id.slice(0, 80) : `photo-${Date.now()}`,
+    eventId: typeof photo.eventId === 'string' ? photo.eventId.slice(0, 48) : 'bg20-local',
+    timestamp: typeof photo.timestamp === 'string' ? photo.timestamp.slice(0, 40) : null,
+    photographerId:
+      typeof photo.photographerId === 'string' ? photo.photographerId.slice(0, 32) : 'nora',
+    roomId: typeof photo.roomId === 'string' ? photo.roomId.slice(0, 48) : null,
+    avatarIds: Array.isArray(photo.avatarIds)
+      ? photo.avatarIds.filter((id) => typeof id === 'string').slice(0, 12)
+      : [],
+    partyEnergy: Math.max(0, Math.min(1, Number(photo.partyEnergy) || 0)),
+    attendance:
+      Number.isFinite(Number(photo.attendance)) && photo.attendance != null
+        ? Math.max(0, Math.round(Number(photo.attendance)))
+        : null,
+    lightingPreset:
+      typeof photo.lightingPreset === 'string' ? photo.lightingPreset.slice(0, 32) : null,
+    haze: photo.haze == null ? null : Math.max(0, Math.min(1, Number(photo.haze) || 0)),
+    tags: Array.isArray(photo.tags)
+      ? photo.tags.filter((tag) => typeof tag === 'string').slice(0, 12).map((tag) => tag.slice(0, 32))
+      : [],
+    approvedForSharing: photo.approvedForSharing === true,
+    dataUrl,
+  };
+};
 
 const defaults = () => ({
   version: 1,
@@ -32,6 +74,7 @@ const defaults = () => ({
   archiveTape: null,
   threadedTape: null,
   liveRoomArchive: null,
+  photos: [],
 });
 
 export function validateSave(value) {
@@ -53,13 +96,7 @@ export function validateSave(value) {
     state.visited = [...new Set(value.visited.filter((id) => LEVEL_IDS.includes(id)))];
   }
   if (Array.isArray(value.contacts)) {
-    state.contacts = [
-      ...new Set(
-        value.contacts.filter((id) =>
-          ['nora', 'jashim', 'courtney', 'simla', 'devin'].includes(id),
-        ),
-      ),
-    ];
+    state.contacts = [...new Set(value.contacts.filter((id) => CONTACT_IDS.includes(id)))];
   }
   if (TRACK_IDS.includes(value.lastTrack)) state.lastTrack = value.lastTrack;
   state.debug = value.debug === true;
@@ -72,6 +109,9 @@ export function validateSave(value) {
   if (ARCHIVE_TAPE_IDS.includes(value.archiveTape)) state.archiveTape = value.archiveTape;
   if (ARCHIVE_TAPE_IDS.includes(value.threadedTape)) state.threadedTape = value.threadedTape;
   if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive)) state.liveRoomArchive = value.liveRoomArchive;
+  if (Array.isArray(value.photos)) {
+    state.photos = value.photos.map(normalizePhoto).filter(Boolean).slice(-6);
+  }
   return state;
 }
 
@@ -100,7 +140,7 @@ export class GameState {
   }
 
   meet(id) {
-    if (!this.data.contacts.includes(id)) this.data.contacts.push(id);
+    if (CONTACT_IDS.includes(id) && !this.data.contacts.includes(id)) this.data.contacts.push(id);
   }
 
   save(sceneId, position, layoutRevision = null) {
