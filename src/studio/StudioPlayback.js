@@ -182,6 +182,65 @@ export class StudioPlayback {
     source.start(context.currentTime + when);
   }
 
+  renderDrumEvent(name, bus, when) {
+    switch (name) {
+      case 'kick':
+        this.kick(bus, when);
+        break;
+      case 'snare':
+        this.oscillator(185, 0.09, bus, { type: 'triangle', volume: 0.075, when });
+        this.noise(bus, when + 0.008, 0.08, 0.085);
+        break;
+      case 'closed-hat':
+        this.noise(bus, when, 0.035, 0.06);
+        break;
+      case 'open-hat':
+        this.noise(bus, when, 0.14, 0.07);
+        break;
+      case 'low-tom':
+        this.oscillator(112, 0.22, bus, { type: 'sine', volume: 0.1, when });
+        break;
+      case 'high-tom':
+        this.oscillator(176, 0.18, bus, { type: 'sine', volume: 0.085, when });
+        break;
+      case 'crash':
+        this.noise(bus, when, 0.42, 0.08);
+        this.oscillator(420, 0.34, bus, { type: 'triangle', volume: 0.035, when });
+        break;
+    }
+  }
+
+  renderPerformance(stem, step, when) {
+    const performance = stem.performance;
+    if (!performance?.events?.length) return false;
+    const bus = this.ensureBus(stem).input;
+    const sourceBpm = performance.bpm || this.bpm;
+    const stepDuration = 60 / sourceBpm / 4;
+    const loopSteps = Math.max(16, Math.min(256, Math.ceil((performance.duration || 4) / stepDuration)));
+    const current = step % loopSteps;
+    for (const event of performance.events) {
+      const eventStep = Math.round((event.time || 0) / stepDuration) % loopSteps;
+      if (eventStep !== current) continue;
+      if (event.drum) {
+        this.renderDrumEvent(event.drum, bus, when);
+        continue;
+      }
+      this.oscillator(event.frequency || 440, performance.noteDuration || 0.42, bus, {
+        type: performance.wave || 'triangle',
+        volume: performance.volume || 0.065,
+        when,
+      });
+      if (performance.octaveLayer) {
+        this.oscillator((event.frequency || 440) * 2, (performance.noteDuration || 0.42) * 0.72, bus, {
+          type: 'triangle',
+          volume: (performance.volume || 0.065) * 0.22,
+          when: when + 0.012,
+        });
+      }
+    }
+    return true;
+  }
+
   renderStem(stem, step, when) {
     const bus = this.ensureBus(stem).input;
     if (stem.mute) return;
@@ -200,6 +259,7 @@ export class StudioPlayback {
       }
       return;
     }
+    if (this.renderPerformance(stem, step, when)) return;
     if (stem.kind === 'drums') {
       if (step % 4 === 0) this.kick(bus, when);
       if (step % 2 === 1) this.noise(bus, when + 0.01, 0.035, 0.055);
@@ -302,7 +362,7 @@ export class StudioPlayback {
       while (this.nextTime < this.audio.context.currentTime + 0.1) {
         const when = this.nextTime - this.audio.context.currentTime;
         for (const stem of session.stems) this.renderStem(stem, this.step, when);
-        this.step = (this.step + 1) % 16;
+        this.step = (this.step + 1) % 256;
         this.nextTime += interval;
       }
     };
