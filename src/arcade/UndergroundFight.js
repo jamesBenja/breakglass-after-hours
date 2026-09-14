@@ -45,7 +45,7 @@ const fighter = (side, x) => ({
   stun: 0,
 });
 
-export function createFightState({ mode = 'cpu', roundTime = 60 } = {}) {
+export function createFightState({ mode = 'cpu', roundTime = 60, cpuGrace = 1.5 } = {}) {
   return {
     mode,
     time: roundTime,
@@ -54,6 +54,7 @@ export function createFightState({ mode = 'cpu', roundTime = 60 } = {}) {
     player: fighter('player', 0.24),
     opponent: fighter('opponent', 0.76),
     cpuThink: 0,
+    cpuGrace: mode === 'cpu' ? Math.max(0, cpuGrace) : 0,
     eventCounter: 0,
     events: [],
   };
@@ -93,30 +94,31 @@ export function commandFight(state, side, action, pressed = true) {
 }
 
 function updateCpu(state, dt, random) {
-  if (state.mode !== 'cpu' || state.status !== 'fight') return;
+  if (state.mode !== 'cpu' || state.status !== 'fight' || state.cpuGrace > 0) return;
   const cpu = state.opponent;
   const player = state.player;
   state.cpuThink -= dt;
   if (state.cpuThink > 0 || cpu.stun > 0) return;
-  state.cpuThink = 0.12 + random() * 0.2;
+  state.cpuThink = 0.18 + random() * 0.28;
 
   cpu.moveLeft = false;
   cpu.moveRight = false;
   cpu.blocking = false;
   const distance = Math.abs(player.x - cpu.x);
-  if (player.attack && distance < 0.22 && random() < 0.48) {
+  if (player.attack && distance < 0.22 && random() < 0.36) {
     cpu.blocking = true;
     return;
   }
   if (distance > 0.18) {
     if (player.x < cpu.x) cpu.moveLeft = true;
     else cpu.moveRight = true;
-    if (distance > 0.34 && random() < 0.12) commandFight(state, 'opponent', 'jump');
+    if (distance > 0.34 && random() < 0.1) commandFight(state, 'opponent', 'jump');
     return;
   }
   const roll = random();
-  if (roll < 0.48) commandFight(state, 'opponent', 'light');
-  else if (roll < 0.82) commandFight(state, 'opponent', 'heavy');
+  if (roll < 0.2) return;
+  if (roll < 0.58) commandFight(state, 'opponent', 'light');
+  else if (roll < 0.86) commandFight(state, 'opponent', 'heavy');
   else commandFight(state, 'opponent', 'special');
 }
 
@@ -202,7 +204,9 @@ export function stepFight(state, dt, random = Math.random) {
   if (!state || state.status !== 'fight') return [];
   state.events.length = 0;
   const step = Math.max(0, Math.min(0.05, Number(dt) || 0));
-  state.time = Math.max(0, state.time - step);
+  const openingGrace = state.cpuGrace > 0;
+  if (openingGrace) state.cpuGrace = Math.max(0, state.cpuGrace - step);
+  else state.time = Math.max(0, state.time - step);
   updateCpu(state, step, random);
   moveFighter(state.player, step);
   moveFighter(state.opponent, step);
