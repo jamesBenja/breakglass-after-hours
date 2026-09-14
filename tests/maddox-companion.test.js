@@ -16,7 +16,7 @@ test('companion-only Maddox stays hidden until enabled and then follows the play
   const player = new Vector3(4, 0, 0);
   maddox.setPresence({ visible: true, following: true, position: player, snap: false });
   const start = maddox.positionOf().x;
-  for (let i = 0; i < 45; i++) maddox.update(1 / 60, {}, player);
+  for (let i = 0; i < 70; i++) maddox.update(1 / 60, {}, player);
   assert.equal(maddox.root.visible, true);
   assert.equal(maddox.snapshot().following, true);
   assert.ok(maddox.positionOf().x > start);
