@@ -79,9 +79,7 @@ const normalizePerformance = (performance) => {
   }
   const events = performance.events.slice(0, 512).flatMap((event) => {
     const time = clamp(Number(event?.time) || 0, 0, 120);
-    if (typeof event?.drum === 'string') {
-      return [{ time, drum: event.drum.slice(0, 24) }];
-    }
+    if (typeof event?.drum === 'string') return [{ time, drum: event.drum.slice(0, 24) }];
     const midi = clamp(Math.round(Number(event?.midi) || 60), 24, 96);
     const frequency = clamp(Number(event?.frequency) || 440, 25, 5000);
     return [{ time, midi, frequency }];
@@ -106,7 +104,10 @@ const normalizeStem = (stem, index) => ({
   kind: typeof stem.kind === 'string' ? stem.kind.slice(0, 24) : 'audio',
   level: clamp(Number(stem.level) || 0, 0, 1),
   pan: clamp(Number(stem.pan) || 0, -1, 1),
+  low: clamp(Number(stem.low) || 0, -1, 1),
+  high: clamp(Number(stem.high) || 0, -1, 1),
   mute: stem.mute === true,
+  solo: stem.solo === true,
   assetId: typeof stem.assetId === 'string' ? stem.assetId.slice(0, 64) : null,
   source: typeof stem.source === 'string' ? stem.source.slice(0, 80) : 'session',
   performance: normalizePerformance(stem.performance),
@@ -206,7 +207,10 @@ export class StudioSession {
       kind,
       level: 0.68,
       pan: 0,
+      low: 0,
+      high: 0,
       mute: false,
+      solo: false,
       assetId: null,
       source,
       performance: null,
@@ -242,11 +246,25 @@ export class StudioSession {
     return true;
   }
 
+  setEq(id, band, value) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem || !['low', 'high'].includes(band)) return false;
+    stem[band] = clamp(Number(value) || 0, -1, 1);
+    return true;
+  }
+
   toggleMute(id) {
     const stem = this.stems.find((item) => item.id === id);
     if (!stem) return false;
     stem.mute = !stem.mute;
     return stem.mute;
+  }
+
+  toggleSolo(id) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.solo = !stem.solo;
+    return stem.solo;
   }
 
   snapshot() {
