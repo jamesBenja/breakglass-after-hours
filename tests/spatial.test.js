@@ -205,6 +205,7 @@ test('optional four-hop route reaches the polygon roof and descends by the same 
         1 / 60,
         { x: d ? (dx / d) * strength : 0, z: d ? (dz / d) * strength : 0 },
         world,
+        i === 0,
       );
       camera.update(1 / 60, player.position, world);
     }
