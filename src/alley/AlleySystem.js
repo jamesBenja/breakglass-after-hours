@@ -180,8 +180,7 @@ export class AlleySystem {
 
     const occupancyPressure = clamp(this.occupancy / 14);
     const speechFloor = clamp(0.13 + occupancyPressure * 0.5 + energy * 0.08);
-    this.conversationLevel +=
-      (speechFloor - this.conversationLevel) * (1 - Math.exp(-0.075 * dt));
+    this.conversationLevel += (speechFloor - this.conversationLevel) * (1 - Math.exp(-0.075 * dt));
 
     const target = clamp(
       occupancyPressure * 0.48 +
