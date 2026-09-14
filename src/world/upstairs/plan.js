@@ -22,6 +22,20 @@ export const footprint = trace([
   [172, 938],
 ]);
 
+const centralSuiteSourcePoints = [
+  [376, 774],
+  [403, 748],
+  [442, 748],
+  [466, 773],
+  [488, 843],
+  [488, 941],
+  [469, 963],
+  [386, 963],
+  [372, 946],
+  [372, 846],
+];
+const centralSuitePoints = trace(centralSuiteSourcePoints);
+
 export const rooms = [
   {
     id: 'circulation',
@@ -29,6 +43,13 @@ export const rooms = [
     points: footprint,
     color: 0x887c68,
     label: null,
+  },
+  {
+    id: 'neve-suite',
+    name: 'Historic Neve Suite',
+    color: 0x5d4938,
+    label: at(428, 850, 2.75),
+    points: centralSuitePoints,
   },
   {
     id: 'dead-room',
@@ -151,27 +172,17 @@ export const rooms = [
   },
 ];
 
-// The narrowed core and widened gallery are GAME adaptations of the plan's polygon/margins.
+// The polygon footprint and widened exterior gallery remain GAME adaptations of A-103.
+// Historical use as the Neve Suite comes from Breakglass; equipment dressing is photo-referenced.
 export const centralSuite = {
-  id: 'central-closed-suite',
-  name: 'Central Closed Suite',
-  color: 0x336d71,
+  id: 'historic-neve-suite',
+  name: 'Historic Neve Suite',
+  color: 0x4b3b31,
   y1: 0,
   y2: 4.1,
-  points: trace([
-    [376, 774],
-    [403, 748],
-    [442, 748],
-    [466, 773],
-    [488, 843],
-    [488, 941],
-    [469, 963],
-    [386, 963],
-    [372, 946],
-    [372, 846],
-  ]),
+  points: centralSuitePoints,
   label: at(428, 851, 4.5),
-  confidence: 'A footprint / GAME gallery clearance',
+  confidence: 'A-103 footprint / historical Neve use supplied by Breakglass / GAME gallery clearance',
 };
 
 export const closedSuites = [
@@ -205,6 +216,7 @@ const wall = (id, a, b, openings = [], height = 2.9) => ({
   height,
   thickness: 0.22,
 });
+
 export const wallRuns = [
   ...footprint.map((p, i) => ({
     id: `outside-${i}`,
@@ -272,6 +284,25 @@ export const wallRuns = [
   ),
   wall('storage-notch', [519, 1056], [472, 1056]),
   wall('storage-south-east', [472, 1056], [472, 1116]),
+
+  // Historic central Neve Suite. The east-side opening is a gameplay-authored access point
+  // informed by the A-103 doorway mark; exact as-built aperture dimensions are not surveyed.
+  wall('neve-nw', [376, 774], [403, 748], [], 4.1),
+  wall('neve-north', [403, 748], [442, 748], [], 4.1),
+  wall('neve-ne', [442, 748], [466, 773], [], 4.1),
+  wall('neve-east-splay', [466, 773], [488, 843], [], 4.1),
+  wall(
+    'neve-east',
+    [488, 843],
+    [488, 941],
+    [{ id: 'neve-door', name: 'Historic Neve Suite', at: 0.5, width: 1.65 }],
+    4.1,
+  ),
+  wall('neve-se', [488, 941], [469, 963], [], 4.1),
+  wall('neve-south', [469, 963], [386, 963], [], 4.1),
+  wall('neve-sw', [386, 963], [372, 946], [], 4.1),
+  wall('neve-west', [372, 946], [372, 846], [], 4.1),
+  wall('neve-nw-splay', [372, 846], [376, 774], [], 4.1),
 ];
 
 export const waypoints = {
@@ -304,6 +335,10 @@ export const waypoints = {
   dead: at(364, 634),
   bar: at(732, 602),
   synthApproach: at(560, 824),
+  neveDoor: at(488, 892),
+  neveConsole: at(427, 790),
+  neveTape: at(398, 878),
+  neveArchive: at(447, 912),
 };
 
 // Route A is intentionally all on the ground: jumping is optional, never an access tax.
