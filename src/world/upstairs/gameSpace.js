@@ -47,6 +47,14 @@ export function createGameSpace() {
     prop('drum-shells', 583, 602, 1.8, 1.25, 1.25, 0x947342, { kind: 'equipment' }),
     prop('bar-counter', 809, 567, 1.15, 3.3, 1.1, 0xa88157, { kind: 'equipment' }),
     prop('dead-gobo', 294, 578, 2.8, 0.22, 1.65, 0x455655, { kind: 'equipment' }),
+
+    // Dead Room GAME gear wall. These are selectable stations, not surveyed placement.
+    prop('dead-amp-tweed', 404, 548, 0.78, 0.58, 0.78, 0x8b6847, { kind: 'equipment' }),
+    prop('dead-amp-clean', 404, 575, 0.9, 0.62, 0.9, 0x29343a, { kind: 'equipment' }),
+    prop('dead-amp-stack', 404, 610, 1.0, 0.7, 1.5, 0x242426, { kind: 'equipment' }),
+    prop('dead-bass-stack', 404, 650, 1.05, 0.75, 1.65, 0x191b1d, { kind: 'equipment' }),
+    prop('instrument-rack', 270, 625, 0.72, 2.1, 1.55, 0x6a4a35, { kind: 'equipment' }),
+    prop('mic-locker', 274, 665, 0.7, 0.55, 1.45, 0x58636a, { kind: 'equipment' }),
   ];
   // Replace just the west end of the floor with a real descending stair run.
   const stairFloors = [0, 1, 2, 3].map((i) => {
