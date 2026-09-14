@@ -3,6 +3,7 @@ import { AssetLoader } from '../assets/AssetLoader.js';
 import { assetManifest } from '../assets/manifest.js';
 import { normalizeAvatar } from '../avatar/profile.js';
 import { AudioEngine } from '../audio/AudioEngine.js';
+import { SpatialAudioSystem } from '../audio/SpatialAudioSystem.js';
 import { DjMixer } from '../dj/DjMixer.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { InputController } from '../player/InputController.js';
@@ -54,6 +55,7 @@ export class Game {
         this.save();
       },
     });
+    this.spatialAudio = new SpatialAudioSystem(this.audio);
     this.studio = new StudioSession(this.state.data.studio);
     this.studioPlayback = new StudioPlayback(this.audio);
     this.micRecorder = new MicrophoneRecorder(this.audio);
@@ -117,6 +119,7 @@ export class Game {
     this.interactions = new InteractionSystem(
       createActions({
         audio: this.audio,
+        spatialAudio: this.spatialAudio,
         sceneManager: this.sceneManager,
         player: this.player,
         ui,
@@ -165,6 +168,7 @@ export class Game {
       const level = await factory(this.assets, this.spatialPass);
       this.scenes.set(level.definition.id, level);
     }
+    this.photos.attachPhotoWall(this.scenes.get('downstairs'));
     const definition = this.scenes.get(this.state.data.sceneId).definition;
     const sameLayout =
       !definition.layoutRevision || definition.layoutRevision === this.state.data.layoutRevision;
@@ -237,6 +241,10 @@ export class Game {
     const level = this.sceneManager.current;
     this.camera.update(dt, this.player.position, level.collision);
     this.player.object.visible = !this.camera.isFirstPerson;
+    if (this.started) {
+      this.spatialAudio.update(level, this.player, this.camera);
+      this.studioPlayback.updateNativeMix?.(this.studio);
+    }
     this.ui.update({
       level,
       player: this.player,
@@ -276,6 +284,8 @@ export class Game {
     this.micRecorder.dispose();
     this.studioPlayback.dispose();
     this.dj.dispose();
+    this.spatialAudio.dispose();
+    this.photos.dispose();
     this.player.dispose();
     this.sceneManager.dispose();
     await this.audio.dispose();
