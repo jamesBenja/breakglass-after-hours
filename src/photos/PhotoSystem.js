@@ -1,10 +1,24 @@
-import { PerspectiveCamera, PointLight, SRGBColorSpace, Vector3, WebGLRenderTarget } from 'three';
+import {
+  BoxGeometry,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  PerspectiveCamera,
+  PlaneGeometry,
+  PointLight,
+  SRGBColorSpace,
+  TextureLoader,
+  Vector3,
+  WebGLRenderTarget,
+} from 'three';
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
 /**
- * Local single-player photography. A bounded render target keeps captures independent of the
- * gameplay camera and avoids requiring preserveDrawingBuffer on the main renderer.
+ * Nora takes real rendered in-game photos. The six newest captures are also mounted as actual
+ * textures in frames on the north wall of Take A Break, so the saved club night becomes visible
+ * inside the world instead of only in a menu.
  */
 export class PhotoSystem {
   constructor({ renderer, state, sceneManager, player, ui, saveState = () => {} }) {
@@ -16,6 +30,88 @@ export class PhotoSystem {
     this.saveState = saveState;
     this.width = 384;
     this.height = 288;
+    this.textureLoader = new TextureLoader();
+    this.wall = null;
+    this.wallSlots = [];
+    this.wallRevision = '';
+  }
+
+  attachPhotoWall(level) {
+    if (!level || level.definition.id !== 'downstairs' || this.wall) return;
+    const group = new Group();
+    group.name = 'nora-photo-wall';
+    const frameMaterial = new MeshStandardMaterial({ color: 0x161318, roughness: 0.82 });
+    const matteMaterial = new MeshStandardMaterial({ color: 0xe7ded0, roughness: 0.92 });
+    const positions = [
+      [-9.18, 2.28, 3.7],
+      [-8.13, 2.28, 3.7],
+      [-7.08, 2.28, 3.7],
+      [-9.18, 1.32, 3.7],
+      [-8.13, 1.32, 3.7],
+      [-7.08, 1.32, 3.7],
+    ];
+    for (let i = 0; i < positions.length; i++) {
+      const [x, y, z] = positions[i];
+      const frame = new Mesh(new BoxGeometry(0.94, 0.73, 0.055), frameMaterial);
+      frame.position.set(x, y, z);
+      frame.rotation.y = Math.PI;
+      frame.castShadow = true;
+      group.add(frame);
+      const matte = new Mesh(new PlaneGeometry(0.82, 0.61), matteMaterial);
+      matte.position.set(x, y, z - 0.031);
+      matte.rotation.y = Math.PI;
+      group.add(matte);
+      const material = new MeshBasicMaterial({ color: 0x242027, toneMapped: false });
+      const plane = new Mesh(new PlaneGeometry(0.76, 0.55), material);
+      plane.position.set(x, y, z - 0.038);
+      plane.rotation.y = Math.PI;
+      plane.renderOrder = 2;
+      group.add(plane);
+      this.wallSlots.push({ plane, material, photoId: null });
+    }
+    level.gameplay.add(group);
+    this.wall = group;
+    this.syncPhotoWall(true);
+  }
+
+  syncPhotoWall(force = false) {
+    if (!this.wall) return;
+    const photos = Array.isArray(this.state.data.photos) ? this.state.data.photos.slice(-6) : [];
+    const revision = photos.map((photo) => photo.id).join('|');
+    if (!force && revision === this.wallRevision) return;
+    this.wallRevision = revision;
+    for (let i = 0; i < this.wallSlots.length; i++) {
+      const slot = this.wallSlots[i];
+      const photo = photos[photos.length - 1 - i];
+      if (slot.photoId === photo?.id) continue;
+      slot.material.map?.dispose();
+      slot.material.map = null;
+      slot.material.color.setHex(photo ? 0xffffff : 0x242027);
+      slot.photoId = photo?.id ?? null;
+      if (!photo?.dataUrl) {
+        slot.material.needsUpdate = true;
+        continue;
+      }
+      this.textureLoader.load(
+        photo.dataUrl,
+        (texture) => {
+          texture.colorSpace = SRGBColorSpace;
+          if (slot.photoId !== photo.id) {
+            texture.dispose();
+            return;
+          }
+          slot.material.map?.dispose();
+          slot.material.map = texture;
+          slot.material.color.setHex(0xffffff);
+          slot.material.needsUpdate = true;
+        },
+        undefined,
+        () => {
+          slot.material.color.setHex(0x3a3038);
+          slot.material.needsUpdate = true;
+        },
+      );
+    }
   }
 
   roomId(level, position) {
@@ -108,7 +204,19 @@ export class PhotoSystem {
     const photo = { ...this.metadata(level, photographerId), dataUrl };
     const photos = Array.isArray(this.state.data.photos) ? this.state.data.photos : [];
     this.state.data.photos = [...photos, photo].slice(-6);
+    this.syncPhotoWall();
     this.saveState();
     return { saved: true, photo };
+  }
+
+  dispose() {
+    for (const slot of this.wallSlots) {
+      slot.material.map?.dispose();
+      slot.material.dispose();
+      slot.plane?.geometry?.dispose?.();
+    }
+    this.wallSlots = [];
+    this.wall?.removeFromParent();
+    this.wall = null;
   }
 }
