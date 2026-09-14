@@ -44,7 +44,9 @@ export class BarServiceSystem {
   }
 
   bartenderName(id) {
-    return this.sceneManager.current?.npcs?.get?.(id)?.name ?? (id === 'simla' ? 'Simla' : 'Courtney');
+    return (
+      this.sceneManager.current?.npcs?.get?.(id)?.name ?? (id === 'simla' ? 'Simla' : 'Courtney')
+    );
   }
 
   serveAnimation(id) {
@@ -54,11 +56,15 @@ export class BarServiceSystem {
   order(id, drink) {
     if (this.level >= 0.82) {
       this.serveAnimation(id);
-      this.panel(id, `${this.bartenderName(id)} cuts you off for now and puts a water in front of you.`);
+      this.panel(
+        id,
+        `${this.bartenderName(id)} cuts you off for now and puts a water in front of you.`,
+      );
       return;
     }
     this.level += drink.strength;
-    this.state.data.drinksServed = Math.max(0, Math.floor(Number(this.state.data.drinksServed) || 0)) + 1;
+    this.state.data.drinksServed =
+      Math.max(0, Math.floor(Number(this.state.data.drinksServed) || 0)) + 1;
     this.serveAnimation(id);
     this.saveState();
     this.panel(id, `${this.bartenderName(id)} serves you a ${drink.label.toLowerCase()}.`);
@@ -81,9 +87,7 @@ export class BarServiceSystem {
       `${name.toUpperCase()} · KITCHEN BAR`,
       `${lead ? `${lead} ` : ''}${status}${cutOff ? ' The bar will only serve water until you sober up a bit.' : ''}`,
       [
-        ...(!cutOff
-          ? DRINKS.map((drink) => [drink.label, () => this.order(id, drink)])
-          : []),
+        ...(!cutOff ? DRINKS.map((drink) => [drink.label, () => this.order(id, drink)]) : []),
         ['Water', () => this.water(id)],
         ['Back', () => this.ui.panel('BAR', 'Step away from the kitchen bar.')],
       ],
@@ -92,7 +96,8 @@ export class BarServiceSystem {
 
   handle(target) {
     const id = target?.npcId ?? target?.id;
-    if (this.sceneManager.current?.definition?.id !== 'downstairs' || !BARTENDERS.has(id)) return false;
+    if (this.sceneManager.current?.definition?.id !== 'downstairs' || !BARTENDERS.has(id))
+      return false;
     this.state?.meet?.(id);
     this.saveState();
     this.panel(id);

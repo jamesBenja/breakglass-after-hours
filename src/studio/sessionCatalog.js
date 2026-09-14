@@ -19,7 +19,14 @@ export const STUDIO_SESSION_TEMPLATES = [
     stems: [
       stem('dance-shoes-drums', 'Dance Shoes · Drums', 'drums', 'dance-shoes-drums', 0.78),
       stem('dance-shoes-bass', 'Dance Shoes · Bass', 'bass', 'dance-shoes-bass', 0.74),
-      stem('dance-shoes-synths-fx', 'Dance Shoes · Synths + FX', 'synth', 'dance-shoes-synths-fx', 0.66, 0.08),
+      stem(
+        'dance-shoes-synths-fx',
+        'Dance Shoes · Synths + FX',
+        'synth',
+        'dance-shoes-synths-fx',
+        0.66,
+        0.08,
+      ),
       stem('dance-shoes-vox', 'Dance Shoes · Vocals', 'vocal', 'dance-shoes-vox', 0.7),
     ],
   },

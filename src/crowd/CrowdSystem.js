@@ -19,8 +19,8 @@ const seeded = (index, salt = 0) => {
 };
 
 const BODY_COLORS = [
-  0x232329, 0x343947, 0x6a334f, 0x274a52, 0x74462f, 0x4e3f68, 0x58643a, 0x8a5d37,
-  0x8a3151, 0x2f5c49, 0x284d73, 0xa06b3e,
+  0x232329, 0x343947, 0x6a334f, 0x274a52, 0x74462f, 0x4e3f68, 0x58643a, 0x8a5d37, 0x8a3151,
+  0x2f5c49, 0x284d73, 0xa06b3e,
 ];
 const SKIN_COLORS = [0xf0d0b5, 0xe0b18e, 0xc99470, 0xa87558, 0x805640, 0x60402f, 0x452e24];
 const HAIR_COLORS = [0x171417, 0x2c211d, 0x4b3426, 0x744d32, 0x9a7651, 0x402b35];
@@ -91,10 +91,22 @@ export class CrowdSystem {
     this.body = new InstancedMesh(new CapsuleGeometry(0.22, 0.58, 3, 6), bodyMaterial, this.max);
     this.head = new InstancedMesh(new SphereGeometry(0.205, 8, 6), skinMaterial, this.max);
     this.hair = new InstancedMesh(new BoxGeometry(0.35, 0.16, 0.32), hairMaterial, this.max);
-    this.leftArm = new InstancedMesh(new CapsuleGeometry(0.055, 0.36, 3, 5), skinMaterial.clone(), this.max);
-    this.rightArm = new InstancedMesh(new CapsuleGeometry(0.055, 0.36, 3, 5), skinMaterial.clone(), this.max);
+    this.leftArm = new InstancedMesh(
+      new CapsuleGeometry(0.055, 0.36, 3, 5),
+      skinMaterial.clone(),
+      this.max,
+    );
+    this.rightArm = new InstancedMesh(
+      new CapsuleGeometry(0.055, 0.36, 3, 5),
+      skinMaterial.clone(),
+      this.max,
+    );
     this.leftLeg = new InstancedMesh(new CapsuleGeometry(0.068, 0.35, 3, 5), legMaterial, this.max);
-    this.rightLeg = new InstancedMesh(new CapsuleGeometry(0.068, 0.35, 3, 5), legMaterial.clone(), this.max);
+    this.rightLeg = new InstancedMesh(
+      new CapsuleGeometry(0.068, 0.35, 3, 5),
+      legMaterial.clone(),
+      this.max,
+    );
     this.meshes = [
       this.body,
       this.head,

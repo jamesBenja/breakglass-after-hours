@@ -606,8 +606,7 @@ export function createActions({
     pattern.forEach((ratio, index) => {
       const when = index * 0.42;
       audio.tone(tape.root * ratio, 0.5, index % 2 ? 'triangle' : 'sine', 0.045, when);
-      if (index % 2 === 0)
-        audio.tone(tape.root * ratio * 2, 0.25, 'triangle', 0.018, when + 0.03);
+      if (index % 2 === 0) audio.tone(tape.root * ratio * 2, 0.25, 'triangle', 0.018, when + 0.03);
     });
     return false;
   };
@@ -724,7 +723,9 @@ export function createActions({
       [
         'The console now faces into the room.',
         threaded ? `${threaded.label} is on the tape machine.` : 'No tape is threaded.',
-        live ? `${live.label} is loaded for Live Room screening.` : 'No Live From Breakglass session is loaded.',
+        live
+          ? `${live.label} is loaded for Live Room screening.`
+          : 'No Live From Breakglass session is loaded.',
       ].join(' '),
       [
         ...(threaded ? [['Monitor threaded tape', playThreadedTape]] : []),

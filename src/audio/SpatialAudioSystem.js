@@ -126,17 +126,23 @@ export class SpatialAudioSystem {
     // This is intentionally broad until measured room impulse responses are available.
     if (owner === 'dj') return { gain: 0.16, lowpassHz: 1050, label: 'club heard upstairs' };
     if (owner === 'archive') {
-      if (surfaceId === 'neve-suite') return { gain: 1, lowpassHz: 19000, label: 'Neve tape playback' };
-      if (surfaceId === 'mixing-suite') return { gain: 0.58, lowpassHz: 5200, label: 'tape through control-room wall' };
-      if (surfaceId === 'live-room') return { gain: 0.42, lowpassHz: 3600, label: 'tape through studio walls' };
+      if (surfaceId === 'neve-suite')
+        return { gain: 1, lowpassHz: 19000, label: 'Neve tape playback' };
+      if (surfaceId === 'mixing-suite')
+        return { gain: 0.58, lowpassHz: 5200, label: 'tape through control-room wall' };
+      if (surfaceId === 'live-room')
+        return { gain: 0.42, lowpassHz: 3600, label: 'tape through studio walls' };
       return { gain: 0.34, lowpassHz: 2600, label: 'archive bleed' };
     }
     if (owner === 'studio') {
-      if (surfaceId === 'mixing-suite') return { gain: 1, lowpassHz: 20000, label: 'Spectra control room' };
-      if (surfaceId === 'live-room') return { gain: 0.78, lowpassHz: 12000, label: 'live room monitor bleed' };
+      if (surfaceId === 'mixing-suite')
+        return { gain: 1, lowpassHz: 20000, label: 'Spectra control room' };
+      if (surfaceId === 'live-room')
+        return { gain: 0.78, lowpassHz: 12000, label: 'live room monitor bleed' };
       if (surfaceId === 'dead-room') return { gain: 0.62, lowpassHz: 7200, label: 'dead room' };
       if (surfaceId === 'neve-suite') return { gain: 0.52, lowpassHz: 5200, label: 'Neve room' };
-      if (surfaceId === 'storage') return { gain: 0.32, lowpassHz: 2600, label: 'upstairs storage' };
+      if (surfaceId === 'storage')
+        return { gain: 0.32, lowpassHz: 2600, label: 'upstairs storage' };
       return { gain: 0.5, lowpassHz: 4800, label: 'studio hallway' };
     }
     return { gain: 1, lowpassHz: 20000, label: 'upstairs' };
@@ -146,7 +152,11 @@ export class SpatialAudioSystem {
     if (!this.audio.context || !level) return;
     this.ensureInstallation();
     this.updateListener(player, camera);
-    const ground = level.collision.surfaceAt(player.position.x, player.position.z, player.position.y + 0.3);
+    const ground = level.collision.surfaceAt(
+      player.position.x,
+      player.position.z,
+      player.position.y + 0.3,
+    );
     const surfaceId = ground?.surface?.id ?? level.definition.id;
     const environment = this.environmentFor(level, surfaceId);
     const key = `${level.definition.id}:${surfaceId}:${this.audio.activeExternalTransport?.owner ?? 'none'}`;

@@ -7,7 +7,8 @@ export function showLiveArchivePlayer(ui, session, onClose = () => {}) {
 
   if (!session.youtubeId) {
     const note = ui.document.createElement('p');
-    note.textContent = 'This archive slot is catalogued, but its playable media has not been attached yet.';
+    note.textContent =
+      'This archive slot is catalogued, but its playable media has not been attached yet.';
     ui.buttons.appendChild(note);
   } else {
     const frame = ui.document.createElement('iframe');

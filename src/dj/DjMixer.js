@@ -3,17 +3,65 @@ const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 export const DJ_TRACKS = [
   { id: 'glass-floor', label: 'Glass Floor · prototype tool', bpm: 128, energy: 0.72, key: 'Dm' },
   { id: '3am-tool', label: '3AM Tool · prototype tool', bpm: 128, energy: 0.82, key: 'Fm' },
-  { id: 'got-you-dancin', label: 'DJ Swisha × James Benjamin · Got U Dancin', bpm: 130, energy: 0.88, key: 'Gm', real: true },
-  { id: 'in-flux-just-be', label: 'James Benjamin × Jamvvis · Just Be', bpm: 126, energy: 0.7, key: 'Am', real: true },
-  { id: 'in-flux-breath', label: 'James Benjamin × Jamvvis · Breath', bpm: 126, energy: 0.68, key: 'Am', real: true },
-  { id: 'in-flux-break', label: 'James Benjamin × Jamvvis · Break', bpm: 126, energy: 0.76, key: 'Am', real: true },
-  { id: 'in-flux-gingele', label: 'James Benjamin × Jamvvis · Gingele', bpm: 126, energy: 0.74, key: 'Am', real: true },
+  {
+    id: 'got-you-dancin',
+    label: 'DJ Swisha × James Benjamin · Got U Dancin',
+    bpm: 130,
+    energy: 0.88,
+    key: 'Gm',
+    real: true,
+  },
+  {
+    id: 'in-flux-just-be',
+    label: 'James Benjamin × Jamvvis · Just Be',
+    bpm: 126,
+    energy: 0.7,
+    key: 'Am',
+    real: true,
+  },
+  {
+    id: 'in-flux-breath',
+    label: 'James Benjamin × Jamvvis · Breath',
+    bpm: 126,
+    energy: 0.68,
+    key: 'Am',
+    real: true,
+  },
+  {
+    id: 'in-flux-break',
+    label: 'James Benjamin × Jamvvis · Break',
+    bpm: 126,
+    energy: 0.76,
+    key: 'Am',
+    real: true,
+  },
+  {
+    id: 'in-flux-gingele',
+    label: 'James Benjamin × Jamvvis · Gingele',
+    bpm: 126,
+    energy: 0.74,
+    key: 'Am',
+    real: true,
+  },
   { id: 'atrakar', label: 'Jashim · ATRAKAR', bpm: 128, energy: 0.8, key: 'Cm', real: true },
   { id: 'dubki', label: 'Boogaloo Jones · Dubki', bpm: 124, energy: 0.66, key: 'Em', real: true },
-  { id: 'paharpur', label: 'Boogaloo Jones · Paharpur', bpm: 124, energy: 0.68, key: 'Em', real: true },
+  {
+    id: 'paharpur',
+    label: 'Boogaloo Jones · Paharpur',
+    bpm: 124,
+    energy: 0.68,
+    key: 'Em',
+    real: true,
+  },
   { id: 'fakir', label: 'Boogaloo Jones · Fakir', bpm: 124, energy: 0.7, key: 'Em', real: true },
   { id: 'bhab', label: 'Boogaloo Jones · Bhab', bpm: 124, energy: 0.72, key: 'Em', real: true },
-  { id: 'diet-cake', label: 'Beaver Sheppard · Diet Cake · media slot', bpm: 118, energy: 0.57, key: 'C' },
+  {
+    id: 'diet-cake',
+    label: 'Beaver Sheppard · Diet Cake · media slot',
+    bpm: 118,
+    energy: 0.57,
+    key: 'C',
+  },
 ];
 
 const trackById = (id) => DJ_TRACKS.find((track) => track.id === id) ?? DJ_TRACKS[0];
@@ -293,7 +341,9 @@ export class DjMixer {
     deck.step = 0;
     deck.nextTime = this.context.currentTime;
 
-    const buffer = this.audio.assets ? await this.audio.assets.audio(deck.trackId, this.context) : null;
+    const buffer = this.audio.assets
+      ? await this.audio.assets.audio(deck.trackId, this.context)
+      : null;
     if (!deck.playing) return false;
     if (buffer) {
       const source = this.context.createBufferSource();

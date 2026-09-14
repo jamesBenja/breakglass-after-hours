@@ -169,7 +169,8 @@ export function buildBelowFixtures(downScene) {
     [-7.0, 1.25, 3.0, 0x81719e],
   ]) {
     box(downScene, 0.24, 0.38, 0.2, mat(0x27242b), x, y, z);
-    cyl(downScene, 0.07, 0.035, mat(accent, 0.48, 0.1), x, y + 0.02, z - 0.115).rotation.x = Math.PI / 2;
+    cyl(downScene, 0.07, 0.035, mat(accent, 0.48, 0.1), x, y + 0.02, z - 0.115).rotation.x =
+      Math.PI / 2;
   }
 
   // Nora's actual captured images are mounted dynamically in six frames on this north wall.

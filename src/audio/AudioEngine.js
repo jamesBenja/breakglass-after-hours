@@ -232,8 +232,7 @@ export class AudioEngine {
       if (step % 4 === 0) this.kick(when);
       if (step % 2 === 1) this.hat(when);
       if (step % 8 === 0) this.chord(step % 16 ? 196 : 220, when);
-      if (step % 4 === 2)
-        this.tone(step % 8 === 2 ? 73.4 : 82.4, 0.25, 'sawtooth', 0.07, when);
+      if (step % 4 === 2) this.tone(step % 8 === 2 ? 73.4 : 82.4, 0.25, 'sawtooth', 0.07, when);
     } else {
       this.kick(when);
       if (step % 2) this.hat(when);
@@ -276,7 +275,10 @@ export class AudioEngine {
     return true;
   }
 
-  async playAsset(id, { owner = 'archive', label = id, loop = true, vibe = 0.28, baseVolume = 0.82 } = {}) {
+  async playAsset(
+    id,
+    { owner = 'archive', label = id, loop = true, vibe = 0.28, baseVolume = 0.82 } = {},
+  ) {
     if (!this.context || !this.assets?.entry?.(id)) return false;
     this.stop();
     const generation = this.generation;
