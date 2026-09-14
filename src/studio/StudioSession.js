@@ -73,6 +73,33 @@ export const DANCE_SHOES_STEMS = [
   },
 ];
 
+const normalizePerformance = (performance) => {
+  if (!performance || typeof performance !== 'object' || !Array.isArray(performance.events)) {
+    return null;
+  }
+  const events = performance.events.slice(0, 512).flatMap((event) => {
+    const time = clamp(Number(event?.time) || 0, 0, 120);
+    if (typeof event?.drum === 'string') {
+      return [{ time, drum: event.drum.slice(0, 24) }];
+    }
+    const midi = clamp(Math.round(Number(event?.midi) || 60), 24, 96);
+    const frequency = clamp(Number(event?.frequency) || 440, 25, 5000);
+    return [{ time, midi, frequency }];
+  });
+  return {
+    mode: typeof performance.mode === 'string' ? performance.mode.slice(0, 24) : 'synth',
+    label: typeof performance.label === 'string' ? performance.label.slice(0, 48) : 'Performance',
+    baseMidi: clamp(Math.round(Number(performance.baseMidi) || 48), 24, 84),
+    wave: typeof performance.wave === 'string' ? performance.wave.slice(0, 24) : 'triangle',
+    volume: clamp(Number(performance.volume) || 0.065, 0.01, 0.22),
+    noteDuration: clamp(Number(performance.noteDuration) || 0.42, 0.06, 1.5),
+    octaveLayer: performance.octaveLayer === true,
+    bpm: clamp(Number(performance.bpm) || 118, 50, 220),
+    duration: clamp(Number(performance.duration) || 0, 0, 120),
+    events,
+  };
+};
+
 const normalizeStem = (stem, index) => ({
   id: typeof stem.id === 'string' ? stem.id.slice(0, 32) : `stem-${index}`,
   label: typeof stem.label === 'string' ? stem.label.slice(0, 40) : `Stem ${index + 1}`,
@@ -82,6 +109,7 @@ const normalizeStem = (stem, index) => ({
   mute: stem.mute === true,
   assetId: typeof stem.assetId === 'string' ? stem.assetId.slice(0, 64) : null,
   source: typeof stem.source === 'string' ? stem.source.slice(0, 80) : 'session',
+  performance: normalizePerformance(stem.performance),
   processing:
     stem.processing && typeof stem.processing === 'object'
       ? {
@@ -181,6 +209,7 @@ export class StudioSession {
       mute: false,
       assetId: null,
       source,
+      performance: null,
       processing: processing ? { ...processing } : null,
     };
     this.stems.push(stem);
@@ -190,6 +219,13 @@ export class StudioSession {
 
   attachRecording(stemId, audioBuffer) {
     if (audioBuffer) this.recordings.set(stemId, audioBuffer);
+  }
+
+  attachPerformance(stemId, performance) {
+    const stem = this.stems.find((item) => item.id === stemId);
+    if (!stem) return false;
+    stem.performance = normalizePerformance(performance);
+    return !!stem.performance;
   }
 
   setLevel(id, value) {
@@ -219,6 +255,9 @@ export class StudioSession {
       setup: { ...this.setup },
       stems: this.stems.map((stem) => ({
         ...stem,
+        performance: stem.performance
+          ? { ...stem.performance, events: stem.performance.events.map((event) => ({ ...event })) }
+          : null,
         processing: stem.processing ? { ...stem.processing } : null,
       })),
       takeCounter: this.takeCounter,
