@@ -88,6 +88,8 @@ const defaults = () => ({
   maddoxAffection: 0,
   maddoxPets: 0,
   roofSecretUnlocked: false,
+  maddoxCompanion: false,
+  arcadeWins: 0,
   archiveTape: null,
   threadedTape: null,
   liveRoomArchive: null,
@@ -130,6 +132,8 @@ export function validateSave(value) {
   state.maddoxAffection = Math.max(0, Math.min(9, Math.floor(Number(value.maddoxAffection) || 0)));
   state.maddoxPets = Math.max(0, Math.min(999, Math.floor(Number(value.maddoxPets) || 0)));
   state.roofSecretUnlocked = value.roofSecretUnlocked === true;
+  state.maddoxCompanion = state.roofSecretUnlocked && value.maddoxCompanion === true;
+  state.arcadeWins = Math.max(0, Math.min(999, Math.floor(Number(value.arcadeWins) || 0)));
   if (ARCHIVE_TAPE_IDS.includes(value.archiveTape)) state.archiveTape = value.archiveTape;
   if (ARCHIVE_TAPE_IDS.includes(value.threadedTape)) state.threadedTape = value.threadedTape;
   if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive))
