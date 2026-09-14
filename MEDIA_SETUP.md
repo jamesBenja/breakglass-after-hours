@@ -1,14 +1,10 @@
-# Breakglass After Hours — local audio setup
+# Breakglass After Hours — runtime audio
 
-The game intentionally does **not** stream catalogue masters from Google Drive at runtime.
+The game intentionally serves Breakglass catalogue and studio playback from **same-origin public web copies** under `public/assets/audio`.
 
-Google Drive download URLs can return redirects / confirmation pages and generally do not behave like a stable CORS-enabled media CDN. That made real tracks fail to decode or start consistently in the DJ booth and Spectra console. The runtime manifest now points to same-origin files under `public/assets/audio`, which gives WebAudio reliable fetch/decode access and keeps the mixer, EQ, room filtering and spatial systems on one audio graph.
+Google Drive remains the source archive, but Drive download URLs are not used at runtime: redirects, confirmation pages and CORS behavior made them unreliable for WebAudio on mobile. The public playback copies are now committed with the game so iPhone/Safari, desktop browsers, the DJ decks and the Spectra console all resolve the same stable media URLs.
 
-## Install the supplied audio pack
-
-The downloadable pack is structured from the repository root. Unzip it directly into `breakglass-after-hours/` so the first directory you see is `public/`.
-
-After installation, these folders should exist:
+The deployed folders are:
 
 ```text
 public/assets/audio/catalog/
@@ -47,6 +43,6 @@ pnpm build
 
 ## Audio source policy
 
-Source WAVs / masters remain in the Breakglass Drive archive. The repository receives playback copies only. The current pack preserves existing MP3 catalogue files where available and makes 48 kHz / 192 kbps MP3 web copies for the large WAV-only material. The four Dance Shoes stems were exported with identical codec settings and matching lengths so they can launch together on separate Spectra console channels.
+Source WAVs / masters remain in the Breakglass Drive archive. The repository contains public playback copies only. Existing MP3 masters are preserved as supplied; WAV-only ATRAKAR and Dance Shoes material is represented by 48 kHz / 192 kbps MP3 web copies. The four Dance Shoes stems use identical codec settings and matching source lengths so they can launch together on separate Spectra console channels.
 
-Do not replace the local runtime paths in `src/assets/manifest.js` with Drive `uc?export=download` links. If the catalogue changes, make a new optimized web copy and update the manifest path instead.
+If catalogue media changes, update the optimized playback copy and keep the runtime path in `src/assets/manifest.js` same-origin. Do not replace these paths with Drive `uc?export=download` links.
