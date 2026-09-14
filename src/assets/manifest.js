@@ -1,4 +1,4 @@
-// Pending URLs intentionally do not trigger requests. Source archives stay in Drive.
+// Source masters and multitracks stay in Drive. Only optimized web copies belong in public/.
 // Paths are relative to Vite's public/base URL, e.g. assets/models/below.glb.
 export const assetManifest = {
   'upstairs-building': {
@@ -23,11 +23,37 @@ export const assetManifest = {
   'glass-floor': { type: 'audio', url: null, source: 'Synthesized V2.1 placeholder' },
   '3am-tool': { type: 'audio', url: null, source: 'Synthesized V2.1 placeholder' },
 
-  // Catalogue slots. Generated fallback loops make them playable now; replace `url` with
-  // optimized web audio exports when the approved masters/previews are prepared.
-  'got-you-dancin': { type: 'audio', url: null, source: 'Breakglass catalogue slot' },
+  // First approved catalogue master prepared from Drive as an optimized web copy.
+  'got-you-dancin': {
+    type: 'audio',
+    url: 'assets/audio/got-you-dancin.mp3',
+    source: 'DJ Swisha x James Benjamin - Got U Dancin master',
+  },
   'in-flux': { type: 'audio', url: null, source: 'Breakglass catalogue slot' },
   atrakar: { type: 'audio', url: null, source: 'Breakglass catalogue slot' },
   dubki: { type: 'audio', url: null, source: 'Breakglass catalogue slot' },
   'diet-cake': { type: 'audio', url: null, source: 'Breakglass catalogue slot' },
+
+  // Real multitrack demo session. These four files share the same start and duration so
+  // StudioPlayback can launch them sample-aligned into independent console channels.
+  'dance-shoes-drums': {
+    type: 'audio',
+    url: 'assets/audio/dance-shoes/drums.mp3',
+    source: 'DANCE SHOES BG MIX STEMS - drums',
+  },
+  'dance-shoes-bass': {
+    type: 'audio',
+    url: 'assets/audio/dance-shoes/bass.mp3',
+    source: 'DANCE SHOES BG MIX STEMS - bass',
+  },
+  'dance-shoes-synths-fx': {
+    type: 'audio',
+    url: 'assets/audio/dance-shoes/synths-fx.mp3',
+    source: 'DANCE SHOES BG MIX STEMS - synths and sound FX',
+  },
+  'dance-shoes-vox': {
+    type: 'audio',
+    url: 'assets/audio/dance-shoes/vox.mp3',
+    source: 'DANCE SHOES BG MIX STEMS - vocals',
+  },
 };
