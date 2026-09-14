@@ -5,6 +5,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   PointLight,
+  SphereGeometry,
 } from 'three';
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
@@ -17,11 +18,17 @@ const PRESETS = {
   blackout: { intensity: 0.05, pulse: 0, strobe: 0 },
 };
 
+const seeded = (index, salt = 0) => {
+  const x = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+
 /**
  * Lightweight, scene-local party lighting controller.
  *
- * It intentionally keeps lighting state separate from geometry and audio so a future
- * multiplayer room can synchronize only a small JSON-friendly lighting snapshot.
+ * Fog supplies the room-wide atmosphere. A small field of translucent moving puffs gives the
+ * haze control a visible smoke-machine source/volume without requiring an expensive volumetric
+ * renderer, keeping the effect practical on phones.
  */
 export class LightingRig {
   constructor(scene, config = {}) {
@@ -108,6 +115,44 @@ export class LightingRig {
       }
     }
 
+    this.hazePuffs = [];
+    this.hazeGeometry = new SphereGeometry(1, 8, 5);
+    const hazeVolume = config.hazeVolume ?? {
+      x1: -5.7,
+      x2: 5.7,
+      y1: 0.45,
+      y2: 2.55,
+      z1: -3.0,
+      z2: 3.0,
+      count: 18,
+    };
+    for (let i = 0; i < (hazeVolume.count ?? 18); i++) {
+      const material = new MeshBasicMaterial({
+        color: i % 3 === 0 ? 0xd9d7ff : 0xe6e9ed,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      });
+      const puff = new Mesh(this.hazeGeometry, material);
+      const x = hazeVolume.x1 + seeded(i, 41) * (hazeVolume.x2 - hazeVolume.x1);
+      const y = hazeVolume.y1 + seeded(i, 42) * (hazeVolume.y2 - hazeVolume.y1);
+      const z = hazeVolume.z1 + seeded(i, 43) * (hazeVolume.z2 - hazeVolume.z1);
+      const scale = 0.8 + seeded(i, 44) * 1.7;
+      puff.position.set(x, y, z);
+      puff.scale.set(scale * 1.6, scale * 0.48, scale * 1.2);
+      puff.visible = false;
+      this.group.add(puff);
+      this.hazePuffs.push({
+        puff,
+        material,
+        baseX: x,
+        baseY: y,
+        baseZ: z,
+        phase: seeded(i, 45) * Math.PI * 2,
+        speed: 0.18 + seeded(i, 46) * 0.32,
+      });
+    }
+
     this.applyPreset(config.preset ?? 'warmup');
     this.setHaze(config.haze ?? 0.22);
     this.setLasers(config.lasers ?? false);
@@ -121,16 +166,18 @@ export class LightingRig {
 
   setHaze(value) {
     this.haze = clamp(value);
-    if (!this.scene.fog) return;
-    // The old haze control only shortened the fog a little. This deliberately makes the
-    // top half of the range dramatic enough to read like a hazed club: beams appear solid,
-    // distant walls disappear and lighting gains depth.
-    const shaped = Math.pow(this.haze, 0.72);
-    this.scene.fog.near = Math.max(1.2, this.baseFog.near * (1 - shaped * 0.82));
-    this.scene.fog.far = Math.max(
-      this.scene.fog.near + 5.5,
-      this.baseFog.far + (this.hazeFar - this.baseFog.far) * shaped,
-    );
+    if (this.scene.fog) {
+      const shaped = Math.pow(this.haze, 0.72);
+      this.scene.fog.near = Math.max(1.2, this.baseFog.near * (1 - shaped * 0.82));
+      this.scene.fog.far = Math.max(
+        this.scene.fog.near + 5.5,
+        this.baseFog.far + (this.hazeFar - this.baseFog.far) * shaped,
+      );
+    }
+    for (const haze of this.hazePuffs) {
+      haze.puff.visible = this.haze > 0.035;
+      haze.material.opacity = Math.pow(this.haze, 1.15) * 0.105;
+    }
   }
 
   adjustHaze(delta) {
@@ -196,6 +243,16 @@ export class LightingRig {
         );
       }
     }
+
+    for (const haze of this.hazePuffs) {
+      const t = this.elapsed * haze.speed + haze.phase;
+      haze.puff.position.x = haze.baseX + Math.sin(t) * (0.32 + this.haze * 0.55);
+      haze.puff.position.z = haze.baseZ + Math.cos(t * 0.74) * (0.22 + this.haze * 0.38);
+      haze.puff.position.y = haze.baseY + Math.sin(t * 0.41) * 0.12;
+      haze.puff.rotation.y += dt * 0.08;
+      haze.material.opacity =
+        Math.pow(this.haze, 1.15) * (0.075 + (0.5 + 0.5 * Math.sin(t * 0.6)) * 0.055);
+    }
   }
 
   snapshot() {
@@ -215,6 +272,9 @@ export class LightingRig {
       laser.beam.geometry.dispose();
       laser.material.dispose();
     }
+    for (const haze of this.hazePuffs) haze.material.dispose();
+    this.hazeGeometry.dispose();
+    this.hazePuffs = [];
     this.laserPivots = [];
     this.fixtures = [];
     this.strobe = null;
