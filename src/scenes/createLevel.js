@@ -4,6 +4,7 @@ import { NpcSystem } from '../npcs/NpcSystem.js';
 import { CrowdSystem } from '../crowd/CrowdSystem.js';
 import { LightingRig } from '../lighting/LightingRig.js';
 import { AlleySystem } from '../alley/AlleySystem.js';
+import { RoofSystem } from '../roof/RoofSystem.js';
 import { disposeObject } from './disposeObject.js';
 
 export async function createLevel(definition, builders, assets) {
@@ -45,6 +46,7 @@ export async function createLevel(definition, builders, assets) {
   const crowd = definition.crowd ? new CrowdSystem(gameplay, definition.crowd) : null;
   const lighting = definition.lightingRig ? new LightingRig(scene, definition.lightingRig) : null;
   const alley = definition.alleySystem ? new AlleySystem(definition.alleySystem) : null;
+  const roof = definition.roofSystem ? new RoofSystem(gameplay, definition.roofSystem) : null;
   return {
     scene,
     definition,
@@ -56,6 +58,7 @@ export async function createLevel(definition, builders, assets) {
     crowd,
     lighting,
     alley,
+    roof,
     geometrySource: model ? 'model' : 'blockout',
     update(dt, audio) {
       const metrics =
@@ -71,8 +74,10 @@ export async function createLevel(definition, builders, assets) {
       crowd?.update(dt, metrics);
       lighting?.update(dt, metrics);
       alley?.update(dt, metrics);
+      roof?.update(dt, metrics);
     },
     dispose() {
+      roof?.dispose();
       lighting?.dispose();
       crowd?.dispose();
       npcs.dispose();
