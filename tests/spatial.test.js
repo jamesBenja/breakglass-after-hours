@@ -152,11 +152,12 @@ test('camera clears diagonal walls and recovers after a tight corridor orbit', (
   assert.ok(camera.clearance > 5);
 });
 
-test('optional four-hop route reaches the polygon roof and descends by the same overlook path', () => {
+test('optional overlook reaches the wall ledge while the Neve Suite remains open-topped', () => {
   const level = createUpstairsDefinition('B'),
     world = new CollisionWorld(level.navigation),
     player = new PlayerController(),
     camera = new FollowCamera(16 / 9);
+  assert.equal(level.navigation.surfaces.some((surface) => surface.id === 'polygon-perch'), false);
   player.spawn(waypoints.live, world);
   camera.configure(level.cameraOffset, player.position, world);
   for (const [x, y, z, jump] of overlookRoute) {
@@ -188,7 +189,7 @@ test('optional four-hop route reaches the polygon roof and descends by the same 
       `hop ${x},${y},${z} blocked: ${player.position.toArray()} / ${player.collisionTarget}`,
     );
   }
-  assert.equal(player.groundTarget, 'polygon-perch');
+  assert.equal(player.groundTarget, 'polygon-hop-ledge');
 
   for (const [x, y, z] of [...overlookRoute].reverse().slice(1)) {
     let landed = false;
