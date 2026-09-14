@@ -1,7 +1,8 @@
 /** Operates only on the active level; ignores out-of-range candidates individually. */
 export class InteractionSystem {
-  constructor(dispatch) {
+  constructor(dispatch, state = null) {
     this.dispatch = dispatch;
+    this.state = state;
     this.level = null;
     this.definition = null;
   }
@@ -11,15 +12,23 @@ export class InteractionSystem {
     this.definition = level?.definition ?? level ?? null;
   }
 
+  unlocked(anchor) {
+    if (!anchor.requires) return true;
+    const value = this.state?.data?.[anchor.requires] ?? this.state?.[anchor.requires];
+    return value === true;
+  }
+
   candidates() {
     const result = [];
     for (const [id, anchor] of Object.entries(this.definition?.anchors ?? {})) {
+      if (!this.unlocked(anchor)) continue;
       // Once a named NPC is a real roaming actor, do not leave a ghost interaction at its
       // original authoring anchor.
       if (anchor.action === 'dialogue' && this.level?.npcs?.has?.(id)) continue;
       result.push({ id, ...anchor });
     }
     result.push(...(this.level?.npcs?.interactionTargets?.() ?? []));
+    result.push(...(this.level?.maddox?.interactionTargets?.() ?? []));
     return result;
   }
 
