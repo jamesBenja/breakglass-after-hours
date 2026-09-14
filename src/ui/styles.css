@@ -219,6 +219,34 @@ kbd {
   border-radius: 6px;
   color: #ccc;
 }
+#uiToggle {
+  position: fixed;
+  z-index: 14;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  min-height: 36px;
+  padding: 7px 10px;
+  background: rgba(12, 12, 14, 0.84);
+  border-color: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(8px);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  -webkit-tap-highlight-color: transparent;
+}
+#gate:not([hidden]) ~ #uiToggle {
+  display: none;
+}
+body.ui-minimal #hud,
+body.ui-minimal #panel,
+body.ui-minimal #floorTag,
+body.ui-minimal #debug {
+  display: none !important;
+}
+body.performance-active.ui-minimal #panel {
+  display: block !important;
+}
 #transition {
   position: fixed;
   inset: 0;
@@ -345,6 +373,13 @@ canvas:focus {
   }
   #floorTag {
     bottom: calc(146px + env(safe-area-inset-bottom));
+  }
+  #uiToggle {
+    left: auto;
+    right: max(8px, env(safe-area-inset-right));
+    top: max(8px, env(safe-area-inset-top));
+    transform: none;
+    min-height: 34px;
   }
   .avatar-grid {
     grid-template-columns: 1fr;
