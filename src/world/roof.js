@@ -8,6 +8,10 @@ const anchor = (name, position, radius, action, extra = {}) => ({
   ...extra,
 });
 
+// The hatch/bulkhead is deliberately solid. Spawn just east of it on the deck rather than
+// inside the collision volume, so arrival from the secret studio passage is always valid.
+const HATCH_APPROACH = [-3.85, 0, -2.72];
+
 export const roofLevel = {
   id: 'roof',
   title: 'ROOF — BREAKGLASS FOUNDERS HANGOUT',
@@ -35,9 +39,9 @@ export const roofLevel = {
     { color: 0x768ca6, intensity: 1.8, distance: 12, position: [4, 2.6, 3.8] },
   ],
   spawns: {
-    start: [-5.65, 0, -2.7],
-    hatch: [-5.65, 0, -2.7],
-    stairs: [-5.65, 0, -2.7],
+    start: HATCH_APPROACH,
+    hatch: HATCH_APPROACH,
+    stairs: HATCH_APPROACH,
   },
   intro: [
     'THE ROOF',
@@ -55,7 +59,7 @@ export const roofLevel = {
     ],
   },
   anchors: {
-    hatch: anchor('Hidden hatch back to the studio', [-5.65, 0, -2.45], 1.55, 'travel', {
+    hatch: anchor('Hidden hatch back to the studio', HATCH_APPROACH, 1.55, 'travel', {
       target: 'upstairs@roofReturn',
     }),
   },
