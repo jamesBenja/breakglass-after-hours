@@ -1,6 +1,8 @@
 import './ui/styles.css';
 import './ui/mobilePerformance.css';
+import './ui/mobileMixing.css';
 import './ui/arcade.css';
+import './ui/mobileMixerEnhancements.js';
 import { Game } from './core/Game.js';
 import { Hud } from './ui/Hud.js';
 
