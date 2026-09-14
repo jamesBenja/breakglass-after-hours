@@ -1,12 +1,17 @@
 .underground-kombat {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 10000;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   gap: 8px;
-  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
-    max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  overflow: hidden;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   box-sizing: border-box;
   background: #050407;
   color: #f5f1f5;
@@ -19,13 +24,19 @@
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  overscroll-behavior: none;
 }
 
 .kombat-topbar {
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+}
+
+.kombat-topbar > div {
+  min-width: 0;
 }
 
 .kombat-topbar strong,
@@ -34,8 +45,11 @@
 }
 
 .kombat-topbar strong {
-  font-size: clamp(13px, 2.5vw, 19px);
-  letter-spacing: 0.08em;
+  overflow: hidden;
+  font-size: clamp(12px, 2.5vw, 19px);
+  letter-spacing: 0.07em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kombat-topbar span {
@@ -49,18 +63,21 @@
 .kombat-exit {
   flex: 0 0 auto;
   min-height: 38px;
+  padding: 7px 9px;
   border-color: #80516e;
   background: #23141f;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
+  touch-action: manipulation;
 }
 
 .kombat-canvas {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 230px;
+  min-width: 0;
+  min-height: 0;
   border: 1px solid #4a314d;
   border-radius: 10px;
   background: #08070b;
@@ -70,17 +87,26 @@
 
 .kombat-status {
   min-height: 18px;
+  overflow: hidden;
   text-align: center;
   color: #d8c3d7;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.035em;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kombat-controls {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
+  width: 100%;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .kombat-controls button {
@@ -88,14 +114,24 @@
   min-height: 52px;
   padding: 5px 3px;
   border: 1px solid #665269;
-  border-radius: 9px;
+  border-radius: 10px;
   background: #17131a;
   color: #f4edf3;
   font-size: 9px;
   font-weight: 850;
   letter-spacing: 0.03em;
+  line-height: 1.05;
+  pointer-events: auto;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+.kombat-controls button[data-action='left'],
+.kombat-controls button[data-action='right'],
+.kombat-controls button[data-action='jump'],
+.kombat-controls button[data-action='block'] {
+  border-color: #547080;
+  background: #141d22;
 }
 
 .kombat-controls button[data-action='light'],
@@ -110,14 +146,88 @@
   background: #332515;
 }
 
-.kombat-controls button.pressed {
+.kombat-controls button.pressed,
+.kombat-controls button:active {
   transform: translateY(1px) scale(0.97);
   background: #514157;
+}
+
+/* Phone layout: four large utility controls above three large attacks. Keeping the controls
+   inside the dynamic viewport prevents Safari's bottom chrome from covering them. */
+@media (max-width: 759px), (hover: none) and (pointer: coarse) {
+  .underground-kombat {
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    gap: 5px;
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-right: max(6px, env(safe-area-inset-right));
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    padding-left: max(6px, env(safe-area-inset-left));
+  }
+
+  .kombat-topbar span {
+    display: none;
+  }
+
+  .kombat-status {
+    min-height: 16px;
+    font-size: 9px;
+    line-height: 16px;
+  }
+
+  .kombat-controls {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(52px, auto));
+    gap: 6px;
+  }
+
+  .kombat-controls button {
+    min-height: 52px;
+    font-size: 10px;
+  }
+
+  .kombat-controls button[data-action='left'] {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .kombat-controls button[data-action='right'] {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .kombat-controls button[data-action='jump'] {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .kombat-controls button[data-action='block'] {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .kombat-controls button[data-action='light'] {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .kombat-controls button[data-action='heavy'] {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .kombat-controls button[data-action='special'] {
+    grid-column: 3 / 5;
+    grid-row: 2;
+  }
 }
 
 @media (min-width: 760px) {
   .underground-kombat {
     padding: 16px;
+  }
+
+  .kombat-canvas {
+    min-height: 230px;
   }
 
   .kombat-controls {
@@ -132,15 +242,20 @@
 
 @media (hover: hover) and (pointer: fine) {
   .kombat-controls {
-    opacity: 0.82;
+    opacity: 0.9;
   }
 }
 
 @media (orientation: landscape) and (max-height: 560px) {
   .underground-kombat {
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 4px;
-    padding-top: max(5px, env(safe-area-inset-top));
-    padding-bottom: max(5px, env(safe-area-inset-bottom));
+    padding-top: max(4px, env(safe-area-inset-top));
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+
+  .kombat-topbar strong {
+    font-size: 11px;
   }
 
   .kombat-topbar span,
@@ -148,7 +263,18 @@
     display: none;
   }
 
+  .kombat-exit {
+    min-height: 32px;
+    padding: 5px 8px;
+  }
+
+  .kombat-controls {
+    grid-template-rows: repeat(2, minmax(40px, auto));
+    gap: 4px;
+  }
+
   .kombat-controls button {
     min-height: 40px;
+    font-size: 9px;
   }
 }
