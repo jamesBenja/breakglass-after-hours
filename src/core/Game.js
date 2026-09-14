@@ -5,6 +5,7 @@ import { normalizeAvatar } from '../avatar/profile.js';
 import { AudioEngine } from '../audio/AudioEngine.js';
 import { SpatialAudioSystem } from '../audio/SpatialAudioSystem.js';
 import { DjMixer } from '../dj/DjMixer.js';
+import { BarServiceSystem } from '../gameplay/BarServiceSystem.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { InputController } from '../player/InputController.js';
 import { FollowCamera } from '../player/FollowCamera.js';
@@ -115,26 +116,36 @@ export class Game {
       saveState: () => this.save(),
     });
 
+    this.barService = new BarServiceSystem({
+      state: this.state,
+      player: this.player,
+      ui,
+      sceneManager: this.sceneManager,
+      saveState: () => this.save(),
+    });
+
     const canAct = () => this.started && !this.sceneManager.changing && !document.hidden;
-    this.interactions = new InteractionSystem(
-      createActions({
-        audio: this.audio,
-        spatialAudio: this.spatialAudio,
-        sceneManager: this.sceneManager,
-        player: this.player,
-        ui,
-        state: this.state,
-        studio: this.studio,
-        studioPlayback: this.studioPlayback,
-        micRecorder: this.micRecorder,
-        keyboardPerformance: this.keyboardPerformance,
-        photos: this.photos,
-        dj: this.dj,
-        stopAll: this.stopAll,
-        saveState: () => this.save(),
-        canAct,
-      }),
-    );
+    const baseActions = createActions({
+      audio: this.audio,
+      spatialAudio: this.spatialAudio,
+      sceneManager: this.sceneManager,
+      player: this.player,
+      ui,
+      state: this.state,
+      studio: this.studio,
+      studioPlayback: this.studioPlayback,
+      micRecorder: this.micRecorder,
+      keyboardPerformance: this.keyboardPerformance,
+      photos: this.photos,
+      dj: this.dj,
+      stopAll: this.stopAll,
+      saveState: () => this.save(),
+      canAct,
+    });
+    this.interactions = new InteractionSystem((target) => {
+      if (this.barService.handle(target)) return;
+      baseActions(target);
+    });
     this.onResize = () => {
       this.camera.resize(innerWidth, innerHeight);
       this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -177,6 +188,7 @@ export class Game {
       this.state.data.avatar = normalizeAvatar(avatarProfile ?? this.state.data.avatar);
       this.state.data.avatarConfigured = true;
       this.player.applyAvatar(this.state.data.avatar);
+      this.player.setIntoxication(this.state.data.intoxication);
       try {
         await this.audio.init();
       } catch {
@@ -230,6 +242,7 @@ export class Game {
       } else {
         this.input.clear();
       }
+      this.barService.update(dt);
       this.dj.update(dt);
       this.sceneManager.current.update(dt, this.audio);
       this.saveElapsed += dt;
