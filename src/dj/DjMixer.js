@@ -1,13 +1,19 @@
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
 export const DJ_TRACKS = [
-  { id: 'glass-floor', label: 'Glass Floor', bpm: 128, energy: 0.72, key: 'Dm' },
-  { id: '3am-tool', label: '3AM Tool', bpm: 128, energy: 0.82, key: 'Fm' },
-  { id: 'got-you-dancin', label: 'Got You Dancin', bpm: 130, energy: 0.88, key: 'Gm' },
-  { id: 'in-flux', label: 'In-Flux', bpm: 126, energy: 0.7, key: 'Am' },
-  { id: 'atrakar', label: 'Atrakar', bpm: 132, energy: 0.8, key: 'Cm' },
-  { id: 'dubki', label: 'Dubki', bpm: 124, energy: 0.66, key: 'Em' },
-  { id: 'diet-cake', label: 'Diet Cake', bpm: 118, energy: 0.57, key: 'C' },
+  { id: 'glass-floor', label: 'Glass Floor · prototype tool', bpm: 128, energy: 0.72, key: 'Dm' },
+  { id: '3am-tool', label: '3AM Tool · prototype tool', bpm: 128, energy: 0.82, key: 'Fm' },
+  { id: 'got-you-dancin', label: 'DJ Swisha × James Benjamin · Got U Dancin', bpm: 130, energy: 0.88, key: 'Gm', real: true },
+  { id: 'in-flux-just-be', label: 'James Benjamin × Jamvvis · Just Be', bpm: 126, energy: 0.7, key: 'Am', real: true },
+  { id: 'in-flux-breath', label: 'James Benjamin × Jamvvis · Breath', bpm: 126, energy: 0.68, key: 'Am', real: true },
+  { id: 'in-flux-break', label: 'James Benjamin × Jamvvis · Break', bpm: 126, energy: 0.76, key: 'Am', real: true },
+  { id: 'in-flux-gingele', label: 'James Benjamin × Jamvvis · Gingele', bpm: 126, energy: 0.74, key: 'Am', real: true },
+  { id: 'atrakar', label: 'Jashim · ATRAKAR', bpm: 128, energy: 0.8, key: 'Cm', real: true },
+  { id: 'dubki', label: 'Boogaloo Jones · Dubki', bpm: 124, energy: 0.66, key: 'Em', real: true },
+  { id: 'paharpur', label: 'Boogaloo Jones · Paharpur', bpm: 124, energy: 0.68, key: 'Em', real: true },
+  { id: 'fakir', label: 'Boogaloo Jones · Fakir', bpm: 124, energy: 0.7, key: 'Em', real: true },
+  { id: 'bhab', label: 'Boogaloo Jones · Bhab', bpm: 124, energy: 0.72, key: 'Em', real: true },
+  { id: 'diet-cake', label: 'Beaver Sheppard · Diet Cake · media slot', bpm: 118, energy: 0.57, key: 'C' },
 ];
 
 const trackById = (id) => DJ_TRACKS.find((track) => track.id === id) ?? DJ_TRACKS[0];
@@ -25,22 +31,27 @@ function createDeckState(id, trackId) {
     nextTime: 0,
     timer: null,
     source: null,
+    media: null,
     nodes: null,
     voices: new Set(),
   };
 }
 
 /**
- * Two real WebAudio deck buses with constant-power crossfade, basic EQ and sync.
- * Catalogue files can replace the generated fallback patterns without changing the UI/state.
+ * Two WebAudio deck buses with constant-power crossfade, basic EQ and sync.
+ *
+ * Real catalogue files first try decodeAudioData so they get the full EQ path. Remote Drive
+ * sources can deny CORS to fetch(); in that case a native HTMLAudio stream is used so the real
+ * recording still plays, with tempo, deck level and crossfader retained. EQ remains a WebAudio-
+ * only control until the catalogue is mirrored to same-origin optimized files.
  */
 export class DjMixer {
   constructor(audio, timers = globalThis) {
     this.audio = audio;
     this.timers = timers;
     this.decks = {
-      A: createDeckState('A', 'glass-floor'),
-      B: createDeckState('B', '3am-tool'),
+      A: createDeckState('A', 'got-you-dancin'),
+      B: createDeckState('B', 'in-flux-just-be'),
     };
     this.crossfader = -0.72;
     this.elapsed = 0;
@@ -72,12 +83,27 @@ export class DjMixer {
     return deck.nodes;
   }
 
+  nativeCrossGain(deckId) {
+    const x = (clamp(this.crossfader, -1, 1) + 1) / 2;
+    return deckId === 'A' ? Math.cos(x * Math.PI * 0.5) : Math.sin(x * Math.PI * 0.5);
+  }
+
+  updateNativeDeckLevels() {
+    const environment = this.audio.environment?.gain ?? 1;
+    for (const [deckId, deck] of Object.entries(this.decks)) {
+      if (!deck.media) continue;
+      deck.media.volume = clamp(deck.level * this.nativeCrossGain(deckId) * environment * 0.92);
+    }
+  }
+
   updateDeckNodes(deck) {
-    if (!deck.nodes || !this.context) return;
-    const now = this.context.currentTime;
-    deck.nodes.level.gain.setTargetAtTime(clamp(deck.level), now, 0.02);
-    deck.nodes.low.gain.setTargetAtTime(clamp(deck.low, -1, 1) * 15, now, 0.03);
-    deck.nodes.high.gain.setTargetAtTime(clamp(deck.high, -1, 1) * 15, now, 0.03);
+    if (deck.nodes && this.context) {
+      const now = this.context.currentTime;
+      deck.nodes.level.gain.setTargetAtTime(clamp(deck.level), now, 0.02);
+      deck.nodes.low.gain.setTargetAtTime(clamp(deck.low, -1, 1) * 15, now, 0.03);
+      deck.nodes.high.gain.setTargetAtTime(clamp(deck.high, -1, 1) * 15, now, 0.03);
+    }
+    this.updateNativeDeckLevels();
   }
 
   updateCrossfader() {
@@ -88,6 +114,7 @@ export class DjMixer {
       this.decks.A.nodes.cross.gain.setTargetAtTime(gainA, this.context.currentTime, 0.018);
     if (this.decks.B.nodes && this.context)
       this.decks.B.nodes.cross.gain.setTargetAtTime(gainB, this.context.currentTime, 0.018);
+    this.updateNativeDeckLevels();
   }
 
   load(deckId, trackId) {
@@ -128,6 +155,8 @@ export class DjMixer {
     if (!deck) return;
     const base = trackById(deck.trackId).bpm;
     deck.bpm = clamp(Number(bpm) || base, base * 0.92, base * 1.08);
+    if (deck.source?.playbackRate) deck.source.playbackRate.value = deck.bpm / base;
+    if (deck.media) deck.media.playbackRate = deck.bpm / base;
     this.updateVibe();
   }
 
@@ -135,7 +164,7 @@ export class DjMixer {
     const deck = this.decks[deckId];
     const other = this.decks[deckId === 'A' ? 'B' : 'A'];
     if (!deck || !other) return;
-    deck.bpm = other.bpm;
+    this.setBpm(deckId, other.bpm);
     if (other.playing && this.context) {
       deck.step = other.step;
       deck.nextTime = other.nextTime;
@@ -233,6 +262,29 @@ export class DjMixer {
     }
   }
 
+  async playNativeMedia(deck) {
+    const url = this.audio.assets?.mediaUrl?.(deck.trackId);
+    if (!url || typeof Audio === 'undefined') return false;
+    const media = new Audio();
+    media.preload = 'auto';
+    media.loop = true;
+    media.playsInline = true;
+    media.src = url;
+    media.playbackRate = deck.bpm / trackById(deck.trackId).bpm;
+    deck.media = media;
+    this.updateNativeDeckLevels();
+    try {
+      await media.play();
+      return true;
+    } catch {
+      deck.media = null;
+      media.pause();
+      media.removeAttribute('src');
+      media.load?.();
+      return false;
+    }
+  }
+
   async playDeck(deckId) {
     const deck = this.decks[deckId];
     if (!deck || !this.context || deck.playing) return false;
@@ -241,9 +293,7 @@ export class DjMixer {
     deck.step = 0;
     deck.nextTime = this.context.currentTime;
 
-    const buffer = this.audio.assets
-      ? await this.audio.assets.audio(deck.trackId, this.context)
-      : null;
+    const buffer = this.audio.assets ? await this.audio.assets.audio(deck.trackId, this.context) : null;
     if (!deck.playing) return false;
     if (buffer) {
       const source = this.context.createBufferSource();
@@ -258,7 +308,7 @@ export class DjMixer {
       };
       deck.source = source;
       source.start();
-    } else {
+    } else if (!(await this.playNativeMedia(deck))) {
       const schedule = () => {
         if (!deck.playing || !this.context || this.context.state !== 'running') return;
         deck.nextTime = Math.max(deck.nextTime, this.context.currentTime);
@@ -291,6 +341,12 @@ export class DjMixer {
       }
       deck.source.disconnect();
       deck.source = null;
+    }
+    if (deck.media) {
+      deck.media.pause();
+      deck.media.removeAttribute('src');
+      deck.media.load?.();
+      deck.media = null;
     }
     for (const source of deck.voices) {
       source.onended = null;
@@ -351,7 +407,11 @@ export class DjMixer {
           ? this.decks.A.bpm
           : this.decks.B.bpm;
     const interval = 60 / activeBpm / 4;
-    const label = `DJ mix · ${trackById(this.decks.A.trackId).label} / ${trackById(this.decks.B.trackId).label}`;
+    const activeLabels = Object.values(this.decks)
+      .filter((deck) => deck.playing)
+      .map((deck) => trackById(deck.trackId).label)
+      .join(' / ');
+    const label = `DJ mix · ${activeLabels}`;
     if (this.audio.externalTransports?.has('dj'))
       this.audio.updateExternalTransport('dj', { label, interval, ...metrics });
     else this.audio.setExternalTransport?.('dj', label, interval, metrics);
@@ -359,6 +419,7 @@ export class DjMixer {
 
   update(dt) {
     this.elapsed += dt;
+    this.updateNativeDeckLevels();
     this.updateVibe();
   }
 
@@ -382,6 +443,7 @@ export class DjMixer {
             low: deck.low,
             high: deck.high,
             bpm: deck.bpm,
+            nativeStream: !!deck.media,
           },
         ]),
       ),
