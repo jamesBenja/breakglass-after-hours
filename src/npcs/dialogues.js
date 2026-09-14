@@ -7,4 +7,8 @@ export const dialogues = {
     title: 'DEVIN · SOUND SYSTEM TECH',
     text: '“I’m listening. Something in this corner is bothering me. Also, do you have any candy?”',
   },
+  bouncer: {
+    title: 'DOOR',
+    text: '“You’re good. Head in when you’re ready. And please keep it down if you come back outside.”',
+  },
 };
