@@ -39,9 +39,9 @@ export class SceneManager {
     this.enter(id, 'start', position);
   }
 
-  request(id) {
+  request(id, spawn = 'stairs') {
     if (this.changing || !this.scenes.has(id) || this.current?.definition.id === id) return false;
-    this.pending = id;
+    this.pending = { id, spawn };
     this.phase = 'out';
     this.remaining = 0.3;
     this.onFade(true);
@@ -53,7 +53,7 @@ export class SceneManager {
     this.remaining -= dt;
     if (this.remaining > 1e-8) return;
     if (this.phase === 'out') {
-      this.enter(this.pending);
+      this.enter(this.pending.id, this.pending.spawn);
       this.pending = null;
       this.phase = 'in';
       this.remaining = 0.06;
