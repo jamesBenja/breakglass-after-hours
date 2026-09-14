@@ -215,7 +215,12 @@ test('optional four-hop route reaches the polygon roof and descends by the same 
     );
   }
 
-  follow(player, world, ['live', 'galleryNE', 'galleryE', 'gallerySE', 'eastJunction', 'entry'], camera);
+  follow(
+    player,
+    world,
+    ['live', 'galleryNE', 'galleryE', 'gallerySE', 'eastJunction', 'entry'],
+    camera,
+  );
   assert.equal(player.grounded, true);
   assert.equal(player.position.y, 0);
   player.dispose();

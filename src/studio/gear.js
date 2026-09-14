@@ -55,4 +55,5 @@ export const PROCESSORS = {
   ],
 };
 
-export const gearById = (collection, id) => collection.find((item) => item.id === id) ?? collection[0];
+export const gearById = (collection, id) =>
+  collection.find((item) => item.id === id) ?? collection[0];

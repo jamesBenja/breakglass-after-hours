@@ -152,7 +152,16 @@ export function buildStudioEquipment(root, definition) {
       }
       for (let meter = 0; meter < 8; meter++) {
         box(group, 0.3, 0.18, 0.018, navy, -w / 2 + 0.34 + meter * 0.41, 1.25, d / 2 - 0.255);
-        box(group, 0.018, 0.11, 0.02, lamp, -w / 2 + 0.34 + meter * 0.41, 1.25, d / 2 - 0.267).rotation.z = 0.22;
+        box(
+          group,
+          0.018,
+          0.11,
+          0.02,
+          lamp,
+          -w / 2 + 0.34 + meter * 0.41,
+          1.25,
+          d / 2 - 0.267,
+        ).rotation.z = 0.22;
       }
       label(root, 'HISTORIC NEVE', group.position.x, 2.0, group.position.z, 0.38, '#dbe7e1');
     } else if (fixture.id.startsWith('neve-monitor-')) {
@@ -165,9 +174,26 @@ export function buildStudioEquipment(root, definition) {
     } else if (fixture.id === 'neve-side-rack') {
       box(group, w, 1.72, d, wood, 0, 0.86, 0);
       for (let i = 0; i < 8; i++) {
-        box(group, w - 0.1, 0.16, 0.06, i % 3 ? neveBlue : neveGrey, 0, 0.17 + i * 0.19, -d / 2 - 0.01);
+        box(
+          group,
+          w - 0.1,
+          0.16,
+          0.06,
+          i % 3 ? neveBlue : neveGrey,
+          0,
+          0.17 + i * 0.19,
+          -d / 2 - 0.01,
+        );
         for (let k = 0; k < 3; k++)
-          cyl(group, 0.022, 0.04, k === 0 ? lamp : cream, -0.19 + k * 0.19, 0.17 + i * 0.19, -d / 2 - 0.05).rotation.x = Math.PI / 2;
+          cyl(
+            group,
+            0.022,
+            0.04,
+            k === 0 ? lamp : cream,
+            -0.19 + k * 0.19,
+            0.17 + i * 0.19,
+            -d / 2 - 0.05,
+          ).rotation.x = Math.PI / 2;
       }
     } else if (fixture.id === 'neve-tape-machine') {
       box(group, w, 1.62, d, MAT.metal, 0, 0.81, 0);

@@ -182,7 +182,8 @@ export const centralSuite = {
   y2: 4.1,
   points: centralSuitePoints,
   label: at(428, 851, 4.5),
-  confidence: 'A-103 footprint / historical Neve use supplied by Breakglass / GAME gallery clearance',
+  confidence:
+    'A-103 footprint / historical Neve use supplied by Breakglass / GAME gallery clearance',
 };
 
 export const closedSuites = [

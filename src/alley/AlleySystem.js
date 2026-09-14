@@ -42,7 +42,8 @@ export class AlleySystem {
   }
 
   warningText() {
-    if (this.staffWarningLevel >= 2) return 'Keep it down out here. Neighbours are sleeping. Bring the energy back inside.';
+    if (this.staffWarningLevel >= 2)
+      return 'Keep it down out here. Neighbours are sleeping. Bring the energy back inside.';
     if (this.staffWarningLevel === 1) return 'Quiet in the alley, please. Voices carry.';
     return 'It is calm outside. Club bass is bleeding through the door, but the alley is mostly conversation.';
   }

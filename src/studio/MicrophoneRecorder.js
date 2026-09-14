@@ -54,7 +54,8 @@ export class MicrophoneRecorder {
     if (!this.recorder || this.recorder.state !== 'recording') return null;
     const recorder = this.recorder;
     const done = new Promise((resolve, reject) => {
-      recorder.onerror = (event) => reject(event.error ?? new Error('Microphone recording failed.'));
+      recorder.onerror = (event) =>
+        reject(event.error ?? new Error('Microphone recording failed.'));
       recorder.onstop = resolve;
     });
     recorder.stop();

@@ -53,7 +53,11 @@ export class PlayerController {
     this.hairMaterial.color.setHex(avatarPalette.hair[this.avatar.hair]);
 
     const bodyScale =
-      this.avatar.body === 'slim' ? [0.88, 1.02, 0.88] : this.avatar.body === 'broad' ? [1.13, 1.0, 1.08] : [1, 1, 1];
+      this.avatar.body === 'slim'
+        ? [0.88, 1.02, 0.88]
+        : this.avatar.body === 'broad'
+          ? [1.13, 1.0, 1.08]
+          : [1, 1, 1];
     this.body.scale.set(...bodyScale);
     this.head.scale.setScalar(this.avatar.body === 'broad' ? 1.04 : 1);
 

@@ -241,7 +241,9 @@ export class DjMixer {
     deck.step = 0;
     deck.nextTime = this.context.currentTime;
 
-    const buffer = this.audio.assets ? await this.audio.assets.audio(deck.trackId, this.context) : null;
+    const buffer = this.audio.assets
+      ? await this.audio.assets.audio(deck.trackId, this.context)
+      : null;
     if (!deck.playing) return false;
     if (buffer) {
       const source = this.context.createBufferSource();
@@ -306,7 +308,7 @@ export class DjMixer {
   phase(deck) {
     if (!deck.playing || !this.context) return 0;
     const beat = 60 / deck.bpm;
-    return ((this.context.currentTime % beat) + beat) % beat / beat;
+    return (((this.context.currentTime % beat) + beat) % beat) / beat;
   }
 
   metrics() {

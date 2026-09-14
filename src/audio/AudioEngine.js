@@ -53,10 +53,7 @@ export class AudioEngine {
     this.externalTransports.set(owner, {
       ...current,
       ...patch,
-      vibe:
-        patch.vibe == null
-          ? current.vibe
-          : Math.max(0, Math.min(1, Number(patch.vibe) || 0)),
+      vibe: patch.vibe == null ? current.vibe : Math.max(0, Math.min(1, Number(patch.vibe) || 0)),
       mixQuality:
         patch.mixQuality == null
           ? current.mixQuality

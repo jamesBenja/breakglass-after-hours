@@ -20,7 +20,10 @@ export const dialogues = {
     text: '“Pick the weird option. We can always make it normal later.”',
   },
   jashim: { title: 'JASHIM', text: '“We should make something upstairs and test it down here.”' },
-  courtney: { title: 'COURTNEY · BAR', text: '“Bar is open. Do you want water or are you looking for a drink ticket?”' },
+  courtney: {
+    title: 'COURTNEY · BAR',
+    text: '“Bar is open. Do you want water or are you looking for a drink ticket?”',
+  },
   simla: { title: 'SIMLA · BAR', text: '“Hydrate too. You have a whole night ahead of you.”' },
   devin: {
     title: 'DEVIN · SOUND SYSTEM TECH',

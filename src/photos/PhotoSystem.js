@@ -1,10 +1,4 @@
-import {
-  PerspectiveCamera,
-  PointLight,
-  SRGBColorSpace,
-  Vector3,
-  WebGLRenderTarget,
-} from 'three';
+import { PerspectiveCamera, PointLight, SRGBColorSpace, Vector3, WebGLRenderTarget } from 'three';
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 

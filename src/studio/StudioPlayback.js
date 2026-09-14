@@ -67,7 +67,8 @@ export class StudioPlayback {
     high.gain.value = 0;
     const compressor = context.createDynamicsCompressor();
     const fader = context.createGain();
-    const pan = typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
+    const pan =
+      typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
     input.connect(color);
     color.connect(low);
     low.connect(high);
@@ -225,7 +226,10 @@ export class StudioPlayback {
     const bus = this.ensureBus(stem).input;
     const sourceBpm = performance.bpm || this.bpm;
     const stepDuration = 60 / sourceBpm / 4;
-    const loopSteps = Math.max(16, Math.min(256, Math.ceil((performance.duration || 4) / stepDuration)));
+    const loopSteps = Math.max(
+      16,
+      Math.min(256, Math.ceil((performance.duration || 4) / stepDuration)),
+    );
     const current = step % loopSteps;
     for (const event of performance.events) {
       const eventStep = Math.round((event.time || 0) / stepDuration) % loopSteps;
@@ -240,11 +244,16 @@ export class StudioPlayback {
         when,
       });
       if (performance.octaveLayer) {
-        this.oscillator((event.frequency || 440) * 2, (performance.noteDuration || 0.42) * 0.72, bus, {
-          type: 'triangle',
-          volume: (performance.volume || 0.065) * 0.22,
-          when: when + 0.012,
-        });
+        this.oscillator(
+          (event.frequency || 440) * 2,
+          (performance.noteDuration || 0.42) * 0.72,
+          bus,
+          {
+            type: 'triangle',
+            volume: (performance.volume || 0.065) * 0.22,
+            when: when + 0.012,
+          },
+        );
       }
     }
     return true;
@@ -319,7 +328,10 @@ export class StudioPlayback {
     const stems = session.stems.filter((stem) => stem.assetId);
     if (!stems.length || !this.audio.assets) return null;
     const loaded = await Promise.all(
-      stems.map(async (stem) => [stem.id, await this.audio.assets.audio(stem.assetId, this.audio.context)]),
+      stems.map(async (stem) => [
+        stem.id,
+        await this.audio.assets.audio(stem.assetId, this.audio.context),
+      ]),
     );
     const buffers = new Map(loaded.filter(([, buffer]) => !!buffer));
     return buffers.size === stems.length ? buffers : null;
@@ -343,9 +355,14 @@ export class StudioPlayback {
       source.start(start);
     }
     this.realSessionPlaying = true;
-    this.audio.setExternalTransport?.('studio', `${session.name} · real multitrack`, 60 / this.bpm / 4, {
-      vibe: 0.58,
-    });
+    this.audio.setExternalTransport?.(
+      'studio',
+      `${session.name} · real multitrack`,
+      60 / this.bpm / 4,
+      {
+        vibe: 0.58,
+      },
+    );
   }
 
   async play(session) {

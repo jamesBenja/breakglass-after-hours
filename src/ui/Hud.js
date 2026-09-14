@@ -96,7 +96,10 @@ export class Hud {
     return range;
   }
 
-  studioMixer(session, { onMix = () => {}, onPlay = () => {}, onStop = () => {}, onRecordVocal } = {}) {
+  studioMixer(
+    session,
+    { onMix = () => {}, onPlay = () => {}, onStop = () => {}, onRecordVocal } = {},
+  ) {
     this.clearPanel(
       'SPECTRA CONSOLE',
       `${session.name} · ${session.stems.length} stems. Fader, pan, shelves, mute and solo all feed the actual WebAudio channel strips.`,
@@ -172,7 +175,8 @@ export class Hud {
     ]) {
       const button = this.document.createElement('button');
       button.textContent = label;
-      button.onclick = () => Promise.resolve(action()).catch((error) => this.warning(error.message));
+      button.onclick = () =>
+        Promise.resolve(action()).catch((error) => this.warning(error.message));
       transport.appendChild(button);
     }
     this.buttons.appendChild(transport);
@@ -234,8 +238,13 @@ export class Hud {
         deck.appendChild(label);
       };
       const selectedTrack = tracks.find((track) => track.id === state.trackId) ?? tracks[0];
-      addRange('Tempo', selectedTrack.bpm * 0.92, selectedTrack.bpm * 1.08, 0.1, state.bpm, (value) =>
-        mixer.setBpm(deckId, value),
+      addRange(
+        'Tempo',
+        selectedTrack.bpm * 0.92,
+        selectedTrack.bpm * 1.08,
+        0.1,
+        state.bpm,
+        (value) => mixer.setBpm(deckId, value),
       );
       addRange('Level', 0, 1, 0.01, state.level, (value) => mixer.setLevel(deckId, value));
       addRange('Low EQ', -1, 1, 0.01, state.low, (value) => mixer.setEq(deckId, 'low', value));
@@ -302,8 +311,10 @@ export class Hud {
       image.style.height = 'auto';
       image.style.display = 'block';
       const caption = this.document.createElement('figcaption');
-      const time = photo.timestamp ? new Date(photo.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-      caption.textContent = `${photo.photographerId === 'nora' ? 'Nora' : photo.photographerId ?? 'Breakglass'} · ${photo.roomId ?? 'Breakglass'}${time ? ` · ${time}` : ''}`;
+      const time = photo.timestamp
+        ? new Date(photo.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '';
+      caption.textContent = `${photo.photographerId === 'nora' ? 'Nora' : (photo.photographerId ?? 'Breakglass')} · ${photo.roomId ?? 'Breakglass'}${time ? ` · ${time}` : ''}`;
       card.append(image, caption);
       grid.appendChild(card);
     }
@@ -354,10 +365,18 @@ export class Hud {
             `Audio energy: ${lighting.energy.toFixed(2)} | bass ${lighting.bass.toFixed(2)} | beat ${lighting.beat.toFixed(2)}`,
           ]
         : []),
-      ...(crowd ? [`Crowd: ${crowd.attendance}/${crowd.capacity} → ${crowd.targetAttendance}`] : []),
-      ...(alley ? [`Alley: ${alley.occupancy} outside | disturbance ${Math.round(alley.disturbance * 100)}% | warning ${alley.staffWarningLevel}`] : []),
+      ...(crowd
+        ? [`Crowd: ${crowd.attendance}/${crowd.capacity} → ${crowd.targetAttendance}`]
+        : []),
+      ...(alley
+        ? [
+            `Alley: ${alley.occupancy} outside | disturbance ${Math.round(alley.disturbance * 100)}% | warning ${alley.staffWarningLevel}`,
+          ]
+        : []),
       ...(djState?.metrics?.playing
-        ? [`DJ: vibe ${djState.metrics.vibe.toFixed(2)} | mix ${djState.metrics.mixQuality.toFixed(2)}`]
+        ? [
+            `DJ: vibe ${djState.metrics.vibe.toFixed(2)} | mix ${djState.metrics.mixQuality.toFixed(2)}`,
+          ]
         : []),
       `Avatar: ${state.avatar?.displayName ?? 'Guest'} · ${state.avatar?.role ?? 'explorer'}`,
       `Photos: ${state.photos?.length ?? 0} | tape: ${state.archiveTape ?? 'none'} / threaded ${state.threadedTape ?? 'none'}`,

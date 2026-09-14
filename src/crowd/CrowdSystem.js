@@ -17,14 +17,7 @@ const seeded = (index, salt = 0) => {
 };
 
 const BODY_COLORS = [
-  0x232329,
-  0x343947,
-  0x6a334f,
-  0x274a52,
-  0x74462f,
-  0x4e3f68,
-  0x58643a,
-  0x8a5d37,
+  0x232329, 0x343947, 0x6a334f, 0x274a52, 0x74462f, 0x4e3f68, 0x58643a, 0x8a5d37,
 ];
 const SKIN_COLORS = [0xe7c2a5, 0xc99470, 0xa87558, 0x805640, 0x60402f, 0x452e24];
 
@@ -197,8 +190,7 @@ export class CrowdSystem {
       const side = Math.cos(this.elapsed * (speed * 0.72) + member.phase * 1.7);
       const cheer = wantsFloor && mixQuality > 0.82 ? beat * 0.09 : 0;
       const bob =
-        (wantsFloor ? 0.025 + localEnergy * 0.13 : 0.008 + localEnergy * 0.018) *
-          Math.abs(sway) +
+        (wantsFloor ? 0.025 + localEnergy * 0.13 : 0.008 + localEnergy * 0.018) * Math.abs(sway) +
         cheer;
       const drift = wantsFloor ? 0.05 + bass * 0.04 : 0.018;
       const px = member.currentX + side * drift;

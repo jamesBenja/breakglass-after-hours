@@ -10,19 +10,69 @@ import {
 import { dialogues } from './dialogues.js';
 
 const CHARACTER_LOOKS = {
-  nora: { skin: 0xb98768, hair: 0x2b1c18, outfit: 0x25252a, accent: 0x8f315e, hairStyle: 'long', prop: 'camera' },
-  james: { skin: 0xc49a78, hair: 0x2c211d, outfit: 0x20232a, accent: 0x495e74, hairStyle: 'short', prop: 'camera' },
+  nora: {
+    skin: 0xb98768,
+    hair: 0x2b1c18,
+    outfit: 0x25252a,
+    accent: 0x8f315e,
+    hairStyle: 'long',
+    prop: 'camera',
+  },
+  james: {
+    skin: 0xc49a78,
+    hair: 0x2c211d,
+    outfit: 0x20232a,
+    accent: 0x495e74,
+    hairStyle: 'short',
+    prop: 'camera',
+  },
   jace: { skin: 0xc18f6f, hair: 0x33231c, outfit: 0x283c46, accent: 0x7d664a, hairStyle: 'short' },
-  zander: { skin: 0xb77d5e, hair: 0x211a18, outfit: 0x30363d, accent: 0x5e776e, hairStyle: 'short' },
-  boogaloo: { skin: 0x81543f, hair: 0x231a17, outfit: 0x4d354f, accent: 0xa05f32, hairStyle: 'short' },
-  courtney: { skin: 0x9d6b52, hair: 0x251a18, outfit: 0x472d46, accent: 0xb66b93, hairStyle: 'bob' },
+  zander: {
+    skin: 0xb77d5e,
+    hair: 0x211a18,
+    outfit: 0x30363d,
+    accent: 0x5e776e,
+    hairStyle: 'short',
+  },
+  boogaloo: {
+    skin: 0x81543f,
+    hair: 0x231a17,
+    outfit: 0x4d354f,
+    accent: 0xa05f32,
+    hairStyle: 'short',
+  },
+  courtney: {
+    skin: 0x9d6b52,
+    hair: 0x251a18,
+    outfit: 0x472d46,
+    accent: 0xb66b93,
+    hairStyle: 'bob',
+  },
   simla: { skin: 0x9d7258, hair: 0x1f1917, outfit: 0x345444, accent: 0x6ea886, hairStyle: 'long' },
-  jashim: { skin: 0x9a6b50, hair: 0x201817, outfit: 0x35465e, accent: 0x657fb2, hairStyle: 'short' },
+  jashim: {
+    skin: 0x9a6b50,
+    hair: 0x201817,
+    outfit: 0x35465e,
+    accent: 0x657fb2,
+    hairStyle: 'short',
+  },
   devin: { skin: 0xb57f60, hair: 0x2a201c, outfit: 0x294752, accent: 0x5d8998, hairStyle: 'short' },
-  bouncer: { skin: 0x8b624c, hair: 0x231b19, outfit: 0x22272b, accent: 0x454f57, hairStyle: 'buzz' },
+  bouncer: {
+    skin: 0x8b624c,
+    hair: 0x231b19,
+    outfit: 0x22272b,
+    accent: 0x454f57,
+    hairStyle: 'buzz',
+  },
 };
 
-const DEFAULT_LOOK = { skin: 0xaa7a5f, hair: 0x2d211d, outfit: 0x3f4650, accent: 0x7a5f70, hairStyle: 'short' };
+const DEFAULT_LOOK = {
+  skin: 0xaa7a5f,
+  hair: 0x2d211d,
+  outfit: 0x3f4650,
+  accent: 0x7a5f70,
+  hairStyle: 'short',
+};
 const material = (color) => new MeshStandardMaterial({ color, roughness: 0.82, metalness: 0.03 });
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
@@ -114,7 +164,11 @@ export class NpcSystem {
         id: npc.id,
         name: npc.name ?? npc.id,
         role: npc.role ?? 'guest',
-        interactive: npc.interactive !== false && !npc.id.startsWith('line-') && !npc.id.startsWith('smoker-') && npc.id !== 'friend',
+        interactive:
+          npc.interactive !== false &&
+          !npc.id.startsWith('line-') &&
+          !npc.id.startsWith('smoker-') &&
+          npc.id !== 'friend',
         radius: npc.radius ?? 1.25,
         route,
         routeIndex: 0,
@@ -192,9 +246,14 @@ export class NpcSystem {
       }
 
       const gait = Math.sin(this.elapsed * (npc.moving ? 7.5 : 2.2) + npc.phase);
-      const clubDance = metrics.playing && ['dancer', 'photographer', 'host', 'artist'].includes(npc.role);
+      const clubDance =
+        metrics.playing && ['dancer', 'photographer', 'host', 'artist'].includes(npc.role);
       const danceAmount = clubDance ? 0.045 + energy * 0.09 : 0;
-      const bob = npc.moving ? Math.abs(gait) * 0.025 : clubDance ? Math.abs(gait) * danceAmount : 0;
+      const bob = npc.moving
+        ? Math.abs(gait) * 0.025
+        : clubDance
+          ? Math.abs(gait) * danceAmount
+          : 0;
       npc.torso.position.y = 1.03 + bob;
       npc.head.position.y = 1.67 + bob;
       npc.hair.position.y += (npc.photoPulse > 0 ? 0 : 0) * dt;

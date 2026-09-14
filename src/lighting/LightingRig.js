@@ -50,9 +50,7 @@ export class LightingRig {
     this.group.name = 'party-lighting';
     scene.add(this.group);
 
-    this.baseFog = scene.fog
-      ? { near: scene.fog.near, far: scene.fog.far }
-      : { near: 18, far: 58 };
+    this.baseFog = scene.fog ? { near: scene.fog.near, far: scene.fog.far } : { near: 18, far: 58 };
     this.hazeFar = config.hazeFar ?? Math.max(11, this.baseFog.far * 0.24);
 
     this.fixtures = (config.fixtures ?? []).map((fixture, index) => {
@@ -215,13 +213,10 @@ export class LightingRig {
 
     for (const fixture of this.fixtures) {
       const drift = 0.5 + 0.5 * Math.sin(this.elapsed * 0.7 + fixture.phase);
-      const musicPulse =
-        preset.pulse * (energy * 0.24 + bass * 0.18 + beat * 0.62 + vibe * 0.42);
+      const musicPulse = preset.pulse * (energy * 0.24 + bass * 0.18 + beat * 0.62 + vibe * 0.42);
       const skillLift = metrics.playing ? 0.05 + vibe * 0.12 + mixQuality * 0.08 : 0;
       fixture.light.intensity =
-        fixture.baseIntensity *
-        preset.intensity *
-        (0.62 + skillLift + musicPulse + drift * 0.08);
+        fixture.baseIntensity * preset.intensity * (0.62 + skillLift + musicPulse + drift * 0.08);
     }
 
     if (this.strobe) {

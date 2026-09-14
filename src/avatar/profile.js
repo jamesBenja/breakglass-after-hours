@@ -1,11 +1,4 @@
-export const AVATAR_IDENTITIES = [
-  'woman',
-  'man',
-  'nonbinary',
-  'neutral',
-  'custom',
-  'unspecified',
-];
+export const AVATAR_IDENTITIES = ['woman', 'man', 'nonbinary', 'neutral', 'custom', 'unspecified'];
 
 export const AVATAR_BODIES = ['slim', 'regular', 'broad'];
 export const AVATAR_HAIR = ['buzz', 'short', 'bob', 'long', 'bald'];

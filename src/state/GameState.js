@@ -51,7 +51,10 @@ const normalizePhoto = (photo) => {
       typeof photo.lightingPreset === 'string' ? photo.lightingPreset.slice(0, 32) : null,
     haze: photo.haze == null ? null : Math.max(0, Math.min(1, Number(photo.haze) || 0)),
     tags: Array.isArray(photo.tags)
-      ? photo.tags.filter((tag) => typeof tag === 'string').slice(0, 12).map((tag) => tag.slice(0, 32))
+      ? photo.tags
+          .filter((tag) => typeof tag === 'string')
+          .slice(0, 12)
+          .map((tag) => tag.slice(0, 32))
       : [],
     approvedForSharing: photo.approvedForSharing === true,
     dataUrl,
@@ -108,7 +111,8 @@ export function validateSave(value) {
   state.devinFavor = Math.max(0, Math.min(99, Math.floor(Number(value.devinFavor) || 0)));
   if (ARCHIVE_TAPE_IDS.includes(value.archiveTape)) state.archiveTape = value.archiveTape;
   if (ARCHIVE_TAPE_IDS.includes(value.threadedTape)) state.threadedTape = value.threadedTape;
-  if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive)) state.liveRoomArchive = value.liveRoomArchive;
+  if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive))
+    state.liveRoomArchive = value.liveRoomArchive;
   if (Array.isArray(value.photos)) {
     state.photos = value.photos.map(normalizePhoto).filter(Boolean).slice(-6);
   }

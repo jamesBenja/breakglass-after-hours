@@ -126,10 +126,7 @@ export function createActions({
     compressor: studio.setup.compressor,
   });
 
-  const startPerformance = (
-    kind,
-    { record = false, back = () => {}, stemKind = kind } = {},
-  ) => {
+  const startPerformance = (kind, { record = false, back = () => {}, stemKind = kind } = {}) => {
     if (!keyboardPerformance) return;
     studioPlayback?.stop?.();
     dj?.stop?.();
@@ -220,18 +217,30 @@ export function createActions({
         [
           'Choose guitar',
           () =>
-            choose('CHOOSE A GUITAR', GUITARS, studio.setup.guitar, (item) => {
-              studio.select('guitar', item.id);
-              studio.setup.instrumentType = 'guitar';
-            }, instrumentPanel),
+            choose(
+              'CHOOSE A GUITAR',
+              GUITARS,
+              studio.setup.guitar,
+              (item) => {
+                studio.select('guitar', item.id);
+                studio.setup.instrumentType = 'guitar';
+              },
+              instrumentPanel,
+            ),
         ],
         [
           'Choose bass',
           () =>
-            choose('CHOOSE A BASS', BASSES, studio.setup.bass, (item) => {
-              studio.select('bass', item.id);
-              studio.setup.instrumentType = 'bass';
-            }, instrumentPanel),
+            choose(
+              'CHOOSE A BASS',
+              BASSES,
+              studio.setup.bass,
+              (item) => {
+                studio.select('bass', item.id);
+                studio.setup.instrumentType = 'bass';
+              },
+              instrumentPanel,
+            ),
         ],
         ['Quick audition', previewInstrument],
         [
@@ -398,10 +407,7 @@ export function createActions({
   const pianoPanel = () => {
     if (!hasStudio) return audio.chord(220);
     panel('LIVE ROOM · PIANO', 'The piano is playable from the computer keyboard.', [
-      [
-        'Play piano',
-        () => startPerformance('piano', { back: pianoPanel, stemKind: 'keys' }),
-      ],
+      ['Play piano', () => startPerformance('piano', { back: pianoPanel, stemKind: 'keys' })],
       [
         'Record piano take → console',
         () => startPerformance('piano', { record: true, back: pianoPanel, stemKind: 'keys' }),
@@ -482,8 +488,7 @@ export function createActions({
     if (!ui.document || !ui.buttons) return;
     const button = ui.document.createElement('button');
     button.textContent = label;
-    button.onclick = () =>
-      Promise.resolve(action()).catch((error) => ui.warning?.(error.message));
+    button.onclick = () => Promise.resolve(action()).catch((error) => ui.warning?.(error.message));
     ui.buttons.appendChild(button);
   };
 
@@ -573,8 +578,7 @@ export function createActions({
     pattern.forEach((ratio, index) => {
       const when = index * 0.42;
       audio.tone(tape.root * ratio, 0.5, index % 2 ? 'triangle' : 'sine', 0.045, when);
-      if (index % 2 === 0)
-        audio.tone(tape.root * ratio * 2, 0.25, 'triangle', 0.018, when + 0.03);
+      if (index % 2 === 0) audio.tone(tape.root * ratio * 2, 0.25, 'triangle', 0.018, when + 0.03);
     });
     globalThis.setTimeout?.(() => audio.clearExternalTransport?.('archive'), 4200);
   };

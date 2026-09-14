@@ -36,7 +36,15 @@ export function buildSelectableStudioGear(root, definition) {
       box(group, w * 0.78, h * 0.62, 0.035, grill, 0, h * 0.46, -d / 2 - 0.01);
     }
     for (let i = 0; i < 5; i++)
-      cyl(group, 0.022, 0.035, silver, -w * 0.28 + i * w * 0.14, h * 0.86, -d / 2 - 0.025).rotation.x = Math.PI / 2;
+      cyl(
+        group,
+        0.022,
+        0.035,
+        silver,
+        -w * 0.28 + i * w * 0.14,
+        h * 0.86,
+        -d / 2 - 0.025,
+      ).rotation.x = Math.PI / 2;
     label(root, labelText, group.position.x, h + 0.45, group.position.z, 0.24, '#f2dfbc');
   };
 
@@ -74,7 +82,15 @@ export function buildSelectableStudioGear(root, definition) {
     for (let i = 0; i < 5; i++) {
       const x = -w * 0.31 + i * w * 0.155;
       cyl(group, 0.035, 0.3, silver, x, 0.68, -d / 2 - 0.04);
-      cyl(group, i === 1 ? 0.06 : 0.045, 0.09, i === 1 ? mat(0xb8a4a0) : MAT.dark, x, 0.87, -d / 2 - 0.04);
+      cyl(
+        group,
+        i === 1 ? 0.06 : 0.045,
+        0.09,
+        i === 1 ? mat(0xb8a4a0) : MAT.dark,
+        x,
+        0.87,
+        -d / 2 - 0.04,
+      );
     }
     label(root, 'MIC LOCKER', group.position.x, 1.95, group.position.z, 0.26, '#c9dbe4');
   }

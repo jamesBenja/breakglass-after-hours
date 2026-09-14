@@ -65,7 +65,18 @@ export const alleyLevel = {
   },
   npcs: [
     { id: 'bouncer', name: 'Door', anchor: 'bouncer', role: 'staff', color: 0x394653 },
-    { id: 'james', name: 'James', position: [1.0, 0, 0.45], role: 'host', route: [[1.0, 0, 0.45], [-3.2, 0, 0.4], [4.0, 0, 0.55]], speed: 0.42 },
+    {
+      id: 'james',
+      name: 'James',
+      position: [1.0, 0, 0.45],
+      role: 'host',
+      route: [
+        [1.0, 0, 0.45],
+        [-3.2, 0, 0.4],
+        [4.0, 0, 0.55],
+      ],
+      speed: 0.42,
+    },
     { id: 'line-1', position: [-7.2, 0, -0.45], color: 0x66506e, interactive: false },
     { id: 'line-2', position: [-8.1, 0, -0.2], color: 0x49636b, interactive: false },
     { id: 'line-3', position: [-9.0, 0, -0.55], color: 0x7c5b4b, interactive: false },

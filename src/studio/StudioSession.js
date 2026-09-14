@@ -1,13 +1,4 @@
-import {
-  AMPS,
-  BASSES,
-  DRUM_KITS,
-  GUITARS,
-  MICS,
-  PROCESSORS,
-  SYNTHS,
-  gearById,
-} from './gear.js';
+import { AMPS, BASSES, DRUM_KITS, GUITARS, MICS, PROCESSORS, SYNTHS, gearById } from './gear.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -126,7 +117,8 @@ const normalizeStem = (stem, index) => ({
 const isUntouchedPrototype = (value = {}) => {
   if (Math.floor(Number(value.takeCounter) || 0) !== 0) return false;
   if (value.name && value.name !== 'Breakglass Session') return false;
-  if (!Array.isArray(value.stems) || value.stems.length !== DEFAULT_STEMS.length) return !value.stems;
+  if (!Array.isArray(value.stems) || value.stems.length !== DEFAULT_STEMS.length)
+    return !value.stems;
   return value.stems.every((stem, index) => stem?.id === DEFAULT_STEMS[index].id && !stem?.assetId);
 };
 

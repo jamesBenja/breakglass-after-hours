@@ -73,7 +73,12 @@ export function createUpstairsDefinition(pass = 'B') {
     anchors: {
       drums: { name: 'Drum station', position: at(583, 632), radius: 1.7, action: 'drums' },
       piano: { name: 'Piano', position: at(647, 750), radius: 1.6, action: 'piano' },
-      synth: { name: 'Synth + organ station', position: at(590, 824), radius: 1.6, action: 'synth' },
+      synth: {
+        name: 'Synth + organ station',
+        position: at(590, 824),
+        radius: 1.6,
+        action: 'synth',
+      },
       instruments: {
         name: 'Guitar + bass rack',
         position: at(305, 625),
