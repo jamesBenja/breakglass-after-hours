@@ -1,7 +1,9 @@
 import {
+  BoxGeometry,
   CapsuleGeometry,
   Color,
   DynamicDrawUsage,
+  Euler,
   InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
@@ -18,8 +20,11 @@ const seeded = (index, salt = 0) => {
 
 const BODY_COLORS = [
   0x232329, 0x343947, 0x6a334f, 0x274a52, 0x74462f, 0x4e3f68, 0x58643a, 0x8a5d37,
+  0x8a3151, 0x2f5c49, 0x284d73, 0xa06b3e,
 ];
-const SKIN_COLORS = [0xe7c2a5, 0xc99470, 0xa87558, 0x805640, 0x60402f, 0x452e24];
+const SKIN_COLORS = [0xf0d0b5, 0xe0b18e, 0xc99470, 0xa87558, 0x805640, 0x60402f, 0x452e24];
+const HAIR_COLORS = [0x171417, 0x2c211d, 0x4b3426, 0x744d32, 0x9a7651, 0x402b35];
+const LEG_COLORS = [0x16171b, 0x22262d, 0x30313a, 0x382e34, 0x24313c];
 
 function chooseZone(zones, index, salt = 4) {
   if (!zones.length) return null;
@@ -49,11 +54,11 @@ function pointInZone(zone, avoid, index, salt) {
 }
 
 /**
- * Mobile-friendly crowd simulation using two instanced meshes.
+ * Mobile-friendly crowd simulation built from instanced articulated silhouettes.
  *
- * The important state is not individual NPC AI. Each guest has deterministic dance-floor and
- * social positions, then the collective DJ vibe decides how many people stay, how many commit
- * to the floor, and how quickly a bad blend sends them toward the bar / Take A Break / edges.
+ * Each guest now has torso, head, hair, arms and legs while remaining only seven draw calls.
+ * Their bodies migrate between dance/social zones and their limb animation responds to energy,
+ * bass, beat and mix quality, so a strong mix reads as a crowd rather than moving capsules.
  */
 export class CrowdSystem {
   constructor(root, config = {}) {
@@ -77,21 +82,34 @@ export class CrowdSystem {
     this.position = new Vector3();
     this.scale = new Vector3(1, 1, 1);
     this.rotation = new Quaternion();
-    this.yAxis = new Vector3(0, 1, 0);
+    this.euler = new Euler();
 
-    const bodyGeometry = new CapsuleGeometry(0.22, 0.58, 3, 6);
-    const headGeometry = new SphereGeometry(0.205, 8, 6);
     const bodyMaterial = new MeshStandardMaterial({ roughness: 0.78, metalness: 0.04 });
-    const headMaterial = new MeshStandardMaterial({ roughness: 0.82, metalness: 0.02 });
-    this.body = new InstancedMesh(bodyGeometry, bodyMaterial, this.max);
-    this.head = new InstancedMesh(headGeometry, headMaterial, this.max);
-    this.body.name = 'crowd:bodies';
-    this.head.name = 'crowd:heads';
-    this.body.castShadow = true;
-    this.head.castShadow = true;
-    this.body.instanceMatrix.setUsage(DynamicDrawUsage);
-    this.head.instanceMatrix.setUsage(DynamicDrawUsage);
-    root.add(this.body, this.head);
+    const skinMaterial = new MeshStandardMaterial({ roughness: 0.82, metalness: 0.02 });
+    const hairMaterial = new MeshStandardMaterial({ roughness: 0.9, metalness: 0.01 });
+    const legMaterial = new MeshStandardMaterial({ roughness: 0.84, metalness: 0.025 });
+    this.body = new InstancedMesh(new CapsuleGeometry(0.22, 0.58, 3, 6), bodyMaterial, this.max);
+    this.head = new InstancedMesh(new SphereGeometry(0.205, 8, 6), skinMaterial, this.max);
+    this.hair = new InstancedMesh(new BoxGeometry(0.35, 0.16, 0.32), hairMaterial, this.max);
+    this.leftArm = new InstancedMesh(new CapsuleGeometry(0.055, 0.36, 3, 5), skinMaterial.clone(), this.max);
+    this.rightArm = new InstancedMesh(new CapsuleGeometry(0.055, 0.36, 3, 5), skinMaterial.clone(), this.max);
+    this.leftLeg = new InstancedMesh(new CapsuleGeometry(0.068, 0.35, 3, 5), legMaterial, this.max);
+    this.rightLeg = new InstancedMesh(new CapsuleGeometry(0.068, 0.35, 3, 5), legMaterial.clone(), this.max);
+    this.meshes = [
+      this.body,
+      this.head,
+      this.hair,
+      this.leftArm,
+      this.rightArm,
+      this.leftLeg,
+      this.rightLeg,
+    ];
+    for (const [index, mesh] of this.meshes.entries()) {
+      mesh.name = `crowd:${['bodies', 'heads', 'hair', 'left-arms', 'right-arms', 'left-legs', 'right-legs'][index]}`;
+      mesh.castShadow = true;
+      mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+      root.add(mesh);
+    }
 
     for (let i = 0; i < this.max; i++) {
       const danceZone = chooseZone(this.danceZones, i, 4) ?? chooseZone(this.zones, i, 4);
@@ -110,21 +128,30 @@ export class CrowdSystem {
         phase: seeded(i, 9) * Math.PI * 2,
         tempo: 0.8 + seeded(i, 10) * 0.7,
         scale: 0.87 + seeded(i, 11) * 0.28,
+        shoulder: 0.9 + seeded(i, 19) * 0.22,
+        hairStyle: Math.floor(seeded(i, 41) * 4),
       };
       this.members.push(member);
-      this.body.setColorAt(i, new Color(BODY_COLORS[i % BODY_COLORS.length]));
-      this.head.setColorAt(i, new Color(SKIN_COLORS[(i * 3) % SKIN_COLORS.length]));
+      const bodyColor = new Color(BODY_COLORS[i % BODY_COLORS.length]);
+      const skinColor = new Color(SKIN_COLORS[(i * 3) % SKIN_COLORS.length]);
+      const hairColor = new Color(HAIR_COLORS[(i * 5) % HAIR_COLORS.length]);
+      const legColor = new Color(LEG_COLORS[(i * 7) % LEG_COLORS.length]);
+      this.body.setColorAt(i, bodyColor);
+      this.head.setColorAt(i, skinColor);
+      this.hair.setColorAt(i, hairColor);
+      this.leftArm.setColorAt(i, skinColor);
+      this.rightArm.setColorAt(i, skinColor);
+      this.leftLeg.setColorAt(i, legColor);
+      this.rightLeg.setColorAt(i, legColor);
     }
-    if (this.body.instanceColor) this.body.instanceColor.needsUpdate = true;
-    if (this.head.instanceColor) this.head.instanceColor.needsUpdate = true;
+    for (const mesh of this.meshes) if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     this.setVisibleCount(Math.round(this.attendance));
     this.update(0, { playing: false, energy: 0, bass: 0, beat: 0 });
   }
 
   setVisibleCount(count) {
     const visible = Math.max(0, Math.min(this.max, count));
-    this.body.count = visible;
-    this.head.count = visible;
+    for (const mesh of this.meshes) mesh.count = visible;
   }
 
   movementScaleAt(position) {
@@ -136,6 +163,15 @@ export class CrowdSystem {
       if (distance < 0.72) pressure += (0.72 - distance) / 0.72;
     }
     return clamp(1 - pressure * 0.14, 0.34, 1);
+  }
+
+  setInstance(mesh, index, x, y, z, yaw, sx, sy, sz, pitch = 0, roll = 0) {
+    this.position.set(x, y, z);
+    this.euler.set(pitch, yaw, roll, 'YXZ');
+    this.rotation.setFromEuler(this.euler);
+    this.scale.set(sx, sy, sz);
+    this.matrix.compose(this.position, this.rotation, this.scale);
+    mesh.setMatrixAt(index, this.matrix);
   }
 
   update(dt, metrics = {}) {
@@ -167,8 +203,6 @@ export class CrowdSystem {
     this.setVisibleCount(count);
 
     let onFloor = 0;
-    const bodyScale = new Vector3();
-    const headScale = new Vector3();
     for (let i = 0; i < count; i++) {
       const member = this.members[i];
       const wantsFloor = playing && member.engagement < this.danceShare;
@@ -177,8 +211,6 @@ export class CrowdSystem {
       member.onFloor = wantsFloor;
       if (wantsFloor) onFloor++;
 
-      // A rough transition makes the exodus visible: people walk off the floor instead of
-      // merely dancing less. Good mixes pull the same guests back in over a few seconds.
       const migrationSpeed = switching ? (wantsFloor ? 1.05 : 2.15) : wantsFloor ? 0.45 : 0.7;
       const migration = 1 - Math.exp(-migrationSpeed * dt);
       member.currentX += (target.x - member.currentX) * migration;
@@ -188,29 +220,113 @@ export class CrowdSystem {
       const speed = member.tempo * (1.25 + localEnergy * 2.9);
       const sway = Math.sin(this.elapsed * speed + member.phase);
       const side = Math.cos(this.elapsed * (speed * 0.72) + member.phase * 1.7);
-      const cheer = wantsFloor && mixQuality > 0.82 ? beat * 0.09 : 0;
+      const cheer = wantsFloor && mixQuality > 0.82 ? beat : 0;
       const bob =
         (wantsFloor ? 0.025 + localEnergy * 0.13 : 0.008 + localEnergy * 0.018) * Math.abs(sway) +
-        cheer;
+        cheer * 0.09;
       const drift = wantsFloor ? 0.05 + bass * 0.04 : 0.018;
       const px = member.currentX + side * drift;
       const pz = member.currentZ + sway * drift * 0.55;
       const yaw = side * (wantsFloor ? 0.34 + localEnergy * 0.3 : 0.09);
-      this.rotation.setFromAxisAngle(this.yAxis, yaw);
+      const scale = member.scale;
+      const rightX = Math.cos(yaw);
+      const rightZ = -Math.sin(yaw);
+      const forwardX = Math.sin(yaw);
+      const forwardZ = Math.cos(yaw);
+      const gait = wantsFloor ? sway * (0.18 + localEnergy * 0.62) : side * 0.09;
+      const cheerRaise = cheer * 1.2;
 
-      bodyScale.set(member.scale, member.scale, member.scale);
-      this.position.set(px, 0.68 * member.scale + bob, pz);
-      this.matrix.compose(this.position, this.rotation, bodyScale);
-      this.body.setMatrixAt(i, this.matrix);
+      this.setInstance(
+        this.body,
+        i,
+        px,
+        0.68 * scale + bob,
+        pz,
+        yaw,
+        scale * member.shoulder,
+        scale,
+        scale,
+        wantsFloor ? sway * 0.035 : 0,
+        wantsFloor ? side * 0.045 : 0,
+      );
+      this.setInstance(this.head, i, px, 1.47 * scale + bob, pz, yaw, scale, scale, scale);
 
-      headScale.set(member.scale, member.scale, member.scale);
-      this.position.set(px, 1.47 * member.scale + bob, pz);
-      this.matrix.compose(this.position, this.rotation, headScale);
-      this.head.setMatrixAt(i, this.matrix);
+      const hairY = member.hairStyle === 2 ? 1.58 : member.hairStyle === 1 ? 1.6 : 1.64;
+      const hairScaleY = member.hairStyle === 2 ? 0.3 : member.hairStyle === 1 ? 1.75 : 1;
+      const hairScaleZ = member.hairStyle === 3 ? 1.35 : 1;
+      this.setInstance(
+        this.hair,
+        i,
+        px,
+        hairY * scale + bob,
+        pz - forwardZ * 0.015,
+        yaw,
+        scale * 1.02,
+        scale * hairScaleY,
+        scale * hairScaleZ,
+      );
+
+      const shoulderOffset = 0.29 * scale * member.shoulder;
+      const armY = 1.02 * scale + bob + cheer * 0.06;
+      const leftArmPitch = -gait - cheerRaise;
+      const rightArmPitch = gait - cheerRaise * (0.65 + seeded(i, 52) * 0.35);
+      this.setInstance(
+        this.leftArm,
+        i,
+        px - rightX * shoulderOffset,
+        armY,
+        pz - rightZ * shoulderOffset,
+        yaw,
+        scale,
+        scale,
+        scale,
+        leftArmPitch,
+        -0.08,
+      );
+      this.setInstance(
+        this.rightArm,
+        i,
+        px + rightX * shoulderOffset,
+        armY,
+        pz + rightZ * shoulderOffset,
+        yaw,
+        scale,
+        scale,
+        scale,
+        rightArmPitch,
+        0.08,
+      );
+
+      const hip = 0.12 * scale;
+      const legY = 0.29 * scale + bob * 0.15;
+      const legSwing = switching ? gait * 0.7 : wantsFloor ? gait * 0.35 : gait * 0.18;
+      this.setInstance(
+        this.leftLeg,
+        i,
+        px - rightX * hip + forwardX * legSwing * 0.04,
+        legY,
+        pz - rightZ * hip + forwardZ * legSwing * 0.04,
+        yaw,
+        scale,
+        scale,
+        scale,
+        legSwing,
+      );
+      this.setInstance(
+        this.rightLeg,
+        i,
+        px + rightX * hip - forwardX * legSwing * 0.04,
+        legY,
+        pz + rightZ * hip - forwardZ * legSwing * 0.04,
+        yaw,
+        scale,
+        scale,
+        scale,
+        -legSwing,
+      );
     }
     this.danceFloorCount = onFloor;
-    this.body.instanceMatrix.needsUpdate = true;
-    this.head.instanceMatrix.needsUpdate = true;
+    for (const mesh of this.meshes) mesh.instanceMatrix.needsUpdate = true;
   }
 
   snapshot() {
@@ -227,12 +343,12 @@ export class CrowdSystem {
   }
 
   dispose() {
-    this.body.removeFromParent();
-    this.head.removeFromParent();
-    this.body.geometry.dispose();
-    this.head.geometry.dispose();
-    this.body.material.dispose();
-    this.head.material.dispose();
+    for (const mesh of this.meshes) {
+      mesh.removeFromParent();
+      mesh.geometry.dispose();
+      mesh.material.dispose();
+    }
+    this.meshes = [];
     this.members = [];
   }
 }
