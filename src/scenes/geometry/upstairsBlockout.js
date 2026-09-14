@@ -1,5 +1,6 @@
 import { Shape, ExtrudeGeometry, Mesh, MeshStandardMaterial, Group } from 'three';
 import { buildStudioEquipment } from './upstairsFixtures.js';
+import { buildSelectableStudioGear } from './studioGearProps.js';
 import { at } from '../../world/upstairs/plan.js';
 import { createPrimitives } from './primitives.js';
 import {
@@ -70,6 +71,7 @@ export function buildUpstairsFixtures(root, definition) {
     const { mat } = createPrimitives();
     for (const p of definition.platforms) drawPrism(root, p, mat(p.color));
     buildStudioEquipment(root, definition);
+    buildSelectableStudioGear(root, definition);
     buildLandmarks(root, definition);
     return;
   }
