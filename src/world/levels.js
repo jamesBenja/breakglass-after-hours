@@ -134,7 +134,7 @@ export const levels = {
       jashim: anchor('Jashim', [-0.7, 0, 0.6], 1.2, 'dialogue'),
       courtney: anchor('Courtney', [7.05, 0, -1.0], 1.15, 'dialogue'),
       simla: anchor('Simla', [8.05, 0, -1.0], 1.15, 'dialogue'),
-      devin: anchor('Devin', [-4.95, 0, 2.7], 1.2, 'devin'),
+      devin: anchor('Devin', [-4.95, 0, 2.7], 1.2, 'dialogue'),
       installation: anchor('Take A Break installation', [-8.75, 0, 1.85], 1.5, 'installation'),
     },
     npcs: [
