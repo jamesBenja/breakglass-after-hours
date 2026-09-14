@@ -16,6 +16,7 @@ import { StudioSession } from '../studio/StudioSession.js';
 import { StudioPlayback } from '../studio/StudioPlayback.js';
 import { MicrophoneRecorder } from '../studio/MicrophoneRecorder.js';
 import { KeyboardPerformance } from '../studio/KeyboardPerformance.js';
+import { PhotoSystem } from '../photos/PhotoSystem.js';
 import { InteractionSystem } from '../interactions/InteractionSystem.js';
 import { createActions } from '../interactions/createActions.js';
 
@@ -88,7 +89,7 @@ export class Game {
         this.input.clear();
       },
       onEnter: (level) => {
-        this.interactions.setLevel(level.definition);
+        this.interactions.setLevel(level);
         this.camera.configure(
           level.definition.cameraOffset,
           this.player.position,
@@ -102,6 +103,16 @@ export class Game {
         this.save();
       },
     });
+
+    this.photos = new PhotoSystem({
+      renderer: this.renderer,
+      state: this.state,
+      sceneManager: this.sceneManager,
+      player: this.player,
+      ui,
+      saveState: () => this.save(),
+    });
+
     const canAct = () => this.started && !this.sceneManager.changing && !document.hidden;
     this.interactions = new InteractionSystem(
       createActions({
@@ -114,6 +125,7 @@ export class Game {
         studioPlayback: this.studioPlayback,
         micRecorder: this.micRecorder,
         keyboardPerformance: this.keyboardPerformance,
+        photos: this.photos,
         dj: this.dj,
         stopAll: this.stopAll,
         saveState: () => this.save(),
