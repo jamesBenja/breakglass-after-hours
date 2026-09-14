@@ -30,6 +30,12 @@ export const alleyLevel = {
     { color: 0xa7c6ff, intensity: 3.0, distance: 18, position: [-20, 4.2, 0.5] },
     { color: 0xff9c72, intensity: 2.8, distance: 17, position: [18, 3.6, -0.5] },
   ],
+  alleySystem: {
+    startOccupancy: 7,
+    conversationLevel: 0.26,
+    disturbance: 0.14,
+    neighborTolerance: 0.55,
+  },
   spawns: {
     start: [-27.5, 0, 0],
     stairs: [-3.7, 0, -1.0],
@@ -37,7 +43,7 @@ export const alleyLevel = {
   },
   intro: [
     'BREAKGLASS ALLEY',
-    'The line is outside. The club entrance is ahead; keep the alley quiet for the neighbours.',
+    'The line is outside. People step out for air and conversation, but this is not a second dance floor. Keep it quiet for the neighbours.',
   ],
   navigation: {
     surfaces: [surface('alley', 'Breakglass alley / garden', -29.5, 29.5, -2.3, 2.3)],
@@ -55,13 +61,15 @@ export const alleyLevel = {
       target: 'downstairs@alley',
     },
     bouncer: anchor('Bouncer', [-4.9, 0, -1.2], 1.2, 'dialogue'),
+    social: anchor('Alley conversation', [7.7, 0, 0.7], 1.9, 'alleySocial'),
   },
   npcs: [
-    { id: 'bouncer', anchor: 'bouncer', color: 0x394653 },
-    { id: 'line-1', position: [-7.2, 0, -0.45], color: 0x66506e },
-    { id: 'line-2', position: [-8.1, 0, -0.2], color: 0x49636b },
-    { id: 'line-3', position: [-9.0, 0, -0.55], color: 0x7c5b4b },
-    { id: 'smoker-1', position: [6.2, 0, -0.6], color: 0x596b4f },
-    { id: 'smoker-2', position: [7.0, 0, 0.15], color: 0x6d5571 },
+    { id: 'bouncer', name: 'Door', anchor: 'bouncer', role: 'staff', color: 0x394653 },
+    { id: 'james', name: 'James', position: [1.0, 0, 0.45], role: 'host', route: [[1.0, 0, 0.45], [-3.2, 0, 0.4], [4.0, 0, 0.55]], speed: 0.42 },
+    { id: 'line-1', position: [-7.2, 0, -0.45], color: 0x66506e, interactive: false },
+    { id: 'line-2', position: [-8.1, 0, -0.2], color: 0x49636b, interactive: false },
+    { id: 'line-3', position: [-9.0, 0, -0.55], color: 0x7c5b4b, interactive: false },
+    { id: 'smoker-1', position: [6.2, 0, -0.6], color: 0x596b4f, interactive: false },
+    { id: 'smoker-2', position: [7.0, 0, 0.15], color: 0x6d5571, interactive: false },
   ],
 };
