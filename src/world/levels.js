@@ -1,5 +1,6 @@
 import { createUpstairsDefinition } from './upstairs/definition.js';
 import { alleyLevel } from './alley.js';
+import { roofLevel } from './roof.js';
 
 // Y up. Upstairs is assembled from A-103 tracing; Below retains V2.1 authoring units.
 // Neither coordinate system is surveyed metres. Reconcile meshes and navigation together.
@@ -19,6 +20,7 @@ const anchor = (name, position, radius, action) => ({ name, position, radius, ac
 export const levels = {
   upstairs: createUpstairsDefinition(),
   alley: alleyLevel,
+  roof: roofLevel,
   downstairs: {
     id: 'downstairs',
     title: 'DOWNSTAIRS — BELOW BREAKGLASS',
@@ -124,17 +126,17 @@ export const levels = {
       ],
       avoid: [
         { x1: 0.0, x2: 3.15, z1: -3.15, z2: -1.55 },
-        { x1: -6.2, x2: -5.35, z1: -3.2, z2: -1.0 },
+        { x1: -7.9, x2: -5.25, z1: -3.3, z2: -0.7 },
       ],
     },
     spawns: {
-      start: [-5.9, 0, -2.25],
-      stairs: [-5.9, 0, -2.25],
+      start: [-5.55, 0, -1.25],
+      stairs: [-6.55, 0.78, -2.95],
       alley: [4.6, 0.64, -5.0],
     },
     intro: [
       'BELOW BREAKGLASS',
-      'The club is alive now. Push toward the booth, slip into Take A Break, find the kitchen bar and coffee machine, find Nora for a photo, or take the marked stairs beside coat check up to the alley.',
+      'The club is alive now. Push toward the booth, slip into Take A Break, play the old Mortal Kombat II cabinet, find the kitchen bar and coffee machine, or take the broad Clark stair back up to the studio.',
     ],
     navigation: {
       surfaces: [
@@ -146,14 +148,15 @@ export const levels = {
         surface('bar-door', 'Bar Doorway', 5.65, 6.5, -2.05, -0.55),
         surface('coat-check', 'Coat Check / Alley Entry', 3.55, 5.65, -5.35, -3.2),
         rampSurface('alley-stairs', 'Stairs to alley', 3.82, 5.38, -5.2, -3.4, 0.72, 0),
-        surface('stair-landing', 'Clark Stair Landing', -6.8, -5.5, -3.1, -1.1),
+        rampSurface('studio-stairs', 'Wide Clark stair to studio', -7.8, -5.3, -3.25, -0.72, 0.84, 0),
+        surface('studio-stair-top', 'Clark stair top landing', -7.8, -5.3, -3.5, -3.2),
       ],
       obstacles: [],
     },
     anchors: {
       dj: anchor('DJ booth', [1.5, 0, -2.15], 1.7, 'dj'),
       stairs: {
-        ...anchor('Stairs upstairs', [-6.35, 0, -2.2], 1.45, 'travel'),
+        ...anchor('Stairs upstairs', [-6.55, 0.82, -3.0], 1.55, 'travel'),
         target: 'upstairs',
       },
       alleyExit: {
@@ -167,6 +170,7 @@ export const levels = {
       coffeeMachine: anchor('Kitchen coffee machine', [6.72, 0, 5.4], 1.35, 'coffee'),
       devin: anchor('Devin', [-4.95, 0, 2.7], 1.2, 'dialogue'),
       installation: anchor('Take A Break installation', [-8.75, 0, 1.85], 1.5, 'installation'),
+      arcade: anchor('Mortal Kombat II cabinet', [-9.15, 0, -0.02], 1.45, 'arcade'),
       photoWall: anchor('Nora photo wall', [-8.15, 0, 3.0], 1.6, 'photoWall'),
     },
     npcs: [
