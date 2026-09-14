@@ -130,7 +130,7 @@ export const levels = {
       ],
     },
     spawns: {
-      start: [-5.55, 0, -1.25],
+      start: [-5.15, 0, -1.25],
       stairs: [-6.55, 0.78, -2.95],
       alley: [4.6, 0.64, -5.0],
     },
