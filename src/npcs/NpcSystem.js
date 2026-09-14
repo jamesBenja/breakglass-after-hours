@@ -56,7 +56,14 @@ const CHARACTER_LOOKS = {
     accent: 0x657fb2,
     hairStyle: 'short',
   },
-  devin: { skin: 0xb57f60, hair: 0x2a201c, outfit: 0x294752, accent: 0x5d8998, hairStyle: 'short' },
+  devin: {
+    skin: 0xb57f60,
+    hair: 0x2a201c,
+    outfit: 0x294752,
+    accent: 0x5d8998,
+    hairStyle: 'short',
+    prop: 'candy',
+  },
   bouncer: {
     skin: 0x8b624c,
     hair: 0x231b19,
@@ -85,14 +92,32 @@ function createCharacter(npc) {
   const hairMat = material(look.hair);
   const accentMat = material(look.accent);
   const darkMat = material(0x181a1e);
+  const eyeMat = material(0x151419);
+  const mouthMat = material(0x663f3c);
 
   const torso = new Mesh(new CapsuleGeometry(0.24, 0.53, 4, 8), bodyMat);
   torso.position.y = 1.03;
   torso.castShadow = true;
+  // A small collar/lapel breaks up the capsule silhouette without needing high-poly clothing.
+  const collar = new Mesh(new BoxGeometry(0.18, 0.12, 0.045), accentMat);
+  collar.position.set(0, 0.2, 0.225);
+  collar.rotation.z = 0.08;
+  torso.add(collar);
 
-  const head = new Mesh(new SphereGeometry(0.22, 12, 9), skinMat);
+  const head = new Mesh(new SphereGeometry(0.22, 14, 10), skinMat);
   head.position.y = 1.67;
   head.castShadow = true;
+  for (const x of [-0.073, 0.073]) {
+    const eye = new Mesh(new SphereGeometry(0.024, 7, 5), eyeMat);
+    eye.position.set(x, 0.034, 0.205);
+    head.add(eye);
+  }
+  const nose = new Mesh(new SphereGeometry(0.032, 7, 5), skinMat);
+  nose.position.set(0, -0.02, 0.218);
+  head.add(nose);
+  const mouth = new Mesh(new BoxGeometry(0.082, 0.014, 0.018), mouthMat);
+  mouth.position.set(0, -0.095, 0.198);
+  head.add(mouth);
 
   const hair = new Mesh(new BoxGeometry(0.37, 0.16, 0.35), hairMat);
   hair.position.y = 1.84;
@@ -107,15 +132,23 @@ function createCharacter(npc) {
     hair.scale.set(1.02, 0.34, 1.02);
     hair.position.y = 1.84;
   }
+  const hairBaseY = hair.position.y;
 
-  const leftArm = new Mesh(new CapsuleGeometry(0.07, 0.43, 3, 6), skinMat);
+  // Sleeves use the outfit material and terminate in separate hands, which makes walking and
+  // dancing animation read more like people than bare capsule limbs.
+  const leftArm = new Mesh(new CapsuleGeometry(0.075, 0.38, 3, 6), bodyMat);
   const rightArm = leftArm.clone();
-  leftArm.material = skinMat;
-  rightArm.material = skinMat;
+  leftArm.material = bodyMat;
+  rightArm.material = bodyMat;
   leftArm.position.set(-0.34, 1.08, 0);
   rightArm.position.set(0.34, 1.08, 0);
   leftArm.rotation.z = -0.08;
   rightArm.rotation.z = 0.08;
+  for (const arm of [leftArm, rightArm]) {
+    const hand = new Mesh(new SphereGeometry(0.075, 8, 6), skinMat);
+    hand.position.y = -0.28;
+    arm.add(hand);
+  }
 
   const leftLeg = new Mesh(new CapsuleGeometry(0.085, 0.46, 3, 6), darkMat);
   const rightLeg = leftLeg.clone();
@@ -141,13 +174,30 @@ function createCharacter(npc) {
   if (look.prop === 'camera') {
     prop = new Mesh(new BoxGeometry(0.2, 0.13, 0.12), darkMat);
     prop.position.set(0.31, 1.22, 0.19);
-    const lens = new Mesh(new BoxGeometry(0.07, 0.07, 0.07), accentMat);
-    lens.position.set(0, 0, 0.08);
+    const lens = new Mesh(new SphereGeometry(0.045, 8, 6), accentMat);
+    lens.scale.z = 0.65;
+    lens.position.set(0, 0, 0.085);
     prop.add(lens);
+    group.add(prop);
+  } else if (look.prop === 'candy') {
+    prop = new Mesh(new BoxGeometry(0.15, 0.07, 0.035), accentMat);
+    prop.position.set(0.31, 1.03, 0.18);
+    prop.rotation.z = 0.35;
     group.add(prop);
   }
 
-  return { group, torso, head, hair, leftArm, rightArm, leftLeg, rightLeg, prop };
+  return {
+    group,
+    torso,
+    head,
+    hair,
+    hairBaseY,
+    leftArm,
+    rightArm,
+    leftLeg,
+    rightLeg,
+    prop,
+  };
 }
 
 export class NpcSystem {
@@ -256,7 +306,7 @@ export class NpcSystem {
           : 0;
       npc.torso.position.y = 1.03 + bob;
       npc.head.position.y = 1.67 + bob;
-      npc.hair.position.y += (npc.photoPulse > 0 ? 0 : 0) * dt;
+      npc.hair.position.y = npc.hairBaseY + bob;
 
       const limb = npc.moving ? gait * 0.45 : clubDance ? gait * (0.12 + bass * 0.18) : 0;
       npc.leftArm.rotation.x = limb;
@@ -264,12 +314,12 @@ export class NpcSystem {
       npc.leftLeg.rotation.x = -limb * 0.65;
       npc.rightLeg.rotation.x = limb * 0.65;
 
-      if (npc.photoPulse > 0 && npc.prop) {
+      if (npc.photoPulse > 0 && npc.prop && ['nora', 'james'].includes(npc.id)) {
         const lift = clamp(npc.photoPulse / 0.45);
         npc.prop.position.set(0.08, 1.46 + lift * 0.18, 0.28);
         npc.rightArm.rotation.x = -1.25 * lift;
         npc.leftArm.rotation.x = -1.0 * lift;
-      } else if (npc.prop) {
+      } else if (npc.prop && ['nora', 'james'].includes(npc.id)) {
         npc.prop.position.set(0.31, 1.22, 0.19);
       }
     }
