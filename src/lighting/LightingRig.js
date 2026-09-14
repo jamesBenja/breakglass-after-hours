@@ -36,8 +36,10 @@ export class LightingRig {
     this.group.name = 'party-lighting';
     scene.add(this.group);
 
-    this.baseFog = scene.fog ? { near: scene.fog.near, far: scene.fog.far } : { near: 18, far: 58 };
-    this.hazeFar = config.hazeFar ?? Math.max(this.baseFog.near + 9, this.baseFog.far * 0.48);
+    this.baseFog = scene.fog
+      ? { near: scene.fog.near, far: scene.fog.far }
+      : { near: 18, far: 58 };
+    this.hazeFar = config.hazeFar ?? Math.max(11, this.baseFog.far * 0.24);
 
     this.fixtures = (config.fixtures ?? []).map((fixture, index) => {
       const light = new PointLight(
@@ -113,10 +115,14 @@ export class LightingRig {
   setHaze(value) {
     this.haze = clamp(value);
     if (!this.scene.fog) return;
-    this.scene.fog.near = Math.max(3, this.baseFog.near * (1 - this.haze * 0.3));
+    // The old haze control only shortened the fog a little. This deliberately makes the
+    // top half of the range dramatic enough to read like a hazed club: beams appear solid,
+    // distant walls disappear and lighting gains depth.
+    const shaped = Math.pow(this.haze, 0.72);
+    this.scene.fog.near = Math.max(1.2, this.baseFog.near * (1 - shaped * 0.82));
     this.scene.fog.far = Math.max(
-      this.scene.fog.near + 8,
-      this.baseFog.far + (this.hazeFar - this.baseFog.far) * this.haze,
+      this.scene.fog.near + 5.5,
+      this.baseFog.far + (this.hazeFar - this.baseFog.far) * shaped,
     );
   }
 
@@ -128,7 +134,7 @@ export class LightingRig {
     this.lasersEnabled = !!enabled;
     for (const laser of this.laserPivots) {
       laser.beam.visible = this.lasersEnabled;
-      laser.material.opacity = this.lasersEnabled ? 0.22 : 0;
+      laser.material.opacity = this.lasersEnabled ? 0.18 + this.haze * 0.28 : 0;
     }
   }
 
@@ -153,14 +159,20 @@ export class LightingRig {
 
     if (this.strobe) {
       const active = metrics.playing && beat > 0.62;
-      this.strobe.intensity = active ? this.strobe.userData.maxIntensity * preset.strobe * beat : 0;
+      this.strobe.intensity = active
+        ? this.strobe.userData.maxIntensity * preset.strobe * beat
+        : 0;
     }
 
     const sweepSpeed = this.config.laser?.sweepSpeed ?? 0.55;
+    const hazeBeam = 0.08 + this.haze * 0.4;
     for (const laser of this.laserPivots) {
       laser.pivot.rotation.y = this.elapsed * sweepSpeed + laser.phase + bass * 0.28;
       if (this.lasersEnabled) {
-        laser.material.opacity = 0.12 + preset.intensity * 0.08 + energy * 0.12 + beat * 0.18;
+        laser.material.opacity = Math.min(
+          0.85,
+          hazeBeam + preset.intensity * 0.07 + energy * 0.12 + beat * 0.2,
+        );
       }
     }
   }
@@ -170,6 +182,8 @@ export class LightingRig {
       preset: this.preset,
       haze: this.haze,
       lasers: this.lasersEnabled,
+      fogNear: this.scene.fog?.near ?? null,
+      fogFar: this.scene.fog?.far ?? null,
       ...this.lastMetrics,
     };
   }
