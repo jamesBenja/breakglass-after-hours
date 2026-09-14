@@ -1,4 +1,5 @@
 import { WebGLRenderer, PCFSoftShadowMap } from 'three';
+import { UndergroundKombat } from '../arcade/UndergroundKombat.js';
 import { AssetLoader } from '../assets/AssetLoader.js';
 import { assetManifest } from '../assets/manifest.js';
 import { normalizeAvatar } from '../avatar/profile.js';
@@ -82,6 +83,29 @@ export class Game {
     this.input.bindCamera(this.renderer.domElement);
     this.input.bindTouchControls(document);
 
+    // iOS/Safari may suspend WebAudio until a direct gesture. Capture every genuine gameplay
+    // gesture until the one shared context is running so instruments, DJ decks and cabinet SFX
+    // do not silently fail after the title gate has already been dismissed.
+    this.onAudioGesture = () => {
+      if (this.audio.context?.state === 'running') return;
+      void this.audio.init().catch(() => {});
+    };
+    window.addEventListener('pointerdown', this.onAudioGesture, true);
+    window.addEventListener('touchend', this.onAudioGesture, true);
+    window.addEventListener('keydown', this.onAudioGesture, true);
+
+    this.arcade = new UndergroundKombat(document, this.audio, {
+      onActive: (active) => {
+        this.input.clear();
+        this.input.setEnabled(!active && this.started);
+        if (!active && this.started) this.renderer.domElement.focus();
+      },
+      onWin: () => {
+        this.state.data.arcadeWins = Math.min(999, (this.state.data.arcadeWins ?? 0) + 1);
+        this.save();
+      },
+    });
+
     this.stopAll = () => {
       this.keyboardPerformance.stop(false);
       this.studioPlayback.stop();
@@ -119,6 +143,7 @@ export class Game {
         this.input.clear();
       },
       onEnter: (level) => {
+        this.syncMaddoxPresence(level, { entered: true });
         this.interactions.setLevel(level);
         this.camera.configure(
           level.definition.cameraOffset,
@@ -187,6 +212,11 @@ export class Game {
       canAct,
     });
     this.interactions = new InteractionSystem((target) => {
+      if (target?.action === 'arcade') {
+        this.stopAll();
+        this.arcade.start();
+        return;
+      }
       if (this.policeInteraction.handle(target)) return;
       if (this.maddoxInteraction.handle(target)) return;
       if (this.lightingControl.handle(target)) return;
@@ -254,6 +284,28 @@ export class Game {
     this.renderer.setAnimationLoop(this.frame);
   }
 
+  syncMaddoxPresence(level, { entered = false } = {}) {
+    const dog = level?.maddox;
+    if (!dog?.setPresence) return;
+    const levelId = level.definition.id;
+    const unlocked = this.state.data.roofSecretUnlocked === true;
+    const companion = unlocked && this.state.data.maddoxCompanion === true;
+    const home = levelId === 'upstairs';
+    const roof = levelId === 'roof';
+    const visible = home || (roof && unlocked) || companion;
+    const snapshot = dog.snapshot?.() ?? {};
+    const cameFromRoof = entered && home && this.state.data.sceneId === 'roof';
+    const guidingToRoof =
+      home && !entered && !snapshot.following && (snapshot.leading || snapshot.arrivedAtLeadTarget);
+    const following = visible && (roof || companion) && !guidingToRoof;
+    dog.setPresence({
+      visible,
+      following,
+      position: this.player.position,
+      snap: entered && visible && (following || cameFromRoof),
+    });
+  }
+
   update(now, movementOverride = null) {
     const elapsed = this.lastTime == null ? 0 : (now - this.lastTime) / 1000;
     this.lastTime = now;
@@ -297,7 +349,8 @@ export class Game {
       this.barService.update(dt);
       this.dj.update(dt);
       const currentLevel = this.sceneManager.current;
-      currentLevel.update(dt, this.audio);
+      this.syncMaddoxPresence(currentLevel);
+      currentLevel.update(dt, this.audio, this.player.position);
       const alleyLevel = this.scenes.get('alley');
       if (alleyLevel && alleyLevel !== currentLevel) {
         alleyLevel.alley?.update(dt, this.audio.metrics?.() ?? { playing: this.audio.playing });
@@ -358,7 +411,11 @@ export class Game {
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('pagehide', this.onPageHide);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    window.removeEventListener('pointerdown', this.onAudioGesture, true);
+    window.removeEventListener('touchend', this.onAudioGesture, true);
+    window.removeEventListener('keydown', this.onAudioGesture, true);
     this.renderer.domElement.removeEventListener('webglcontextlost', this.onContextLost);
+    this.arcade.dispose();
     this.input.dispose();
     this.keyboardPerformance.dispose();
     this.micRecorder.dispose();
