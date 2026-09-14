@@ -4,7 +4,7 @@ const TRACKS = {
   '3am-tool': { label: 'DJ: 3AM Tool', interval: 0.235 },
 };
 
-/** One user-activated AudioContext and transport shared across both scenes. */
+/** One user-activated AudioContext and master analyser shared across the building. */
 export class AudioEngine {
   constructor({ assets, onTrack = () => {}, contextFactory, timers = globalThis } = {}) {
     this.assets = assets;
@@ -21,13 +21,52 @@ export class AudioEngine {
     this.trackId = null;
     this.generation = 0;
     this.hatBuffer = null;
+    this.externalTransports = new Map();
+  }
+
+  get activeExternalTransport() {
+    const values = [...this.externalTransports.values()];
+    return values[values.length - 1] ?? null;
   }
 
   get label() {
-    return TRACKS[this.trackId]?.label ?? '';
+    return TRACKS[this.trackId]?.label ?? this.activeExternalTransport?.label ?? '';
   }
   get playing() {
-    return this.trackId !== null;
+    return this.trackId !== null || this.externalTransports.size > 0;
+  }
+
+  setExternalTransport(owner, label, interval = 0.125, metrics = {}) {
+    this.externalTransports.delete(owner);
+    this.externalTransports.set(owner, {
+      owner,
+      label,
+      interval: Math.max(0.045, Number(interval) || 0.125),
+      vibe: Math.max(0, Math.min(1, Number(metrics.vibe) || 0.5)),
+      mixQuality: Math.max(0, Math.min(1, Number(metrics.mixQuality) || 0.5)),
+    });
+  }
+
+  updateExternalTransport(owner, patch = {}) {
+    const current = this.externalTransports.get(owner);
+    if (!current) return false;
+    this.externalTransports.set(owner, {
+      ...current,
+      ...patch,
+      vibe:
+        patch.vibe == null
+          ? current.vibe
+          : Math.max(0, Math.min(1, Number(patch.vibe) || 0)),
+      mixQuality:
+        patch.mixQuality == null
+          ? current.mixQuality
+          : Math.max(0, Math.min(1, Number(patch.mixQuality) || 0)),
+    });
+    return true;
+  }
+
+  clearExternalTransport(owner) {
+    this.externalTransports.delete(owner);
   }
 
   async init() {
@@ -43,7 +82,6 @@ export class AudioEngine {
         this.master.connect(this.analyser);
         this.analyser.connect(this.context.destination);
       } else {
-        // Test harnesses and older WebAudio implementations can still play without analysis.
         this.master.connect(this.context.destination);
       }
     }
@@ -51,12 +89,12 @@ export class AudioEngine {
   }
 
   /**
-   * Small, serializable signal snapshot for lighting, NPC energy and future multiplayer sync.
-   * Real decoded tracks use an AnalyserNode; synthesized placeholders still expose a stable
-   * transport beat so visual systems remain useful before catalogue audio is installed.
+   * Serializable signal snapshot for lighting, crowd energy and future multiplayer sync.
+   * Every sub-engine routes through the same analyser, while the transport gives a stable beat.
    */
   metrics() {
-    if (!this.context || !this.playing) return { playing: false, energy: 0, bass: 0, beat: 0 };
+    if (!this.context || !this.playing)
+      return { playing: false, energy: 0, bass: 0, beat: 0, vibe: 0, mixQuality: 0 };
 
     let energy = 0.46;
     let bass = 0.5;
@@ -74,11 +112,14 @@ export class AudioEngine {
       bass = Math.min(1, (low / lowBins) * 1.8);
     }
 
-    const interval = TRACKS[this.trackId]?.interval ?? 0.25;
+    const external = this.activeExternalTransport;
+    const interval = TRACKS[this.trackId]?.interval ?? external?.interval ?? 0.25;
     const phase = ((this.context.currentTime % interval) + interval) % interval;
     const transportBeat = Math.max(0, 1 - phase / Math.max(0.045, interval * 0.42));
     const beat = Math.min(1, transportBeat * (0.55 + bass * 0.65));
-    return { playing: true, energy, bass, beat };
+    const vibe = external?.vibe ?? Math.min(1, 0.35 + energy * 0.65);
+    const mixQuality = external?.mixQuality ?? 0.72;
+    return { playing: true, energy, bass, beat, vibe, mixQuality };
   }
 
   voice(source, ...nodes) {
@@ -171,7 +212,6 @@ export class AudioEngine {
     this.stop();
     const generation = this.generation;
     const buffer = this.assets ? await this.assets.audio(id, this.context) : null;
-    // Stop or a later selection wins over a slow asset request.
     if (generation !== this.generation) return false;
     this.trackId = id;
     this.onTrack(id);
@@ -187,7 +227,6 @@ export class AudioEngine {
       let nextTime = this.context.currentTime;
       const schedule = () => {
         if (this.context.state !== 'running') return;
-        // Recover from a delayed background tick without a burst of stale notes.
         nextTime = Math.max(nextTime, this.context.currentTime);
         while (nextTime < this.context.currentTime + 0.1) {
           this.pattern(id, step, nextTime - this.context.currentTime);
@@ -211,7 +250,7 @@ export class AudioEngine {
       try {
         source.stop();
       } catch {
-        /* An ended one-shot needs only disconnection. */
+        // An ended one-shot needs only disconnection.
       }
       source.disconnect();
       nodes.forEach((node) => node.disconnect());
@@ -229,6 +268,7 @@ export class AudioEngine {
 
   async dispose() {
     this.stop();
+    this.externalTransports.clear();
     this.master?.disconnect();
     this.analyser?.disconnect();
     if (this.context && this.context.state !== 'closed') await this.context.close();
