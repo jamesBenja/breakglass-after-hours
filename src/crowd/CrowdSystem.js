@@ -38,8 +38,8 @@ function inside(rect, x, z) {
 /**
  * Lightweight club crowd built from two instanced meshes.
  *
- * It is deliberately state-light: only attendance/density need to become authoritative in
- * multiplayer. Individual dancers are deterministic client-side decoration.
+ * Attendance is shared-state friendly; individual dancers remain deterministic client-side
+ * decoration. DJ vibe/mix quality move people into or out of the room over time.
  */
 export class CrowdSystem {
   constructor(root, config = {}) {
@@ -48,6 +48,8 @@ export class CrowdSystem {
     this.idle = Math.min(this.max, Math.max(0, config.idle ?? 28));
     this.attendance = Math.min(this.max, Math.max(0, config.start ?? 44));
     this.targetAttendance = this.attendance;
+    this.lastVibe = 0;
+    this.lastMixQuality = 0;
     this.elapsed = 0;
     this.zones = config.zones ?? [];
     this.avoid = config.avoid ?? [];
@@ -115,12 +117,22 @@ export class CrowdSystem {
     const energy = clamp(metrics.energy ?? (metrics.playing ? 0.5 : 0));
     const bass = clamp(metrics.bass ?? energy);
     const beat = clamp(metrics.beat ?? 0);
+    const vibe = clamp(metrics.vibe ?? energy);
+    const mixQuality = clamp(metrics.mixQuality ?? (metrics.playing ? 0.72 : 0));
     const playing = !!metrics.playing;
+    this.lastVibe = vibe;
+    this.lastMixQuality = mixQuality;
+
+    // Good selection and clean mixing retain/fill the room. A rough exposed blend can visibly
+    // thin it. With no music, a smaller social/off-hours population remains.
+    const attraction = playing
+      ? clamp(0.08 + vibe * 0.72 + mixQuality * 0.16 + beat * 0.04)
+      : 0;
     const musicalTarget = playing
-      ? this.idle + (this.max - this.idle) * (0.38 + energy * 0.52 + beat * 0.1)
+      ? this.idle + (this.max - this.idle) * attraction
       : this.idle;
     this.targetAttendance = Math.max(this.idle, Math.min(this.max, musicalTarget));
-    const attendanceSpeed = playing ? 0.12 : 0.045;
+    const attendanceSpeed = playing ? 0.16 : 0.06;
     this.attendance +=
       (this.targetAttendance - this.attendance) * (1 - Math.exp(-attendanceSpeed * dt));
     const count = Math.round(this.attendance);
@@ -131,13 +143,13 @@ export class CrowdSystem {
     for (let i = 0; i < count; i++) {
       const member = this.members[i];
       const dance = member.kind === 'dance';
-      const localEnergy = dance ? energy : energy * 0.35;
+      const localEnergy = dance ? clamp(energy * 0.55 + vibe * 0.55) : energy * 0.25;
       const speed = member.tempo * (1.4 + localEnergy * 2.5);
       const sway = Math.sin(this.elapsed * speed + member.phase);
       const side = Math.cos(this.elapsed * (speed * 0.72) + member.phase * 1.7);
       const beatLift = dance ? beat * 0.055 : 0;
       const bob =
-        (dance ? 0.035 + localEnergy * 0.095 : 0.012 + localEnergy * 0.025) *
+        (dance ? 0.035 + localEnergy * 0.105 : 0.012 + localEnergy * 0.025) *
           Math.abs(sway) +
         beatLift;
       const drift = dance ? 0.055 + bass * 0.035 : 0.022;
@@ -166,6 +178,8 @@ export class CrowdSystem {
       targetAttendance: Math.round(this.targetAttendance),
       capacity: this.max,
       density: this.max ? this.attendance / this.max : 0,
+      vibe: this.lastVibe,
+      mixQuality: this.lastMixQuality,
     };
   }
 
