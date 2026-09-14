@@ -4,6 +4,16 @@ import { alleyLevel } from './alley.js';
 // Y up. Upstairs is assembled from A-103 tracing; Below retains V2.1 authoring units.
 // Neither coordinate system is surveyed metres. Reconcile meshes and navigation together.
 const surface = (id, name, x1, x2, z1, z2) => ({ id, name, x1, x2, z1, z2, y: 0 });
+const rampSurface = (id, name, x1, x2, z1, z2, from, to) => ({
+  id,
+  name,
+  x1,
+  x2,
+  z1,
+  z2,
+  priority: 20,
+  ramp: { axis: 'z', from, to },
+});
 const anchor = (name, position, radius, action) => ({ name, position, radius, action });
 
 export const levels = {
@@ -120,11 +130,11 @@ export const levels = {
     spawns: {
       start: [-5.9, 0, -2.25],
       stairs: [-5.9, 0, -2.25],
-      alley: [5.05, 0, -4.2],
+      alley: [4.6, 0.64, -5.0],
     },
     intro: [
       'BELOW BREAKGLASS',
-      'The club is alive now. Push toward the booth, slip into Take A Break, find the bar, find Nora for a photo, or head outside.',
+      'The club is alive now. Push toward the booth, slip into Take A Break, find the bar, find Nora for a photo, or take the marked stairs beside coat check up to the alley.',
     ],
     navigation: {
       surfaces: [
@@ -135,6 +145,7 @@ export const levels = {
         surface('service', 'Service / Bar', 6.2, 8.8, -2.7, 6.15),
         surface('bar-door', 'Bar Doorway', 5.65, 6.5, -2.05, -0.55),
         surface('coat-check', 'Coat Check / Alley Entry', 3.55, 5.65, -5.35, -3.2),
+        rampSurface('alley-stairs', 'Stairs to alley', 3.82, 5.38, -5.2, -3.4, 0.72, 0),
         surface('stair-landing', 'Clark Stair Landing', -6.8, -5.5, -3.1, -1.1),
       ],
       obstacles: [],
@@ -146,7 +157,7 @@ export const levels = {
         target: 'upstairs',
       },
       alleyExit: {
-        ...anchor('Alley / club entrance', [5.0, 0, -4.35], 1.45, 'travel'),
+        ...anchor('Stairs to alley / club entrance', [4.6, 0.64, -5.0], 1.3, 'travel'),
         target: 'alley@clubDoor',
       },
       nora: anchor('Nora', [-2.5, 0, 1.3], 1.2, 'dialogue'),
