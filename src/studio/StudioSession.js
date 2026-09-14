@@ -50,10 +50,23 @@ export function normalizeStudioSession(value = {}) {
     pan: clamp(Number(stem.pan) || 0, -1, 1),
     mute: stem.mute === true,
     source: typeof stem.source === 'string' ? stem.source.slice(0, 80) : 'session',
+    processing:
+      stem.processing && typeof stem.processing === 'object'
+        ? {
+            mic: typeof stem.processing.mic === 'string' ? stem.processing.mic : null,
+            amp: typeof stem.processing.amp === 'string' ? stem.processing.amp : null,
+            eq: typeof stem.processing.eq === 'string' ? stem.processing.eq : null,
+            compressor:
+              typeof stem.processing.compressor === 'string' ? stem.processing.compressor : null,
+          }
+        : null,
   }));
 
   return {
-    name: typeof value.name === 'string' && value.name.trim() ? value.name.trim().slice(0, 48) : 'Breakglass Session',
+    name:
+      typeof value.name === 'string' && value.name.trim()
+        ? value.name.trim().slice(0, 48)
+        : 'Breakglass Session',
     setup,
     stems,
     takeCounter: Math.max(0, Math.floor(Number(value.takeCounter) || 0)),
@@ -88,7 +101,7 @@ export class StudioSession {
     return item;
   }
 
-  addTake(kind, label, source = 'gameplay') {
+  addTake(kind, label, source = 'gameplay', processing = null) {
     this.takeCounter += 1;
     const id = `${kind}-${this.takeCounter}`;
     const stem = {
@@ -99,6 +112,7 @@ export class StudioSession {
       pan: 0,
       mute: false,
       source,
+      processing: processing ? { ...processing } : null,
     };
     this.stems.push(stem);
     if (this.stems.length > 12) this.stems.splice(0, this.stems.length - 12);
@@ -134,7 +148,7 @@ export class StudioSession {
     return {
       name: this.name,
       setup: { ...this.setup },
-      stems: this.stems.map((stem) => ({ ...stem })),
+      stems: this.stems.map((stem) => ({ ...stem, processing: stem.processing ? { ...stem.processing } : null })),
       takeCounter: this.takeCounter,
     };
   }
