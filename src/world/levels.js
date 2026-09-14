@@ -43,7 +43,7 @@ export const levels = {
     lights: [
       { color: 0x8749d6, intensity: 3.2, distance: 8, position: [-6.6, 2.2, -2.5] },
       { color: 0xffb06b, intensity: 2.8, distance: 7, position: [-8.1, 2.35, 1.65] },
-      { color: 0xff7f50, intensity: 2.2, distance: 6, position: [7.45, 2.2, -1.35] },
+      { color: 0xff7f50, intensity: 2.2, distance: 6, position: [7.45, 2.2, 4.7] },
     ],
     lightingRig: {
       preset: 'warmup',
@@ -120,7 +120,8 @@ export const levels = {
         { x1: -5.45, x2: -4.65, z1: -2.25, z2: 2.65, weight: 1.25, kind: 'social' },
         { x1: 4.65, x2: 5.45, z1: -1.8, z2: 2.7, weight: 1.1, kind: 'social' },
         { x1: -9.35, x2: -6.55, z1: 0.0, z2: 3.35, weight: 2.1, kind: 'social' },
-        { x1: 6.35, x2: 8.55, z1: -2.55, z2: -0.25, weight: 1.7, kind: 'social' },
+        // Bar guests now collect on the patron side of the kitchen counter.
+        { x1: 6.35, x2: 8.55, z1: 3.35, z2: 4.05, weight: 1.7, kind: 'social' },
       ],
       avoid: [
         { x1: 0.0, x2: 3.15, z1: -3.15, z2: -1.55 },
@@ -134,7 +135,7 @@ export const levels = {
     },
     intro: [
       'BELOW BREAKGLASS',
-      'The club is alive now. Push toward the booth, slip into Take A Break, find the bar, find Nora for a photo, or take the marked stairs beside coat check up to the alley.',
+      'The club is alive now. Push toward the booth, slip into Take A Break, find the kitchen bar, find Nora for a photo, or take the marked stairs beside coat check up to the alley.',
     ],
     navigation: {
       surfaces: [
@@ -162,8 +163,9 @@ export const levels = {
       },
       nora: anchor('Nora', [-2.5, 0, 1.3], 1.2, 'dialogue'),
       jashim: anchor('Jashim', [-0.7, 0, 0.6], 1.2, 'dialogue'),
-      courtney: anchor('Courtney', [7.05, 0, -1.0], 1.15, 'dialogue'),
-      simla: anchor('Simla', [8.05, 0, -1.0], 1.15, 'dialogue'),
+      // Courtney and Simla are behind the counter in the kitchen, facing south toward patrons.
+      courtney: anchor('Courtney', [7.05, 0, 5.15], 1.2, 'dialogue'),
+      simla: anchor('Simla', [8.05, 0, 5.15], 1.2, 'dialogue'),
       devin: anchor('Devin', [-4.95, 0, 2.7], 1.2, 'dialogue'),
       installation: anchor('Take A Break installation', [-8.75, 0, 1.85], 1.5, 'installation'),
       photoWall: anchor('Nora photo wall', [-8.15, 0, 3.0], 1.6, 'photoWall'),
@@ -199,8 +201,22 @@ export const levels = {
         speed: 0.46,
       },
       { id: 'jashim', name: 'Jashim', anchor: 'jashim', role: 'artist', color: 0x60728f },
-      { id: 'courtney', name: 'Courtney', anchor: 'courtney', role: 'bartender', color: 0x8b5e83 },
-      { id: 'simla', name: 'Simla', anchor: 'simla', role: 'bartender', color: 0x5a806a },
+      {
+        id: 'courtney',
+        name: 'Courtney',
+        anchor: 'courtney',
+        role: 'bartender',
+        color: 0x8b5e83,
+        rotationY: Math.PI,
+      },
+      {
+        id: 'simla',
+        name: 'Simla',
+        anchor: 'simla',
+        role: 'bartender',
+        color: 0x5a806a,
+        rotationY: Math.PI,
+      },
       {
         id: 'devin',
         name: 'Devin',
