@@ -31,7 +31,14 @@ export class LightingRig {
     this.preset = 'warmup';
     this.haze = 0;
     this.lasersEnabled = false;
-    this.lastMetrics = { energy: 0, bass: 0, beat: 0, playing: false };
+    this.lastMetrics = {
+      energy: 0,
+      bass: 0,
+      beat: 0,
+      vibe: 0,
+      mixQuality: 0,
+      playing: false,
+    };
     this.group = new Group();
     this.group.name = 'party-lighting';
     scene.add(this.group);
@@ -147,31 +154,45 @@ export class LightingRig {
     const energy = clamp(metrics.energy ?? (metrics.playing ? 0.5 : 0));
     const bass = clamp(metrics.bass ?? energy);
     const beat = clamp(metrics.beat ?? 0);
-    this.lastMetrics = { energy, bass, beat, playing: !!metrics.playing };
+    const vibe = clamp(metrics.vibe ?? energy);
+    const mixQuality = clamp(metrics.mixQuality ?? (metrics.playing ? 0.72 : 0));
+    this.lastMetrics = {
+      energy,
+      bass,
+      beat,
+      vibe,
+      mixQuality,
+      playing: !!metrics.playing,
+    };
     const preset = PRESETS[this.preset] ?? PRESETS.warmup;
 
     for (const fixture of this.fixtures) {
       const drift = 0.5 + 0.5 * Math.sin(this.elapsed * 0.7 + fixture.phase);
-      const musicPulse = preset.pulse * (energy * 0.45 + bass * 0.22 + beat * 0.72);
+      const musicPulse =
+        preset.pulse * (energy * 0.24 + bass * 0.18 + beat * 0.62 + vibe * 0.42);
+      const skillLift = metrics.playing ? 0.05 + vibe * 0.12 + mixQuality * 0.08 : 0;
       fixture.light.intensity =
-        fixture.baseIntensity * preset.intensity * (0.68 + musicPulse + drift * 0.08);
+        fixture.baseIntensity *
+        preset.intensity *
+        (0.62 + skillLift + musicPulse + drift * 0.08);
     }
 
     if (this.strobe) {
-      const active = metrics.playing && beat > 0.62;
+      const active = metrics.playing && beat > 0.62 && vibe > 0.42;
       this.strobe.intensity = active
-        ? this.strobe.userData.maxIntensity * preset.strobe * beat
+        ? this.strobe.userData.maxIntensity * preset.strobe * beat * (0.65 + mixQuality * 0.5)
         : 0;
     }
 
     const sweepSpeed = this.config.laser?.sweepSpeed ?? 0.55;
     const hazeBeam = 0.08 + this.haze * 0.4;
     for (const laser of this.laserPivots) {
-      laser.pivot.rotation.y = this.elapsed * sweepSpeed + laser.phase + bass * 0.28;
+      laser.pivot.rotation.y =
+        this.elapsed * sweepSpeed * (0.85 + vibe * 0.4) + laser.phase + bass * 0.28;
       if (this.lasersEnabled) {
         laser.material.opacity = Math.min(
           0.85,
-          hazeBeam + preset.intensity * 0.07 + energy * 0.12 + beat * 0.2,
+          hazeBeam + preset.intensity * 0.07 + energy * 0.08 + vibe * 0.12 + beat * 0.18,
         );
       }
     }
