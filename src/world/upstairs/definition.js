@@ -100,7 +100,7 @@ export function createUpstairsDefinition(pass = 'B') {
       },
       tapeArchive: {
         name: 'Breakglass tape archive',
-        position: at(438, 1028),
+        position: at(383, 1027),
         radius: 1.55,
         action: 'tapeArchive',
       },
