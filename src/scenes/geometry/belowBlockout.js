@@ -18,7 +18,10 @@ export function buildBelowBlockout(downScene) {
   wall(-1.275, -3.5, 9.65, 0.24);
   wall(5.875, -3.5, 0.45, 0.24);
   doorwayFrame(downScene, 4.6, -3.38, 'horizontal', 'ALLEY / COAT CHECK');
-  wall(-6.1, -1.7, 0.24, 3.6);
+
+  // The Clark stair used to be hidden behind a continuous west wall. Split the wall around a
+  // generous opening so the relationship between club and studio reads immediately.
+  wall(-6.1, -0.55, 0.24, 1.3);
   wall(-6.1, 2.45, 0.24, 2.1);
   wall(6.1, -2.825, 0.24, 1.35);
   wall(6.1, 1.475, 0.24, 4.05);
@@ -65,6 +68,21 @@ export function buildBelowBlockout(downScene) {
   }
   const rail = mat(0x2c3035, 0.52, 0.18);
   for (const x of [3.76, 5.44]) box(downScene, 0.06, 1.05, 1.9, rail, x, 0.65, -4.45);
+
+  // Wide Clark stair to the studio. The navigable ramp in levels.js follows this visible run.
+  const studioStep = mat(0x66564a, 0.88, 0.02);
+  const studioRail = mat(0x3a3f43, 0.5, 0.2);
+  for (let i = 0; i < 8; i++) {
+    const height = 0.105 * (i + 1);
+    const z = -0.82 - i * 0.32;
+    box(downScene, 2.5, height, 0.35, studioStep, -6.55, height / 2, z);
+  }
+  box(downScene, 2.5, 0.84, 0.42, studioStep, -6.55, 0.42, -3.34);
+  for (const x of [-7.82, -5.28]) {
+    box(downScene, 0.07, 1.15, 2.8, studioRail, x, 0.78, -2.0);
+    box(downScene, 0.09, 0.09, 2.95, studioRail, x, 1.32, -2.0).rotation.x = -0.23;
+  }
+  doorwayFrame(downScene, -6.55, -3.45, 'horizontal', 'UPSTAIRS / STUDIO');
 }
 
 export function buildBelowFixtures(downScene) {
@@ -130,6 +148,7 @@ export function buildBelowFixtures(downScene) {
   for (const x of [-4.8, -1.6, 1.6, 4.8])
     box(downScene, 0.035, 0.035, 6.2, mat(0x25262a, 0.68, 0.12), x, 3.14, 0);
 
+  // Take A Break installation/chill room.
   box(downScene, 2.6, 0.62, 0.82, MAT.red, -8.1, 0.33, 1.0);
   box(downScene, 1.25, 0.48, 0.72, mat(0x6f4936), -8.65, 0.24, 3.0);
   box(downScene, 1.25, 0.48, 0.72, mat(0x4e3d52), -7.25, 0.24, 3.0);
@@ -153,13 +172,35 @@ export function buildBelowFixtures(downScene) {
   for (const x of [-9.18, -8.13, -7.08])
     box(downScene, 0.08, 0.22, 0.08, mat(0x262226), x, 3.15, 3.68);
 
-  const curtain = mat(0x4d2334, 0.93, 0.01);
-  box(downScene, 0.08, 2.45, 1.55, curtain, -9.62, 1.23, -0.08);
-  box(downScene, 0.75, 1.7, 0.72, mat(0x24262d, 0.68, 0.08), -9.15, 0.85, -0.02);
-  box(downScene, 0.58, 0.42, 0.035, mat(0x445c6c, 0.4, 0.08), -9.15, 1.25, -0.395);
-  box(downScene, 0.5, 0.25, 0.5, mat(0x58394c), -9.15, 0.75, -0.3);
-  for (const x of [-9.28, -9.03]) cyl(downScene, 0.045, 0.06, mat(0xd7b05f), x, 0.83, -0.57);
-  label(downScene, 'ARCADE', -9.15, 2.0, -0.02, 0.22, '#d9c4ee');
+  // The studio's Mortal Kombat II cabinet. Geometry mirrors the real early-90s Midway silhouette
+  // and colour language without embedding copyrighted cabinet art or game assets.
+  const cabinetDark = mat(0x191a1d, 0.72, 0.06);
+  const cabinetRed = mat(0x7d1e25, 0.67, 0.04);
+  const cabinetGold = mat(0xd1a448, 0.46, 0.08);
+  const screenMaterial = new MeshStandardMaterial({
+    color: 0x11141a,
+    emissive: 0x263a59,
+    emissiveIntensity: 0.75,
+    roughness: 0.28,
+    metalness: 0.02,
+  });
+  box(downScene, 0.9, 1.72, 0.76, cabinetDark, -9.15, 0.86, -0.02);
+  box(downScene, 0.08, 1.64, 0.78, cabinetRed, -9.58, 0.86, -0.02);
+  box(downScene, 0.08, 1.64, 0.78, cabinetRed, -8.72, 0.86, -0.02);
+  box(downScene, 0.82, 0.28, 0.1, cabinetRed, -9.15, 1.72, -0.405);
+  box(downScene, 0.72, 0.54, 0.035, screenMaterial, -9.15, 1.31, -0.421);
+  // Tiny abstract fighters make the lit CRT read as an active fighting game from across the room.
+  box(downScene, 0.12, 0.3, 0.018, mat(0x2b75b6), -9.34, 1.29, -0.445);
+  box(downScene, 0.12, 0.3, 0.018, mat(0xc94e3c), -8.96, 1.29, -0.445);
+  box(downScene, 0.76, 0.12, 0.42, cabinetDark, -9.15, 0.92, -0.44).rotation.x = -0.16;
+  cyl(downScene, 0.035, 0.18, cabinetGold, -9.36, 1.03, -0.55);
+  cyl(downScene, 0.055, 0.035, mat(0xb52b2f), -9.03, 1.04, -0.57);
+  cyl(downScene, 0.055, 0.035, mat(0xe0b444), -8.88, 1.04, -0.57);
+  for (const x of [-9.34, -9.15, -8.96])
+    box(downScene, 0.085, 0.02, 0.025, cabinetGold, x, 1.57, -0.46);
+  box(downScene, 0.22, 0.07, 0.025, mat(0x642228), -9.15, 0.47, -0.41);
+  label(downScene, 'MORTAL KOMBAT II', -9.15, 1.76, -0.49, 0.14, '#ffd469');
+  label(downScene, 'MKII', -9.15, 2.02, -0.02, 0.2, '#d5b056');
 
   const counterZ = 4.42;
   box(downScene, 2.58, 1.0, 0.82, MAT.wood, 7.65, 0.5, counterZ);
@@ -187,8 +228,7 @@ export function buildBelowFixtures(downScene) {
     }
   }
 
-  // Espresso machine on the working side of the kitchen bar. This is playable rather than a
-  // decorative button: the nearby interaction anchor opens the coffee/alertness loop.
+  // Espresso machine on the working side of the kitchen bar.
   const steel = mat(0xa5a8a4, 0.3, 0.62);
   const coffeeDark = mat(0x242526, 0.5, 0.24);
   box(downScene, 0.78, 0.52, 0.42, steel, 6.72, 1.1, 5.62);
@@ -212,9 +252,6 @@ export function buildBelowFixtures(downScene) {
 
   box(downScene, 1.45, 0.34, 0.08, mat(0x3f6c55, 0.45, 0.04), 4.6, 2.45, -3.33);
   label(downScene, 'EXIT', 4.6, 2.5, -3.28, 0.26, '#d9ffe3');
-
-  for (let i = 0; i < 6; i++)
-    box(downScene, 2.3, 0.17, 0.45, MAT.wood, -6.8, 0.11 + i * 0.11, -1.1 - i * 0.36);
-  label(downScene, 'STAIRS ↑ STUDIO', -6.6, 2.25, -3.0, 0.38, '#d8c1ff');
+  label(downScene, 'STAIRS ↑ STUDIO', -6.55, 2.45, -3.18, 0.33, '#d8c1ff');
   label(downScene, 'BELOW BREAKGLASS', 0, 3.8, -3.1, 0.66);
 }
