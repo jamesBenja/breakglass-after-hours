@@ -3,6 +3,7 @@ import { CollisionWorld } from '../collision/CollisionWorld.js';
 import { NpcSystem } from '../npcs/NpcSystem.js';
 import { CrowdSystem } from '../crowd/CrowdSystem.js';
 import { LightingRig } from '../lighting/LightingRig.js';
+import { AlleySystem } from '../alley/AlleySystem.js';
 import { disposeObject } from './disposeObject.js';
 
 export async function createLevel(definition, builders, assets) {
@@ -43,6 +44,7 @@ export async function createLevel(definition, builders, assets) {
   const npcs = new NpcSystem(gameplay, definition);
   const crowd = definition.crowd ? new CrowdSystem(gameplay, definition.crowd) : null;
   const lighting = definition.lightingRig ? new LightingRig(scene, definition.lightingRig) : null;
+  const alley = definition.alleySystem ? new AlleySystem(definition.alleySystem) : null;
   return {
     scene,
     definition,
@@ -53,6 +55,7 @@ export async function createLevel(definition, builders, assets) {
     npcs,
     crowd,
     lighting,
+    alley,
     geometrySource: model ? 'model' : 'blockout',
     update(dt, audio) {
       const metrics =
@@ -67,6 +70,7 @@ export async function createLevel(definition, builders, assets) {
       npcs.update(dt, metrics);
       crowd?.update(dt, metrics);
       lighting?.update(dt, metrics);
+      alley?.update(dt, metrics);
     },
     dispose() {
       lighting?.dispose();
