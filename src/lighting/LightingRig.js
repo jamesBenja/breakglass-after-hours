@@ -18,6 +18,39 @@ const PRESETS = {
   blackout: { intensity: 0.05, pulse: 0, strobe: 0 },
 };
 
+export const LIGHTING_PALETTES = {
+  breakglass: {
+    label: 'Breakglass',
+    fixtures: [0xff253f, 0xff3bc8, 0x6f4cff, 0x2c74ff, 0xff2a55],
+    laser: 0x55ffd8,
+    strobe: 0xffffff,
+  },
+  redroom: {
+    label: 'Red Room',
+    fixtures: [0xff261f, 0xd61c22, 0xff5633, 0x8d1118, 0xff2e56],
+    laser: 0xff4938,
+    strobe: 0xffd6ca,
+  },
+  ultraviolet: {
+    label: 'Ultraviolet',
+    fixtures: [0x6f31ff, 0xb237ff, 0x3a50ff, 0xeb44ff, 0x5734d8],
+    laser: 0x9c75ff,
+    strobe: 0xe6ddff,
+  },
+  cyanAmber: {
+    label: 'Cyan + Amber',
+    fixtures: [0x00b8c8, 0xff8c35, 0x43d8dc, 0xffb04d, 0x13889c],
+    laser: 0x5ffff2,
+    strobe: 0xffe7bd,
+  },
+  acid: {
+    label: 'Acid',
+    fixtures: [0xbaff00, 0xffea00, 0x31ff7a, 0xff3bbd, 0x8eff1f],
+    laser: 0xc7ff35,
+    strobe: 0xf8ffbf,
+  },
+};
+
 const seeded = (index, salt = 0) => {
   const x = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
   return x - Math.floor(x);
@@ -25,10 +58,7 @@ const seeded = (index, salt = 0) => {
 
 /**
  * Lightweight, scene-local party lighting controller.
- *
- * Fog supplies the room-wide atmosphere. A small field of translucent moving puffs gives the
- * haze control a visible smoke-machine source/volume without requiring an expensive volumetric
- * renderer, keeping the effect practical on phones.
+ * Fog supplies room-wide atmosphere; moving translucent puffs make haze read as a smoke machine.
  */
 export class LightingRig {
   constructor(scene, config = {}) {
@@ -36,6 +66,7 @@ export class LightingRig {
     this.config = config;
     this.elapsed = 0;
     this.preset = 'warmup';
+    this.palette = config.palette && LIGHTING_PALETTES[config.palette] ? config.palette : 'breakglass';
     this.haze = 0;
     this.lasersEnabled = false;
     this.lastMetrics = {
@@ -152,6 +183,7 @@ export class LightingRig {
     }
 
     this.applyPreset(config.preset ?? 'warmup');
+    this.applyPalette(this.palette);
     this.setHaze(config.haze ?? 0.22);
     this.setLasers(config.lasers ?? false);
   }
@@ -159,6 +191,32 @@ export class LightingRig {
   applyPreset(name) {
     if (!PRESETS[name]) return false;
     this.preset = name;
+    return true;
+  }
+
+  applyPalette(name) {
+    const palette = LIGHTING_PALETTES[name];
+    if (!palette) return false;
+    this.palette = name;
+    this.fixtures.forEach((fixture, index) => {
+      fixture.light.color.setHex(palette.fixtures[index % palette.fixtures.length]);
+    });
+    if (this.strobe) this.strobe.color.setHex(palette.strobe);
+    for (const laser of this.laserPivots) laser.material.color.setHex(palette.laser);
+    return true;
+  }
+
+  cyclePalette(direction = 1) {
+    const names = Object.keys(LIGHTING_PALETTES);
+    const index = Math.max(0, names.indexOf(this.palette));
+    const next = (index + direction + names.length) % names.length;
+    this.applyPalette(names[next]);
+    return this.palette;
+  }
+
+  setLaserColor(hex) {
+    if (!Number.isFinite(Number(hex))) return false;
+    for (const laser of this.laserPivots) laser.material.color.setHex(Number(hex));
     return true;
   }
 
@@ -213,7 +271,8 @@ export class LightingRig {
 
     for (const fixture of this.fixtures) {
       const drift = 0.5 + 0.5 * Math.sin(this.elapsed * 0.7 + fixture.phase);
-      const musicPulse = preset.pulse * (energy * 0.24 + bass * 0.18 + beat * 0.62 + vibe * 0.42);
+      const musicPulse = preset.pulse *
+        (energy * 0.24 + bass * 0.18 + beat * 0.62 + vibe * 0.42);
       const skillLift = metrics.playing ? 0.05 + vibe * 0.12 + mixQuality * 0.08 : 0;
       fixture.light.intensity =
         fixture.baseIntensity * preset.intensity * (0.62 + skillLift + musicPulse + drift * 0.08);
@@ -253,6 +312,7 @@ export class LightingRig {
   snapshot() {
     return {
       preset: this.preset,
+      palette: this.palette,
       haze: this.haze,
       lasers: this.lasersEnabled,
       fogNear: this.scene.fog?.near ?? null,
