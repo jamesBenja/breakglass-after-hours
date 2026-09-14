@@ -39,7 +39,13 @@ export class SceneManager {
     this.enter(id, 'start', position);
   }
 
-  request(id, spawn = 'stairs') {
+  request(destination, spawn = 'stairs') {
+    let id = destination;
+    if (typeof destination === 'string' && destination.includes('@')) {
+      const parts = destination.split('@');
+      id = parts[0];
+      spawn = parts[1] || spawn;
+    }
     if (this.changing || !this.scenes.has(id) || this.current?.definition.id === id) return false;
     this.pending = { id, spawn };
     this.phase = 'out';
