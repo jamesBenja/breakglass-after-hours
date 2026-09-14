@@ -9,6 +9,8 @@ import {
 import { disposeObject } from '../scenes/disposeObject.js';
 import { avatarPalette, normalizeAvatar } from '../avatar/profile.js';
 
+const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
+
 export class PlayerController {
   constructor(profile) {
     this.object = new Group();
@@ -39,11 +41,16 @@ export class PlayerController {
     this.verticalVelocity = 0;
     this.grounded = true;
     this.danceRemaining = 0;
+    this.intoxication = 0;
     this.elapsed = 0;
   }
 
   get position() {
     return this.object.position;
+  }
+
+  setIntoxication(value) {
+    this.intoxication = clamp(Number(value) || 0);
   }
 
   applyAvatar(profile) {
@@ -111,12 +118,25 @@ export class PlayerController {
       this.grounded = false;
       this.coyoteRemaining = this.jumpBuffer = 0;
     }
-    const input = Math.hypot(movement.x, movement.z);
-    const acceleration = this.grounded ? (input ? 42 : 48) : input ? 21 : 3;
+
+    // Intoxication never takes control away from the player; it introduces a mild, continuous
+    // steering drift and slightly slower response. The effect is readable without making the
+    // game frustrating or encouraging repeated drinking purely for a mechanical advantage.
+    const drift =
+      this.intoxication *
+      (Math.sin(this.elapsed * 2.1) * 0.18 + Math.sin(this.elapsed * 0.73 + 0.8) * 0.08);
+    const c = Math.cos(drift);
+    const s = Math.sin(drift);
+    const moveX = movement.x * c - movement.z * s;
+    const moveZ = movement.x * s + movement.z * c;
+    const input = Math.hypot(moveX, moveZ);
+    const response = 1 - this.intoxication * 0.28;
+    const acceleration = (this.grounded ? (input ? 42 : 48) : input ? 21 : 3) * response;
+    const movementSpeed = this.speed * (1 - this.intoxication * 0.12);
     const approach = (value, target) =>
       value + Math.sign(target - value) * Math.min(Math.abs(target - value), acceleration * dt);
-    this.velocity.x = approach(this.velocity.x, movement.x * this.speed);
-    this.velocity.z = approach(this.velocity.z, movement.z * this.speed);
+    this.velocity.x = approach(this.velocity.x, moveX * movementSpeed);
+    this.velocity.z = approach(this.velocity.z, moveZ * movementSpeed);
     const beforeX = this.position.x,
       beforeZ = this.position.z;
     collision.move(this.position, this.velocity.x * dt, this.velocity.z * dt, {
@@ -126,12 +146,13 @@ export class PlayerController {
     if (Math.abs(this.position.x - beforeX) < 0.00001) this.velocity.x = 0;
     if (Math.abs(this.position.z - beforeZ) < 0.00001) this.velocity.z = 0;
     if (input > 0.1) {
-      const desired = Math.atan2(movement.x, movement.z);
+      const desired = Math.atan2(moveX, moveZ);
       const difference = Math.atan2(
         Math.sin(desired - this.object.rotation.y),
         Math.cos(desired - this.object.rotation.y),
       );
-      this.object.rotation.y += difference * (1 - Math.exp(-18 * dt));
+      const turnRate = 18 * (1 - this.intoxication * 0.45);
+      this.object.rotation.y += difference * (1 - Math.exp(-turnRate * dt));
     }
     const previousY = this.position.y;
     const support = collision.supportAt(this.position.x, this.position.z, previousY + 0.002);
@@ -171,7 +192,11 @@ export class PlayerController {
       1 + this.landingPulse * 0.35,
     );
     this.danceRemaining = Math.max(0, this.danceRemaining - dt);
-    this.object.rotation.z = this.danceRemaining > 0 ? Math.sin(this.elapsed / 0.085) * 0.13 : 0;
+    const danceLean = this.danceRemaining > 0 ? Math.sin(this.elapsed / 0.085) * 0.13 : 0;
+    const drunkSway =
+      this.intoxication *
+      (Math.sin(this.elapsed * 1.45) * 0.065 + Math.sin(this.elapsed * 0.53 + 1.4) * 0.03);
+    this.object.rotation.z = danceLean + drunkSway;
   }
 
   dispose() {
