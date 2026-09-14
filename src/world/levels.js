@@ -49,6 +49,7 @@ export const levels = {
     ],
     lightingRig: {
       preset: 'warmup',
+      palette: 'breakglass',
       haze: 0.42,
       hazeFar: 10.5,
       hazeVolume: {
@@ -155,6 +156,7 @@ export const levels = {
     },
     anchors: {
       dj: anchor('DJ booth', [1.5, 0, -2.15], 1.7, 'dj'),
+      lightingDesk: anchor('Lighting / laser controller', [3.45, 0, -2.15], 1.25, 'clubLighting'),
       stairs: {
         ...anchor('Stairs upstairs', [-6.55, 0.82, -3.0], 1.55, 'travel'),
         target: 'upstairs',
