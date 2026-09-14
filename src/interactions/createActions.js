@@ -1,4 +1,8 @@
+import { showLiveArchivePlayer } from '../archive/LiveArchivePlayer.js';
+import { LIVE_FROM_BREAKGLASS, liveArchiveById } from '../archive/liveArchive.js';
+import { TAPE_ARCHIVE, tapeArchiveById } from '../archive/tapeArchive.js';
 import { DJ_TRACKS } from '../dj/DjMixer.js';
+import { STUDIO_SESSION_TEMPLATES } from '../studio/sessionCatalog.js';
 import {
   AMPS,
   BASSES,
@@ -10,15 +14,9 @@ import {
   gearById,
 } from '../studio/gear.js';
 
-const TAPE_LIBRARY = [
-  { id: 'two-inch-a', label: '2-inch reel · Archive A', root: 55 },
-  { id: 'two-inch-b', label: '2-inch reel · Archive B', root: 65.4 },
-  { id: 'quarter-inch-mix', label: '¼-inch mix reel', root: 82.4 },
-];
-const tapeById = (id) => TAPE_LIBRARY.find((tape) => tape.id === id) ?? null;
-
 export function createActions({
   audio,
+  spatialAudio,
   sceneManager,
   player,
   ui,
@@ -49,6 +47,14 @@ export function createActions({
 
   const hasStudio = !!studio;
   const hasDj = !!dj && typeof ui.djMixer === 'function';
+
+  const appendButton = (label, action) => {
+    if (!ui.document || !ui.buttons) return;
+    const button = ui.document.createElement('button');
+    button.textContent = label;
+    button.onclick = () => Promise.resolve(action()).catch((error) => ui.warning?.(error.message));
+    ui.buttons.appendChild(button);
+  };
 
   const rememberStudio = () => {
     if (!studio || !state) return;
@@ -461,6 +467,25 @@ export function createActions({
     );
   };
 
+  const sessionLibraryPanel = () => {
+    panel(
+      'SPECTRA · BREAKGLASS SESSION LIBRARY',
+      'Load a Breakglass session onto the console. Multitracks open as separate faders where stems are available; released masters open as a single console channel.',
+      [
+        ...STUDIO_SESSION_TEMPLATES.map((template) => [
+          `${studio.name === template.name ? '✓ ' : ''}${template.label}`,
+          () => {
+            studioPlayback?.stop?.();
+            studio.loadTemplate(template.id);
+            rememberStudio();
+            consolePanel();
+          },
+        ]),
+        ['Back to console', consolePanel],
+      ],
+    );
+  };
+
   const consolePanel = () => {
     if (!studio || !studioPlayback || typeof ui.studioMixer !== 'function') {
       panel('CONTROL ROOM', 'Load a session and hear the room become active.', [
@@ -482,14 +507,7 @@ export function createActions({
       onStop: () => studioPlayback.stop(),
       onRecordVocal: recordVocal,
     });
-  };
-
-  const appendButton = (label, action) => {
-    if (!ui.document || !ui.buttons) return;
-    const button = ui.document.createElement('button');
-    button.textContent = label;
-    button.onclick = () => Promise.resolve(action()).catch((error) => ui.warning?.(error.message));
-    ui.buttons.appendChild(button);
+    appendButton('Load Breakglass session', sessionLibraryPanel);
   };
 
   const djPanel = () => {
@@ -533,14 +551,14 @@ export function createActions({
   };
 
   const tapeArchivePanel = () => {
-    const carrying = tapeById(state?.data?.archiveTape);
+    const carrying = tapeArchiveById(state?.data?.archiveTape);
     panel(
       'STORAGE · BREAKGLASS TAPE ARCHIVE',
       carrying
         ? `You are carrying ${carrying.label}. Take it to the tape machine in the historic Neve Suite.`
-        : 'Choose a reel from the storage archive, then physically carry it to the Neve Suite tape machine.',
+        : 'Choose a catalogued archive dub, carry the reel object to the Neve Suite and thread it on the tape machine.',
       [
-        ...TAPE_LIBRARY.map((tape) => [
+        ...TAPE_ARCHIVE.map((tape) => [
           `${carrying?.id === tape.id ? '✓ ' : ''}Take ${tape.label}`,
           () => {
             state.data.archiveTape = tape.id;
@@ -564,35 +582,46 @@ export function createActions({
     );
   };
 
-  const playTapePrototype = () => {
-    const tape = tapeById(state?.data?.threadedTape);
-    if (!tape) return;
+  const playThreadedTape = async () => {
+    const tape = tapeArchiveById(state?.data?.threadedTape);
+    if (!tape) return false;
     studioPlayback?.stop?.();
     dj?.stop?.();
-    audio.stop();
-    audio.setExternalTransport?.('archive', `Tape playback · ${tape.label}`, 0.5, {
-      vibe: 0.22,
+    const played = await audio.playAsset?.(tape.assetId, {
+      owner: 'archive',
+      label: `Tape · ${tape.label}`,
+      loop: true,
+      vibe: 0.3,
+      baseVolume: 0.82,
+    });
+    if (played) return true;
+
+    // Last-resort signal if the remote media host refuses browser playback. It is explicitly
+    // labelled as a prototype rather than pretending to be the archived performance.
+    audio.setExternalTransport?.('archive', `Tape · ${tape.label} · prototype signal`, 0.5, {
+      vibe: 0.18,
       mixQuality: 0.9,
     });
     const pattern = [1, 1.5, 1.25, 2, 1.125, 1.5, 1.25, 1];
     pattern.forEach((ratio, index) => {
       const when = index * 0.42;
       audio.tone(tape.root * ratio, 0.5, index % 2 ? 'triangle' : 'sine', 0.045, when);
-      if (index % 2 === 0) audio.tone(tape.root * ratio * 2, 0.25, 'triangle', 0.018, when + 0.03);
+      if (index % 2 === 0)
+        audio.tone(tape.root * ratio * 2, 0.25, 'triangle', 0.018, when + 0.03);
     });
-    globalThis.setTimeout?.(() => audio.clearExternalTransport?.('archive'), 4200);
+    return false;
   };
 
   const tapeMachinePanel = () => {
-    const carrying = tapeById(state?.data?.archiveTape);
-    const threaded = tapeById(state?.data?.threadedTape);
+    const carrying = tapeArchiveById(state?.data?.archiveTape);
+    const threaded = tapeArchiveById(state?.data?.threadedTape);
     panel(
       'HISTORIC NEVE SUITE · TAPE MACHINE',
       threaded
-        ? `${threaded.label} is threaded on the machine. The current sound is a temporary archive signal until the real transfer for that reel is installed.`
+        ? `${threaded.label} is threaded on the machine. Its linked Breakglass archive source is ready for playback.`
         : carrying
           ? `You brought ${carrying.label} from Storage. Thread it onto the machine.`
-          : 'The machine is empty. The tape archive is in Storage.',
+          : 'The machine is empty. Pick up a reel from the tape archive in Storage.',
       [
         ...(carrying && !threaded
           ? [
@@ -609,13 +638,20 @@ export function createActions({
           : []),
         ...(threaded
           ? [
-              ['Play tape', playTapePrototype],
+              ['Play tape', playThreadedTape],
+              [
+                'Stop tape',
+                () => {
+                  audio.stopAsset?.('archive');
+                  audio.clearExternalTransport?.('archive');
+                },
+              ],
               [
                 'Take reel off machine',
                 () => {
                   state.data.archiveTape = threaded.id;
                   state.data.threadedTape = null;
-                  audio.clearExternalTransport?.('archive');
+                  audio.stopAsset?.('archive');
                   saveState();
                   tapeMachinePanel();
                 },
@@ -627,34 +663,71 @@ export function createActions({
   };
 
   const liveArchivePanel = () => {
-    const active = state?.data?.liveRoomArchive === 'fieldnote-launch-2026';
+    const loaded = liveArchiveById(state?.data?.liveRoomArchive);
     panel(
-      'LIVE FROM BREAKGLASS · ARCHIVE',
-      active
-        ? 'Fieldnote · Breakglass Records launch · March 2026 is armed as the current Live Room archive session. The archive state is now persistent; the next pass can replace the Live Room with the actual captured performance media once those files are installed.'
-        : 'This console arms archived Live From Breakglass sessions so the Live Room can become a playback venue instead of only a recording room.',
+      'NEVE · LIVE FROM BREAKGLASS ARCHIVE',
+      loaded
+        ? `${loaded.label} is loaded. Walk into the Live Room and use the Live From Breakglass screen to play it back.`
+        : 'Load a real Live From Breakglass archive session on the Neve. The Live Room screen becomes the playback venue.',
       [
-        [
-          active ? 'Deactivate archive session' : 'Activate Fieldnote launch · March 2026',
+        ...LIVE_FROM_BREAKGLASS.map((session) => [
+          `${loaded?.id === session.id ? '✓ ' : ''}${session.label}`,
           () => {
-            state.data.liveRoomArchive = active ? null : 'fieldnote-launch-2026';
+            state.data.liveRoomArchive = session.id;
             saveState();
             liveArchivePanel();
           },
-        ],
+        ]),
+        ...(loaded
+          ? [
+              [
+                'Unload session',
+                () => {
+                  state.data.liveRoomArchive = null;
+                  saveState();
+                  liveArchivePanel();
+                },
+              ],
+            ]
+          : []),
       ],
     );
   };
 
+  const livePlaybackPanel = () => {
+    const session = liveArchiveById(state?.data?.liveRoomArchive);
+    if (!session) {
+      panel(
+        'LIVE ROOM · LIVE FROM BREAKGLASS',
+        'Nothing is loaded. Go to the historic Neve Suite and choose a Live From Breakglass session from the archive station.',
+      );
+      return;
+    }
+    if (!session.youtubeId) {
+      panel(
+        'LIVE ROOM · LIVE FROM BREAKGLASS',
+        `${session.label} is catalogued and loaded, but its playable media has not been attached to this build yet.`,
+      );
+      return;
+    }
+    studioPlayback?.stop?.();
+    dj?.stop?.();
+    audio.stop();
+    showLiveArchivePlayer(ui, session, livePlaybackPanel);
+  };
+
   const neveConsolePanel = () => {
-    const threaded = tapeById(state?.data?.threadedTape);
+    const threaded = tapeArchiveById(state?.data?.threadedTape);
+    const live = liveArchiveById(state?.data?.liveRoomArchive);
     panel(
       'HISTORIC NEVE SUITE',
-      threaded
-        ? `${threaded.label} is on the tape machine. Monitor it here, or open the Live From Breakglass archive.`
-        : 'The historic Neve room is open again as an archive/listening suite. Bring a reel from Storage to the tape machine, or activate a Live From Breakglass session.',
       [
-        ...(threaded ? [['Monitor threaded tape', playTapePrototype]] : []),
+        'The console now faces into the room.',
+        threaded ? `${threaded.label} is on the tape machine.` : 'No tape is threaded.',
+        live ? `${live.label} is loaded for Live Room screening.` : 'No Live From Breakglass session is loaded.',
+      ].join(' '),
+      [
+        ...(threaded ? [['Monitor threaded tape', playThreadedTape]] : []),
         ['Live From Breakglass archive', liveArchivePanel],
       ],
     );
@@ -710,6 +783,25 @@ export function createActions({
     ]);
   };
 
+  const installationPanel = () => {
+    const spatial = spatialAudio?.snapshot?.();
+    const enabled = spatial?.enabled !== false;
+    panel(
+      'TAKE A BREAK · IMMERSIVE INSTALLATION',
+      `Four HRTF sound emitters occupy the room. Walk around them and the image changes with your position and camera orientation${enabled ? '.' : ' — the installation is currently muted.'} Headphones make the placement clearest, while phone/laptop speakers still reproduce the room-to-room level and filtering changes.`,
+      [
+        [
+          enabled ? 'Mute installation' : 'Activate installation',
+          () => {
+            spatialAudio?.toggleInstallation?.();
+            installationPanel();
+          },
+        ],
+        ...(player ? [['Stay and listen', () => player.dance(35 / 60)]] : []),
+      ],
+    );
+  };
+
   const actions = {
     drums: drumsPanel,
     piano: pianoPanel,
@@ -723,14 +815,10 @@ export function createActions({
     tapeMachine: tapeMachinePanel,
     neveConsole: neveConsolePanel,
     liveArchive: liveArchivePanel,
+    livePlayback: livePlaybackPanel,
     photoWall: () => ui.photoGallery?.(state?.data?.photos ?? []),
     alleySocial: alleySocialPanel,
-    installation: () =>
-      panel(
-        'TAKE A BREAK · INSTALLATION',
-        'A persistent immersive work lives here even when Below is in rehearsal/off-hours mode. Spatial-media playback comes next.',
-        player ? [['Stay a minute', () => player.dance(35 / 60)]] : [],
-      ),
+    installation: installationPanel,
     travel: (target) => sceneManager.request(target.target),
     dialogue: (target) => {
       const id = target.npcId ?? target.id;
