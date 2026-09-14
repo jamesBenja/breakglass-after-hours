@@ -26,9 +26,10 @@ export function createUpstairsDefinition(pass = 'B') {
     ...[...platforms, ...fixtures].map((p) => ({ ...p, y: p.y2, priority: 20 })),
     ...stairFloors.map((p) => ({ ...p, y: p.y2, priority: 30 })),
   ];
+  const spawns = gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) };
   return {
     id: 'upstairs',
-    layoutRevision: 'a103-spatial-6-live-archive',
+    layoutRevision: 'a103-spatial-7-roof-passage',
     pass,
     title: 'UPSTAIRS — BREAKGLASS STUDIOS',
     model: 'upstairs-building',
@@ -45,10 +46,13 @@ export function createUpstairsDefinition(pass = 'B') {
       { color: 0xa2c8d6, intensity: 5, distance: 20, position: at(240, 770, 5) },
       { color: 0xffc98a, intensity: 3.8, distance: 11, position: at(427, 850, 3.2) },
     ],
-    spawns: gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) },
+    spawns: {
+      ...spawns,
+      roofReturn: at(435, 1075, 1.4),
+    },
     intro: [
       'THIRD FLOOR',
-      'Build a session, play the instruments, explore the tape archive, mix on the Spectra console, or enter the historic Neve Suite.',
+      'Build a session, play the instruments, explore the tape archive, mix on the Spectra console, enter the historic Neve Suite, and keep an eye out for the less obvious parts of the building.',
     ],
     rooms: floorRooms,
     solids,
@@ -121,6 +125,13 @@ export function createUpstairsDefinition(pass = 'B') {
         position: at(448, 905),
         radius: 1.45,
         action: 'liveArchive',
+      },
+      roofPassage: {
+        name: 'Unmarked roof hatch',
+        position: at(435, 1075, 1.4),
+        radius: 1.5,
+        action: 'travel',
+        target: 'roof@hatch',
       },
       stairs: {
         name: 'Clark stair → Below',
