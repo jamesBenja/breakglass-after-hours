@@ -15,6 +15,7 @@ import { GameState } from '../state/GameState.js';
 import { StudioSession } from '../studio/StudioSession.js';
 import { StudioPlayback } from '../studio/StudioPlayback.js';
 import { MicrophoneRecorder } from '../studio/MicrophoneRecorder.js';
+import { KeyboardPerformance } from '../studio/KeyboardPerformance.js';
 import { InteractionSystem } from '../interactions/InteractionSystem.js';
 import { createActions } from '../interactions/createActions.js';
 
@@ -55,6 +56,7 @@ export class Game {
     this.studio = new StudioSession(this.state.data.studio);
     this.studioPlayback = new StudioPlayback(this.audio);
     this.micRecorder = new MicrophoneRecorder(this.audio);
+    this.keyboardPerformance = new KeyboardPerformance(this.audio);
     this.dj = new DjMixer(this.audio);
     this.player = new PlayerController(this.state.data.avatar);
     this.input = new InputController();
@@ -70,6 +72,7 @@ export class Game {
     this.input.bindCamera(this.renderer.domElement);
 
     this.stopAll = () => {
+      this.keyboardPerformance.stop(false);
       this.studioPlayback.stop();
       this.dj.stop();
       this.audio.stop();
@@ -80,6 +83,7 @@ export class Game {
       scenes: this.scenes,
       player: this.player,
       onFade: (active) => {
+        if (active) this.keyboardPerformance.stop(false);
         ui.fade(active);
         this.input.clear();
       },
@@ -109,6 +113,7 @@ export class Game {
         studio: this.studio,
         studioPlayback: this.studioPlayback,
         micRecorder: this.micRecorder,
+        keyboardPerformance: this.keyboardPerformance,
         dj: this.dj,
         stopAll: this.stopAll,
         saveState: () => this.save(),
@@ -122,6 +127,7 @@ export class Game {
     };
     this.onVisibility = () => {
       this.input.clear();
+      if (document.hidden) this.keyboardPerformance.stop(false);
       this.lastTime = null;
       this.save();
       const request = document.hidden ? this.audio.suspend() : this.audio.resume();
@@ -191,6 +197,7 @@ export class Game {
         if (this.input.consume('dance')) this.player.dance();
 
         let movement = movementOverride ?? this.camera.worldMovement(this.input.movement());
+        if (this.keyboardPerformance.active) movement = { x: 0, z: 0 };
         if (!movementOverride && this.sceneManager.current.crowd) {
           const crowdScale = this.sceneManager.current.crowd.movementScaleAt(this.player.position);
           movement = { x: movement.x * crowdScale, z: movement.z * crowdScale };
@@ -199,9 +206,11 @@ export class Game {
           dt,
           movement,
           this.sceneManager.current.collision,
-          this.input.consume('jump'),
+          this.keyboardPerformance.active ? false : this.input.consume('jump'),
         );
-        if (this.input.consume('interact')) this.interactions.interact(this.player.position);
+        if (!this.keyboardPerformance.active && this.input.consume('interact')) {
+          this.interactions.interact(this.player.position);
+        }
       } else {
         this.input.clear();
       }
@@ -251,6 +260,7 @@ export class Game {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.renderer.domElement.removeEventListener('webglcontextlost', this.onContextLost);
     this.input.dispose();
+    this.keyboardPerformance.dispose();
     this.micRecorder.dispose();
     this.studioPlayback.dispose();
     this.dj.dispose();
