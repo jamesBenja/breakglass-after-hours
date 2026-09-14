@@ -95,9 +95,8 @@ function buildLandmarks(root, definition) {
     material.polygonOffsetFactor = -1;
     material.polygonOffsetUnits = -1;
   }
-  // A faceted exterior cornice makes the uncertain central suite readable from all sides.
-  drawPrism(root, { ...definition.centralSuite, y1: 3.72, y2: 3.85 }, trim);
-  drawPrism(root, { ...definition.centralSuite, y1: 4.01, y2: 4.09 }, dark);
+  // The historic Neve Suite deliberately has no game ceiling or roof slab. Its tall faceted
+  // wall silhouette remains, but the third-person camera can look directly into the room.
   for (const [i, a] of definition.centralSuite.points.entries()) {
     const b = definition.centralSuite.points[(i + 1) % definition.centralSuite.points.length];
     const dx = b[0] - a[0],
@@ -185,5 +184,4 @@ function buildLandmarks(root, definition) {
     const [x, , z] = at(447, pz);
     box(root, 0.1, 1.9, 1.2, mat(0x8b6846), x, 1.7, z);
   }
-  label(root, '↑ POLYGON PERCH', ...at(585, 846, 2.3), 0.42, '#ffe0a1');
 }
