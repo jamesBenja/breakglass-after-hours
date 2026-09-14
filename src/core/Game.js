@@ -6,6 +6,7 @@ import { AudioEngine } from '../audio/AudioEngine.js';
 import { SpatialAudioSystem } from '../audio/SpatialAudioSystem.js';
 import { DjMixer } from '../dj/DjMixer.js';
 import { BarServiceSystem } from '../gameplay/BarServiceSystem.js';
+import { MaddoxInteractionSystem } from '../gameplay/MaddoxInteractionSystem.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { InputController } from '../player/InputController.js';
 import { FollowCamera } from '../player/FollowCamera.js';
@@ -125,6 +126,13 @@ export class Game {
       saveState: () => this.save(),
     });
 
+    this.maddoxInteraction = new MaddoxInteractionSystem({
+      state: this.state,
+      ui,
+      sceneManager: this.sceneManager,
+      saveState: () => this.save(),
+    });
+
     const canAct = () => this.started && !this.sceneManager.changing && !document.hidden;
     const baseActions = createActions({
       audio: this.audio,
@@ -145,6 +153,7 @@ export class Game {
     });
     this.interactions = new InteractionSystem(
       (target) => {
+        if (this.maddoxInteraction.handle(target)) return;
         if (this.barService.handle(target)) return;
         baseActions(target);
       },
