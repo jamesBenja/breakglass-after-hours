@@ -1,7 +1,18 @@
+import { normalizeAvatar } from '../avatar/profile.js';
+import { normalizeStudioSession } from '../studio/StudioSession.js';
 import { LEVEL_IDS } from '../world/levels.js';
 
 export const SAVE_KEY = 'breakglass.after-hours.v1';
-export const TRACK_IDS = ['night-bus', 'glass-floor', '3am-tool'];
+export const TRACK_IDS = [
+  'night-bus',
+  'glass-floor',
+  '3am-tool',
+  'got-you-dancin',
+  'in-flux',
+  'atrakar',
+  'dubki',
+  'diet-cake',
+];
 const defaults = () => ({
   version: 1,
   sceneId: 'upstairs',
@@ -10,6 +21,9 @@ const defaults = () => ({
   contacts: [],
   lastTrack: null,
   debug: false,
+  avatar: normalizeAvatar(),
+  avatarConfigured: false,
+  studio: normalizeStudioSession(),
 });
 
 export function validateSave(value) {
@@ -31,11 +45,18 @@ export function validateSave(value) {
     state.visited = [...new Set(value.visited.filter((id) => LEVEL_IDS.includes(id)))];
   }
   if (Array.isArray(value.contacts)) {
-    state.contacts = [...new Set(value.contacts.filter((id) => ['nora', 'jashim'].includes(id)))];
+    state.contacts = [
+      ...new Set(
+        value.contacts.filter((id) => ['nora', 'jashim', 'courtney', 'simla'].includes(id)),
+      ),
+    ];
   }
   if (TRACK_IDS.includes(value.lastTrack)) state.lastTrack = value.lastTrack;
   state.debug = value.debug === true;
   state.layoutRevision = typeof value.layoutRevision === 'string' ? value.layoutRevision : null;
+  state.avatar = normalizeAvatar(value.avatar);
+  state.avatarConfigured = value.avatarConfigured === true;
+  state.studio = normalizeStudioSession(value.studio);
   return state;
 }
 
