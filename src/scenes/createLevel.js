@@ -46,7 +46,7 @@ export async function createLevel(definition, builders, assets) {
   const npcs = new NpcSystem(gameplay, definition);
   const crowd = definition.crowd ? new CrowdSystem(gameplay, definition.crowd) : null;
   const lighting = definition.lightingRig ? new LightingRig(scene, definition.lightingRig) : null;
-  const alley = definition.alleySystem ? new AlleySystem(definition.alleySystem) : null;
+  const alley = definition.alleySystem ? new AlleySystem(gameplay, definition.alleySystem) : null;
   const roof = definition.roofSystem ? new RoofSystem(gameplay, definition.roofSystem) : null;
   const maddox = definition.maddox ? new MaddoxSystem(gameplay, definition.maddox) : null;
   return {
@@ -83,6 +83,7 @@ export async function createLevel(definition, builders, assets) {
     dispose() {
       maddox?.dispose();
       roof?.dispose();
+      alley?.dispose();
       lighting?.dispose();
       crowd?.dispose();
       npcs.dispose();
