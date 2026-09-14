@@ -28,6 +28,7 @@ export class InteractionSystem {
       result.push({ id, ...anchor });
     }
     result.push(...(this.level?.npcs?.interactionTargets?.() ?? []));
+    result.push(...(this.level?.alley?.interactionTargets?.() ?? []));
     result.push(...(this.level?.maddox?.interactionTargets?.() ?? []));
     return result;
   }
