@@ -59,56 +59,14 @@ export const levels = {
         count: 22,
       },
       fixtures: [
-        {
-          name: 'club-west-red',
-          color: 0xff253f,
-          intensity: 5.6,
-          distance: 15,
-          position: [-4.9, 2.7, -2.55],
-          phase: 0,
-        },
-        {
-          name: 'club-east-magenta',
-          color: 0xff3bc8,
-          intensity: 4.8,
-          distance: 15,
-          position: [4.8, 2.8, -2.4],
-          phase: 1.7,
-        },
-        {
-          name: 'club-west-violet',
-          color: 0x6f4cff,
-          intensity: 5.2,
-          distance: 15,
-          position: [-4.7, 2.5, 2.45],
-          phase: 3.2,
-        },
-        {
-          name: 'club-east-blue',
-          color: 0x2c74ff,
-          intensity: 4.6,
-          distance: 15,
-          position: [4.7, 2.45, 2.5],
-          phase: 4.9,
-        },
-        {
-          name: 'booth-wash',
-          color: 0xff2a55,
-          intensity: 3.8,
-          distance: 10,
-          position: [1.5, 2.7, -2.45],
-          phase: 2.4,
-        },
+        { name: 'club-west-red', color: 0xff253f, intensity: 5.6, distance: 15, position: [-4.9, 2.7, -2.55], phase: 0 },
+        { name: 'club-east-magenta', color: 0xff3bc8, intensity: 4.8, distance: 15, position: [4.8, 2.8, -2.4], phase: 1.7 },
+        { name: 'club-west-violet', color: 0x6f4cff, intensity: 5.2, distance: 15, position: [-4.7, 2.5, 2.45], phase: 3.2 },
+        { name: 'club-east-blue', color: 0x2c74ff, intensity: 4.6, distance: 15, position: [4.7, 2.45, 2.5], phase: 4.9 },
+        { name: 'booth-wash', color: 0xff2a55, intensity: 3.8, distance: 10, position: [1.5, 2.7, -2.45], phase: 2.4 },
       ],
       strobe: { color: 0xffffff, intensity: 11, distance: 13, position: [0, 3.0, 0] },
-      laser: {
-        color: 0x55ffd8,
-        position: [1.5, 2.55, -2.45],
-        count: 6,
-        length: 10,
-        tilt: 0.72,
-        sweepSpeed: 0.62,
-      },
+      laser: { color: 0x55ffd8, position: [1.5, 2.55, -2.45], count: 6, length: 10, tilt: 0.72, sweepSpeed: 0.62 },
     },
     crowd: {
       start: 72,
@@ -120,7 +78,6 @@ export const levels = {
         { x1: -5.45, x2: -4.65, z1: -2.25, z2: 2.65, weight: 1.25, kind: 'social' },
         { x1: 4.65, x2: 5.45, z1: -1.8, z2: 2.7, weight: 1.1, kind: 'social' },
         { x1: -9.35, x2: -6.55, z1: 0.0, z2: 3.35, weight: 2.1, kind: 'social' },
-        // Bar guests now collect on the patron side of the kitchen counter.
         { x1: 6.35, x2: 8.55, z1: 3.35, z2: 4.05, weight: 1.7, kind: 'social' },
       ],
       avoid: [
@@ -135,7 +92,7 @@ export const levels = {
     },
     intro: [
       'BELOW BREAKGLASS',
-      'The club is alive now. Push toward the booth, slip into Take A Break, find the kitchen bar, find Nora for a photo, or take the marked stairs beside coat check up to the alley.',
+      'The club is alive now. Push toward the booth, slip into Take A Break, find the kitchen bar and coffee machine, find Nora for a photo, or take the marked stairs beside coat check up to the alley.',
     ],
     navigation: {
       surfaces: [
@@ -163,9 +120,9 @@ export const levels = {
       },
       nora: anchor('Nora', [-2.5, 0, 1.3], 1.2, 'dialogue'),
       jashim: anchor('Jashim', [-0.7, 0, 0.6], 1.2, 'dialogue'),
-      // Courtney and Simla are behind the counter in the kitchen, facing south toward patrons.
       courtney: anchor('Courtney', [7.05, 0, 5.15], 1.2, 'dialogue'),
       simla: anchor('Simla', [8.05, 0, 5.15], 1.2, 'dialogue'),
+      coffeeMachine: anchor('Kitchen coffee machine', [6.72, 0, 5.4], 1.35, 'coffee'),
       devin: anchor('Devin', [-4.95, 0, 2.7], 1.2, 'dialogue'),
       installation: anchor('Take A Break installation', [-8.75, 0, 1.85], 1.5, 'installation'),
       photoWall: anchor('Nora photo wall', [-8.15, 0, 3.0], 1.6, 'photoWall'),
