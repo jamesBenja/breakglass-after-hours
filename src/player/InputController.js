@@ -16,6 +16,7 @@ const handled = new Set([
   'q',
   'r',
   'c',
+  'v',
 ]);
 const actionKeys = {
   e: 'interact',
@@ -24,6 +25,7 @@ const actionKeys = {
   m: 'stopAudio',
   j: 'jump',
   c: 'recenter',
+  v: 'toggleView',
   f3: 'debug',
 };
 
