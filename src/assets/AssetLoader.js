@@ -16,12 +16,22 @@ export class AssetLoader {
     this.textures = new TextureLoader(this.manager);
   }
 
+  mediaUrl(id) {
+    const entry = this.manifest[id];
+    if (!entry?.url) return null;
+    return new URL(entry.url, this.baseUrl).href;
+  }
+
+  entry(id) {
+    return this.manifest[id] ?? null;
+  }
+
   async load(id, type, load) {
     const entry = this.manifest[id];
     if (!entry || entry.type !== type) throw new Error(`Unknown ${type} asset: ${id}`);
     if (!entry.url) return null;
     if (!this.cache.has(id)) {
-      const url = new URL(entry.url, this.baseUrl).href;
+      const url = this.mediaUrl(id);
       const request = Promise.resolve()
         .then(() => load(url))
         .catch((error) => {
