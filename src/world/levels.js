@@ -17,13 +17,27 @@ export const levels = {
     },
     background: 0x060408,
     fog: [18, 58],
-    cameraOffset: [12, 15, 14],
-    // Architectural/stair accents remain static. Party fixtures live in lightingRig below.
-    lights: [{ color: 0x8749d6, intensity: 3.2, distance: 8, position: [-6.6, 2.2, -2.5] }],
+    cameraOffset: [4.2, 3.0, 4.6],
+    camera: {
+      mode: 'close',
+      fov: 67,
+      distance: 3.7,
+      minDistance: 2.1,
+      maxDistance: 6.2,
+      pitch: 0.34,
+      targetHeight: 1.34,
+    },
+    // Architectural/stair accents and warm side-room lights remain static.
+    // Party fixtures live in lightingRig below.
+    lights: [
+      { color: 0x8749d6, intensity: 3.2, distance: 8, position: [-6.6, 2.2, -2.5] },
+      { color: 0xffb06b, intensity: 2.8, distance: 7, position: [-8.1, 2.35, 1.65] },
+      { color: 0xff7f50, intensity: 2.2, distance: 6, position: [7.45, 2.2, -1.35] },
+    ],
     lightingRig: {
       preset: 'warmup',
-      haze: 0.26,
-      hazeFar: 29,
+      haze: 0.38,
+      hazeFar: 11.5,
       fixtures: [
         {
           name: 'club-west-red',
@@ -70,23 +84,41 @@ export const levels = {
       laser: {
         color: 0x55ffd8,
         position: [1.5, 2.55, -2.45],
-        count: 5,
+        count: 6,
         length: 10,
         tilt: 0.72,
         sweepSpeed: 0.62,
       },
     },
+    crowd: {
+      start: 48,
+      idle: 32,
+      max: 78,
+      zones: [
+        { x1: -4.7, x2: 4.7, z1: -2.15, z2: 2.75, weight: 8, kind: 'dance' },
+        { x1: -5.45, x2: -4.65, z1: -2.25, z2: 2.65, weight: 1.25, kind: 'social' },
+        { x1: 4.65, x2: 5.45, z1: -1.8, z2: 2.7, weight: 1.1, kind: 'social' },
+        { x1: -9.35, x2: -6.55, z1: 0.0, z2: 3.35, weight: 1.55, kind: 'social' },
+        { x1: 6.35, x2: 8.55, z1: -2.55, z2: -0.25, weight: 1.25, kind: 'social' },
+      ],
+      avoid: [
+        { x1: 0.0, x2: 3.15, z1: -3.15, z2: -1.55 },
+        { x1: -6.2, x2: -5.35, z1: -3.2, z2: -1.0 },
+      ],
+    },
     spawns: { start: [-5.9, 0, -2.25], stairs: [-5.9, 0, -2.25] },
     intro: [
       'BELOW BREAKGLASS',
-      'Find the DJ booth or talk to people. The Clark-side stairs lead back to the studio.',
+      'The club is alive now. Push toward the booth, slip into Take A Break, or find the bar.',
     ],
     navigation: {
       surfaces: [
         surface('club', 'Below Breakglass', -5.85, 5.85, -3.25, 3.25),
         surface('lounge', 'Take A Break', -9.75, -6.25, -0.25, 3.6),
+        surface('lounge-door', 'Take A Break Doorway', -6.5, -5.65, 0.05, 1.45),
         surface('storage', 'Storage', -5, 1.8, 3.35, 6.2),
         surface('service', 'Service / Bar', 6.2, 8.8, -2.7, 6.15),
+        surface('bar-door', 'Bar Doorway', 5.65, 6.5, -2.05, -0.55),
         surface('coat-check', 'Coat Check', 3.55, 5.65, -5.35, -3.2),
         surface('stair-landing', 'Stair Landing', -6.8, -5.5, -3.1, -1.1),
       ],
@@ -100,10 +132,15 @@ export const levels = {
       },
       nora: anchor('Nora', [-2.5, 0, 1.3], 1.2, 'dialogue'),
       jashim: anchor('Jashim', [-0.7, 0, 0.6], 1.2, 'dialogue'),
+      courtney: anchor('Courtney', [7.05, 0, -1.0], 1.15, 'dialogue'),
+      simla: anchor('Simla', [8.05, 0, -1.0], 1.15, 'dialogue'),
+      installation: anchor('Take A Break installation', [-8.75, 0, 1.85], 1.5, 'installation'),
     },
     npcs: [
       { id: 'nora', anchor: 'nora', color: 0xb68e6a },
       { id: 'jashim', anchor: 'jashim', color: 0x60728f },
+      { id: 'courtney', anchor: 'courtney', color: 0x8b5e83 },
+      { id: 'simla', anchor: 'simla', color: 0x5a806a },
       { id: 'friend', position: [2.8, 0, 0.7], color: 0x7e5b78 },
     ],
   },
