@@ -1,28 +1,65 @@
 import { PerspectiveCamera, Vector3 } from 'three';
 
-/** Volume-tested camera boom. Rises in narrow halls and recovers gently in rooms. */
+const DEFAULTS = {
+  mode: 'follow',
+  fov: 54,
+  distance: 14,
+  minDistance: 7,
+  maxDistance: 16,
+  pitch: 0.8,
+  targetHeight: 1.05,
+};
+
+/** Volume-tested camera boom with scene-specific close/POV modes. */
 export class FollowCamera {
   constructor(aspect) {
-    this.camera = new PerspectiveCamera(54, aspect, 0.08, 160);
+    this.camera = new PerspectiveCamera(DEFAULTS.fov, aspect, 0.08, 160);
     this.target = new Vector3();
     this.desired = new Vector3();
     this.candidate = new Vector3();
     this.look = new Vector3();
     this.yaw = this.yawTarget = this.homeYaw = 0.55;
-    this.pitch = 0.8;
-    this.distance = this.distanceTarget = 14;
+    this.pitch = DEFAULTS.pitch;
+    this.distance = this.distanceTarget = DEFAULTS.distance;
     this.collisionTarget = null;
     this.clearance = 12;
     this.initialized = false;
+    this.config = { ...DEFAULTS };
+    this.mode = this.preferredMode = 'follow';
   }
 
-  configure(offset, position, collision) {
+  configure(offset, position, collision, options = {}) {
+    this.config = { ...DEFAULTS, ...options };
+    this.preferredMode = this.config.mode ?? 'follow';
+    this.mode = this.preferredMode;
     this.homeYaw = Math.atan2(offset[0], offset[2]);
     this.yaw = this.yawTarget = this.homeYaw;
-    this.pitch = 0.8;
-    this.target.copy(position).add(new Vector3(0, 1.05, 0));
+    this.pitch = this.config.pitch;
+    this.distance = this.distanceTarget = this.config.distance;
+    this.camera.fov = this.config.fov;
+    this.camera.updateProjectionMatrix();
+    this.target.copy(position).add(new Vector3(0, this.config.targetHeight, 0));
     this.initialized = false;
     this.update(1 / 60, position, collision);
+  }
+
+  get isFirstPerson() {
+    return this.mode === 'first';
+  }
+
+  toggleMode() {
+    if (this.mode === 'first') {
+      this.mode = this.preferredMode;
+      this.distance = this.distanceTarget = this.config.distance;
+      this.pitch = this.config.pitch;
+      this.camera.fov = this.config.fov;
+    } else {
+      this.mode = 'first';
+      this.camera.fov = Math.max(68, this.config.fov);
+    }
+    this.camera.updateProjectionMatrix();
+    this.initialized = false;
+    return this.mode;
   }
 
   orbit(amount) {
@@ -32,7 +69,11 @@ export class FollowCamera {
     this.yawTarget = this.homeYaw;
   }
   zoom(amount) {
-    this.distanceTarget = Math.max(7, Math.min(16, this.distanceTarget + amount));
+    if (this.isFirstPerson) return;
+    this.distanceTarget = Math.max(
+      this.config.minDistance,
+      Math.min(this.config.maxDistance, this.distanceTarget + amount),
+    );
   }
 
   worldMovement(movement) {
@@ -54,14 +95,43 @@ export class FollowCamera {
   update(dt, position, collision) {
     const damp = (speed) => 1 - Math.exp(-speed * dt);
     this.yaw += (this.yawTarget - this.yaw) * damp(12);
+
+    if (this.isFirstPerson) {
+      this.target.set(position.x, position.y + 1.55, position.z);
+      this.camera.position.copy(this.target);
+      this.look.set(
+        this.camera.position.x - Math.sin(this.yaw) * 5,
+        this.camera.position.y - 0.06,
+        this.camera.position.z - Math.cos(this.yaw) * 5,
+      );
+      this.camera.lookAt(this.look);
+      this.collisionTarget = null;
+      this.clearance = 0;
+      this.initialized = true;
+      return;
+    }
+
     this.distance += (this.distanceTarget - this.distance) * damp(5);
     this.target.x = position.x;
     this.target.z = position.z;
-    this.target.y += (position.y + 1.05 - this.target.y) * damp(12);
-    this.target.y = Math.max(position.y + 0.8, this.target.y);
-    let wantedPitch = 0.8;
+    this.target.y += (position.y + this.config.targetHeight - this.target.y) * damp(12);
+    this.target.y = Math.max(position.y + 0.78, this.target.y);
+
+    const basePitch = this.config.pitch;
+    let wantedPitch = basePitch;
     if (collision) {
-      for (const pitch of [0.8, 0.95, 1.1, 1.25, 1.4, 1.51, 1.565]) {
+      const pitches =
+        this.mode === 'follow'
+          ? [0.8, 0.95, 1.1, 1.25, 1.4, 1.51, 1.565]
+          : [
+              basePitch,
+              Math.min(1.5, basePitch + 0.18),
+              Math.min(1.5, basePitch + 0.36),
+              Math.min(1.5, basePitch + 0.56),
+              Math.min(1.52, basePitch + 0.78),
+              1.565,
+            ];
+      for (const pitch of pitches) {
         wantedPitch = pitch;
         this.boom(pitch, this.candidate);
         if (collision.cameraCast(this.target, this.candidate, 0.5).fraction > 0.94) break;
@@ -82,10 +152,12 @@ export class FollowCamera {
       hit.fraction < 1 ? Math.max(0, hit.fraction - 0.08 / Math.max(distance, 0.01)) : 1;
     this.camera.position.lerpVectors(this.target, this.desired, fraction);
     this.clearance = this.camera.position.distanceTo(this.target);
-    // Frame the player below centre so upcoming destinations occupy more of the view.
-    // The collision boom still originates at the player, never inside a look-ahead wall.
+
     this.look.copy(this.target);
-    const anticipation = Math.min(2.4, this.clearance * 0.18);
+    const anticipation =
+      this.mode === 'close'
+        ? Math.min(0.85, this.clearance * 0.12)
+        : Math.min(2.4, this.clearance * 0.18);
     this.look.x -= Math.sin(this.yaw) * anticipation;
     this.look.z -= Math.cos(this.yaw) * anticipation;
     this.camera.lookAt(this.look);

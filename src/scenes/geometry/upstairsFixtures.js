@@ -12,10 +12,14 @@ export function buildStudioEquipment(root, definition) {
     silver = mat(0xa5b0b2, 0.4, 0.5);
   const lamp = mat(0xeac068),
     wood = mat(0x846244);
+  const neveBlue = mat(0x344c5a),
+    neveGrey = mat(0x777b78, 0.62, 0.12),
+    tapeBox = mat(0xb49b73);
   for (const fixture of definition.fixtures) {
     const group = new Group();
     group.name = fixture.id;
     group.position.set((fixture.x1 + fixture.x2) / 2, 0, (fixture.z1 + fixture.z2) / 2);
+    group.rotation.y = fixture.rotationY ?? 0;
     root.add(group);
     const w = fixture.x2 - fixture.x1,
       d = fixture.z2 - fixture.z1;
@@ -133,6 +137,91 @@ export function buildStudioEquipment(root, definition) {
     } else if (fixture.id === 'dead-gobo') {
       box(group, w, 1.5, d, navy, 0, 0.9, 0);
       for (const x of [-w / 2 + 0.1, w / 2 - 0.1]) box(group, 0.12, 0.08, 0.65, wood, x, 0.04, 0);
+    } else if (fixture.id === 'neve-console') {
+      // Historic-console silhouette based on the supplied 2019 Breakglass Neve photo.
+      // Fine dimensions and equipment placement are intentionally interpretive.
+      box(group, w, 0.62, d, wood, 0, 0.55, 0);
+      const desk = box(group, w - 0.12, 0.16, d - 0.1, neveBlue, 0, 0.96, -0.02);
+      desk.rotation.x = -0.12;
+      box(group, w - 0.08, 0.38, 0.24, neveGrey, 0, 1.23, d / 2 - 0.13);
+      for (let i = 0; i < 28; i++) {
+        const x = -w / 2 + 0.14 + (i * (w - 0.28)) / 27;
+        box(group, 0.012, 0.018, 0.5, silver, x, 1.04, -0.08);
+        box(group, 0.05, 0.028, 0.055, cream, x, 1.07, -0.25 + (i % 3) * 0.075);
+        for (let row = 0; row < 4; row++)
+          cyl(group, 0.018, 0.035, row % 2 ? MAT.dark : lamp, x, 1.065, -0.03 + row * 0.075);
+      }
+      for (let meter = 0; meter < 8; meter++) {
+        box(group, 0.3, 0.18, 0.018, navy, -w / 2 + 0.34 + meter * 0.41, 1.25, d / 2 - 0.255);
+        box(
+          group,
+          0.018,
+          0.11,
+          0.02,
+          lamp,
+          -w / 2 + 0.34 + meter * 0.41,
+          1.25,
+          d / 2 - 0.267,
+        ).rotation.z = 0.22;
+      }
+      label(root, 'HISTORIC NEVE', group.position.x, 2.0, group.position.z, 0.38, '#dbe7e1');
+    } else if (fixture.id.startsWith('neve-monitor-')) {
+      box(group, 0.11, 1.12, 0.11, MAT.metal, 0, 0.56, 0);
+      box(group, w, 0.58, d, MAT.speaker, 0, 1.5, 0);
+      const cone = cyl(group, 0.19, 0.04, navy, 0, 1.45, -d / 2 - 0.008);
+      cone.rotation.x = Math.PI / 2;
+      const tweeter = cyl(group, 0.055, 0.04, silver, 0, 1.67, -d / 2 - 0.01);
+      tweeter.rotation.x = Math.PI / 2;
+    } else if (fixture.id === 'neve-side-rack') {
+      box(group, w, 1.72, d, wood, 0, 0.86, 0);
+      for (let i = 0; i < 8; i++) {
+        box(
+          group,
+          w - 0.1,
+          0.16,
+          0.06,
+          i % 3 ? neveBlue : neveGrey,
+          0,
+          0.17 + i * 0.19,
+          -d / 2 - 0.01,
+        );
+        for (let k = 0; k < 3; k++)
+          cyl(
+            group,
+            0.022,
+            0.04,
+            k === 0 ? lamp : cream,
+            -0.19 + k * 0.19,
+            0.17 + i * 0.19,
+            -d / 2 - 0.05,
+          ).rotation.x = Math.PI / 2;
+      }
+    } else if (fixture.id === 'neve-tape-machine') {
+      box(group, w, 1.62, d, MAT.metal, 0, 0.81, 0);
+      box(group, w - 0.08, 1.42, 0.07, neveGrey, 0, 0.88, -d / 2 - 0.01);
+      for (const x of [-0.25, 0.25]) {
+        const reel = cyl(group, 0.235, 0.06, silver, x, 1.27, -d / 2 - 0.065);
+        reel.rotation.x = Math.PI / 2;
+        const hub = cyl(group, 0.07, 0.07, MAT.dark, x, 1.27, -d / 2 - 0.105);
+        hub.rotation.x = Math.PI / 2;
+      }
+      for (let meter = 0; meter < 2; meter++)
+        box(group, 0.2, 0.13, 0.02, cream, -0.14 + meter * 0.28, 0.65, -d / 2 - 0.055);
+      for (let i = 0; i < 5; i++)
+        box(group, 0.07, 0.05, 0.025, i % 2 ? lamp : MAT.red, -0.2 + i * 0.1, 0.42, -d / 2 - 0.06);
+      label(root, 'TAPE', group.position.x, 2.0, group.position.z, 0.3, '#e8dcc8');
+    } else if (fixture.id === 'tape-archive-shelves') {
+      box(group, w, 1.9, d, wood, 0, 0.95, 0);
+      for (let shelf = 0; shelf < 5; shelf++) {
+        const y = 0.22 + shelf * 0.36;
+        box(group, w + 0.04, 0.04, d, MAT.metal, 0, y, 0);
+        for (let i = 0; i < 5; i++) {
+          const z = -d / 2 + 0.27 + i * ((d - 0.54) / 4);
+          box(group, w - 0.12, 0.27, 0.3, tapeBox, 0, y + 0.16, z);
+          box(group, w - 0.09, 0.035, 0.19, cream, -w / 2 - 0.01, y + 0.17, z);
+        }
+      }
+      label(root, 'TAPE ARCHIVE', group.position.x - 0.3, 2.2, group.position.z, 0.34, '#f1dfbe');
     }
   }
 }

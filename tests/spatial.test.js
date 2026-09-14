@@ -75,11 +75,13 @@ for (const pass of ['A', 'B'])
     }
   });
 
-test('central polygon and private suites are solid, not phantom route openings', () => {
+test('historic Neve suite is enterable while remaining private suites stay solid', () => {
   const world = new CollisionWorld(createUpstairsDefinition('A').navigation);
-  assert.ok(world.blocked(-3.5, 0, 2));
+  const neveInterior = new Vector3(-3.5, 0, 2);
+  assert.ok(!world.blocked(neveInterior.x, neveInterior.y, neveInterior.z));
+  assert.ok(world.isValidPosition(neveInterior));
   assert.ok(world.blocked(15, 0, -5));
-  assert.ok(!world.isValidPosition(new Vector3(-3.5, 0, 2)));
+  assert.ok(!world.isValidPosition(new Vector3(15, 0, -5)));
 });
 
 test('coyote time accepts a late jump and rejects jumps after the grace period', () => {
@@ -150,11 +152,15 @@ test('camera clears diagonal walls and recovers after a tight corridor orbit', (
   assert.ok(camera.clearance > 5);
 });
 
-test('optional four-hop route reaches the polygon roof and drops back into the circulation loop', () => {
+test('optional overlook reaches the wall ledge while the Neve Suite remains open-topped', () => {
   const level = createUpstairsDefinition('B'),
     world = new CollisionWorld(level.navigation),
     player = new PlayerController(),
     camera = new FollowCamera(16 / 9);
+  assert.equal(
+    level.navigation.surfaces.some((surface) => surface.id === 'polygon-perch'),
+    false,
+  );
   player.spawn(waypoints.live, world);
   camera.configure(level.cameraOffset, player.position, world);
   for (const [x, y, z, jump] of overlookRoute) {
@@ -186,8 +192,39 @@ test('optional four-hop route reaches the polygon roof and drops back into the c
       `hop ${x},${y},${z} blocked: ${player.position.toArray()} / ${player.collisionTarget}`,
     );
   }
-  assert.equal(player.groundTarget, 'polygon-perch');
-  follow(player, world, ['galleryS', 'gallerySE', 'eastJunction', 'entry'], camera);
+  assert.equal(player.groundTarget, 'polygon-hop-ledge');
+
+  for (const [x, y, z] of [...overlookRoute].reverse().slice(1)) {
+    let landed = false;
+    for (let i = 0; i < 360; i++) {
+      const dx = x - player.position.x,
+        dz = z - player.position.z,
+        d = Math.hypot(dx, dz);
+      if (d < 0.12 && player.grounded && Math.abs(player.position.y - y) < 0.06) {
+        landed = true;
+        break;
+      }
+      const strength = Math.min(1, d / 0.35);
+      player.update(
+        1 / 60,
+        { x: d ? (dx / d) * strength : 0, z: d ? (dz / d) * strength : 0 },
+        world,
+        i === 0,
+      );
+      camera.update(1 / 60, player.position, world);
+    }
+    assert.ok(
+      landed,
+      `descent ${x},${y},${z} blocked: ${player.position.toArray()} / ${player.collisionTarget}`,
+    );
+  }
+
+  follow(
+    player,
+    world,
+    ['live', 'galleryNE', 'galleryE', 'gallerySE', 'eastJunction', 'entry'],
+    camera,
+  );
   assert.equal(player.grounded, true);
   assert.equal(player.position.y, 0);
   player.dispose();

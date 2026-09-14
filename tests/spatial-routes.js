@@ -1,5 +1,6 @@
 // Auditable movement replays shared by Node collision tests and the real browser.
 // [x, feet height, z, jump]. Each hop starts grounded and uses ordinary controller input.
+// The route now ends at the wall-top overlook; the historic Neve Suite itself has no roof.
 export const overlookRoute = [
   [6.5, 0, -1],
   [6.5, 0, 0.3],
@@ -7,7 +8,6 @@ export const overlookRoute = [
   [4.5, 1.1, 1.45, true],
   [3.4, 2.1, 1.5, true],
   [1.7, 3.1, 1.5, true],
-  [-1.2, 4.1, 1.5, true],
 ];
 export const secondaryRoute = [
   'entry',

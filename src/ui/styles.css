@@ -15,6 +15,7 @@ body {
 }
 canvas {
   display: block;
+  touch-action: none;
 }
 #hud {
   position: fixed;
@@ -49,9 +50,11 @@ canvas {
   right: 14px;
   top: 14px;
   z-index: 8;
-  width: 300px;
-  max-width: 38vw;
-  background: rgba(10, 10, 10, 0.88);
+  width: 330px;
+  max-width: 43vw;
+  max-height: calc(100vh - 54px);
+  overflow: auto;
+  background: rgba(10, 10, 10, 0.9);
   border: 1px solid #393939;
   border-radius: 10px;
   padding: 12px;
@@ -72,6 +75,11 @@ canvas {
   gap: 6px;
   flex-wrap: wrap;
 }
+button,
+input,
+select {
+  font: inherit;
+}
 button {
   background: #242424;
   color: #eee;
@@ -90,6 +98,9 @@ button:hover {
   background: radial-gradient(circle at center, #202020, #050505 70%);
   display: grid;
   place-items: center;
+  overflow: auto;
+  padding: 18px;
+  box-sizing: border-box;
 }
 .card {
   width: min(540px, 84vw);
@@ -99,6 +110,9 @@ button:hover {
   padding: 25px;
   box-shadow: 0 30px 100px #000;
 }
+.avatar-card {
+  width: min(680px, 90vw);
+}
 .card h1 {
   font-size: 23px;
   margin: 0 0 8px;
@@ -106,6 +120,37 @@ button:hover {
 .card p {
   color: #aaa;
   line-height: 1.5;
+}
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 16px 0;
+}
+.avatar-grid label {
+  display: grid;
+  gap: 4px;
+  color: #bdbdbd;
+  font-size: 12px;
+}
+.avatar-grid .wide {
+  grid-column: 1 / -1;
+}
+.avatar-grid .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.avatar-grid input:not([type='checkbox']),
+.avatar-grid select,
+.control-grid select {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1c1c1f;
+  color: #eee;
+  border: 1px solid #4b4b50;
+  border-radius: 7px;
+  padding: 8px 9px;
 }
 small {
   color: #777;
@@ -116,6 +161,51 @@ kbd {
   border-bottom-width: 2px;
   border-radius: 4px;
   padding: 1px 5px;
+}
+.control-grid {
+  display: grid;
+  gap: 9px;
+}
+.control-grid label {
+  display: grid;
+  gap: 4px;
+  color: #bbb;
+  font-size: 11px;
+}
+.mixer-strip {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) minmax(110px, 1.7fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 0;
+  border-bottom: 1px solid #27272a;
+  font-size: 11px;
+}
+.mixer-strip input[type='range'],
+.control-grid input[type='range'] {
+  width: 100%;
+  accent-color: #bbb;
+}
+.mixer-meter {
+  color: #8ed2b5;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+}
+.dj-decks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.dj-deck {
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px;
+  background: #151519;
+}
+.dj-deck strong {
+  display: block;
+  margin-bottom: 5px;
 }
 #floorTag {
   position: fixed;
@@ -128,6 +218,34 @@ kbd {
   padding: 6px 9px;
   border-radius: 6px;
   color: #ccc;
+}
+#uiToggle {
+  position: fixed;
+  z-index: 14;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  min-height: 36px;
+  padding: 7px 10px;
+  background: rgba(12, 12, 14, 0.84);
+  border-color: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(8px);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  -webkit-tap-highlight-color: transparent;
+}
+#gate:not([hidden]) ~ #uiToggle {
+  display: none;
+}
+body.ui-minimal #hud,
+body.ui-minimal #panel,
+body.ui-minimal #floorTag,
+body.ui-minimal #debug {
+  display: none !important;
+}
+body.performance-active.ui-minimal #panel {
+  display: block !important;
 }
 #transition {
   position: fixed;
@@ -147,6 +265,66 @@ kbd {
   font-size: 14px;
   letter-spacing: 0.15em;
   color: #aaa;
+}
+#mobileControls {
+  display: none;
+}
+.touch-pad,
+.touch-actions {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.touch-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 48px);
+  grid-template-rows: repeat(3, 48px);
+  gap: 4px;
+}
+.touch-pad button,
+.touch-actions button {
+  min-width: 0;
+  padding: 0;
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(18, 18, 18, 0.78);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(8px);
+  -webkit-tap-highlight-color: transparent;
+}
+.touch-pad button {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  font-size: 18px;
+}
+.touch-center {
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+.touch-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(52px, 1fr));
+  gap: 6px;
+  width: min(50vw, 220px);
+  align-self: end;
+}
+.touch-actions button {
+  height: 48px;
+  border-radius: 13px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.touch-actions .touch-primary {
+  grid-column: span 2;
+}
+.touch-pad button.pressed,
+.touch-actions button.pressed {
+  background: rgba(84, 84, 84, 0.94);
+  transform: translateY(1px);
 }
 
 [hidden] {
@@ -173,4 +351,85 @@ kbd {
 }
 canvas:focus {
   outline: none;
+}
+
+@media (max-width: 720px) {
+  #hud {
+    left: max(8px, env(safe-area-inset-left));
+    top: max(8px, env(safe-area-inset-top));
+    max-width: calc(100vw - 32px);
+  }
+  #hint {
+    display: none;
+  }
+  #panel {
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    top: auto;
+    bottom: calc(168px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    max-height: 34vh;
+  }
+  #floorTag {
+    bottom: calc(146px + env(safe-area-inset-bottom));
+  }
+  #uiToggle {
+    left: auto;
+    right: max(8px, env(safe-area-inset-right));
+    top: max(8px, env(safe-area-inset-top));
+    transform: none;
+    min-height: 34px;
+  }
+  .avatar-grid {
+    grid-template-columns: 1fr;
+  }
+  .avatar-grid .wide {
+    grid-column: auto;
+  }
+  .dj-decks {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #mobileControls {
+    position: fixed;
+    z-index: 12;
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px;
+    pointer-events: none;
+  }
+  #mobileControls button {
+    pointer-events: auto;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  #hud b {
+    font-size: 12px;
+  }
+  #status {
+    font-size: 10px;
+  }
+  .touch-pad {
+    grid-template-columns: repeat(3, 44px);
+    grid-template-rows: repeat(3, 44px);
+  }
+  .touch-pad button {
+    width: 44px;
+    height: 44px;
+  }
+  .touch-actions {
+    width: min(46vw, 190px);
+  }
+  .touch-actions button {
+    height: 44px;
+    font-size: 10px;
+  }
 }

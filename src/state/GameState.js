@@ -1,7 +1,73 @@
+import { ARCHIVE_TAPE_IDS } from '../archive/tapeArchive.js';
+import { LIVE_ARCHIVE_IDS } from '../archive/liveArchive.js';
+import { normalizeAvatar } from '../avatar/profile.js';
+import { normalizeStudioSession } from '../studio/StudioSession.js';
 import { LEVEL_IDS } from '../world/levels.js';
 
 export const SAVE_KEY = 'breakglass.after-hours.v1';
-export const TRACK_IDS = ['night-bus', 'glass-floor', '3am-tool'];
+export const TRACK_IDS = [
+  'night-bus',
+  'glass-floor',
+  '3am-tool',
+  'got-you-dancin',
+  'in-flux',
+  'in-flux-just-be',
+  'in-flux-breath',
+  'in-flux-break',
+  'in-flux-gingele',
+  'atrakar',
+  'dubki',
+  'paharpur',
+  'fakir',
+  'bhab',
+  'diet-cake',
+];
+const CONTACT_IDS = [
+  'nora',
+  'james',
+  'jace',
+  'zander',
+  'boogaloo',
+  'jashim',
+  'courtney',
+  'simla',
+  'devin',
+  'bouncer',
+];
+
+const normalizePhoto = (photo) => {
+  if (!photo || typeof photo !== 'object') return null;
+  const dataUrl = typeof photo.dataUrl === 'string' ? photo.dataUrl : '';
+  if (!dataUrl.startsWith('data:image/jpeg') || dataUrl.length > 350000) return null;
+  return {
+    id: typeof photo.id === 'string' ? photo.id.slice(0, 80) : `photo-${Date.now()}`,
+    eventId: typeof photo.eventId === 'string' ? photo.eventId.slice(0, 48) : 'bg20-local',
+    timestamp: typeof photo.timestamp === 'string' ? photo.timestamp.slice(0, 40) : null,
+    photographerId:
+      typeof photo.photographerId === 'string' ? photo.photographerId.slice(0, 32) : 'nora',
+    roomId: typeof photo.roomId === 'string' ? photo.roomId.slice(0, 48) : null,
+    avatarIds: Array.isArray(photo.avatarIds)
+      ? photo.avatarIds.filter((id) => typeof id === 'string').slice(0, 12)
+      : [],
+    partyEnergy: Math.max(0, Math.min(1, Number(photo.partyEnergy) || 0)),
+    attendance:
+      Number.isFinite(Number(photo.attendance)) && photo.attendance != null
+        ? Math.max(0, Math.round(Number(photo.attendance)))
+        : null,
+    lightingPreset:
+      typeof photo.lightingPreset === 'string' ? photo.lightingPreset.slice(0, 32) : null,
+    haze: photo.haze == null ? null : Math.max(0, Math.min(1, Number(photo.haze) || 0)),
+    tags: Array.isArray(photo.tags)
+      ? photo.tags
+          .filter((tag) => typeof tag === 'string')
+          .slice(0, 12)
+          .map((tag) => tag.slice(0, 32))
+      : [],
+    approvedForSharing: photo.approvedForSharing === true,
+    dataUrl,
+  };
+};
+
 const defaults = () => ({
   version: 1,
   sceneId: 'upstairs',
@@ -10,6 +76,24 @@ const defaults = () => ({
   contacts: [],
   lastTrack: null,
   debug: false,
+  avatar: normalizeAvatar(),
+  avatarConfigured: false,
+  studio: normalizeStudioSession(),
+  candy: 0,
+  devinFavor: 0,
+  intoxication: 0,
+  drinksServed: 0,
+  caffeine: 0,
+  coffeesMade: 0,
+  maddoxAffection: 0,
+  maddoxPets: 0,
+  roofSecretUnlocked: false,
+  maddoxCompanion: false,
+  arcadeWins: 0,
+  archiveTape: null,
+  threadedTape: null,
+  liveRoomArchive: null,
+  photos: [],
 });
 
 export function validateSave(value) {
@@ -31,11 +115,32 @@ export function validateSave(value) {
     state.visited = [...new Set(value.visited.filter((id) => LEVEL_IDS.includes(id)))];
   }
   if (Array.isArray(value.contacts)) {
-    state.contacts = [...new Set(value.contacts.filter((id) => ['nora', 'jashim'].includes(id)))];
+    state.contacts = [...new Set(value.contacts.filter((id) => CONTACT_IDS.includes(id)))];
   }
   if (TRACK_IDS.includes(value.lastTrack)) state.lastTrack = value.lastTrack;
   state.debug = value.debug === true;
   state.layoutRevision = typeof value.layoutRevision === 'string' ? value.layoutRevision : null;
+  state.avatar = normalizeAvatar(value.avatar);
+  state.avatarConfigured = value.avatarConfigured === true;
+  state.studio = normalizeStudioSession(value.studio);
+  state.candy = Math.max(0, Math.min(9, Math.floor(Number(value.candy) || 0)));
+  state.devinFavor = Math.max(0, Math.min(99, Math.floor(Number(value.devinFavor) || 0)));
+  state.intoxication = Math.max(0, Math.min(1, Number(value.intoxication) || 0));
+  state.drinksServed = Math.max(0, Math.min(999, Math.floor(Number(value.drinksServed) || 0)));
+  state.caffeine = Math.max(0, Math.min(1, Number(value.caffeine) || 0));
+  state.coffeesMade = Math.max(0, Math.min(999, Math.floor(Number(value.coffeesMade) || 0)));
+  state.maddoxAffection = Math.max(0, Math.min(9, Math.floor(Number(value.maddoxAffection) || 0)));
+  state.maddoxPets = Math.max(0, Math.min(999, Math.floor(Number(value.maddoxPets) || 0)));
+  state.roofSecretUnlocked = value.roofSecretUnlocked === true;
+  state.maddoxCompanion = state.roofSecretUnlocked && value.maddoxCompanion === true;
+  state.arcadeWins = Math.max(0, Math.min(999, Math.floor(Number(value.arcadeWins) || 0)));
+  if (ARCHIVE_TAPE_IDS.includes(value.archiveTape)) state.archiveTape = value.archiveTape;
+  if (ARCHIVE_TAPE_IDS.includes(value.threadedTape)) state.threadedTape = value.threadedTape;
+  if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive))
+    state.liveRoomArchive = value.liveRoomArchive;
+  if (Array.isArray(value.photos)) {
+    state.photos = value.photos.map(normalizePhoto).filter(Boolean).slice(-6);
+  }
   return state;
 }
 
@@ -64,7 +169,7 @@ export class GameState {
   }
 
   meet(id) {
-    if (!this.data.contacts.includes(id)) this.data.contacts.push(id);
+    if (CONTACT_IDS.includes(id) && !this.data.contacts.includes(id)) this.data.contacts.push(id);
   }
 
   save(sceneId, position, layoutRevision = null) {

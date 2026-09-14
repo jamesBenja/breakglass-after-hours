@@ -1,0 +1,254 @@
+.performance-surface {
+  flex: 1 0 100%;
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid #46464c;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(31, 31, 36, 0.98), rgba(11, 11, 13, 0.98));
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.performance-surface-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.performance-surface-header span {
+  color: #e56d67;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+}
+
+.touch-keyboard {
+  position: relative;
+  height: 128px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid #090909;
+  border-radius: 8px;
+  background: #050505;
+}
+
+.touch-key {
+  touch-action: none;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.touch-key.white-key {
+  flex: 1 1 10%;
+  height: 100%;
+  position: relative;
+  z-index: 1;
+  border: 1px solid #999;
+  border-top: 0;
+  background: linear-gradient(#f4f1e9, #c9c5bb);
+  color: #191919;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.touch-key.black-key {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: calc((var(--after-white) + 1) * 10% - 3.2%);
+  width: 6.4%;
+  height: 62%;
+  border: 1px solid #080808;
+  border-radius: 0 0 5px 5px;
+  background: linear-gradient(#24242a, #030304 82%);
+}
+
+.touch-key.white-key.active {
+  background: linear-gradient(#d4c7a8, #a99670);
+}
+
+.touch-key.black-key.active {
+  background: linear-gradient(#736344, #231d13);
+}
+
+.touch-drum-pads {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.touch-drum-pad {
+  min-height: 68px;
+  padding: 5px;
+  white-space: pre-line;
+  border-radius: 12px;
+  border: 1px solid #63636a;
+  background: radial-gradient(circle at 35% 30%, #4a4a52, #19191d 68%);
+  color: #f4f4f4;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  touch-action: none;
+}
+
+.touch-drum-pad:first-child {
+  grid-column: span 2;
+}
+
+.touch-drum-pad.active {
+  transform: scale(0.96);
+  background: radial-gradient(circle at 35% 30%, #c3915a, #51341e 72%);
+}
+
+.touch-fretboard {
+  display: grid;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 6px 4px;
+  border-radius: 8px;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0 16%,
+      rgba(255, 255, 255, 0.08) 16% 16.5%,
+      transparent 16.5% 100%
+    ),
+    linear-gradient(#694525, #3a2515);
+}
+
+.touch-string-row {
+  min-width: 430px;
+  display: grid;
+  grid-template-columns: 24px repeat(6, minmax(52px, 1fr));
+  align-items: center;
+  gap: 2px;
+  background: linear-gradient(transparent 46%, rgba(222, 210, 177, 0.82) 47% 53%, transparent 54%);
+}
+
+.touch-string-label {
+  display: grid;
+  place-items: center;
+  color: #ead6ae;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.touch-fret {
+  height: 34px;
+  padding: 0;
+  border-radius: 4px;
+  border-color: rgba(230, 220, 195, 0.25);
+  background: rgba(15, 10, 7, 0.42);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 9px;
+  touch-action: none;
+}
+
+.touch-fret.active {
+  background: rgba(231, 180, 101, 0.72);
+  color: #15100a;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #panel {
+    max-height: 52vh;
+  }
+
+  .dj-deck {
+    padding: 12px;
+    border-radius: 13px;
+    gap: 10px;
+  }
+
+  .dj-deck strong {
+    font-size: 13px;
+    letter-spacing: 0.08em;
+  }
+
+  .dj-deck select,
+  .dj-deck button,
+  #buttons > label.control-grid {
+    min-height: 44px;
+  }
+
+  .dj-deck button {
+    min-width: 72px;
+    font-weight: 750;
+  }
+
+  .dj-deck input[type='range'],
+  #buttons > label.control-grid input[type='range'] {
+    height: 34px;
+    touch-action: pan-x;
+  }
+
+  .dj-deck input[type='range']::-webkit-slider-thumb,
+  #buttons > label.control-grid input[type='range']::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px;
+  }
+
+  body.performance-active #mobileControls,
+  body.performance-active #floorTag {
+    display: none !important;
+  }
+
+  body.performance-active #panel {
+    left: max(6px, env(safe-area-inset-left));
+    right: max(6px, env(safe-area-inset-right));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    max-height: 74vh;
+    padding: 10px;
+    z-index: 14;
+  }
+
+  body.performance-active #panel h3 {
+    font-size: 13px;
+  }
+
+  body.performance-active #panel p {
+    font-size: 10px;
+    margin-bottom: 6px;
+  }
+
+  body.performance-active #buttons {
+    display: flex;
+    gap: 7px;
+  }
+
+  body.performance-active #buttons > button {
+    min-height: 42px;
+    flex: 1 1 auto;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  body.performance-active #panel {
+    max-height: 88vh;
+  }
+
+  .touch-keyboard {
+    height: 112px;
+  }
+
+  .touch-drum-pad {
+    min-height: 58px;
+  }
+
+  .touch-fret {
+    height: 30px;
+  }
+}

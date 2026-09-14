@@ -18,8 +18,12 @@ test('Below landing and main room connect, disconnected legacy side rooms remain
 test('all gameplay anchors can be approached on their floor and spawns are valid', () => {
   for (const level of Object.values(levels)) {
     const world = new CollisionWorld(level.navigation);
-    for (const position of Object.values(level.spawns))
-      assert.ok(world.isValidPosition(new Vector3(...position)));
+    for (const [id, position] of Object.entries(level.spawns)) {
+      assert.ok(
+        world.isValidPosition(new Vector3(...position)),
+        `${level.id}/${id} spawn ${position.join(', ')}`,
+      );
+    }
     for (const [id, anchor] of Object.entries(level.anchors)) {
       assert.ok(world.surfaceAt(anchor.position[0], anchor.position[2]), `${level.id}/${id}`);
     }

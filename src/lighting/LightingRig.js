@@ -5,6 +5,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   PointLight,
+  SphereGeometry,
 } from 'three';
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
@@ -17,11 +18,47 @@ const PRESETS = {
   blackout: { intensity: 0.05, pulse: 0, strobe: 0 },
 };
 
+export const LIGHTING_PALETTES = {
+  breakglass: {
+    label: 'Breakglass',
+    fixtures: [0xff253f, 0xff3bc8, 0x6f4cff, 0x2c74ff, 0xff2a55],
+    laser: 0x55ffd8,
+    strobe: 0xffffff,
+  },
+  redroom: {
+    label: 'Red Room',
+    fixtures: [0xff261f, 0xd61c22, 0xff5633, 0x8d1118, 0xff2e56],
+    laser: 0xff4938,
+    strobe: 0xffd6ca,
+  },
+  ultraviolet: {
+    label: 'Ultraviolet',
+    fixtures: [0x6f31ff, 0xb237ff, 0x3a50ff, 0xeb44ff, 0x5734d8],
+    laser: 0x9c75ff,
+    strobe: 0xe6ddff,
+  },
+  cyanAmber: {
+    label: 'Cyan + Amber',
+    fixtures: [0x00b8c8, 0xff8c35, 0x43d8dc, 0xffb04d, 0x13889c],
+    laser: 0x5ffff2,
+    strobe: 0xffe7bd,
+  },
+  acid: {
+    label: 'Acid',
+    fixtures: [0xbaff00, 0xffea00, 0x31ff7a, 0xff3bbd, 0x8eff1f],
+    laser: 0xc7ff35,
+    strobe: 0xf8ffbf,
+  },
+};
+
+const seeded = (index, salt = 0) => {
+  const x = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+
 /**
  * Lightweight, scene-local party lighting controller.
- *
- * It intentionally keeps lighting state separate from geometry and audio so a future
- * multiplayer room can synchronize only a small JSON-friendly lighting snapshot.
+ * Fog supplies room-wide atmosphere; moving translucent puffs make haze read as a smoke machine.
  */
 export class LightingRig {
   constructor(scene, config = {}) {
@@ -29,15 +66,24 @@ export class LightingRig {
     this.config = config;
     this.elapsed = 0;
     this.preset = 'warmup';
+    this.palette =
+      config.palette && LIGHTING_PALETTES[config.palette] ? config.palette : 'breakglass';
     this.haze = 0;
     this.lasersEnabled = false;
-    this.lastMetrics = { energy: 0, bass: 0, beat: 0, playing: false };
+    this.lastMetrics = {
+      energy: 0,
+      bass: 0,
+      beat: 0,
+      vibe: 0,
+      mixQuality: 0,
+      playing: false,
+    };
     this.group = new Group();
     this.group.name = 'party-lighting';
     scene.add(this.group);
 
     this.baseFog = scene.fog ? { near: scene.fog.near, far: scene.fog.far } : { near: 18, far: 58 };
-    this.hazeFar = config.hazeFar ?? Math.max(this.baseFog.near + 9, this.baseFog.far * 0.48);
+    this.hazeFar = config.hazeFar ?? Math.max(11, this.baseFog.far * 0.24);
 
     this.fixtures = (config.fixtures ?? []).map((fixture, index) => {
       const light = new PointLight(
@@ -99,7 +145,46 @@ export class LightingRig {
       }
     }
 
+    this.hazePuffs = [];
+    this.hazeGeometry = new SphereGeometry(1, 8, 5);
+    const hazeVolume = config.hazeVolume ?? {
+      x1: -5.7,
+      x2: 5.7,
+      y1: 0.45,
+      y2: 2.55,
+      z1: -3.0,
+      z2: 3.0,
+      count: 18,
+    };
+    for (let i = 0; i < (hazeVolume.count ?? 18); i++) {
+      const material = new MeshBasicMaterial({
+        color: i % 3 === 0 ? 0xd9d7ff : 0xe6e9ed,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      });
+      const puff = new Mesh(this.hazeGeometry, material);
+      const x = hazeVolume.x1 + seeded(i, 41) * (hazeVolume.x2 - hazeVolume.x1);
+      const y = hazeVolume.y1 + seeded(i, 42) * (hazeVolume.y2 - hazeVolume.y1);
+      const z = hazeVolume.z1 + seeded(i, 43) * (hazeVolume.z2 - hazeVolume.z1);
+      const scale = 0.8 + seeded(i, 44) * 1.7;
+      puff.position.set(x, y, z);
+      puff.scale.set(scale * 1.6, scale * 0.48, scale * 1.2);
+      puff.visible = false;
+      this.group.add(puff);
+      this.hazePuffs.push({
+        puff,
+        material,
+        baseX: x,
+        baseY: y,
+        baseZ: z,
+        phase: seeded(i, 45) * Math.PI * 2,
+        speed: 0.18 + seeded(i, 46) * 0.32,
+      });
+    }
+
     this.applyPreset(config.preset ?? 'warmup');
+    this.applyPalette(this.palette);
     this.setHaze(config.haze ?? 0.22);
     this.setLasers(config.lasers ?? false);
   }
@@ -110,14 +195,46 @@ export class LightingRig {
     return true;
   }
 
+  applyPalette(name) {
+    const palette = LIGHTING_PALETTES[name];
+    if (!palette) return false;
+    this.palette = name;
+    this.fixtures.forEach((fixture, index) => {
+      fixture.light.color.setHex(palette.fixtures[index % palette.fixtures.length]);
+    });
+    if (this.strobe) this.strobe.color.setHex(palette.strobe);
+    for (const laser of this.laserPivots) laser.material.color.setHex(palette.laser);
+    return true;
+  }
+
+  cyclePalette(direction = 1) {
+    const names = Object.keys(LIGHTING_PALETTES);
+    const index = Math.max(0, names.indexOf(this.palette));
+    const next = (index + direction + names.length) % names.length;
+    this.applyPalette(names[next]);
+    return this.palette;
+  }
+
+  setLaserColor(hex) {
+    if (!Number.isFinite(Number(hex))) return false;
+    for (const laser of this.laserPivots) laser.material.color.setHex(Number(hex));
+    return true;
+  }
+
   setHaze(value) {
     this.haze = clamp(value);
-    if (!this.scene.fog) return;
-    this.scene.fog.near = Math.max(3, this.baseFog.near * (1 - this.haze * 0.3));
-    this.scene.fog.far = Math.max(
-      this.scene.fog.near + 8,
-      this.baseFog.far + (this.hazeFar - this.baseFog.far) * this.haze,
-    );
+    if (this.scene.fog) {
+      const shaped = Math.pow(this.haze, 0.72);
+      this.scene.fog.near = Math.max(1.2, this.baseFog.near * (1 - shaped * 0.82));
+      this.scene.fog.far = Math.max(
+        this.scene.fog.near + 5.5,
+        this.baseFog.far + (this.hazeFar - this.baseFog.far) * shaped,
+      );
+    }
+    for (const haze of this.hazePuffs) {
+      haze.puff.visible = this.haze > 0.035;
+      haze.material.opacity = Math.pow(this.haze, 1.15) * 0.105;
+    }
   }
 
   adjustHaze(delta) {
@@ -128,7 +245,7 @@ export class LightingRig {
     this.lasersEnabled = !!enabled;
     for (const laser of this.laserPivots) {
       laser.beam.visible = this.lasersEnabled;
-      laser.material.opacity = this.lasersEnabled ? 0.22 : 0;
+      laser.material.opacity = this.lasersEnabled ? 0.18 + this.haze * 0.28 : 0;
     }
   }
 
@@ -141,35 +258,65 @@ export class LightingRig {
     const energy = clamp(metrics.energy ?? (metrics.playing ? 0.5 : 0));
     const bass = clamp(metrics.bass ?? energy);
     const beat = clamp(metrics.beat ?? 0);
-    this.lastMetrics = { energy, bass, beat, playing: !!metrics.playing };
+    const vibe = clamp(metrics.vibe ?? energy);
+    const mixQuality = clamp(metrics.mixQuality ?? (metrics.playing ? 0.72 : 0));
+    this.lastMetrics = {
+      energy,
+      bass,
+      beat,
+      vibe,
+      mixQuality,
+      playing: !!metrics.playing,
+    };
     const preset = PRESETS[this.preset] ?? PRESETS.warmup;
 
     for (const fixture of this.fixtures) {
       const drift = 0.5 + 0.5 * Math.sin(this.elapsed * 0.7 + fixture.phase);
-      const musicPulse = preset.pulse * (energy * 0.45 + bass * 0.22 + beat * 0.72);
+      const musicPulse = preset.pulse * (energy * 0.24 + bass * 0.18 + beat * 0.62 + vibe * 0.42);
+      const skillLift = metrics.playing ? 0.05 + vibe * 0.12 + mixQuality * 0.08 : 0;
       fixture.light.intensity =
-        fixture.baseIntensity * preset.intensity * (0.68 + musicPulse + drift * 0.08);
+        fixture.baseIntensity * preset.intensity * (0.62 + skillLift + musicPulse + drift * 0.08);
     }
 
     if (this.strobe) {
-      const active = metrics.playing && beat > 0.62;
-      this.strobe.intensity = active ? this.strobe.userData.maxIntensity * preset.strobe * beat : 0;
+      const active = metrics.playing && beat > 0.62 && vibe > 0.42;
+      this.strobe.intensity = active
+        ? this.strobe.userData.maxIntensity * preset.strobe * beat * (0.65 + mixQuality * 0.5)
+        : 0;
     }
 
     const sweepSpeed = this.config.laser?.sweepSpeed ?? 0.55;
+    const hazeBeam = 0.08 + this.haze * 0.4;
     for (const laser of this.laserPivots) {
-      laser.pivot.rotation.y = this.elapsed * sweepSpeed + laser.phase + bass * 0.28;
+      laser.pivot.rotation.y =
+        this.elapsed * sweepSpeed * (0.85 + vibe * 0.4) + laser.phase + bass * 0.28;
       if (this.lasersEnabled) {
-        laser.material.opacity = 0.12 + preset.intensity * 0.08 + energy * 0.12 + beat * 0.18;
+        laser.material.opacity = Math.min(
+          0.85,
+          hazeBeam + preset.intensity * 0.07 + energy * 0.08 + vibe * 0.12 + beat * 0.18,
+        );
       }
+    }
+
+    for (const haze of this.hazePuffs) {
+      const t = this.elapsed * haze.speed + haze.phase;
+      haze.puff.position.x = haze.baseX + Math.sin(t) * (0.32 + this.haze * 0.55);
+      haze.puff.position.z = haze.baseZ + Math.cos(t * 0.74) * (0.22 + this.haze * 0.38);
+      haze.puff.position.y = haze.baseY + Math.sin(t * 0.41) * 0.12;
+      haze.puff.rotation.y += dt * 0.08;
+      haze.material.opacity =
+        Math.pow(this.haze, 1.15) * (0.075 + (0.5 + 0.5 * Math.sin(t * 0.6)) * 0.055);
     }
   }
 
   snapshot() {
     return {
       preset: this.preset,
+      palette: this.palette,
       haze: this.haze,
       lasers: this.lasersEnabled,
+      fogNear: this.scene.fog?.near ?? null,
+      fogFar: this.scene.fog?.far ?? null,
       ...this.lastMetrics,
     };
   }
@@ -180,6 +327,9 @@ export class LightingRig {
       laser.beam.geometry.dispose();
       laser.material.dispose();
     }
+    for (const haze of this.hazePuffs) haze.material.dispose();
+    this.hazeGeometry.dispose();
+    this.hazePuffs = [];
     this.laserPivots = [];
     this.fixtures = [];
     this.strobe = null;
