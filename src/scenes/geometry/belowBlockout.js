@@ -15,11 +15,15 @@ export function buildBelowBlockout(downScene) {
   const wall = (x, z, w, d, h = 3.2) => box(downScene, w, h, d, wallMaterial, x, h / 2, z);
 
   // ---------------- BELOW: based on actual technical diagram ----------------
-  // Main club room ratio approx 45'3" x 26'
+  // Main club room ratio approx 45'3" x 26'.
   floor(downScene, 0, 0, 12.2, 7.0, mainFloor);
   wall(0, -3.5, 12.2, 0.24);
-  wall(-6.1, 0, 0.24, 7.0);
-  wall(6.1, 0, 0.24, 7.0);
+  // West wall is split around the real-world relationship to Take A Break so the room is playable.
+  wall(-6.1, -1.7, 0.24, 3.6);
+  wall(-6.1, 2.45, 0.24, 2.1);
+  // East wall is split around the bar/service doorway.
+  wall(6.1, -2.825, 0.24, 1.35);
+  wall(6.1, 1.475, 0.24, 4.05);
   wall(0, 3.5, 12.2, 0.24);
 
   // Take A Break on left/top: warmer floor reads separately from the club.
@@ -27,7 +31,9 @@ export function buildBelowBlockout(downScene) {
   wall(-10, 1.7, 0.24, 4.3);
   wall(-8.1, 3.85, 3.8, 0.24);
   wall(-8.1, -0.45, 3.8, 0.24);
+  // Keep the eastern wall above the doorway, leaving a generous playable opening below it.
   wall(-6.2, 2.6, 0.24, 2.5);
+  box(downScene, 0.95, 0.035, 1.28, mat(0xc58a66), -6.08, 0.018, 0.76);
   label(downScene, 'TAKE A BREAK', -8.1, 2.9, 1.7, 0.45);
 
   // Storage behind club.
@@ -44,6 +50,7 @@ export function buildBelowBlockout(downScene) {
   wall(9.05, 1.7, 0.24, 9.4);
   wall(7.65, 6.4, 2.8, 0.24);
   wall(7.65, -2.9, 2.8, 0.24);
+  box(downScene, 0.95, 0.035, 1.28, mat(0xb75c50), 6.08, 0.018, -1.3);
   label(downScene, 'KITCHEN', 7.65, 2.55, 4.8, 0.32);
   label(downScene, 'PRODUCTION', 7.65, 2.55, 1.5, 0.3);
   label(downScene, 'BAR', 7.65, 2.55, -1.4, 0.35);
@@ -108,11 +115,23 @@ export function buildBelowFixtures(downScene) {
   for (const z of [-2.2, -0.75, 0.7, 2.15])
     box(downScene, 10.8, 0.12, 0.14, mat(0x111012), 0, 3.02, z);
 
-  // Lounge / bar furniture.
+  // Take A Break: permanent warm installation/chill room.
+  box(downScene, 2.6, 0.62, 0.82, MAT.red, -8.1, 0.33, 1.0);
+  box(downScene, 1.25, 0.48, 0.72, mat(0x6f4936), -8.65, 0.24, 3.0);
+  box(downScene, 1.25, 0.48, 0.72, mat(0x4e3d52), -7.25, 0.24, 3.0);
+  // Projection / installation wall and a small sculptural plinth.
+  box(downScene, 0.08, 1.45, 2.35, mat(0xb7929f, 0.45, 0.02), -9.76, 1.55, 1.85);
+  box(downScene, 0.78, 0.52, 0.78, mat(0x2b242c), -8.72, 0.26, 1.85);
+  cyl(downScene, 0.19, 1.05, mat(0xd4a45f, 0.38, 0.12), -8.72, 1.03, 1.85);
+  label(downScene, 'IMMERSIVE INSTALLATION', -8.9, 2.45, 1.85, 0.25, '#f2c7df');
+
+  // Usable-bar landmark and stools. Bartender characters are spawned from level data.
   box(downScene, 3.5, 1.0, 0.9, MAT.wood, 7.25, 0.5, -1.45);
-  box(downScene, 2.6, 0.62, 0.82, MAT.red, -8.1, 0.33, 1.55);
-  box(downScene, 1.25, 0.48, 0.72, mat(0x6f4936), -8.5, 0.24, 2.75);
-  box(downScene, 1.25, 0.48, 0.72, mat(0x4e3d52), -7.3, 0.24, 2.75);
+  for (const x of [6.55, 7.25, 7.95, 8.65]) {
+    cyl(downScene, 0.22, 0.62, MAT.metal, x, 0.31, -2.28);
+    cyl(downScene, 0.3, 0.08, mat(0x4e2729), x, 0.66, -2.28);
+  }
+  label(downScene, 'COURTNEY + SIMLA', 7.55, 2.12, -1.5, 0.25, '#ffc9b0');
 
   // Stair landing on left, matching actual plan's stairway-to-Clark side.
   for (let i = 0; i < 6; i++)
