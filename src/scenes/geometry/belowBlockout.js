@@ -72,7 +72,12 @@ export function buildBelowFixtures(downScene) {
   // The large dark floor ring is one of the strongest real-room visual landmarks.
   const ring = new Mesh(
     new RingGeometry(1.8, 2.35, 64),
-    new MeshStandardMaterial({ color: 0x111015, roughness: 0.72, metalness: 0.02, side: DoubleSide }),
+    new MeshStandardMaterial({
+      color: 0x111015,
+      roughness: 0.72,
+      metalness: 0.02,
+      side: DoubleSide,
+    }),
   );
   ring.name = 'below-floor-ring';
   ring.rotation.x = -Math.PI / 2;

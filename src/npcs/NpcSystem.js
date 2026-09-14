@@ -37,7 +37,8 @@ export class NpcSystem {
     const speed = 0.34 - bass * 0.12;
     for (const npc of this.npcs) {
       npc.group.position.y =
-        npc.baseY + (metrics.playing ? Math.abs(Math.sin(this.elapsed / speed + npc.phase)) * amount : 0);
+        npc.baseY +
+        (metrics.playing ? Math.abs(Math.sin(this.elapsed / speed + npc.phase)) * amount : 0);
       npc.group.rotation.y = metrics.playing
         ? Math.sin(this.elapsed / (0.48 - energy * 0.18) + npc.phase) * (0.1 + energy * 0.2)
         : 0;

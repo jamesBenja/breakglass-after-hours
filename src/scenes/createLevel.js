@@ -55,7 +55,12 @@ export async function createLevel(definition, builders, assets) {
       const metrics =
         typeof audio?.metrics === 'function'
           ? audio.metrics()
-          : { playing: !!audio?.playing, energy: audio?.playing ? 0.5 : 0, bass: audio?.playing ? 0.5 : 0, beat: 0 };
+          : {
+              playing: !!audio?.playing,
+              energy: audio?.playing ? 0.5 : 0,
+              bass: audio?.playing ? 0.5 : 0,
+              beat: 0,
+            };
       npcs.update(dt, metrics);
       lighting?.update(dt, metrics);
     },

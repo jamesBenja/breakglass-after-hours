@@ -36,9 +36,7 @@ export class LightingRig {
     this.group.name = 'party-lighting';
     scene.add(this.group);
 
-    this.baseFog = scene.fog
-      ? { near: scene.fog.near, far: scene.fog.far }
-      : { near: 18, far: 58 };
+    this.baseFog = scene.fog ? { near: scene.fog.near, far: scene.fog.far } : { near: 18, far: 58 };
     this.hazeFar = config.hazeFar ?? Math.max(this.baseFog.near + 9, this.baseFog.far * 0.48);
 
     this.fixtures = (config.fixtures ?? []).map((fixture, index) => {
@@ -92,10 +90,7 @@ export class LightingRig {
           depthWrite: false,
           blending: AdditiveBlending,
         });
-        const beam = new Mesh(
-          new CylinderGeometry(0.012, 0.055, length, 6, 1, true),
-          material,
-        );
+        const beam = new Mesh(new CylinderGeometry(0.012, 0.055, length, 6, 1, true), material);
         beam.position.y = -length / 2;
         arm.add(beam);
         pivot.add(arm);
@@ -158,9 +153,7 @@ export class LightingRig {
 
     if (this.strobe) {
       const active = metrics.playing && beat > 0.62;
-      this.strobe.intensity = active
-        ? this.strobe.userData.maxIntensity * preset.strobe * beat
-        : 0;
+      this.strobe.intensity = active ? this.strobe.userData.maxIntensity * preset.strobe * beat : 0;
     }
 
     const sweepSpeed = this.config.laser?.sweepSpeed ?? 0.55;

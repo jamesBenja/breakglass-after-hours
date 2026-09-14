@@ -25,12 +25,48 @@ export function createActions({ audio, sceneManager, player, ui, state, canAct }
       ['Stop decks', () => audio.stop()],
       ...(rig
         ? [
-            ['Warmup lights', () => { rig.applyPreset('warmup'); djPanel(); }],
-            ['Party lights', () => { rig.applyPreset('party'); djPanel(); }],
-            ['Peak lights', () => { rig.applyPreset('peak'); djPanel(); }],
-            ['Toggle lasers', () => { rig.toggleLasers(); djPanel(); }],
-            ['Haze +', () => { rig.adjustHaze(0.12); djPanel(); }],
-            ['Haze −', () => { rig.adjustHaze(-0.12); djPanel(); }],
+            [
+              'Warmup lights',
+              () => {
+                rig.applyPreset('warmup');
+                djPanel();
+              },
+            ],
+            [
+              'Party lights',
+              () => {
+                rig.applyPreset('party');
+                djPanel();
+              },
+            ],
+            [
+              'Peak lights',
+              () => {
+                rig.applyPreset('peak');
+                djPanel();
+              },
+            ],
+            [
+              'Toggle lasers',
+              () => {
+                rig.toggleLasers();
+                djPanel();
+              },
+            ],
+            [
+              'Haze +',
+              () => {
+                rig.adjustHaze(0.12);
+                djPanel();
+              },
+            ],
+            [
+              'Haze −',
+              () => {
+                rig.adjustHaze(-0.12);
+                djPanel();
+              },
+            ],
           ]
         : []),
     ]);
