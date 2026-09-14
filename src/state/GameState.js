@@ -24,6 +24,8 @@ const defaults = () => ({
   avatar: normalizeAvatar(),
   avatarConfigured: false,
   studio: normalizeStudioSession(),
+  candy: 0,
+  devinFavor: 0,
 });
 
 export function validateSave(value) {
@@ -47,7 +49,9 @@ export function validateSave(value) {
   if (Array.isArray(value.contacts)) {
     state.contacts = [
       ...new Set(
-        value.contacts.filter((id) => ['nora', 'jashim', 'courtney', 'simla'].includes(id)),
+        value.contacts.filter((id) =>
+          ['nora', 'jashim', 'courtney', 'simla', 'devin'].includes(id),
+        ),
       ),
     ];
   }
@@ -57,6 +61,8 @@ export function validateSave(value) {
   state.avatar = normalizeAvatar(value.avatar);
   state.avatarConfigured = value.avatarConfigured === true;
   state.studio = normalizeStudioSession(value.studio);
+  state.candy = Math.max(0, Math.min(9, Math.floor(Number(value.candy) || 0)));
+  state.devinFavor = Math.max(0, Math.min(99, Math.floor(Number(value.devinFavor) || 0)));
   return state;
 }
 
