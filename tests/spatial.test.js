@@ -75,11 +75,13 @@ for (const pass of ['A', 'B'])
     }
   });
 
-test('central polygon and private suites are solid, not phantom route openings', () => {
+test('historic Neve suite is enterable while remaining private suites stay solid', () => {
   const world = new CollisionWorld(createUpstairsDefinition('A').navigation);
-  assert.ok(world.blocked(-3.5, 0, 2));
+  const neveInterior = new Vector3(-3.5, 0, 2);
+  assert.ok(!world.blocked(neveInterior.x, neveInterior.y, neveInterior.z));
+  assert.ok(world.isValidPosition(neveInterior));
   assert.ok(world.blocked(15, 0, -5));
-  assert.ok(!world.isValidPosition(new Vector3(-3.5, 0, 2)));
+  assert.ok(!world.isValidPosition(new Vector3(15, 0, -5)));
 });
 
 test('coyote time accepts a late jump and rejects jumps after the grace period', () => {
