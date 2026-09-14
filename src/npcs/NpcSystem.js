@@ -203,10 +203,33 @@ function createCharacter(npc) {
   const accent = new Mesh(new BoxGeometry(0.31, 0.13, 0.06), accentMat);
   accent.position.set(0, 1.28, 0.225);
 
-  for (const mesh of [shoulder, neck, leftArm, rightArm, leftLeg, rightLeg, shoesLeft, shoesRight, accent]) {
+  for (const mesh of [
+    shoulder,
+    neck,
+    leftArm,
+    rightArm,
+    leftLeg,
+    rightLeg,
+    shoesLeft,
+    shoesRight,
+    accent,
+  ]) {
     mesh.castShadow = true;
   }
-  group.add(torso, shoulder, neck, head, hair, leftArm, rightArm, leftLeg, rightLeg, shoesLeft, shoesRight, accent);
+  group.add(
+    torso,
+    shoulder,
+    neck,
+    head,
+    hair,
+    leftArm,
+    rightArm,
+    leftLeg,
+    rightLeg,
+    shoesLeft,
+    shoesRight,
+    accent,
+  );
   if (hairBack) {
     hairBack.castShadow = true;
     group.add(hairBack);

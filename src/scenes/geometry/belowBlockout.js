@@ -150,7 +150,8 @@ export function buildBelowFixtures(downScene) {
   }
 
   label(downScene, 'NORA · NIGHT PHOTOS', -8.1, 3.32, 3.67, 0.27, '#f3d4df');
-  for (const x of [-9.18, -8.13, -7.08]) box(downScene, 0.08, 0.22, 0.08, mat(0x262226), x, 3.15, 3.68);
+  for (const x of [-9.18, -8.13, -7.08])
+    box(downScene, 0.08, 0.22, 0.08, mat(0x262226), x, 3.15, 3.68);
 
   const curtain = mat(0x4d2334, 0.93, 0.01);
   box(downScene, 0.08, 2.45, 1.55, curtain, -9.62, 1.23, -0.08);

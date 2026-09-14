@@ -122,7 +122,10 @@ export class BarServiceSystem {
     const cutOff = intoxication >= 0.82;
     const drinks = Math.max(0, Math.floor(Number(this.state?.data?.drinksServed) || 0));
     const effective = this.effectiveIntoxication;
-    const coffeeNote = this.caffeine > 0.04 ? ` Coffee has handling effects down to ${Math.round(effective * 100)}% for now.` : '';
+    const coffeeNote =
+      this.caffeine > 0.04
+        ? ` Coffee has handling effects down to ${Math.round(effective * 100)}% for now.`
+        : '';
     const status = `You feel ${stateLabel(effective)} · ${Math.round(intoxication * 100)}% underlying intoxication · ${drinks} alcoholic drink${drinks === 1 ? '' : 's'} served this save.${coffeeNote}`;
     this.ui.panel(
       `${name.toUpperCase()} · KITCHEN BAR`,

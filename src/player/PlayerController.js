@@ -11,7 +11,8 @@ import { avatarPalette, normalizeAvatar } from '../avatar/profile.js';
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
-const standard = (options) => new MeshStandardMaterial({ roughness: 0.82, metalness: 0.02, ...options });
+const standard = (options) =>
+  new MeshStandardMaterial({ roughness: 0.82, metalness: 0.02, ...options });
 
 export class PlayerController {
   constructor(profile) {

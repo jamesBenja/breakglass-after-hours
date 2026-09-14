@@ -108,12 +108,30 @@ function buildArchitecturalFinish(root) {
 
   // Low trim lines make the traced walls read as rooms instead of level-editor solids.
   for (const [a, b] of [
-    [[242, 518], [242, 668]],
-    [[443, 518], [443, 692]],
-    [[172, 678], [172, 938]],
-    [[704, 665], [704, 874]],
-    [[706, 639], [842, 639]],
-    [[345, 995], [519, 995]],
+    [
+      [242, 518],
+      [242, 668],
+    ],
+    [
+      [443, 518],
+      [443, 692],
+    ],
+    [
+      [172, 678],
+      [172, 938],
+    ],
+    [
+      [704, 665],
+      [704, 874],
+    ],
+    [
+      [706, 639],
+      [842, 639],
+    ],
+    [
+      [345, 995],
+      [519, 995],
+    ],
   ]) {
     const [ax, , az] = at(...a);
     const [bx, , bz] = at(...b);
@@ -268,7 +286,16 @@ function buildLandmarks(root, definition) {
   for (const step of definition.stairFloors) {
     const x = step.points[1][0],
       z = (step.points[0][1] + step.points[3][1]) / 2;
-    box(root, 0.055, 0.015, step.points[3][1] - step.points[0][1], trim, x - 0.025, step.y2 + 0.008, z);
+    box(
+      root,
+      0.055,
+      0.015,
+      step.points[3][1] - step.points[0][1],
+      trim,
+      x - 0.025,
+      step.y2 + 0.008,
+      z,
+    );
   }
 
   for (const suite of definition.closedSuites) {
