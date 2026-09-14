@@ -25,9 +25,12 @@ const COMP = {
 };
 
 /**
- * Small multitrack transport for the prototype. Generated stems are intentionally simple,
- * but each stem already owns a real WebAudio channel strip: input -> modeled mic/EQ color ->
- * compressor -> fader -> pan. Recorded AudioBuffers can replace generated parts in place.
+ * Multitrack transport. Every stem owns a real WebAudio channel strip:
+ * input -> modeled mic/EQ color -> compressor -> fader -> pan.
+ *
+ * When a session contains aligned assetId stems, those decoded files start together through
+ * independent channel strips. If the web assets are not installed yet, the same session falls
+ * back to generated prototype parts so development never hard-fails on missing media.
  */
 export class StudioPlayback {
   constructor(audio, timers = globalThis) {
@@ -39,11 +42,13 @@ export class StudioPlayback {
     this.session = null;
     this.buses = new Map();
     this.sources = new Set();
+    this.assetBuffers = new Map();
+    this.realSessionPlaying = false;
     this.bpm = 118;
   }
 
   get playing() {
-    return this.timer !== null;
+    return this.timer !== null || this.realSessionPlaying;
   }
 
   ensureBus(stem) {
@@ -216,26 +221,61 @@ export class StudioPlayback {
       if (step % 4 === 0) {
         const roots = [NOTE.C3, NOTE.A2, NOTE.G2, NOTE.E2];
         const root = roots[(step / 4) % roots.length];
-        for (const ratio of [1, 1.25, 1.5])
+        for (const ratio of [1, 1.25, 1.5]) {
           this.oscillator(root * ratio, 0.34, bus, {
             type: 'triangle',
             volume: 0.045,
             when,
           });
+        }
       }
       return;
     }
-    if (stem.kind === 'synth' || stem.kind === 'keys') {
+    if (stem.kind === 'synth' || stem.kind === 'keys' || stem.kind === 'vocal') {
       if (step % 8 === 0) {
         const root = step % 16 === 0 ? NOTE.C4 : NOTE.A3;
-        for (const ratio of [1, 1.25, 1.5])
+        for (const ratio of [1, 1.25, 1.5]) {
           this.oscillator(root * ratio, 0.7, bus, {
-            type: 'sawtooth',
-            volume: 0.035,
+            type: stem.kind === 'vocal' ? 'sine' : 'sawtooth',
+            volume: stem.kind === 'vocal' ? 0.02 : 0.035,
             when,
           });
+        }
       }
     }
+  }
+
+  async loadAlignedAssets(session) {
+    const stems = session.stems.filter((stem) => stem.assetId);
+    if (!stems.length || !this.audio.assets) return null;
+    const loaded = await Promise.all(
+      stems.map(async (stem) => [stem.id, await this.audio.assets.audio(stem.assetId, this.audio.context)]),
+    );
+    const buffers = new Map(loaded.filter(([, buffer]) => !!buffer));
+    return buffers.size === stems.length ? buffers : null;
+  }
+
+  startAlignedAssets(session, buffers) {
+    const start = this.audio.context.currentTime + 0.06;
+    for (const stem of session.stems) {
+      if (!stem.assetId) continue;
+      const buffer = buffers.get(stem.id);
+      if (!buffer) continue;
+      const source = this.audio.context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(this.ensureBus(stem).input);
+      source.onended = () => {
+        source.disconnect();
+        this.sources.delete(source);
+      };
+      this.sources.add(source);
+      source.start(start);
+    }
+    this.realSessionPlaying = true;
+    this.audio.setExternalTransport?.('studio', `${session.name} · real multitrack`, 60 / this.bpm / 4, {
+      vibe: 0.58,
+    });
   }
 
   async play(session) {
@@ -243,6 +283,14 @@ export class StudioPlayback {
     this.stop();
     this.session = session;
     this.updateMix(session);
+
+    const alignedAssets = await this.loadAlignedAssets(session);
+    if (alignedAssets) {
+      this.assetBuffers = alignedAssets;
+      this.startAlignedAssets(session, alignedAssets);
+      return true;
+    }
+
     this.nextTime = this.audio.context.currentTime;
     this.step = 0;
     const interval = 60 / this.bpm / 4;
@@ -266,6 +314,7 @@ export class StudioPlayback {
   stop() {
     if (this.timer !== null) this.timers.clearInterval(this.timer);
     this.timer = null;
+    this.realSessionPlaying = false;
     for (const source of this.sources) {
       source.onended = null;
       try {
@@ -281,8 +330,11 @@ export class StudioPlayback {
 
   dispose() {
     this.stop();
-    for (const bus of this.buses.values()) for (const node of Object.values(bus)) node?.disconnect?.();
+    for (const bus of this.buses.values()) {
+      for (const node of Object.values(bus)) node?.disconnect?.();
+    }
     this.buses.clear();
+    this.assetBuffers.clear();
     this.session = null;
   }
 }
