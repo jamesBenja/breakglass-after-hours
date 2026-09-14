@@ -28,7 +28,7 @@ export function createUpstairsDefinition(pass = 'B') {
   ];
   return {
     id: 'upstairs',
-    layoutRevision: 'a103-spatial-5-open-neve',
+    layoutRevision: 'a103-spatial-6-live-archive',
     pass,
     title: 'UPSTAIRS — BREAKGLASS STUDIOS',
     model: 'upstairs-building',
@@ -67,6 +67,12 @@ export function createUpstairsDefinition(pass = 'B') {
         position: at(590, 824),
         radius: 1.6,
         action: 'synth',
+      },
+      livePlayback: {
+        name: 'Live From Breakglass screen',
+        position: at(620, 565),
+        radius: 2.0,
+        action: 'livePlayback',
       },
       instruments: {
         name: 'Guitar + bass rack',
