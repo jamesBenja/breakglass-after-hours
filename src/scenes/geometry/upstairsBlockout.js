@@ -184,4 +184,14 @@ function buildLandmarks(root, definition) {
     const [x, , z] = at(447, pz);
     box(root, 0.1, 1.9, 1.2, mat(0x8b6846), x, 1.7, z);
   }
+
+  // The Live Room doubles as the archive screening room after a session is loaded on the Neve.
+  // The screen is GAME hardware, not a claim about permanent present-day installation.
+  const [sx, , sz] = at(620, 535);
+  box(root, 3.8, 2.2, 0.11, dark, sx, 1.72, sz);
+  box(root, 3.42, 1.82, 0.035, mat(0xdce2de, 0.55, 0.01), sx, 1.72, sz + 0.07);
+  box(root, 0.15, 0.82, 0.15, dark, sx, 0.43, sz + 0.02);
+  box(root, 1.3, 0.08, 0.72, dark, sx, 0.04, sz + 0.1);
+  label(root, 'LIVE FROM BREAKGLASS', sx, 3.15, sz + 0.08, 0.42, '#e9f2ee');
+  label(root, 'LOAD SESSION ON NEVE', sx, 2.78, sz + 0.08, 0.26, '#d0ae6c');
 }
