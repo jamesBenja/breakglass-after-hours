@@ -4,7 +4,7 @@ import { BarServiceSystem } from '../src/gameplay/BarServiceSystem.js';
 
 function harness() {
   const state = {
-    data: { intoxication: 0, drinksServed: 0 },
+    data: { intoxication: 0, drinksServed: 0, caffeine: 0, coffeesMade: 0 },
     meet() {},
   };
   const player = {
@@ -56,6 +56,24 @@ test('bartender service raises persistent intoxication and water lowers it', () 
   assert.equal(h.saves(), 3);
 });
 
+test('coffee reduces handling impairment but does not erase underlying alcohol', () => {
+  const h = harness();
+  h.system.level = 0.6;
+  assert.equal(h.system.handle({ id: 'coffeeMachine', action: 'coffee' }), true);
+  h.system.coffee();
+  assert.equal(h.state.data.intoxication, 0.6);
+  assert.equal(h.state.data.coffeesMade, 1);
+  assert.ok(h.state.data.caffeine > 0.6);
+  assert.ok(h.player.intoxication < 0.6);
+  assert.ok(h.player.intoxication > 0.3);
+
+  const effectiveBefore = h.player.intoxication;
+  h.system.update(10);
+  assert.ok(h.state.data.caffeine < 0.62);
+  assert.ok(h.state.data.intoxication < 0.6);
+  assert.ok(h.player.intoxication > effectiveBefore - 0.03);
+});
+
 test('bar cuts off heavily intoxicated player and intoxication decays over time', () => {
   const h = harness();
   h.system.level = 0.9;
@@ -69,9 +87,11 @@ test('bar cuts off heavily intoxicated player and intoxication decays over time'
   assert.ok(h.state.data.intoxication > 0.88);
 });
 
-test('bar service only intercepts bartender interactions downstairs', () => {
+test('bar service only intercepts its downstairs interactions', () => {
   const h = harness();
   assert.equal(h.system.handle({ npcId: 'nora' }), false);
+  assert.equal(h.system.handle({ action: 'coffee' }), true);
   h.system.sceneManager.current.definition.id = 'upstairs';
   assert.equal(h.system.handle({ npcId: 'courtney' }), false);
+  assert.equal(h.system.handle({ action: 'coffee' }), false);
 });
