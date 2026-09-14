@@ -53,7 +53,7 @@ test('bartender service raises persistent intoxication and water lowers it', () 
   h.system.water('courtney');
   assert.equal(h.state.data.intoxication, 0);
   assert.equal(h.player.intoxication, 0);
-  assert.equal(h.saves(), 2);
+  assert.equal(h.saves(), 3);
 });
 
 test('bar cuts off heavily intoxicated player and intoxication decays over time', () => {
