@@ -10,6 +10,7 @@ import { FollowCamera } from '../player/FollowCamera.js';
 import { SceneManager } from '../scenes/SceneManager.js';
 import { createUpstairsScene } from '../scenes/UpstairsScene.js';
 import { createBelowScene } from '../scenes/BelowScene.js';
+import { createAlleyScene } from '../scenes/AlleyScene.js';
 import { GameState } from '../state/GameState.js';
 import { StudioSession } from '../studio/StudioSession.js';
 import { StudioPlayback } from '../studio/StudioPlayback.js';
@@ -142,7 +143,7 @@ export class Game {
   }
 
   async initialize() {
-    for (const factory of [createUpstairsScene, createBelowScene]) {
+    for (const factory of [createUpstairsScene, createBelowScene, createAlleyScene]) {
       const level = await factory(this.assets, this.spatialPass);
       this.scenes.set(level.definition.id, level);
     }
