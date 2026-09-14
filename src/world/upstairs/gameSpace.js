@@ -17,7 +17,7 @@ export function createGameSpace() {
       name: 'Live Room · drum riser',
     }),
     prop('overlook-step', 557, 849, 0.8, 1.55, 0.3, 0xbba166, { name: 'Overlook step' }),
-    prop('live-overlook', 583, 849, 1.8, 1.55, 1.1, 0xa58555, {
+    prop('live-overlook', 583, 849, 1.8, 1.55, 1.1, {
       name: 'Live Room · polygon overlook',
     }),
     prop('overlook-upper-case', 568, 850, 0.8, 0.85, 2.1, 0x527075, {
@@ -69,10 +69,20 @@ export function createGameSpace() {
     prop('mic-locker', 274, 665, 0.7, 0.55, 1.45, 0x58636a, { kind: 'equipment' }),
 
     // Historic Neve Suite: placement is GAME dressing informed by the 2019 console photo,
-    // not a claim of surveyed historic furniture coordinates.
-    prop('neve-console', 426, 790, 3.45, 0.95, 1.35, 0x342f2a, { kind: 'equipment' }),
-    prop('neve-monitor-left', 405, 775, 0.58, 0.5, 1.95, 0x151719, { kind: 'equipment' }),
-    prop('neve-monitor-right', 451, 775, 0.58, 0.5, 1.95, 0x151719, { kind: 'equipment' }),
+    // not a claim of surveyed historic furniture coordinates. The console/monitor package is
+    // rotated toward the room so the player approaches the working surface instead of its back.
+    prop('neve-console', 426, 790, 3.45, 0.95, 1.35, 0x342f2a, {
+      kind: 'equipment',
+      rotationY: Math.PI,
+    }),
+    prop('neve-monitor-left', 405, 775, 0.58, 0.5, 1.95, 0x151719, {
+      kind: 'equipment',
+      rotationY: Math.PI,
+    }),
+    prop('neve-monitor-right', 451, 775, 0.58, 0.5, 1.95, 0x151719, {
+      kind: 'equipment',
+      rotationY: Math.PI,
+    }),
     prop('neve-side-rack', 461, 821, 0.72, 0.72, 1.72, 0x34383a, { kind: 'equipment' }),
     prop('neve-tape-machine', 396, 880, 1.02, 0.82, 1.62, 0x5a5d5d, { kind: 'equipment' }),
 
