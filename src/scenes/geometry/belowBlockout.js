@@ -8,7 +8,7 @@ import {
 
 // Preserved V2.1 blockout proportions; visual treatment now follows supplied club references.
 export function buildBelowBlockout(downScene) {
-  const { mat, box, label, floor } = createPrimitives();
+  const { mat, box, label, floor, doorwayFrame } = createPrimitives();
   const mainFloor = clubFloorMaterial();
   const serviceFloor = darkFloorMaterial();
   const wallMaterial = clubWallMaterial();
@@ -55,12 +55,27 @@ export function buildBelowBlockout(downScene) {
   label(downScene, 'PRODUCTION', 7.65, 2.55, 1.5, 0.3);
   label(downScene, 'BAR', 7.65, 2.55, -1.4, 0.35);
 
-  // Coat check / entrance protrusion.
+  // Coat check / alley entrance. The previous version had a hidden scene trigger here but no
+  // legible physical route; this visible stair run now points players directly to the alley.
   floor(downScene, 4.6, -4.65, 2.3, 1.9, serviceFloor);
   wall(3.45, -4.65, 0.24, 1.9);
   wall(5.75, -4.65, 0.24, 1.9);
-  wall(4.6, -5.6, 2.3, 0.24);
-  label(downScene, 'COAT CHECK', 4.6, 2.2, -4.8, 0.31);
+  wall(3.78, -5.6, 0.66, 0.24);
+  wall(5.42, -5.6, 0.66, 0.24);
+  doorwayFrame(downScene, 4.6, -5.48, 'horizontal', 'ALLEY');
+  label(downScene, 'COAT CHECK', 4.6, 2.2, -4.0, 0.31);
+  label(downScene, 'ALLEY / EXIT ↑', 4.6, 2.85, -5.34, 0.36, '#ffd7ad');
+
+  const stairMaterial = mat(0x57463b, 0.86, 0.02);
+  for (let i = 0; i < 6; i++) {
+    const height = 0.12 * (i + 1);
+    box(downScene, 1.55, height, 0.31, stairMaterial, 4.6, height / 2, -3.58 - i * 0.31);
+  }
+  // Side rails make the exit read instantly even through a busy dance floor.
+  const rail = mat(0x2c3035, 0.52, 0.18);
+  for (const x of [3.76, 5.44]) {
+    box(downScene, 0.06, 1.05, 1.9, rail, x, 0.65, -4.45);
+  }
 }
 
 // Fixtures can stay visible while a surveyed building shell replaces the walls/floors.
