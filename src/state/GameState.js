@@ -81,6 +81,8 @@ const defaults = () => ({
   studio: normalizeStudioSession(),
   candy: 0,
   devinFavor: 0,
+  intoxication: 0,
+  drinksServed: 0,
   archiveTape: null,
   threadedTape: null,
   liveRoomArchive: null,
@@ -116,6 +118,8 @@ export function validateSave(value) {
   state.studio = normalizeStudioSession(value.studio);
   state.candy = Math.max(0, Math.min(9, Math.floor(Number(value.candy) || 0)));
   state.devinFavor = Math.max(0, Math.min(99, Math.floor(Number(value.devinFavor) || 0)));
+  state.intoxication = Math.max(0, Math.min(1, Number(value.intoxication) || 0));
+  state.drinksServed = Math.max(0, Math.min(999, Math.floor(Number(value.drinksServed) || 0)));
   if (ARCHIVE_TAPE_IDS.includes(value.archiveTape)) state.archiveTape = value.archiveTape;
   if (ARCHIVE_TAPE_IDS.includes(value.threadedTape)) state.threadedTape = value.threadedTape;
   if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive))
