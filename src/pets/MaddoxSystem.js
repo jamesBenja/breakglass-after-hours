@@ -145,6 +145,9 @@ function buildMaddoxModel() {
   return { root, body, headPivot, legPivots, tailPivot };
 }
 
+const toVector = (point) =>
+  point instanceof Vector3 ? point.clone() : new Vector3().fromArray(point ?? [0, 0, 0]);
+
 /**
  * Maddox is intentionally separate from the humanoid NPC system: he can roam, nap, react to
  * petting and lead the player to the roof passage without forcing dog behavior into NPC code.
@@ -158,15 +161,20 @@ export class MaddoxSystem {
 
     this.name = config.name ?? 'Maddox';
     this.radius = config.radius ?? 1.35;
-    this.roamPoints = (config.roamPoints ?? []).map((point) => new Vector3().fromArray(point));
-    this.napPoints = (config.napPoints ?? []).map((point) => new Vector3().fromArray(point));
+    this.roamPoints = (config.roamPoints ?? []).map(toVector);
+    this.napPoints = (config.napPoints ?? []).map(toVector);
+    this.roofLeadRoute = (config.roofLeadRoute ?? []).map(toVector);
     this.roamIndex = 0;
+    this.napIndex = 0;
     this.speed = config.speed ?? 0.72;
     this.elapsed = 0;
     this.state = 'roam';
     this.stateTime = 0;
     this.petPulse = 0;
-    this.leadTarget = null;
+    this.currentTarget = null;
+    this.pendingNap = false;
+    this.leadRoute = [];
+    this.leadIndex = 0;
     this.arrivedAtLeadTarget = false;
     this.nextNapAfter = 22;
   }
@@ -191,19 +199,34 @@ export class MaddoxSystem {
     this.petPulse = 1.6;
     this.state = 'pet';
     this.stateTime = 0;
+    this.currentTarget = null;
+    this.pendingNap = false;
   }
 
-  startLead(position) {
-    this.leadTarget = new Vector3().fromArray(position);
+  startLead(route = this.roofLeadRoute) {
+    const source = Array.isArray(route?.[0]) || route?.[0] instanceof Vector3 ? route : [route];
+    this.leadRoute = source.filter(Boolean).map(toVector);
+    if (!this.leadRoute.length) return false;
+    this.leadIndex = 0;
     this.arrivedAtLeadTarget = false;
     this.state = 'lead';
     this.stateTime = 0;
+    this.currentTarget = null;
+    this.pendingNap = false;
+    return true;
   }
 
   chooseRoamTarget() {
     if (!this.roamPoints.length) return null;
     const target = this.roamPoints[this.roamIndex % this.roamPoints.length];
     this.roamIndex = (this.roamIndex + 1) % this.roamPoints.length;
+    return target;
+  }
+
+  chooseNapTarget() {
+    if (!this.napPoints.length) return null;
+    const target = this.napPoints[this.napIndex % this.napPoints.length];
+    this.napIndex = (this.napIndex + 1) % this.napPoints.length;
     return target;
   }
 
@@ -227,13 +250,17 @@ export class MaddoxSystem {
     this.petPulse = Math.max(0, this.petPulse - dt);
 
     let moving = false;
-    if (this.state === 'lead' && this.leadTarget) {
-      const arrived = this.moveToward(this.leadTarget, dt);
+    if (this.state === 'lead') {
+      const target = this.leadRoute[this.leadIndex];
+      const arrived = this.moveToward(target, dt);
       moving = !arrived;
       if (arrived) {
-        this.arrivedAtLeadTarget = true;
-        this.state = 'sit';
-        this.stateTime = 0;
+        this.leadIndex += 1;
+        if (this.leadIndex >= this.leadRoute.length) {
+          this.arrivedAtLeadTarget = true;
+          this.state = 'sit';
+          this.stateTime = 0;
+        }
       }
     } else if (this.state === 'pet') {
       if (this.stateTime > 1.6) {
@@ -253,18 +280,23 @@ export class MaddoxSystem {
         this.currentTarget = this.chooseRoamTarget();
       }
     } else {
-      if (!this.currentTarget) this.currentTarget = this.chooseRoamTarget();
+      if (!this.currentTarget) {
+        if (this.elapsed >= this.nextNapAfter && this.napPoints.length) {
+          this.currentTarget = this.chooseNapTarget();
+          this.pendingNap = true;
+        } else {
+          this.currentTarget = this.chooseRoamTarget();
+        }
+      }
       const arrived = this.moveToward(this.currentTarget, dt);
       moving = !arrived;
       if (arrived) {
         this.currentTarget = null;
-        if (this.elapsed >= this.nextNapAfter && this.napPoints.length) {
-          const nap = this.napPoints[Math.floor((this.elapsed / 11) % this.napPoints.length)];
-          if (this.root.position.distanceTo(nap) < 0.9) {
-            this.state = 'nap';
-            this.stateTime = 0;
-            this.nextNapAfter = this.elapsed + 28;
-          }
+        if (this.pendingNap) {
+          this.pendingNap = false;
+          this.state = 'nap';
+          this.stateTime = 0;
+          this.nextNapAfter = this.elapsed + 28;
         }
       }
     }
@@ -276,7 +308,8 @@ export class MaddoxSystem {
     }
 
     const wagStrength = this.petPulse > 0 ? 0.72 : this.state === 'lead' ? 0.34 : 0.12;
-    this.tailPivot.rotation.y = Math.sin(this.elapsed * (this.petPulse > 0 ? 13 : 5.5)) * wagStrength;
+    this.tailPivot.rotation.y =
+      Math.sin(this.elapsed * (this.petPulse > 0 ? 13 : 5.5)) * wagStrength;
     this.headPivot.rotation.y = this.petPulse > 0 ? Math.sin(this.elapsed * 3.4) * 0.12 : 0;
 
     const nap = this.state === 'nap';
@@ -292,6 +325,7 @@ export class MaddoxSystem {
       position: this.root.position.toArray(),
       leading: this.state === 'lead',
       arrivedAtLeadTarget: this.arrivedAtLeadTarget,
+      leadIndex: this.leadIndex,
       petPulse: clamp(this.petPulse / 1.6),
     };
   }
