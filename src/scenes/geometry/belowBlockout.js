@@ -92,6 +92,16 @@ export function buildBelowFixtures(downScene) {
   box(downScene, 0.95, 0.13, 0.52, MAT.dark, 0.55, 1.18, -2.45);
   box(downScene, 0.95, 0.13, 0.52, MAT.dark, 2.45, 1.18, -2.45);
   box(downScene, 0.8, 0.17, 0.55, MAT.metal, 1.5, 1.18, -2.45);
+  // Visible CDJ jog wheels, mixer strips and small booth monitor make the playable decks read.
+  for (const x of [0.55, 2.45]) {
+    cyl(downScene, 0.22, 0.055, mat(0x5d6269, 0.36, 0.5), x, 1.27, -2.45);
+    cyl(downScene, 0.08, 0.06, MAT.dark, x, 1.3, -2.45);
+  }
+  for (let i = 0; i < 4; i++) {
+    const x = 1.27 + i * 0.15;
+    box(downScene, 0.025, 0.035, 0.35, mat(0xb6b4aa), x, 1.28, -2.45);
+  }
+  box(downScene, 0.48, 0.42, 0.34, MAT.speaker, 3.25, 1.28, -2.55);
   label(downScene, 'DJ BOOTH', 1.5, 2.05, -2.5, 0.36);
 
   // The large dark floor ring is one of the strongest real-room visual landmarks.
@@ -129,9 +139,17 @@ export function buildBelowFixtures(downScene) {
     box(downScene, 0.09, 2.35, 0.09, slat, x, 1.45, 3.34);
   }
 
-  // Dark overhead bars help the compact room read as a club rather than an empty box.
-  for (const z of [-2.2, -0.75, 0.7, 2.15])
-    box(downScene, 10.8, 0.12, 0.14, mat(0x111012), 0, 3.02, z);
+  // Dark overhead bars, cabling and small fixture bodies make the compact ceiling read like a club.
+  const truss = mat(0x111012, 0.55, 0.24);
+  for (const z of [-2.2, -0.75, 0.7, 2.15]) {
+    box(downScene, 10.8, 0.12, 0.14, truss, 0, 3.02, z);
+    for (const x of [-4.3, -2.15, 0, 2.15, 4.3]) {
+      box(downScene, 0.22, 0.16, 0.26, MAT.dark, x, 2.88, z);
+      box(downScene, 0.035, 0.25, 0.035, mat(0x595d62, 0.5, 0.25), x, 2.72, z);
+    }
+  }
+  for (const x of [-4.8, -1.6, 1.6, 4.8])
+    box(downScene, 0.035, 0.035, 6.2, mat(0x25262a, 0.68, 0.12), x, 3.14, 0);
 
   // Take A Break: permanent warm installation/chill room.
   box(downScene, 2.6, 0.62, 0.82, MAT.red, -8.1, 0.33, 1.0);
@@ -143,13 +161,65 @@ export function buildBelowFixtures(downScene) {
   cyl(downScene, 0.19, 1.05, mat(0xd4a45f, 0.38, 0.12), -8.72, 1.03, 1.85);
   label(downScene, 'IMMERSIVE INSTALLATION', -8.9, 2.45, 1.85, 0.25, '#f2c7df');
 
+  // Four small sculptural speakers correspond to the HRTF emitters in SpatialAudioSystem.
+  for (const [x, y, z, accent] of [
+    [-9.15, 1.25, 0.35, 0xc98696],
+    [-7.05, 1.45, 0.55, 0x7799a6],
+    [-9.2, 1.6, 2.95, 0xb69b63],
+    [-7.0, 1.25, 3.0, 0x81719e],
+  ]) {
+    box(downScene, 0.24, 0.38, 0.2, mat(0x27242b), x, y, z);
+    cyl(downScene, 0.07, 0.035, mat(accent, 0.48, 0.1), x, y + 0.02, z - 0.115).rotation.x = Math.PI / 2;
+  }
+
+  // Nora's actual captured images are mounted dynamically in six frames on this north wall.
+  label(downScene, 'NORA · NIGHT PHOTOS', -8.1, 3.32, 3.67, 0.27, '#f3d4df');
+  for (const x of [-9.18, -8.13, -7.08]) {
+    box(downScene, 0.08, 0.22, 0.08, mat(0x262226), x, 3.15, 3.68);
+  }
+
+  // The real-room arcade idea lives behind a curtain in the corner rather than floating in the club.
+  const curtain = mat(0x4d2334, 0.93, 0.01);
+  box(downScene, 0.08, 2.45, 1.55, curtain, -9.62, 1.23, -0.08);
+  box(downScene, 0.75, 1.7, 0.72, mat(0x24262d, 0.68, 0.08), -9.15, 0.85, -0.02);
+  box(downScene, 0.58, 0.42, 0.035, mat(0x445c6c, 0.4, 0.08), -9.15, 1.25, -0.395);
+  box(downScene, 0.5, 0.25, 0.5, mat(0x58394c), -9.15, 0.75, -0.3);
+  for (const x of [-9.28, -9.03]) cyl(downScene, 0.045, 0.06, mat(0xd7b05f), x, 0.83, -0.57);
+  label(downScene, 'ARCADE', -9.15, 2.0, -0.02, 0.22, '#d9c4ee');
+
   // Usable-bar landmark and stools. Bartender characters are spawned from level data.
   box(downScene, 3.5, 1.0, 0.9, MAT.wood, 7.25, 0.5, -1.45);
   for (const x of [6.55, 7.25, 7.95, 8.65]) {
     cyl(downScene, 0.22, 0.62, MAT.metal, x, 0.31, -2.28);
     cyl(downScene, 0.3, 0.08, mat(0x4e2729), x, 0.66, -2.28);
   }
-  label(downScene, 'COURTNEY + SIMLA', 7.55, 2.12, -1.5, 0.25, '#ffc9b0');
+  // Back bar shelves, bottles, taps and glasses make Courtney/Simla's station feel occupied.
+  const shelf = mat(0x6f523d, 0.78, 0.03);
+  for (const y of [1.05, 1.62, 2.19]) {
+    box(downScene, 2.55, 0.07, 0.28, shelf, 7.75, y, -0.18);
+    for (let i = 0; i < 10; i++) {
+      const x = 6.62 + i * 0.25;
+      const bottleHeight = 0.18 + ((i + Math.round(y * 10)) % 3) * 0.045;
+      cyl(
+        downScene,
+        0.04,
+        bottleHeight,
+        mat([0x526a48, 0x74503c, 0x6a5178, 0x8c7646][i % 4], 0.38, 0.04),
+        x,
+        y + bottleHeight / 2 + 0.04,
+        -0.18,
+      );
+    }
+  }
+  for (const x of [6.75, 7.08, 7.41]) {
+    cyl(downScene, 0.035, 0.44, MAT.metal, x, 1.28, -1.05);
+    box(downScene, 0.18, 0.05, 0.1, MAT.metal, x, 1.49, -1.1);
+  }
+  label(downScene, 'COURTNEY + SIMLA', 7.55, 2.6, -1.5, 0.25, '#ffc9b0');
+
+  // Alley exit details are intentionally bright enough to find through the crowd.
+  box(downScene, 1.45, 0.34, 0.08, mat(0x3f6c55, 0.45, 0.04), 4.6, 2.45, -3.33);
+  label(downScene, 'EXIT', 4.6, 2.5, -3.28, 0.26, '#d9ffe3');
 
   // Stair landing on left, matching actual plan's stairway-to-Clark side.
   for (let i = 0; i < 6; i++)
