@@ -29,6 +29,15 @@ export const assetManifest = {
     rotation: [0, 0, 0],
     scale: 1,
   },
+  'roof-building': {
+    type: 'model',
+    url: null,
+    includesFixtures: false,
+    source: 'Breakglass rooftop founding-days memory-space prototype',
+    position: [0, 0, 0],
+    rotation: [0, 0, 0],
+    scale: 1,
+  },
 
   // Procedural prototype slots retained for debugging / fallback gameplay.
   'night-bus': { type: 'audio', url: null, source: 'Synthesized V2.1 placeholder' },
