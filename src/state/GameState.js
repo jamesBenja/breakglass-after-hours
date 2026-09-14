@@ -85,6 +85,9 @@ const defaults = () => ({
   drinksServed: 0,
   caffeine: 0,
   coffeesMade: 0,
+  maddoxAffection: 0,
+  maddoxPets: 0,
+  roofSecretUnlocked: false,
   archiveTape: null,
   threadedTape: null,
   liveRoomArchive: null,
@@ -124,6 +127,9 @@ export function validateSave(value) {
   state.drinksServed = Math.max(0, Math.min(999, Math.floor(Number(value.drinksServed) || 0)));
   state.caffeine = Math.max(0, Math.min(1, Number(value.caffeine) || 0));
   state.coffeesMade = Math.max(0, Math.min(999, Math.floor(Number(value.coffeesMade) || 0)));
+  state.maddoxAffection = Math.max(0, Math.min(9, Math.floor(Number(value.maddoxAffection) || 0)));
+  state.maddoxPets = Math.max(0, Math.min(999, Math.floor(Number(value.maddoxPets) || 0)));
+  state.roofSecretUnlocked = value.roofSecretUnlocked === true;
   if (ARCHIVE_TAPE_IDS.includes(value.archiveTape)) state.archiveTape = value.archiveTape;
   if (ARCHIVE_TAPE_IDS.includes(value.threadedTape)) state.threadedTape = value.threadedTape;
   if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive))
