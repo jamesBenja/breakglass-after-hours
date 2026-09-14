@@ -1,4 +1,6 @@
 import { createUpstairsDefinition } from './upstairs/definition.js';
+import { alleyLevel } from './alley.js';
+
 // Y up. Upstairs is assembled from A-103 tracing; Below retains V2.1 authoring units.
 // Neither coordinate system is surveyed metres. Reconcile meshes and navigation together.
 const surface = (id, name, x1, x2, z1, z2) => ({ id, name, x1, x2, z1, z2, y: 0 });
@@ -6,14 +8,15 @@ const anchor = (name, position, radius, action) => ({ name, position, radius, ac
 
 export const levels = {
   upstairs: createUpstairsDefinition(),
+  alley: alleyLevel,
   downstairs: {
     id: 'downstairs',
     title: 'DOWNSTAIRS — BELOW BREAKGLASS',
     model: 'below-building',
     provenance: {
-      status: 'simplified-plan-blockout',
-      reference: 'Below Breakglass technical diagram.png',
-      note: 'V2.1 plan-informed proportions; mesh/collision reconciliation is still pending.',
+      status: 'A-102-informed playable blockout',
+      reference: 'Breakglass Studios - FULL FLOOR PLANS PACKAGE.pdf / A-102',
+      note: 'Plan-informed room relationships; detailed wall/collision reconciliation is still ongoing.',
     },
     background: 0x060408,
     fog: [18, 58],
@@ -27,8 +30,6 @@ export const levels = {
       pitch: 0.34,
       targetHeight: 1.34,
     },
-    // Architectural/stair accents and warm side-room lights remain static.
-    // Party fixtures live in lightingRig below.
     lights: [
       { color: 0x8749d6, intensity: 3.2, distance: 8, position: [-6.6, 2.2, -2.5] },
       { color: 0xffb06b, intensity: 2.8, distance: 7, position: [-8.1, 2.35, 1.65] },
@@ -36,8 +37,17 @@ export const levels = {
     ],
     lightingRig: {
       preset: 'warmup',
-      haze: 0.38,
-      hazeFar: 11.5,
+      haze: 0.42,
+      hazeFar: 10.5,
+      hazeVolume: {
+        x1: -5.55,
+        x2: 5.55,
+        y1: 0.35,
+        y2: 2.6,
+        z1: -3.0,
+        z2: 3.0,
+        count: 22,
+      },
       fixtures: [
         {
           name: 'club-west-red',
@@ -91,25 +101,30 @@ export const levels = {
       },
     },
     crowd: {
-      start: 48,
-      idle: 32,
-      max: 78,
+      start: 72,
+      min: 18,
+      idle: 28,
+      max: 110,
       zones: [
         { x1: -4.7, x2: 4.7, z1: -2.15, z2: 2.75, weight: 8, kind: 'dance' },
         { x1: -5.45, x2: -4.65, z1: -2.25, z2: 2.65, weight: 1.25, kind: 'social' },
         { x1: 4.65, x2: 5.45, z1: -1.8, z2: 2.7, weight: 1.1, kind: 'social' },
-        { x1: -9.35, x2: -6.55, z1: 0.0, z2: 3.35, weight: 1.55, kind: 'social' },
-        { x1: 6.35, x2: 8.55, z1: -2.55, z2: -0.25, weight: 1.25, kind: 'social' },
+        { x1: -9.35, x2: -6.55, z1: 0.0, z2: 3.35, weight: 2.1, kind: 'social' },
+        { x1: 6.35, x2: 8.55, z1: -2.55, z2: -0.25, weight: 1.7, kind: 'social' },
       ],
       avoid: [
         { x1: 0.0, x2: 3.15, z1: -3.15, z2: -1.55 },
         { x1: -6.2, x2: -5.35, z1: -3.2, z2: -1.0 },
       ],
     },
-    spawns: { start: [-5.9, 0, -2.25], stairs: [-5.9, 0, -2.25] },
+    spawns: {
+      start: [-5.9, 0, -2.25],
+      stairs: [-5.9, 0, -2.25],
+      alley: [5.05, 0, -4.2],
+    },
     intro: [
       'BELOW BREAKGLASS',
-      'The club is alive now. Push toward the booth, slip into Take A Break, or find the bar.',
+      'The club is alive now. Push toward the booth, slip into Take A Break, find the bar, or head outside.',
     ],
     navigation: {
       surfaces: [
@@ -119,8 +134,8 @@ export const levels = {
         surface('storage', 'Storage', -5, 1.8, 3.35, 6.2),
         surface('service', 'Service / Bar', 6.2, 8.8, -2.7, 6.15),
         surface('bar-door', 'Bar Doorway', 5.65, 6.5, -2.05, -0.55),
-        surface('coat-check', 'Coat Check', 3.55, 5.65, -5.35, -3.2),
-        surface('stair-landing', 'Stair Landing', -6.8, -5.5, -3.1, -1.1),
+        surface('coat-check', 'Coat Check / Alley Entry', 3.55, 5.65, -5.35, -3.2),
+        surface('stair-landing', 'Clark Stair Landing', -6.8, -5.5, -3.1, -1.1),
       ],
       obstacles: [],
     },
@@ -129,6 +144,10 @@ export const levels = {
       stairs: {
         ...anchor('Stairs upstairs', [-6.35, 0, -2.2], 1.45, 'travel'),
         target: 'upstairs',
+      },
+      alleyExit: {
+        ...anchor('Alley / club entrance', [5.0, 0, -4.35], 1.45, 'travel'),
+        target: 'alley@clubDoor',
       },
       nora: anchor('Nora', [-2.5, 0, 1.3], 1.2, 'dialogue'),
       jashim: anchor('Jashim', [-0.7, 0, 0.6], 1.2, 'dialogue'),
