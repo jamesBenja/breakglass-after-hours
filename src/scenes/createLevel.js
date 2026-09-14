@@ -1,6 +1,7 @@
 import { Scene, Group, Color, Fog, HemisphereLight, DirectionalLight, PointLight } from 'three';
 import { CollisionWorld } from '../collision/CollisionWorld.js';
 import { NpcSystem } from '../npcs/NpcSystem.js';
+import { LightingRig } from '../lighting/LightingRig.js';
 import { disposeObject } from './disposeObject.js';
 
 export async function createLevel(definition, builders, assets) {
@@ -39,6 +40,7 @@ export async function createLevel(definition, builders, assets) {
 
   const collision = new CollisionWorld(definition.navigation);
   const npcs = new NpcSystem(gameplay, definition);
+  const lighting = definition.lightingRig ? new LightingRig(scene, definition.lightingRig) : null;
   return {
     scene,
     definition,
@@ -47,11 +49,15 @@ export async function createLevel(definition, builders, assets) {
     gameplay,
     collision,
     npcs,
+    lighting,
     geometrySource: model ? 'model' : 'blockout',
     update(dt, audio) {
-      npcs.update(dt, audio.playing);
+      const metrics = audio.metrics();
+      npcs.update(dt, metrics);
+      lighting?.update(dt, metrics);
     },
     dispose() {
+      lighting?.dispose();
       npcs.dispose();
       disposeObject(scene);
     },
