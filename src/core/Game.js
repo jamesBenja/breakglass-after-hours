@@ -77,6 +77,7 @@ export class Game {
     this.renderer.domElement.setAttribute('aria-label', 'Breakglass game view');
     document.body.prepend(this.renderer.domElement);
     this.input.bindCamera(this.renderer.domElement);
+    this.input.bindTouchControls(document);
 
     this.stopAll = () => {
       this.keyboardPerformance.stop(false);
