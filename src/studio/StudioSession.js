@@ -1,4 +1,5 @@
 import { AMPS, BASSES, DRUM_KITS, GUITARS, MICS, PROCESSORS, SYNTHS, gearById } from './gear.js';
+import { studioSessionById } from './sessionCatalog.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -21,48 +22,7 @@ export const DEFAULT_STEMS = [
   { id: 'synth', label: 'Synth / Keys', kind: 'synth', level: 0.58, pan: 0.18, mute: false },
 ];
 
-export const DANCE_SHOES_STEMS = [
-  {
-    id: 'dance-shoes-drums',
-    label: 'Dance Shoes · Drums',
-    kind: 'drums',
-    level: 0.78,
-    pan: 0,
-    mute: false,
-    assetId: 'dance-shoes-drums',
-    source: 'Breakglass multitrack',
-  },
-  {
-    id: 'dance-shoes-bass',
-    label: 'Dance Shoes · Bass',
-    kind: 'bass',
-    level: 0.74,
-    pan: 0,
-    mute: false,
-    assetId: 'dance-shoes-bass',
-    source: 'Breakglass multitrack',
-  },
-  {
-    id: 'dance-shoes-synths-fx',
-    label: 'Dance Shoes · Synths + FX',
-    kind: 'synth',
-    level: 0.66,
-    pan: 0.08,
-    mute: false,
-    assetId: 'dance-shoes-synths-fx',
-    source: 'Breakglass multitrack',
-  },
-  {
-    id: 'dance-shoes-vox',
-    label: 'Dance Shoes · Vocals',
-    kind: 'vocal',
-    level: 0.7,
-    pan: 0,
-    mute: false,
-    assetId: 'dance-shoes-vox',
-    source: 'Breakglass multitrack',
-  },
-];
+export const DANCE_SHOES_STEMS = studioSessionById('dance-shoes').stems;
 
 const normalizePerformance = (performance) => {
   if (!performance || typeof performance !== 'object' || !Array.isArray(performance.events)) {
@@ -90,8 +50,8 @@ const normalizePerformance = (performance) => {
 };
 
 const normalizeStem = (stem, index) => ({
-  id: typeof stem.id === 'string' ? stem.id.slice(0, 32) : `stem-${index}`,
-  label: typeof stem.label === 'string' ? stem.label.slice(0, 40) : `Stem ${index + 1}`,
+  id: typeof stem.id === 'string' ? stem.id.slice(0, 48) : `stem-${index}`,
+  label: typeof stem.label === 'string' ? stem.label.slice(0, 64) : `Stem ${index + 1}`,
   kind: typeof stem.kind === 'string' ? stem.kind.slice(0, 24) : 'audio',
   level: clamp(Number(stem.level) || 0, 0, 1),
   pan: clamp(Number(stem.pan) || 0, -1, 1),
@@ -100,7 +60,7 @@ const normalizeStem = (stem, index) => ({
   mute: stem.mute === true,
   solo: stem.solo === true,
   assetId: typeof stem.assetId === 'string' ? stem.assetId.slice(0, 64) : null,
-  source: typeof stem.source === 'string' ? stem.source.slice(0, 80) : 'session',
+  source: typeof stem.source === 'string' ? stem.source.slice(0, 100) : 'session',
   performance: normalizePerformance(stem.performance),
   processing:
     stem.processing && typeof stem.processing === 'object'
@@ -133,20 +93,22 @@ export function normalizeStudioSession(value = {}) {
   setup.eq = gearById(PROCESSORS.eq, setup.eq).id;
   setup.compressor = gearById(PROCESSORS.compressor, setup.compressor).id;
 
+  const defaultTemplate = studioSessionById('dance-shoes');
   const upgrade = isUntouchedPrototype(value);
   const sourceStems = upgrade
-    ? DANCE_SHOES_STEMS
+    ? defaultTemplate.stems
     : Array.isArray(value.stems) && value.stems.length
       ? value.stems
-      : DANCE_SHOES_STEMS;
+      : defaultTemplate.stems;
   const stems = sourceStems.slice(0, 12).map(normalizeStem);
 
   return {
     name: upgrade
-      ? 'Dance Shoes · BG Mix'
+      ? defaultTemplate.name
       : typeof value.name === 'string' && value.name.trim()
-        ? value.name.trim().slice(0, 48)
-        : 'Dance Shoes · BG Mix',
+        ? value.name.trim().slice(0, 64)
+        : defaultTemplate.name,
+    bpm: clamp(Number(value.bpm) || defaultTemplate.bpm, 50, 220),
     setup,
     stems,
     takeCounter: Math.max(0, Math.floor(Number(value.takeCounter) || 0)),
@@ -157,6 +119,7 @@ export class StudioSession {
   constructor(value) {
     const normalized = normalizeStudioSession(value);
     this.name = normalized.name;
+    this.bpm = normalized.bpm;
     this.setup = normalized.setup;
     this.stems = normalized.stems;
     this.takeCounter = normalized.takeCounter;
@@ -182,12 +145,14 @@ export class StudioSession {
   }
 
   loadTemplate(id) {
-    if (id !== 'dance-shoes') return false;
-    this.name = 'Dance Shoes · BG Mix';
-    this.stems = DANCE_SHOES_STEMS.map((stem, index) => normalizeStem(stem, index));
+    const template = studioSessionById(id);
+    if (!template) return false;
+    this.name = template.name;
+    this.bpm = template.bpm;
+    this.stems = template.stems.map((stem, index) => normalizeStem(stem, index));
     this.takeCounter = 0;
     this.recordings.clear();
-    return true;
+    return template;
   }
 
   addTake(kind, label, source = 'gameplay', processing = null) {
@@ -262,6 +227,7 @@ export class StudioSession {
   snapshot() {
     return {
       name: this.name,
+      bpm: this.bpm,
       setup: { ...this.setup },
       stems: this.stems.map((stem) => ({
         ...stem,
