@@ -111,7 +111,10 @@ export class TouchPerformanceSurface {
     if (!host) return;
     const surface = this.document.createElement('section');
     surface.className = `performance-surface performance-${performance.config?.mode ?? 'instrument'}`;
-    surface.setAttribute('aria-label', `${performance.config?.label ?? 'Instrument'} touch controls`);
+    surface.setAttribute(
+      'aria-label',
+      `${performance.config?.label ?? 'Instrument'} touch controls`,
+    );
     surface.addEventListener('contextmenu', (event) => event.preventDefault());
 
     const header = this.document.createElement('div');
@@ -167,7 +170,12 @@ export class TouchPerformanceSurface {
     const pads = this.document.createElement('div');
     pads.className = 'touch-drum-pads';
     for (const [id, label] of DRUMS) {
-      const pad = this.makeButton(label, `touch-drum-pad drum-${id}`, () => performance.triggerDrum(id), label.replace('\n', ' '));
+      const pad = this.makeButton(
+        label,
+        `touch-drum-pad drum-${id}`,
+        () => performance.triggerDrum(id),
+        label.replace('\n', ' '),
+      );
       pads.appendChild(pad);
     }
     surface.appendChild(pads);

@@ -120,7 +120,12 @@
   padding: 6px 4px;
   border-radius: 8px;
   background:
-    linear-gradient(90deg, transparent 0 16%, rgba(255, 255, 255, 0.08) 16% 16.5%, transparent 16.5% 100%),
+    linear-gradient(
+      90deg,
+      transparent 0 16%,
+      rgba(255, 255, 255, 0.08) 16% 16.5%,
+      transparent 16.5% 100%
+    ),
     linear-gradient(#694525, #3a2515);
 }
 
