@@ -157,7 +157,10 @@ test('optional overlook reaches the wall ledge while the Neve Suite remains open
     world = new CollisionWorld(level.navigation),
     player = new PlayerController(),
     camera = new FollowCamera(16 / 9);
-  assert.equal(level.navigation.surfaces.some((surface) => surface.id === 'polygon-perch'), false);
+  assert.equal(
+    level.navigation.surfaces.some((surface) => surface.id === 'polygon-perch'),
+    false,
+  );
   player.spawn(waypoints.live, world);
   camera.configure(level.cameraOffset, player.position, world);
   for (const [x, y, z, jump] of overlookRoute) {
