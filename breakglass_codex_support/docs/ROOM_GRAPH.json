@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "note": "Topology aid, not survey coordinates. Floor-plan images remain authoritative.",
+  "upstairs": {
+    "authoritative_plan": "references/architecture/03_upstairs_floor_plan.png",
+    "landmarks": [
+      {
+        "id": "dead_room",
+        "label": "Dead Room",
+        "role": "small tracking/storage",
+        "confidence": "A"
+      },
+      {
+        "id": "live_room",
+        "label": "Live Room",
+        "role": "large performance/tracking room",
+        "area_note": "1200 sq ft event usage",
+        "confidence": "A"
+      },
+      {
+        "id": "mixing_suite_a",
+        "label": "Studio Mixing Suite A",
+        "role": "professional control room",
+        "confidence": "A"
+      },
+      {
+        "id": "central_closed_suite",
+        "label": "Central Closed Suite",
+        "role": "major polygonal landmark",
+        "confidence": "A"
+      },
+      {
+        "id": "storage",
+        "label": "Storage",
+        "role": "storage below central suite",
+        "confidence": "A"
+      },
+      {
+        "id": "emergency_hall",
+        "label": "Closed / Emergency Hall",
+        "role": "circulation",
+        "confidence": "A"
+      },
+      {
+        "id": "east_suite_chain",
+        "label": "East suite chain",
+        "role": "closed/adjacent suites",
+        "confidence": "A"
+      },
+      {
+        "id": "bar_kitchen",
+        "label": "Bar / Kitchen",
+        "role": "upper-right service/social zone",
+        "confidence": "A"
+      },
+      {
+        "id": "entry",
+        "label": "3rd Floor Entry",
+        "role": "bottom-right entry",
+        "confidence": "A"
+      },
+      {
+        "id": "clark_stair",
+        "label": "Clark Stair",
+        "role": "west stair connection",
+        "confidence": "A"
+      }
+    ],
+    "game_design_anchor": "Use the central polygonal suite and surrounding circulation as the primary loop/hub."
+  },
+  "below": {
+    "authoritative_plan": "references/architecture/02_below_floor_plan.png",
+    "landmarks": [
+      {
+        "id": "club",
+        "label": "Below Breakglass",
+        "area_sqft": 1264,
+        "capacity_plan": 200,
+        "approx_main_dimensions": "45ft3in x 26ft",
+        "confidence": "A"
+      },
+      {
+        "id": "take_a_break",
+        "label": "Take A Break",
+        "area_sqft": 734,
+        "capacity_plan": "50-80",
+        "confidence": "A"
+      },
+      {
+        "id": "bar",
+        "label": "Bar",
+        "area_sqft": 195,
+        "confidence": "A"
+      },
+      {
+        "id": "production_suite",
+        "label": "Production Suite",
+        "area_sqft": 142.97,
+        "confidence": "A"
+      },
+      {
+        "id": "screen_printing",
+        "label": "Screen Printing Room",
+        "area_sqft": 148.07,
+        "confidence": "A"
+      },
+      {
+        "id": "storage_w",
+        "label": "Storage west/north",
+        "area_sqft": 313.95,
+        "confidence": "A"
+      },
+      {
+        "id": "storage_e",
+        "label": "Storage east/north",
+        "area_sqft": 313.95,
+        "confidence": "A"
+      },
+      {
+        "id": "dj_a",
+        "label": "DJ Booth Location A",
+        "confidence": "A"
+      },
+      {
+        "id": "dj_b",
+        "label": "DJ Booth Location B",
+        "confidence": "A"
+      },
+      {
+        "id": "clark_stair",
+        "label": "Stairway to Clark",
+        "confidence": "A"
+      }
+    ],
+    "game_design_anchor": "Main club is dark performance arena; Take A Break is warm side-room; booth must be physically reached."
+  },
+  "exterior": {
+    "alley_garden": {
+      "approx_dimensions": "15ft x 196ft",
+      "confidence": "A",
+      "game_design_anchor": "long optional outdoor connector / bonus traversal zone"
+    }
+  }
+}

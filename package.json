@@ -1,0 +1,18 @@
+{
+  "name": "breakglass-after-hours",
+  "version": "2.2.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.12.0" },
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test",
+    "format": "prettier --write src tests index.html vite.config.js",
+    "format:check": "prettier --check src tests index.html vite.config.js"
+  },
+  "dependencies": { "three": "0.160.0" },
+  "devDependencies": { "vite": "7.3.1", "prettier": "3.6.2" }
+}

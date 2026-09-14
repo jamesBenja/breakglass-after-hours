@@ -1,0 +1,69 @@
+{
+  "generated_for": "Breakglass: After Hours",
+  "generated_date": "2026-09-13",
+  "architecture_sources": [
+    {
+      "name": "Breakglass Studios - FULL FLOOR PLANS PACKAGE.pdf",
+      "drive_id": "138j5kKxqgm_FmHX4ojl7bZfYtmO8cMnp",
+      "local": "source_models/Breakglass_FULL_FLOOR_PLANS.pdf"
+    },
+    {
+      "name": "Below Breakglass 2025.skp",
+      "drive_id": "1_X-5khMc7ec6qFwrwg4B8BewBXJVksMx",
+      "local": "source_models/Below_Breakglass_2025.skp"
+    },
+    {
+      "name": "Below Breakglass technical diagram",
+      "drive_id": "15Dj5eghwCe7lUbJrMEheGh17FHJ5KTP1",
+      "local": "references/architecture/04_below_technical_diagram.png"
+    },
+    {
+      "name": "Below Breakglass club layout",
+      "drive_id": "1Qodz78mZ6EOD7OdqZE0nLQ5nqCiKr1kc",
+      "local": "references/architecture/05_below_club_layout.jpg"
+    }
+  ],
+  "visual_sources": [
+    {
+      "name": "wide angle main room",
+      "drive_id": "1o2B-FU3HkGPejSlzPfjOJXLeKoedEa05"
+    },
+    {
+      "name": "DJ booth v1",
+      "drive_id": "1_adqdjaEQst24VxNQstTjg8QeqMxL5Bv"
+    },
+    {
+      "name": "Take a Break",
+      "drive_id": "15wVgg0GjpRUpaAOQi85dNKaLJIqGRiAO"
+    },
+    {
+      "name": "Jashim at Spectra console 2026",
+      "drive_id": "1KazD-7INRNP5h__vo0OxUKNKfPbhQP3k"
+    },
+    {
+      "name": "Breakglass tape machines 2026",
+      "drive_id": "1gAyE1IUTdp-WiDiHj-I8poj7bipAzYxp"
+    },
+    {
+      "name": "Breakglass patch bay 2025",
+      "drive_id": "1feZKJiBIBX3hMwoq1znhDLvwRdkQYjHT"
+    }
+  ],
+  "audio_candidates": [
+    {
+      "name": "DANCE SHOES BG MIX STEMS",
+      "drive_folder_id": "1xActxv-UMx8kKW9jeKuG7mC6fpgn2G3F",
+      "role": "first 4-stem mixer prototype"
+    },
+    {
+      "name": "soundscape jashim x james benjamin stems 1",
+      "drive_folder_id": "1m8m1oTDxLx4Lry6NB1slpeMpUF6mG366",
+      "role": "experimental/ambient/instrument material"
+    },
+    {
+      "name": "below breakglass audio recording archive",
+      "drive_folder_id": "1eTTBbXYu29ChsWhF8gMug9mlnpNIYzQS",
+      "role": "club ambience / performance reference"
+    }
+  ]
+}

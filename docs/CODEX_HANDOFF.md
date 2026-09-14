@@ -13,37 +13,26 @@ The player should eventually be able to:
 - discover small Breakglass stories/tasks
 
 ## Current build
-`index.html` is V2.1:
-- plain Three.js browser prototype
-- separate upstairs and downstairs scenes
-- stair transition
-- simple collision/walkable zones
-- synthesized placeholder audio
-- basic interactions and NPC dancing
-- Below geometry partly grounded in the actual venue technical diagram
+The canonical Vite + Three.js refactor now includes the A-103 upstairs spatial pass (package version 2.2.0). Start it with `./dev.sh`; see `README.md`, `ARCHITECTURE.md`, and `QA.md` for setup, module ownership, asset integration, and verification.
 
-## Immediate engineering priorities
-1. Preserve V2.1 as a tagged baseline.
-2. Convert project to Vite + Three.js modules.
-3. Split code into:
-   - scene manager
-   - player/controller
-   - collision/navigation
-   - audio engine
-   - interaction system
-   - NPC/dialogue system
-   - asset loader
-   - Upstairs scene
-   - Below scene
-4. Add a local dev server and one-command run workflow.
-5. Add saveable game state.
-6. Keep scenes independent so no geometry leaks between floors.
-7. Use source-of-truth geometry from Drive assets, not guessed dimensions.
-8. Optimize audio assets for browser playback. Do not ship giant source WAV stems directly.
+- V2.1 was run before edits and preserved under Git tag `v2.1-baseline` and `archive/v2.1.html`.
+- Upstairs and Below have independent scenes, with modular player/input/camera, collision, interactions, audio, NPC/dialogue, asset loading, UI and saved state.
+- Original musical/session/DJ/dialogue/dancing actions are retained. Space/J jump, F dances, Q/R or right-drag orbit, C recenters, wheel zooms, and F3 shows contact/camera diagnostics.
+- Real GLB shells, textures and short audio excerpts can be configured through the asset manifest. The current URLs remain pending and use procedural geometry/synthesized sounds.
+- Upstairs now uses hand-traced A-103 polygons and shared doorway render/collision records. Read `UPSTAIRS_SPATIAL_PLAN.md` for the real relationships, widened gallery and declared gameplay elevations. Below is unchanged. No detailed private suite uses are invented.
+- Existing Below side-room connectivity and mesh/collision mismatches are documented in `QA.md` for reconciliation with the actual plans.
+
+## Next engineering priorities
+1. Validate the A-103 tracing and gameplay clearances against current plans/models, then replace the procedural shell with reconciled GLB geometry. Keep GAME props separate and verify all door openings.
+2. Encode short, owned audio excerpts for browser playback. Do not ship giant source WAV stems directly.
+3. Build synchronized stem mixing on the shared audio engine, preserving transport ownership and stop/cancellation behavior.
+4. Refine the existing upstairs loop, case jumps and polygon perch with human playtests. Preserve camera/grounding checks. No copied Mario assets or levels.
 
 ## Design direction
 Stylized, low-poly, slightly miniature/diorama-like Breakglass rather than photorealism.
 Recognizable architecture, equipment and atmosphere matter more than graphical realism.
+
+The experience should be a playful exploratory 3D music game, with the spatial legibility, verticality and curiosity of classic platformers/collectathons. The actual Breakglass building remains the underlying source of truth. Do not turn source-plan fidelity into a flat CAD walkthrough; express play through authored routes and musical discoveries while respecting the real relationships between spaces.
 
 The game should feel like a music toy / studio sim / tiny social RPG, not a combat game.
 
