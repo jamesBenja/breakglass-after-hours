@@ -120,14 +120,17 @@ export class FollowCamera {
     const basePitch = this.config.pitch;
     let wantedPitch = basePitch;
     if (collision) {
-      const pitches = [
-        basePitch,
-        Math.min(1.5, basePitch + 0.18),
-        Math.min(1.5, basePitch + 0.36),
-        Math.min(1.5, basePitch + 0.56),
-        Math.min(1.52, basePitch + 0.78),
-        1.54,
-      ];
+      const pitches =
+        this.mode === 'follow'
+          ? [0.8, 0.95, 1.1, 1.25, 1.4, 1.51, 1.565]
+          : [
+              basePitch,
+              Math.min(1.5, basePitch + 0.18),
+              Math.min(1.5, basePitch + 0.36),
+              Math.min(1.5, basePitch + 0.56),
+              Math.min(1.52, basePitch + 0.78),
+              1.565,
+            ];
       for (const pitch of pitches) {
         wantedPitch = pitch;
         this.boom(pitch, this.candidate);
