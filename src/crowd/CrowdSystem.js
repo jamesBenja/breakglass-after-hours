@@ -58,6 +58,7 @@ export class CrowdSystem {
     this.position = new Vector3();
     this.scale = new Vector3(1, 1, 1);
     this.rotation = new Quaternion();
+    this.yAxis = new Vector3(0, 1, 0);
 
     const bodyGeometry = new CapsuleGeometry(0.22, 0.58, 3, 6);
     const headGeometry = new SphereGeometry(0.205, 8, 6);
@@ -91,6 +92,8 @@ export class CrowdSystem {
       const member = {
         x,
         z,
+        currentX: x,
+        currentZ: z,
         kind: zone.kind ?? 'dance',
         phase: seeded(i, 9) * Math.PI * 2,
         tempo: 0.8 + seeded(i, 10) * 0.7,
@@ -112,6 +115,18 @@ export class CrowdSystem {
     this.head.count = visible;
   }
 
+  movementScaleAt(position) {
+    const count = Math.round(this.attendance);
+    let pressure = 0;
+    for (let i = 0; i < count; i++) {
+      const member = this.members[i];
+      const distance = Math.hypot(position.x - member.currentX, position.z - member.currentZ);
+      if (distance < 0.72) pressure += (0.72 - distance) / 0.72;
+    }
+    // You can always make progress, but a peak-time floor should require visibly pushing through.
+    return clamp(1 - pressure * 0.14, 0.36, 1);
+  }
+
   update(dt, metrics = {}) {
     this.elapsed += dt;
     const energy = clamp(metrics.energy ?? (metrics.playing ? 0.5 : 0));
@@ -123,8 +138,6 @@ export class CrowdSystem {
     this.lastVibe = vibe;
     this.lastMixQuality = mixQuality;
 
-    // Good selection and clean mixing retain/fill the room. A rough exposed blend can visibly
-    // thin it. With no music, a smaller social/off-hours population remains.
     const attraction = playing
       ? clamp(0.08 + vibe * 0.72 + mixQuality * 0.16 + beat * 0.04)
       : 0;
@@ -155,8 +168,10 @@ export class CrowdSystem {
       const drift = dance ? 0.055 + bass * 0.035 : 0.022;
       const px = member.x + side * drift;
       const pz = member.z + sway * drift * 0.55;
+      member.currentX = px;
+      member.currentZ = pz;
       const yaw = side * (dance ? 0.32 + localEnergy * 0.24 : 0.12);
-      this.rotation.setFromAxisAngle(new Vector3(0, 1, 0), yaw);
+      this.rotation.setFromAxisAngle(this.yAxis, yaw);
 
       bodyScale.set(member.scale, member.scale, member.scale);
       this.position.set(px, 0.68 * member.scale + bob, pz);
