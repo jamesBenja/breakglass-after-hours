@@ -24,9 +24,15 @@ const COMP = {
   none: { threshold: 0, ratio: 1, attack: 0.003, release: 0.1 },
 };
 
+const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
+
 /**
- * Multitrack transport. Every stem owns a real WebAudio channel strip:
+ * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
+ *
+ * Remote Drive sources can deny CORS to decodeAudioData. In that case aligned native media
+ * elements keep the actual stems/music playable and synchronized closely enough for this
+ * prototype, with fader/mute/solo retained. Same-origin web copies restore pan/EQ/processing.
  */
 export class StudioPlayback {
   constructor(audio, timers = globalThis) {
@@ -38,13 +44,14 @@ export class StudioPlayback {
     this.session = null;
     this.buses = new Map();
     this.sources = new Set();
+    this.nativeStems = new Map();
     this.assetBuffers = new Map();
     this.realSessionPlaying = false;
     this.bpm = 118;
   }
 
   get playing() {
-    return this.timer !== null || this.realSessionPlaying;
+    return this.timer !== null || this.realSessionPlaying || this.nativeStems.size > 0;
   }
 
   ensureBus(stem) {
@@ -67,8 +74,7 @@ export class StudioPlayback {
     high.gain.value = 0;
     const compressor = context.createDynamicsCompressor();
     const fader = context.createGain();
-    const pan =
-      typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
+    const pan = typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
     input.connect(color);
     color.connect(low);
     low.connect(high);
@@ -101,6 +107,18 @@ export class StudioPlayback {
     bus.compressor.release.setTargetAtTime(comp.release, time, 0.03);
   }
 
+  updateNativeMix(session = this.session) {
+    if (!session || !this.nativeStems.size) return;
+    const anySolo = session.stems.some((stem) => stem.solo);
+    const environment = this.audio.environment?.gain ?? 1;
+    for (const stem of session.stems) {
+      const media = this.nativeStems.get(stem.id);
+      if (!media) continue;
+      const audible = !stem.mute && (!anySolo || stem.solo);
+      media.volume = clamp((audible ? stem.level : 0) * environment * 0.88);
+    }
+  }
+
   updateMix(session = this.session) {
     if (!session || !this.audio.context) return;
     const time = this.audio.context.currentTime;
@@ -121,6 +139,7 @@ export class StudioPlayback {
       for (const node of Object.values(bus)) node?.disconnect?.();
       this.buses.delete(id);
     }
+    this.updateNativeMix(session);
   }
 
   oscillator(freq, duration, destination, { type = 'triangle', volume = 0.12, when = 0 } = {}) {
@@ -226,10 +245,7 @@ export class StudioPlayback {
     const bus = this.ensureBus(stem).input;
     const sourceBpm = performance.bpm || this.bpm;
     const stepDuration = 60 / sourceBpm / 4;
-    const loopSteps = Math.max(
-      16,
-      Math.min(256, Math.ceil((performance.duration || 4) / stepDuration)),
-    );
+    const loopSteps = Math.max(16, Math.min(256, Math.ceil((performance.duration || 4) / stepDuration)));
     const current = step % loopSteps;
     for (const event of performance.events) {
       const eventStep = Math.round((event.time || 0) / stepDuration) % loopSteps;
@@ -244,16 +260,11 @@ export class StudioPlayback {
         when,
       });
       if (performance.octaveLayer) {
-        this.oscillator(
-          (event.frequency || 440) * 2,
-          (performance.noteDuration || 0.42) * 0.72,
-          bus,
-          {
-            type: 'triangle',
-            volume: (performance.volume || 0.065) * 0.22,
-            when: when + 0.012,
-          },
-        );
+        this.oscillator((event.frequency || 440) * 2, (performance.noteDuration || 0.42) * 0.72, bus, {
+          type: 'triangle',
+          volume: (performance.volume || 0.065) * 0.22,
+          when: when + 0.012,
+        });
       }
     }
     return true;
@@ -326,12 +337,9 @@ export class StudioPlayback {
 
   async loadAlignedAssets(session) {
     const stems = session.stems.filter((stem) => stem.assetId);
-    if (!stems.length || !this.audio.assets) return null;
+    if (!stems.length || stems.length !== session.stems.length || !this.audio.assets) return null;
     const loaded = await Promise.all(
-      stems.map(async (stem) => [
-        stem.id,
-        await this.audio.assets.audio(stem.assetId, this.audio.context),
-      ]),
+      stems.map(async (stem) => [stem.id, await this.audio.assets.audio(stem.assetId, this.audio.context)]),
     );
     const buffers = new Map(loaded.filter(([, buffer]) => !!buffer));
     return buffers.size === stems.length ? buffers : null;
@@ -355,20 +363,56 @@ export class StudioPlayback {
       source.start(start);
     }
     this.realSessionPlaying = true;
-    this.audio.setExternalTransport?.(
-      'studio',
-      `${session.name} · real multitrack`,
-      60 / this.bpm / 4,
-      {
-        vibe: 0.58,
-      },
-    );
+    this.audio.setExternalTransport?.('studio', `${session.name} · real multitrack`, 60 / this.bpm / 4, {
+      vibe: 0.58,
+      mixQuality: 0.92,
+    });
+  }
+
+  async startNativeAssets(session) {
+    if (typeof Audio === 'undefined' || !this.audio.assets?.mediaUrl) return false;
+    const stems = session.stems.filter((stem) => stem.assetId);
+    if (!stems.length || stems.length !== session.stems.length) return false;
+    const created = [];
+    for (const stem of stems) {
+      const url = this.audio.assets.mediaUrl(stem.assetId);
+      if (!url) {
+        for (const [, media] of created) media.pause();
+        return false;
+      }
+      const media = new Audio();
+      media.preload = 'auto';
+      media.loop = true;
+      media.playsInline = true;
+      media.src = url;
+      media.volume = 0;
+      created.push([stem.id, media]);
+    }
+    try {
+      await Promise.all(created.map(([, media]) => media.play()));
+    } catch {
+      for (const [, media] of created) {
+        media.pause();
+        media.removeAttribute('src');
+        media.load?.();
+      }
+      return false;
+    }
+    this.nativeStems = new Map(created);
+    this.realSessionPlaying = true;
+    this.updateNativeMix(session);
+    this.audio.setExternalTransport?.('studio', `${session.name} · real archive stream`, 60 / this.bpm / 4, {
+      vibe: 0.58,
+      mixQuality: 0.88,
+    });
+    return true;
   }
 
   async play(session) {
     if (!this.audio.context) return false;
     this.stop();
     this.session = session;
+    this.bpm = session.bpm ?? 118;
     this.updateMix(session);
 
     const alignedAssets = await this.loadAlignedAssets(session);
@@ -377,6 +421,7 @@ export class StudioPlayback {
       this.startAlignedAssets(session, alignedAssets);
       return true;
     }
+    if (await this.startNativeAssets(session)) return true;
 
     this.nextTime = this.audio.context.currentTime;
     this.step = 0;
@@ -412,6 +457,12 @@ export class StudioPlayback {
       source.disconnect();
     }
     this.sources.clear();
+    for (const media of this.nativeStems.values()) {
+      media.pause();
+      media.removeAttribute('src');
+      media.load?.();
+    }
+    this.nativeStems.clear();
     this.audio.clearExternalTransport?.('studio');
   }
 
