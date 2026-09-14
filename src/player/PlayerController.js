@@ -1,33 +1,115 @@
 import {
+  BoxGeometry,
+  CapsuleGeometry,
   Group,
   Mesh,
-  CapsuleGeometry,
-  SphereGeometry,
-  BoxGeometry,
   MeshStandardMaterial,
+  SphereGeometry,
 } from 'three';
 import { disposeObject } from '../scenes/disposeObject.js';
 import { avatarPalette, normalizeAvatar } from '../avatar/profile.js';
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
+const standard = (options) => new MeshStandardMaterial({ roughness: 0.82, metalness: 0.02, ...options });
+
 export class PlayerController {
   constructor(profile) {
     this.object = new Group();
     this.object.name = 'player';
-    this.bodyMaterial = new MeshStandardMaterial({ roughness: 0.8, metalness: 0.08 });
-    this.skinMaterial = new MeshStandardMaterial({ roughness: 0.82, metalness: 0.02 });
-    this.hairMaterial = new MeshStandardMaterial({ roughness: 0.88, metalness: 0.01 });
-    this.body = new Mesh(new CapsuleGeometry(0.32, 0.9, 4, 8), this.bodyMaterial);
-    this.body.position.y = 0.77;
+    this.bodyMaterial = standard();
+    this.skinMaterial = standard();
+    this.hairMaterial = standard({ roughness: 0.9 });
+    this.trouserMaterial = standard({ color: 0x25272d, roughness: 0.9 });
+    this.shoeMaterial = standard({ color: 0x17191d, roughness: 0.78 });
+    this.eyeMaterial = standard({ color: 0x17151a, roughness: 0.5 });
+    this.mouthMaterial = standard({ color: 0x704946, roughness: 0.8 });
+
+    this.body = new Mesh(new CapsuleGeometry(0.29, 0.64, 5, 9), this.bodyMaterial);
+    this.body.position.y = 1.02;
     this.body.castShadow = true;
-    this.head = new Mesh(new SphereGeometry(0.29, 16, 12), this.skinMaterial);
-    this.head.position.y = 1.62;
+
+    this.neck = new Mesh(new CapsuleGeometry(0.09, 0.08, 4, 7), this.skinMaterial);
+    this.neck.position.y = 1.47;
+
+    this.head = new Mesh(new SphereGeometry(0.255, 16, 12), this.skinMaterial);
+    this.head.scale.set(0.92, 1.08, 0.95);
+    this.head.position.y = 1.69;
     this.head.castShadow = true;
-    this.hair = new Mesh(new BoxGeometry(0.48, 0.18, 0.43), this.hairMaterial);
-    this.hair.position.y = 1.84;
+    for (const x of [-0.08, 0.08]) {
+      const eye = new Mesh(new SphereGeometry(0.022, 7, 5), this.eyeMaterial);
+      eye.position.set(x, 0.03, 0.235);
+      this.head.add(eye);
+      const brow = new Mesh(new BoxGeometry(0.075, 0.014, 0.012), this.hairMaterial);
+      brow.position.set(x, 0.092, 0.235);
+      brow.rotation.z = x < 0 ? -0.08 : 0.08;
+      this.head.add(brow);
+    }
+    const nose = new Mesh(new SphereGeometry(0.034, 7, 5), this.skinMaterial);
+    nose.scale.set(0.75, 1.1, 0.9);
+    nose.position.set(0, -0.018, 0.246);
+    this.head.add(nose);
+    const mouth = new Mesh(new BoxGeometry(0.09, 0.014, 0.016), this.mouthMaterial);
+    mouth.position.set(0, -0.105, 0.226);
+    this.head.add(mouth);
+    for (const x of [-0.255, 0.255]) {
+      const ear = new Mesh(new SphereGeometry(0.045, 7, 5), this.skinMaterial);
+      ear.scale.set(0.55, 1, 0.48);
+      ear.position.set(x, -0.005, 0);
+      this.head.add(ear);
+    }
+
+    this.hair = new Mesh(new BoxGeometry(0.45, 0.2, 0.43), this.hairMaterial);
+    this.hair.position.y = 1.91;
     this.hair.castShadow = true;
-    this.object.add(this.body, this.head, this.hair);
+
+    this.leftArm = new Mesh(new CapsuleGeometry(0.078, 0.43, 4, 7), this.bodyMaterial);
+    this.rightArm = this.leftArm.clone();
+    this.leftArm.material = this.bodyMaterial;
+    this.rightArm.material = this.bodyMaterial;
+    this.leftArm.position.set(-0.37, 1.08, 0);
+    this.rightArm.position.set(0.37, 1.08, 0);
+    this.leftArm.rotation.z = -0.06;
+    this.rightArm.rotation.z = 0.06;
+    for (const arm of [this.leftArm, this.rightArm]) {
+      const hand = new Mesh(new SphereGeometry(0.077, 8, 6), this.skinMaterial);
+      hand.position.y = -0.31;
+      arm.add(hand);
+      arm.castShadow = true;
+    }
+
+    this.leftLeg = new Mesh(new CapsuleGeometry(0.095, 0.5, 4, 7), this.trouserMaterial);
+    this.rightLeg = this.leftLeg.clone();
+    this.leftLeg.material = this.trouserMaterial;
+    this.rightLeg.material = this.trouserMaterial;
+    this.leftLeg.position.set(-0.14, 0.43, 0);
+    this.rightLeg.position.set(0.14, 0.43, 0);
+    this.leftLeg.castShadow = this.rightLeg.castShadow = true;
+
+    this.leftShoe = new Mesh(new BoxGeometry(0.18, 0.1, 0.3), this.shoeMaterial);
+    this.rightShoe = this.leftShoe.clone();
+    this.leftShoe.material = this.shoeMaterial;
+    this.rightShoe.material = this.shoeMaterial;
+    this.leftShoe.position.set(-0.14, 0.07, 0.07);
+    this.rightShoe.position.set(0.14, 0.07, 0.07);
+
+    this.jacket = new Mesh(new BoxGeometry(0.5, 0.1, 0.08), this.bodyMaterial);
+    this.jacket.position.set(0, 1.26, 0.26);
+    this.jacket.rotation.x = -0.08;
+
+    this.object.add(
+      this.body,
+      this.neck,
+      this.head,
+      this.hair,
+      this.leftArm,
+      this.rightArm,
+      this.leftLeg,
+      this.rightLeg,
+      this.leftShoe,
+      this.rightShoe,
+      this.jacket,
+    );
     this.applyAvatar(profile);
 
     this.speed = 5.8;
@@ -66,23 +148,26 @@ export class PlayerController {
           ? [1.13, 1.0, 1.08]
           : [1, 1, 1];
     this.body.scale.set(...bodyScale);
-    this.head.scale.setScalar(this.avatar.body === 'broad' ? 1.04 : 1);
+    this.jacket.scale.x = bodyScale[0];
+    this.head.scale.set(
+      0.92 * (this.avatar.body === 'broad' ? 1.04 : 1),
+      1.08 * (this.avatar.body === 'broad' ? 1.04 : 1),
+      0.95,
+    );
 
-    this.hair.visible = this.avatar.hair !== 'bald' && this.avatar.hair !== 'buzz';
+    this.hair.visible = this.avatar.hair !== 'bald';
     if (this.avatar.hair === 'bob') {
-      this.hair.scale.set(1.12, 1.7, 1.15);
-      this.hair.position.y = 1.78;
+      this.hair.scale.set(1.12, 1.65, 1.15);
+      this.hair.position.y = 1.84;
     } else if (this.avatar.hair === 'long') {
-      this.hair.scale.set(1.05, 2.5, 1.1);
-      this.hair.position.y = 1.7;
+      this.hair.scale.set(1.06, 2.35, 1.1);
+      this.hair.position.y = 1.74;
+    } else if (this.avatar.hair === 'buzz') {
+      this.hair.scale.set(1.04, 0.35, 1.04);
+      this.hair.position.y = 1.92;
     } else {
       this.hair.scale.set(1, 1, 1);
-      this.hair.position.y = 1.84;
-    }
-    if (this.avatar.hair === 'buzz') {
-      this.hair.visible = true;
-      this.hair.scale.set(1.02, 0.35, 1.02);
-      this.hair.position.y = 1.85;
+      this.hair.position.y = 1.91;
     }
   }
 
@@ -119,9 +204,6 @@ export class PlayerController {
       this.coyoteRemaining = this.jumpBuffer = 0;
     }
 
-    // Intoxication never takes control away from the player; it introduces a mild, continuous
-    // steering drift and slightly slower response. The effect is readable without making the
-    // game frustrating or encouraging repeated drinking purely for a mechanical advantage.
     const drift =
       this.intoxication *
       (Math.sin(this.elapsed * 2.1) * 0.18 + Math.sin(this.elapsed * 0.73 + 0.8) * 0.08);
@@ -192,7 +274,16 @@ export class PlayerController {
       1 + this.landingPulse * 0.35,
     );
     this.danceRemaining = Math.max(0, this.danceRemaining - dt);
-    const danceLean = this.danceRemaining > 0 ? Math.sin(this.elapsed / 0.085) * 0.13 : 0;
+    const speed = Math.hypot(this.velocity.x, this.velocity.z);
+    const walk = this.grounded ? Math.min(1, speed / 3.2) : 0;
+    const gait = Math.sin(this.elapsed * (7.5 + walk * 2.5)) * walk;
+    const dance = this.danceRemaining > 0 ? Math.sin(this.elapsed / 0.085) : 0;
+    this.leftArm.rotation.x = gait * 0.55 + dance * 0.45;
+    this.rightArm.rotation.x = -gait * 0.55 - dance * 0.45;
+    this.leftLeg.rotation.x = -gait * 0.48;
+    this.rightLeg.rotation.x = gait * 0.48;
+    this.head.rotation.y = dance * 0.06;
+    const danceLean = dance * 0.13;
     const drunkSway =
       this.intoxication *
       (Math.sin(this.elapsed * 1.45) * 0.065 + Math.sin(this.elapsed * 0.53 + 1.4) * 0.03);
