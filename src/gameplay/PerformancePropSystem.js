@@ -45,7 +45,7 @@ function tapeProp() {
   const spokeB = spokeA.clone();
   spokeB.rotation.z = Math.PI / 2;
   group.add(rim, hub, spokeA, spokeB);
-  group.position.set(0.46, 0.86, 0.1);
+  group.position.set(0.4, 0.92, 0.18);
   group.rotation.x = 0.1;
   group.rotation.y = -0.4;
   return group;
@@ -79,17 +79,34 @@ export class PerformancePropSystem {
 
     if (guitarActive || bassActive) {
       const prop = guitarActive ? this.guitar : this.bass;
-      const strum = Math.sin(this.elapsed * 12) * 0.22;
+      const bass = bassActive;
+      const strum = Math.sin(this.elapsed * (bass ? 8.2 : 12)) * (bass ? 0.16 : 0.3);
+      const fret = Math.sin(this.elapsed * 2.1) * 0.06;
       prop.rotation.x = Math.sin(this.elapsed * 2.3) * 0.025;
-      this.player.leftArm.rotation.x = -0.78;
+      prop.rotation.z = -0.47 + Math.sin(this.elapsed * 1.25) * 0.018;
+
+      // The shoulders establish the broad playing pose; elbows put each hand where the instrument
+      // actually is. Most visible strumming now happens below the right elbow.
+      this.player.leftArm.rotation.x = -0.7 + fret * 0.15;
       this.player.leftArm.rotation.z = -0.22;
-      this.player.rightArm.rotation.x = -0.72 + strum;
-      this.player.rightArm.rotation.z = 0.28;
-      this.player.head.rotation.y = Math.sin(this.elapsed * 1.2) * 0.08;
-    } else if (carryingTape) {
-      this.tape.rotation.z += dt * 0.7;
-      this.player.rightArm.rotation.x = -0.55;
+      this.player.leftForearm.rotation.x = -0.92 + fret;
+      this.player.leftForearm.rotation.z = -0.16;
+      this.player.rightArm.rotation.x = -0.54;
       this.player.rightArm.rotation.z = 0.22;
+      this.player.rightForearm.rotation.x = -0.68 + strum;
+      this.player.rightForearm.rotation.z = 0.08;
+      this.player.head.rotation.y = Math.sin(this.elapsed * 1.2) * 0.08;
+      this.player.head.rotation.x = -0.025 + Math.sin(this.elapsed * 0.8) * 0.018;
+      this.player.body.rotation.z += Math.sin(this.elapsed * 1.3) * 0.012;
+    } else if (carryingTape) {
+      this.tape.rotation.z += dt * 0.55;
+      this.tape.position.y = 0.92 + Math.sin(this.elapsed * 1.55) * 0.012;
+      this.player.rightArm.rotation.x = -0.48;
+      this.player.rightArm.rotation.z = 0.18;
+      this.player.rightForearm.rotation.x = -0.78;
+      this.player.rightForearm.rotation.z = 0.06;
+      this.player.leftArm.rotation.x = -0.14;
+      this.player.leftForearm.rotation.x = -0.2;
     }
   }
 
