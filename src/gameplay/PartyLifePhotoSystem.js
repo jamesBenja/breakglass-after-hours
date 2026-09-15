@@ -320,7 +320,7 @@ export class PartyLifePhotoSystem {
       const crowd = level.crowd?.snapshot?.();
       if ((crowd?.attendance ?? 0) > 18) {
         choices.push({ position: [0, 0, 0.4], tags: ['dancefloor', 'crowd'] });
-        choices.push({ position: [-8.1, 0, 1.55], tags: ['take-a-break', 'crowd'] });
+        choices.push({ position: [7.65, 0, 3.65], tags: ['take-a-break', 'crowd'] });
       }
       for (const id of ['courtney', 'simla', 'devin']) {
         const position = level.npcs?.positionOf?.(id);

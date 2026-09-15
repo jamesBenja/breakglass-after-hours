@@ -82,39 +82,52 @@ export function buildTakeABreakFurniture(root) {
 
   couch(root, primitives, {
     x: 7.65,
-    z: 4.02,
+    z: 1.55,
     width: 2.18,
     depth: 0.78,
     color: 0x713e45,
-  }).name = 'take-a-break-main-couch';
+  }).name = 'take-a-break-front-couch';
 
   couch(root, primitives, {
     x: 7.65,
-    z: 5.88,
+    z: 5.82,
     width: 2.18,
     depth: 0.72,
     color: 0x504452,
     rotation: Math.PI,
   }).name = 'take-a-break-back-couch';
 
+  couch(root, primitives, {
+    x: 8.47,
+    z: 3.72,
+    width: 2.2,
+    depth: 0.68,
+    color: 0x5a4e45,
+    rotation: -Math.PI / 2,
+  }).name = 'take-a-break-side-couch';
+
   const cushionData = [
-    [6.72, 4.68, 0x9f6a73, -0.2],
-    [8.47, 4.75, 0x6d718f, 0.18],
-    [7.58, 5.25, 0xb28b58, -0.08],
+    [6.72, 2.55, 0x9f6a73, -0.2],
+    [7.55, 2.65, 0xb28b58, 0.08],
+    [6.82, 3.72, 0x6d718f, 0.16],
+    [7.62, 4.25, 0x81719e, -0.08],
+    [6.72, 5.05, 0x9a735b, 0.18],
   ];
   cushionData.forEach(([x, z, color, rotation], index) => {
     const cushion = floorCushion(root, primitives, x, z, color, rotation);
     cushion.name = `take-a-break-cushion-${index + 1}`;
   });
 
-  box(root, 0.66, 0.1, 0.5, mat(0x594431, 0.83, 0.03), 6.72, 0.27, 5.48);
-  for (const x of [6.55, 6.89]) box(root, 0.06, 0.25, 0.06, mat(0x2f2c2d), x, 0.125, 5.48);
-  cyl(root, 0.09, 0.9, mat(0x3b3b40, 0.56, 0.15), 8.62, 0.46, 5.82);
-  cyl(root, 0.28, 0.18, mat(0xc89062, 0.5, 0.02), 8.62, 1.02, 5.82);
+  box(root, 0.72, 0.1, 0.52, mat(0x594431, 0.83, 0.03), 6.7, 0.27, 4.28);
+  for (const x of [6.52, 6.88]) box(root, 0.06, 0.25, 0.06, mat(0x2f2c2d), x, 0.125, 4.28);
+  cyl(root, 0.09, 0.9, mat(0x3b3b40, 0.56, 0.15), 8.55, 0.46, 5.42);
+  cyl(root, 0.28, 0.18, mat(0xc89062, 0.5, 0.02), 8.55, 1.02, 5.42);
 }
 
 export const TAKE_A_BREAK_SEATS = [
-  [6.72, 0, 4.68],
-  [8.47, 0, 4.75],
-  [7.58, 0, 5.25],
+  [6.72, 0, 2.55],
+  [7.55, 0, 2.65],
+  [6.82, 0, 3.72],
+  [7.62, 0, 4.25],
+  [6.72, 0, 5.05],
 ];

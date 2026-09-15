@@ -62,6 +62,8 @@ export const alleyLevel = {
     },
     bouncer: anchor('Bouncer', [-4.9, 0, -1.2], 1.2, 'dialogue'),
     social: anchor('Alley conversation', [7.7, 0, 0.7], 1.9, 'alleySocial'),
+    beaver: anchor('Beaver', [14.35, 0, -0.72], 1.35, 'dialogue'),
+    beaverBbq: anchor('Beaver BBQ', [15.35, 0, -0.78], 1.6, 'beaverBbq'),
   },
   npcs: [
     { id: 'bouncer', name: 'Door', anchor: 'bouncer', role: 'staff', color: 0x394653 },
@@ -80,6 +82,14 @@ export const alleyLevel = {
     { id: 'line-1', position: [-7.2, 0, -0.45], color: 0x66506e, interactive: false },
     { id: 'line-2', position: [-8.1, 0, -0.2], color: 0x49636b, interactive: false },
     { id: 'line-3', position: [-9.0, 0, -0.55], color: 0x7c5b4b, interactive: false },
+    {
+      id: 'beaver',
+      name: 'Beaver',
+      anchor: 'beaver',
+      role: 'vendor',
+      color: 0x6d4b38,
+      rotationY: -Math.PI / 2,
+    },
     { id: 'smoker-1', position: [6.2, 0, -0.6], color: 0x596b4f, interactive: false },
     { id: 'smoker-2', position: [7.0, 0, 0.15], color: 0x6d5571, interactive: false },
   ],

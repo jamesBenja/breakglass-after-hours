@@ -71,6 +71,20 @@ const CHARACTER_LOOKS = {
     hairStyle: 'short',
     prop: 'candy',
   },
+  david: {
+    skin: 0xb68a68,
+    hair: 0x5a4638,
+    outfit: 0x66513f,
+    accent: 0xa88a62,
+    hairStyle: 'short',
+  },
+  beaver: {
+    skin: 0xa96f52,
+    hair: 0x3a2b24,
+    outfit: 0x4a3a31,
+    accent: 0xc26d3e,
+    hairStyle: 'short',
+  },
   bouncer: {
     skin: 0x8b624c,
     hair: 0x231b19,

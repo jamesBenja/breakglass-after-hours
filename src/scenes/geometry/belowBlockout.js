@@ -18,7 +18,7 @@ export function buildBelowBlockout(downScene) {
   floor(downScene, 0, 0, 12.2, 7.0, mainFloor);
   wall(-1.275, -3.5, 9.65, 0.24);
   wall(5.875, -3.5, 0.45, 0.24);
-  doorwayFrame(downScene, 4.6, -3.38, 'horizontal', 'ALLEY / COAT CHECK');
+  doorwayFrame(downScene, 4.6, -3.38, 'horizontal', 'CLARK EMERGENCY');
 
   // The Clark stair used to be hidden behind a continuous west wall. Split the wall around a
   // generous opening so the relationship between club and studio reads immediately.
@@ -29,9 +29,9 @@ export function buildBelowBlockout(downScene) {
   doorwayFrame(downScene, -5.98, -1.34, 'vertical', 'STUDIO ↑');
   doorwayFrame(downScene, -5.98, 0.92, 'vertical', 'BAR');
 
-  // East wall gets a dedicated opening into Take A Break while preserving the service opening.
-  wall(6.1, -2.825, 0.24, 1.35);
-  wall(6.1, 0.4, 0.24, 1.9);
+  // East wall now has one intentional club opening: the doorway into Take A Break.
+  // The old lower service opening was the confusing invisible/ghost door and is sealed.
+  wall(6.1, -1.075, 0.24, 4.85);
   wall(6.1, 3.15, 0.24, 0.7);
   doorwayFrame(downScene, 5.98, 2.05, 'vertical', 'TAKE A BREAK');
   wall(0, 3.5, 12.2, 0.24);
@@ -51,17 +51,19 @@ export function buildBelowBlockout(downScene) {
   wall(1.9, 5.1, 0.24, 2.7);
   label(downScene, 'STORAGE', -1.6, 2.8, 5.1, 0.4);
 
-  // East side: Take A Break sits above the remaining production/service strip.
-  floor(downScene, 7.65, 4.8, 2.8, 3.2, mat(0x5e4331));
-  floor(downScene, 7.65, 1.5, 2.8, 2.6, serviceFloor);
-  floor(downScene, 7.65, -1.4, 2.8, 3.0, serviceFloor);
+  // East side: Take A Break now occupies most of the room entered directly from the club.
+  // The smaller room beside it becomes Nora's photo / production room and keeps the wall space.
+  floor(downScene, 7.65, 3.6, 2.8, 5.6, mat(0x5e4331));
+  floor(downScene, 7.65, -1.05, 2.8, 3.7, serviceFloor);
   wall(9.05, 1.7, 0.24, 9.4);
   wall(7.65, 6.4, 2.8, 0.24);
   wall(7.65, -2.9, 2.8, 0.24);
+  // Divider between Take A Break and the photo room, with a real internal doorway at the west edge.
+  wall(8.25, 0.8, 1.6, 0.24);
+  doorwayFrame(downScene, 6.72, 0.8, 'horizontal', 'PHOTO ROOM');
   box(downScene, 0.95, 0.035, 1.28, mat(0xc58a66), 6.08, 0.018, 2.05);
-  label(downScene, 'TAKE A BREAK', 7.65, 2.55, 4.8, 0.32);
-  label(downScene, 'PRODUCTION', 7.65, 2.55, 1.5, 0.3);
-  label(downScene, 'SERVICE', 7.65, 2.55, -1.4, 0.32);
+  label(downScene, 'TAKE A BREAK', 7.65, 2.55, 3.9, 0.32);
+  label(downScene, 'NORA PHOTO ROOM', 7.65, 2.55, -1.05, 0.27);
 
   floor(downScene, 4.6, -4.65, 2.3, 1.9, serviceFloor);
   wall(3.45, -4.65, 0.24, 1.9);
@@ -70,7 +72,7 @@ export function buildBelowBlockout(downScene) {
   wall(5.42, -5.6, 0.66, 0.24);
   doorwayFrame(downScene, 4.6, -5.48, 'horizontal', 'ALLEY');
   label(downScene, 'COAT CHECK', 4.6, 2.2, -4.0, 0.31);
-  label(downScene, 'ALLEY / EXIT ↑', 4.6, 2.85, -5.34, 0.36, '#ffd7ad');
+  label(downScene, 'EMERGENCY EXIT · CLARK', 4.6, 2.85, -5.34, 0.31, '#ffd7ad');
 
   const stairMaterial = mat(0x57463b, 0.86, 0.02);
   for (let i = 0; i < 6; i++) {
@@ -93,7 +95,7 @@ export function buildBelowBlockout(downScene) {
     box(downScene, 0.07, 1.15, 2.8, studioRail, x, 0.78, -2.0);
     box(downScene, 0.09, 0.09, 2.95, studioRail, x, 1.32, -2.0).rotation.x = -0.23;
   }
-  doorwayFrame(downScene, -6.55, -3.45, 'horizontal', 'UPSTAIRS / STUDIO');
+  doorwayFrame(downScene, -6.55, -3.45, 'horizontal', 'STUDIO ↑ · ALLEY ↓');
 }
 
 export function buildBelowFixtures(downScene) {
@@ -144,6 +146,59 @@ export function buildBelowFixtures(downScene) {
   for (const x of [-4.8, -1.6, 1.6, 4.8])
     box(downScene, 0.035, 0.035, 6.2, mat(0x25262a, 0.68, 0.12), x, 3.14, 0);
 
+  // Zander is a progression key, so his name stays visible even before the player walks into
+  // the normal interaction radius.
+  label(downScene, 'ZANDER', -5.42, 2.42, -1.42, 0.32, '#d9ffe9');
+
+  // David's storage room is intentionally dense: old furniture, paintings and studio overflow.
+  // The club-facing opening looks like a wall of furniture until David explains the passage.
+  const storageWood = mat(0x5a4030, 0.9, 0.02);
+  const storageFabric = mat(0x57464e, 0.96, 0.01);
+  const storageGold = mat(0xa68445, 0.66, 0.05);
+  const storageDark = mat(0x242326, 0.92, 0.02);
+  for (const [x, z, w, d, h] of [
+    [-4.25, 5.72, 1.25, 0.58, 0.72],
+    [-2.65, 5.55, 1.65, 0.68, 0.78],
+    [-0.55, 5.82, 1.35, 0.62, 0.74],
+    [0.95, 5.4, 1.0, 0.55, 0.68],
+    [-4.35, 4.3, 0.82, 0.82, 0.56],
+    [0.72, 4.22, 0.9, 0.74, 0.62],
+  ])
+    box(downScene, w, h, d, storageFabric, x, h / 2, z);
+  for (const [x, z, w, d] of [
+    [-3.65, 4.82, 1.15, 0.55],
+    [-1.72, 5.0, 1.35, 0.62],
+    [0.15, 4.75, 1.05, 0.5],
+  ]) {
+    box(downScene, w, 0.12, d, storageWood, x, 0.72, z);
+    for (const dx of [-w * 0.38, w * 0.38])
+      for (const dz of [-d * 0.32, d * 0.32])
+        box(downScene, 0.07, 0.68, 0.07, storageDark, x + dx, 0.34, z + dz);
+  }
+  for (const [x, z, r] of [
+    [-4.5, 3.95, -0.25],
+    [-3.7, 4.08, 0.18],
+    [-0.9, 4.0, -0.15],
+    [0.15, 4.05, 0.24],
+  ]) {
+    const seat = box(downScene, 0.52, 0.12, 0.52, storageWood, x, 0.52, z);
+    seat.rotation.y = r;
+    box(downScene, 0.52, 0.75, 0.12, storageWood, x, 0.88, z + 0.22).rotation.y = r;
+  }
+  for (const [x, y, z, w, h, color] of [
+    [-4.82, 1.85, 5.2, 0.78, 1.0, 0x8c463e],
+    [-2.2, 2.0, 6.15, 1.1, 0.72, 0x4f7390],
+    [0.9, 1.78, 6.12, 0.82, 1.08, 0x756646],
+    [1.55, 1.55, 4.9, 0.64, 0.8, 0x765376],
+  ]) {
+    box(downScene, w + 0.12, h + 0.12, 0.08, storageGold, x, y, z);
+    box(downScene, w, h, 0.045, mat(color, 0.84, 0.02), x, y, z - 0.065);
+  }
+  // Disguised club-side furniture panel marking the secret route without an always-visible label.
+  box(downScene, 1.4, 2.25, 0.28, storageWood, -2.15, 1.13, 3.34);
+  box(downScene, 1.08, 0.18, 0.35, storageDark, -2.15, 0.55, 3.13);
+  box(downScene, 0.7, 0.06, 0.36, storageGold, -2.15, 1.68, 3.16);
+
   // Take A Break installation/chill room. Detailed couches and loose cushions are built by
   // roomFurniture.js so the room reads as a real lounge rather than placeholder boxes.
   box(downScene, 0.08, 1.45, 2.35, mat(0xb7929f, 0.45, 0.02), 8.84, 1.55, 4.8);
@@ -162,9 +217,9 @@ export function buildBelowFixtures(downScene) {
       Math.PI / 2;
   }
 
-  label(downScene, 'NORA · NIGHT PHOTOS', -8.1, 3.32, 3.67, 0.27, '#f3d4df');
-  for (const x of [-9.18, -8.13, -7.08])
-    box(downScene, 0.08, 0.22, 0.08, mat(0x262226), x, 3.15, 3.68);
+  label(downScene, 'NORA · NIGHT PHOTOS', 8.72, 3.25, -1.05, 0.24, '#f3d4df');
+  for (const z of [-2.1, -1.05, 0.0])
+    box(downScene, 0.08, 0.22, 0.08, mat(0x262226), 8.86, 3.05, z);
 
   // The studio's Mortal Kombat II cabinet. Geometry mirrors the real early-90s Midway silhouette
   // and colour language without embedding copyrighted cabinet art or game assets.
@@ -243,6 +298,13 @@ export function buildBelowFixtures(downScene) {
     box(downScene, 0.18, 0.05, 0.1, MAT.metal, x, 1.49, 2.89);
   }
   label(downScene, 'COURTNEY + SIMLA · BAR', -8.15, 2.62, 3.25, 0.23, '#ffc9b0');
+
+  // House record board in the bar. Live values are shown in the interaction panel.
+  box(downScene, 0.08, 1.42, 1.72, mat(0x101916, 0.52, 0.06), -9.84, 1.72, 0.92);
+  box(downScene, 0.035, 1.24, 1.54, mat(0x26372f, 0.6, 0.03), -9.78, 1.72, 0.92);
+  label(downScene, 'BREAKGLASS SCOREBOARD', -9.68, 2.55, 0.92, 0.19, '#d8ffd5');
+  for (const z of [0.43, 0.68, 0.93, 1.18, 1.43])
+    box(downScene, 0.025, 0.025, 1.2, mat(0x7ca58c, 0.7, 0.02), -9.73, 1.35, z);
 
   box(downScene, 1.45, 0.34, 0.08, mat(0x3f6c55, 0.45, 0.04), 4.6, 2.45, -3.33);
   label(downScene, 'EXIT', 4.6, 2.5, -3.28, 0.26, '#d9ffe3');
