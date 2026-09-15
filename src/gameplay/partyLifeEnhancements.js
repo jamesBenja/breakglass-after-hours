@@ -181,36 +181,40 @@ export function installPartyLifeEnhancements(game, ui) {
       if (!alley) return;
       const render = () => {
         const snapshot = alley.snapshot();
-        ui.panel('BREAKGLASS ALLEY', `${snapshot.occupancy} people are outside. ${snapshot.warning}`, [
+        ui.panel(
+          'BREAKGLASS ALLEY',
+          `${snapshot.occupancy} people are outside. ${snapshot.warning}`,
           [
-            'Talk quietly',
-            () => {
-              alley.chat(0.025);
-              render();
-            },
+            [
+              'Talk quietly',
+              () => {
+                alley.chat(0.025);
+                render();
+              },
+            ],
+            [
+              'Smoke with the group',
+              () => {
+                smoking.smoke();
+                render();
+              },
+            ],
+            [
+              'Get the group excited',
+              () => {
+                alley.chat(0.22);
+                render();
+              },
+            ],
+            [
+              'Remind everyone to keep it down',
+              () => {
+                alley.quiet(0.24);
+                render();
+              },
+            ],
           ],
-          [
-            'Smoke with the group',
-            () => {
-              smoking.smoke();
-              render();
-            },
-          ],
-          [
-            'Get the group excited',
-            () => {
-              alley.chat(0.22);
-              render();
-            },
-          ],
-          [
-            'Remind everyone to keep it down',
-            () => {
-              alley.quiet(0.24);
-              render();
-            },
-          ],
-        ]);
+        );
       };
       render();
       return;

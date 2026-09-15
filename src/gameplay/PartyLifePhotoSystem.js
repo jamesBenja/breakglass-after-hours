@@ -34,7 +34,11 @@ export function patchNpcPhotography() {
   const baseTrigger = NpcSystem.prototype.triggerPhoto;
   const baseUpdate = NpcSystem.prototype.update;
 
-  NpcSystem.prototype.triggerPhoto = function directedPhoto(id = 'nora', target = null, duration = 1.8) {
+  NpcSystem.prototype.triggerPhoto = function directedPhoto(
+    id = 'nora',
+    target = null,
+    duration = 1.8,
+  ) {
     const result = baseTrigger.call(this, id);
     const npc = this.get(id);
     if (!npc) return false;
@@ -245,13 +249,17 @@ export class PartyLifePhotoSystem {
       level.npcs.triggerPhoto?.(photographerId, target, 2.0);
       const joined = level.npcs.gatherForPhoto?.(photographerId, target, 2.0) ?? [];
       await delay(520);
-      if (this.game.sceneManager.current !== level) return { saved: false, reason: 'scene-changed' };
+      if (this.game.sceneManager.current !== level)
+        return { saved: false, reason: 'scene-changed' };
       const camera = this.game.photos.cameraFor(level, photographerId);
       if (!camera) return { saved: false, reason: 'photographer-not-here' };
-      return this.saveCapture(level, photographerId, camera, ['portrait', level.definition.id], [
-        'player',
-        ...joined,
-      ]);
+      return this.saveCapture(
+        level,
+        photographerId,
+        camera,
+        ['portrait', level.definition.id],
+        ['player', ...joined],
+      );
     } finally {
       this.busy = false;
     }
@@ -268,11 +276,16 @@ export class PartyLifePhotoSystem {
       const lookAt = asVector(target);
       level.npcs.triggerPhoto?.('nora', lookAt, 1.5);
       await delay(170);
-      if (this.game.sceneManager.current !== level) return { saved: false, reason: 'scene-changed' };
+      if (this.game.sceneManager.current !== level)
+        return { saved: false, reason: 'scene-changed' };
       const camera = new PerspectiveCamera(56, 4 / 3, 0.08, 90);
       camera.position.copy(source).add(new Vector3(0, 1.55, 0));
-      const direction = lookAt.clone().add(new Vector3(0, 1.05, 0)).sub(camera.position);
-      if (direction.length() < 2.2) camera.position.add(direction.clone().normalize().multiplyScalar(-2.3));
+      const direction = lookAt
+        .clone()
+        .add(new Vector3(0, 1.05, 0))
+        .sub(camera.position);
+      if (direction.length() < 2.2)
+        camera.position.add(direction.clone().normalize().multiplyScalar(-2.3));
       camera.lookAt(lookAt.clone().add(new Vector3(0, 1.0, 0)));
       camera.updateMatrixWorld(true);
       return this.saveCapture(level, 'nora', camera, ['autonomous', level.definition.id, ...tags]);
@@ -322,7 +335,8 @@ export class PartyLifePhotoSystem {
       };
     }
     if (level.definition.id === 'upstairs') {
-      if (liveBandCenter) return { position: liveBandCenter, tags: ['live-from-breakglass', 'band'] };
+      if (liveBandCenter)
+        return { position: liveBandCenter, tags: ['live-from-breakglass', 'band'] };
       const choices = [
         { position: level.definition.anchors.console.position, tags: ['spectra', 'studio'] },
         { position: level.definition.anchors.synth.position, tags: ['live-room', 'studio'] },

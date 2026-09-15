@@ -4,9 +4,7 @@ import { Group } from 'three';
 import { LIVE_ARCHIVE_IDS } from '../src/archive/liveArchive.js';
 import { HOUSE_DJS } from '../src/gameplay/HouseDjSystem.js';
 import { LIVE_BANDS } from '../src/gameplay/LiveBandSystem.js';
-import {
-  preparePartyLifeWorld,
-} from '../src/gameplay/partyLifeEnhancements.js';
+import { preparePartyLifeWorld } from '../src/gameplay/partyLifeEnhancements.js';
 import { NpcSystem } from '../src/npcs/NpcSystem.js';
 import { validateSave } from '../src/state/GameState.js';
 import { levels } from '../src/world/levels.js';

@@ -138,7 +138,8 @@ export class HouseDjSystem {
     this.rotationTimer = 160 + Math.random() * 100;
     this.applyLook();
     this.game.save();
-    if (wasPlaying || this.game.sceneManager.current?.definition?.id === 'downstairs') await this.start();
+    if (wasPlaying || this.game.sceneManager.current?.definition?.id === 'downstairs')
+      await this.start();
   }
 
   applyLook() {
