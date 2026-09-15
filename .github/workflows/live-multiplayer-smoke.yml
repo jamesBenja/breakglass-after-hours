@@ -26,5 +26,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Verify production WebSocket room
         env:
-          MULTIPLAYER_URL: wss://multiplayer-phase2-production.up.railway.app
+          MULTIPLAYER_URL: wss://multiplayer-phase2-live-production.up.railway.app
         run: node scripts/smoke-live-multiplayer.mjs
