@@ -1,13 +1,5 @@
-import {
-  BoxGeometry,
-  CapsuleGeometry,
-  CylinderGeometry,
-  Group,
-  Mesh,
-  MeshStandardMaterial,
-  SphereGeometry,
-  Vector3,
-} from 'three';
+import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshStandardMaterial, SphereGeometry, Vector3 } from 'three';
+import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
 
 export const LIVE_BANDS = {
   'barr-brothers-kexp-2017': {
@@ -44,20 +36,19 @@ export const LIVE_BANDS = {
   },
 };
 
-function performer(accent) {
-  const group = new Group();
-  const outfit = new MeshStandardMaterial({ color: 0x24262c, roughness: 0.8 });
-  const skin = new MeshStandardMaterial({ color: 0xaa785d, roughness: 0.85 });
-  const body = new Mesh(new CapsuleGeometry(0.23, 0.5, 5, 8), outfit);
-  const head = new Mesh(new SphereGeometry(0.2, 12, 9), skin);
-  const leftArm = new Mesh(new CapsuleGeometry(0.065, 0.36, 4, 6), outfit);
-  const rightArm = leftArm.clone();
-  body.position.y = 1.03;
-  head.position.y = 1.67;
-  leftArm.position.set(-0.31, 1.08, 0);
-  rightArm.position.set(0.31, 1.08, 0);
-  group.add(body, head, leftArm, rightArm);
-  return { group, body, head, leftArm, rightArm, accent };
+function performer(accent, index) {
+  const hairStyles = ['short', 'long', 'bob', 'buzz'];
+  const skinTones = [0xc59170, 0xaa785d, 0x815842, 0xd0a080];
+  const model = createLightweightHuman({
+    skin: skinTones[index % skinTones.length],
+    outfit: [0x24262c, 0x31333a, 0x2b2631, 0x25323a][index % 4],
+    trousers: [0x17191e, 0x25272d, 0x1f2530][index % 3],
+    hair: [0x211917, 0x39271f, 0x171517][index % 3],
+    accent,
+    hairStyle: hairStyles[index % hairStyles.length],
+    scale: 0.97 + (index % 3) * 0.025,
+  });
+  return { ...model, accent };
 }
 
 function instrument(kind, accent) {
@@ -67,13 +58,21 @@ function instrument(kind, accent) {
     const kick = new Mesh(new CylinderGeometry(0.31, 0.31, 0.38, 10), material);
     kick.rotation.x = Math.PI / 2;
     kick.position.set(0, 0.52, 0.2);
-    group.add(kick);
+    const snare = new Mesh(new CylinderGeometry(0.19, 0.19, 0.12, 10), material);
+    snare.position.set(-0.35, 0.78, 0.26);
+    const floorTom = new Mesh(new CylinderGeometry(0.21, 0.21, 0.25, 10), material);
+    floorTom.position.set(0.39, 0.67, 0.2);
+    group.add(kick, snare, floorTom);
     return group;
   }
   if (kind === 'synth') {
-    const synth = new Mesh(new BoxGeometry(0.75, 0.12, 0.28), material);
-    synth.position.set(0, 0.92, 0.3);
-    return synth;
+    const group = new Group();
+    const synth = new Mesh(new BoxGeometry(0.78, 0.12, 0.3), material);
+    synth.position.set(0, 0.93, 0.31);
+    const stand = new Mesh(new BoxGeometry(0.68, 0.045, 0.05), material);
+    stand.position.set(0, 0.58, 0.25);
+    group.add(synth, stand);
+    return group;
   }
   if (kind === 'vocal') {
     const group = new Group();
@@ -152,7 +151,7 @@ export class LiveBandSystem {
     ];
     config.instruments.forEach((kind, index) => {
       const accent = [0xffa45f, 0x6bc9ff, 0xd98cff, 0x79df9f, 0xf3d56b][index % 5];
-      const model = performer(accent);
+      const model = performer(accent, index);
       const [x, z] = places[index] ?? [index - 2, 1.2];
       model.group.position.copy(this.center).add(new Vector3(x, 0, z));
       model.group.rotation.y = Math.PI;
@@ -167,28 +166,43 @@ export class LiveBandSystem {
     this.elapsed += dt;
     this.sync();
     if (!this.currentId) return;
-    const phase = this.elapsed * 4.5;
     this.performers.forEach((model, index) => {
-      const beat = Math.sin(phase + index * 1.4);
-      model.body.position.y = 1.03 + Math.abs(beat) * 0.04;
-      model.head.rotation.y = Math.sin(this.elapsed * 1.5 + index) * 0.1;
+      const beat = Math.sin(this.elapsed * 4.5 + index * 1.4);
+      poseLightweightHuman(model, {
+        time: this.elapsed,
+        phase: index * 1.4,
+        dancing: true,
+        energy: 0.54,
+      });
+
       if (model.kind === 'drums') {
-        model.leftArm.rotation.x = -0.7 + beat * 0.65;
-        model.rightArm.rotation.x = -0.7 - beat * 0.65;
+        model.leftArm.rotation.x = -0.68 + beat * 0.42;
+        model.rightArm.rotation.x = -0.68 - beat * 0.42;
+        model.leftForearm.rotation.x = -0.52 - Math.max(0, -beat) * 0.58;
+        model.rightForearm.rotation.x = -0.52 - Math.max(0, beat) * 0.58;
+        model.body.rotation.y = beat * 0.035;
       } else if (model.kind === 'synth') {
-        model.leftArm.rotation.x = -0.82 + beat * 0.12;
-        model.rightArm.rotation.x = -0.82 - beat * 0.12;
+        model.leftArm.rotation.x = -0.76 + beat * 0.08;
+        model.rightArm.rotation.x = -0.76 - beat * 0.08;
+        model.leftForearm.rotation.x = -0.62 + beat * 0.12;
+        model.rightForearm.rotation.x = -0.62 - beat * 0.12;
       } else if (model.kind === 'vocal') {
-        model.leftArm.rotation.x = -0.12 + beat * 0.08;
-        model.rightArm.rotation.x = -0.35;
+        model.leftArm.rotation.x = -0.16 + beat * 0.06;
+        model.rightArm.rotation.x = -0.52;
+        model.rightForearm.rotation.x = -0.78;
+        model.head.rotation.x = -0.05 + Math.abs(beat) * 0.035;
       } else {
         const bass = model.kind === 'bass';
-        model.leftArm.position.set(-0.24, 1.22 + beat * 0.018, 0.19);
-        model.rightArm.position.set(0.27, 1.02, 0.2);
-        model.leftArm.rotation.x = -1.0 + beat * 0.08;
-        model.leftArm.rotation.z = -0.3;
-        model.rightArm.rotation.x = -0.78 + beat * (bass ? 0.22 : 0.48);
-        model.rightArm.rotation.z = 0.24;
+        // Shoulder + elbow poses place the hands near the neck/body of the instrument. The strum
+        // happens mostly below the elbow, which looks much closer to an actual guitarist.
+        model.leftArm.rotation.x = -0.72 + beat * 0.045;
+        model.leftArm.rotation.z = -0.24;
+        model.leftForearm.rotation.x = -0.9 + beat * 0.08;
+        model.leftForearm.rotation.z = -0.16;
+        model.rightArm.rotation.x = -0.57;
+        model.rightArm.rotation.z = 0.2;
+        model.rightForearm.rotation.x = -0.62 + beat * (bass ? 0.2 : 0.44);
+        model.rightForearm.rotation.z = 0.08;
         if (model.instrument) {
           model.instrument.rotation.z = -0.48 + Math.sin(this.elapsed * 1.3 + index) * 0.025;
           model.instrument.rotation.x = beat * 0.018;
