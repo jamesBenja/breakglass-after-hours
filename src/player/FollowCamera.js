@@ -241,7 +241,8 @@ export class FollowCamera {
     };
     this.collisionTarget = hit.target;
     const distance = this.target.distanceTo(this.desired);
-    const safety = (radius + 0.08) / Math.max(distance, 0.01);
+    const safetyDistance = Math.max(0.42, radius + 0.08);
+    const safety = safetyDistance / Math.max(distance, 0.01);
     const fraction = hit.fraction < 1 ? Math.max(0.035, hit.fraction - safety) : 1;
     this.resolved.lerpVectors(this.target, this.desired, fraction);
 
@@ -262,7 +263,7 @@ export class FollowCamera {
       };
       if (guard.fraction < 1) {
         const guardDistance = this.target.distanceTo(this.camera.position);
-        const guardSafety = (radius + 0.08) / Math.max(guardDistance, 0.01);
+        const guardSafety = safetyDistance / Math.max(guardDistance, 0.01);
         const guardFraction = Math.max(0.035, guard.fraction - guardSafety);
         this.camera.position.lerpVectors(this.target, this.camera.position, guardFraction);
         this.collisionTarget = guard.target;
