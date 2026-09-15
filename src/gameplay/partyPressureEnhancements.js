@@ -169,8 +169,7 @@ function patchAlleySystem() {
         musicDoorLeak -
         this.neighborTolerance * 0.22,
     );
-    this.disturbance +=
-      (targetDisturbance - this.disturbance) * (1 - Math.exp(-0.26 * dt));
+    this.disturbance += (targetDisturbance - this.disturbance) * (1 - Math.exp(-0.26 * dt));
 
     const tuning = POLICE_MODES[this.policeStrictness];
     const previous = this.staffWarningLevel;

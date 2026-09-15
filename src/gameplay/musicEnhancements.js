@@ -170,8 +170,7 @@ function patchAudioEngine() {
     const excitationLength = Math.min(period, length);
     for (let i = 0; i < excitationLength; i += 1) {
       const pickPosition = i / Math.max(1, excitationLength - 1);
-      const shaped =
-        (Math.random() * 2 - 1) * (0.62 + profile.pickNoise * (1 - pickPosition));
+      const shaped = (Math.random() * 2 - 1) * (0.62 + profile.pickNoise * (1 - pickPosition));
       data[i] = shaped;
     }
     for (let i = period; i < length; i += 1) {
@@ -297,7 +296,10 @@ function patchInstrumentPerformance() {
     return take;
   };
 
-  StudioSession.prototype.attachPerformance = function enhancedAttachPerformance(stemId, performance) {
+  StudioSession.prototype.attachPerformance = function enhancedAttachPerformance(
+    stemId,
+    performance,
+  ) {
     const attached = baseAttachPerformance.call(this, stemId, performance);
     if (!attached) return false;
     const stem = this.stems.find((candidate) => candidate.id === stemId);
@@ -309,7 +311,11 @@ function patchInstrumentPerformance() {
     return true;
   };
 
-  StudioPlayback.prototype.renderPerformance = function enhancedRenderPerformance(stem, step, when) {
+  StudioPlayback.prototype.renderPerformance = function enhancedRenderPerformance(
+    stem,
+    step,
+    when,
+  ) {
     const performance = stem.performance;
     if (!performance?.events?.length || !['guitar', 'bass'].includes(performance.mode)) {
       return baseRenderPerformance.call(this, stem, step, when);
@@ -327,10 +333,8 @@ function patchInstrumentPerformance() {
       if (eventStep !== current || event.drum) continue;
       this.audio.pluckedString?.(event.frequency || 110, {
         mode: performance.mode,
-        voice:
-          performance.instrumentVoice ?? (performance.mode === 'bass' ? 'round' : 'focused'),
-        amp:
-          performance.ampCharacter ?? (performance.mode === 'bass' ? 'deep' : 'wide-clean'),
+        voice: performance.instrumentVoice ?? (performance.mode === 'bass' ? 'round' : 'focused'),
+        amp: performance.ampCharacter ?? (performance.mode === 'bass' ? 'deep' : 'wide-clean'),
         volume: performance.mode === 'bass' ? 0.088 : 0.063,
         duration: performance.mode === 'bass' ? 1.45 : 1.18,
         when,
@@ -781,13 +785,7 @@ function patchStudioFx() {
   };
 }
 
-function createRange(
-  document,
-  labelText,
-  value,
-  onInput,
-  { min = 0, max = 1, step = 0.01 } = {},
-) {
+function createRange(document, labelText, value, onInput, { min = 0, max = 1, step = 0.01 } = {}) {
   const label = document.createElement('label');
   label.className = 'music-fx-range';
   const text = document.createElement('span');
@@ -903,22 +901,12 @@ function patchHud() {
   const baseDjMixer = Hud.prototype.djMixer;
   const baseStudioMixer = Hud.prototype.studioMixer;
 
-  Hud.prototype.djMixer = function enhancedHudDjMixer(
-    mixer,
-    tracks,
-    { onChange = () => {} } = {},
-  ) {
+  Hud.prototype.djMixer = function enhancedHudDjMixer(mixer, tracks, { onChange = () => {} } = {}) {
     const result = baseDjMixer.call(this, mixer, tracks, { onChange });
     const mobileBody = this.buttons.querySelector('.mobile-deck-body');
     if (mobileBody) {
       const render = () =>
-        addDjExtras(
-          this.document,
-          mobileBody,
-          mixer,
-          mixer._mobileFocusDeck ?? 'A',
-          onChange,
-        );
+        addDjExtras(this.document, mobileBody, mixer, mixer._mobileFocusDeck ?? 'A', onChange);
       render();
       const observer = new MutationObserver(() => queueMicrotask(render));
       observer.observe(mobileBody, { childList: true });
