@@ -45,6 +45,7 @@ function patchAlleySystem() {
   const baseChat = AlleySystem.prototype.chat;
   const baseQuiet = AlleySystem.prototype.quiet;
   const baseArrivePolice = AlleySystem.prototype.arrivePolice;
+  const baseResolvePolice = AlleySystem.prototype.resolvePolice;
   const baseSnapshot = AlleySystem.prototype.snapshot;
 
   AlleySystem.prototype.setPoliceStrictness = function setPoliceStrictness(value) {
@@ -112,6 +113,14 @@ function patchAlleySystem() {
       this.lastPoliceOutcome = 'returned-warning';
     }
     return true;
+  };
+
+  AlleySystem.prototype.resolvePolice = function enhancedResolvePolice(response) {
+    const result = baseResolvePolice.call(this, response);
+    if (response === 'brushOff' && result) {
+      return 'They leave unconvinced. Another complaint will bring them back faster, and ignoring a return visit can shut the party down.';
+    }
+    return result;
   };
 
   AlleySystem.prototype.update = function enhancedAlleyUpdate(dt, metrics = {}) {
