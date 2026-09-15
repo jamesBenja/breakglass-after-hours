@@ -41,22 +41,32 @@ export function buildStudioFurniture(root, definition) {
     if (!fixture.id?.startsWith('mix-sofa-') && fixture.id !== 'mix-coffee-table') continue;
     const x = (fixture.x1 + fixture.x2) / 2;
     const z = (fixture.z1 + fixture.z2) / 2;
-    const width = fixture.x2 - fixture.x1;
-    const depth = fixture.z2 - fixture.z1;
+    const fixtureWidth = fixture.x2 - fixture.x1;
+    const fixtureDepth = fixture.z2 - fixture.z1;
     if (fixture.id.startsWith('mix-sofa-')) {
+      const side = fixture.id.endsWith('side');
       couch(root, primitives, {
         x,
         z,
-        width,
-        depth,
+        width: side ? fixtureDepth : fixtureWidth,
+        depth: side ? fixtureWidth : fixtureDepth,
         rotation: fixture.rotationY ?? 0,
-        color: fixture.id.endsWith('side') ? 0x62514a : 0x4d4746,
+        color: side ? 0x62514a : 0x4d4746,
       }).name = fixture.id;
     } else {
-      const table = box(root, width, 0.12, depth, mat(0x6c4f39, 0.76, 0.04), x, 0.34, z);
+      const table = box(
+        root,
+        fixtureWidth,
+        0.12,
+        fixtureDepth,
+        mat(0x6c4f39, 0.76, 0.04),
+        x,
+        0.34,
+        z,
+      );
       table.name = fixture.id;
-      for (const dx of [-width * 0.38, width * 0.38])
-        for (const dz of [-depth * 0.32, depth * 0.32])
+      for (const dx of [-fixtureWidth * 0.38, fixtureWidth * 0.38])
+        for (const dz of [-fixtureDepth * 0.32, fixtureDepth * 0.32])
           box(root, 0.07, 0.32, 0.07, mat(0x302b29, 0.82, 0.04), x + dx, 0.16, z + dz);
     }
   }
