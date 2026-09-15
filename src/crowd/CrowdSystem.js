@@ -1,5 +1,4 @@
 import {
-  BoxGeometry,
   CapsuleGeometry,
   Color,
   DynamicDrawUsage,
@@ -56,9 +55,9 @@ function pointInZone(zone, avoid, index, salt) {
 /**
  * Mobile-friendly crowd simulation built from instanced articulated silhouettes.
  *
- * Each guest now has torso, head, hair, arms and legs while remaining only seven draw calls.
- * Their bodies migrate between dance/social zones and their limb animation responds to energy,
- * bass, beat and mix quality, so a strong mix reads as a crowd rather than moving capsules.
+ * Nine draw calls give every guest a torso, head, shaped hair, upper/lower arms and separate legs.
+ * The extra elbow layer is a small GPU cost but dramatically reduces the mannequin look while
+ * keeping dozens of dancers practical on iPhone.
  */
 export class CrowdSystem {
   constructor(root, config = {}) {
@@ -85,19 +84,29 @@ export class CrowdSystem {
     this.euler = new Euler();
 
     const bodyMaterial = new MeshStandardMaterial({ roughness: 0.78, metalness: 0.04 });
-    const skinMaterial = new MeshStandardMaterial({ roughness: 0.82, metalness: 0.02 });
+    const skinMaterial = new MeshStandardMaterial({ roughness: 0.8, metalness: 0.02 });
     const hairMaterial = new MeshStandardMaterial({ roughness: 0.9, metalness: 0.01 });
     const legMaterial = new MeshStandardMaterial({ roughness: 0.84, metalness: 0.025 });
-    this.body = new InstancedMesh(new CapsuleGeometry(0.22, 0.58, 3, 6), bodyMaterial, this.max);
-    this.head = new InstancedMesh(new SphereGeometry(0.205, 8, 6), skinMaterial, this.max);
-    this.hair = new InstancedMesh(new BoxGeometry(0.35, 0.16, 0.32), hairMaterial, this.max);
+    this.body = new InstancedMesh(new CapsuleGeometry(0.205, 0.51, 3, 6), bodyMaterial, this.max);
+    this.head = new InstancedMesh(new SphereGeometry(0.19, 9, 7), skinMaterial, this.max);
+    this.hair = new InstancedMesh(new SphereGeometry(0.195, 8, 6), hairMaterial, this.max);
     this.leftArm = new InstancedMesh(
-      new CapsuleGeometry(0.055, 0.36, 3, 5),
-      skinMaterial.clone(),
+      new CapsuleGeometry(0.052, 0.22, 3, 5),
+      bodyMaterial.clone(),
       this.max,
     );
     this.rightArm = new InstancedMesh(
-      new CapsuleGeometry(0.055, 0.36, 3, 5),
+      new CapsuleGeometry(0.052, 0.22, 3, 5),
+      bodyMaterial.clone(),
+      this.max,
+    );
+    this.leftForearm = new InstancedMesh(
+      new CapsuleGeometry(0.045, 0.19, 3, 5),
+      skinMaterial.clone(),
+      this.max,
+    );
+    this.rightForearm = new InstancedMesh(
+      new CapsuleGeometry(0.045, 0.19, 3, 5),
       skinMaterial.clone(),
       this.max,
     );
@@ -113,11 +122,24 @@ export class CrowdSystem {
       this.hair,
       this.leftArm,
       this.rightArm,
+      this.leftForearm,
+      this.rightForearm,
       this.leftLeg,
       this.rightLeg,
     ];
+    const names = [
+      'bodies',
+      'heads',
+      'hair',
+      'left-upper-arms',
+      'right-upper-arms',
+      'left-forearms',
+      'right-forearms',
+      'left-legs',
+      'right-legs',
+    ];
     for (const [index, mesh] of this.meshes.entries()) {
-      mesh.name = `crowd:${['bodies', 'heads', 'hair', 'left-arms', 'right-arms', 'left-legs', 'right-legs'][index]}`;
+      mesh.name = `crowd:${names[index]}`;
       mesh.castShadow = true;
       mesh.instanceMatrix.setUsage(DynamicDrawUsage);
       root.add(mesh);
@@ -151,8 +173,10 @@ export class CrowdSystem {
       this.body.setColorAt(i, bodyColor);
       this.head.setColorAt(i, skinColor);
       this.hair.setColorAt(i, hairColor);
-      this.leftArm.setColorAt(i, skinColor);
-      this.rightArm.setColorAt(i, skinColor);
+      this.leftArm.setColorAt(i, bodyColor);
+      this.rightArm.setColorAt(i, bodyColor);
+      this.leftForearm.setColorAt(i, skinColor);
+      this.rightForearm.setColorAt(i, skinColor);
       this.leftLeg.setColorAt(i, legColor);
       this.rightLeg.setColorAt(i, legColor);
     }
@@ -234,8 +258,9 @@ export class CrowdSystem {
       const side = Math.cos(this.elapsed * (speed * 0.72) + member.phase * 1.7);
       const cheer = wantsFloor && mixQuality > 0.82 ? beat : 0;
       const bob =
-        (wantsFloor ? 0.025 + localEnergy * 0.13 : 0.008 + localEnergy * 0.018) * Math.abs(sway) +
-        cheer * 0.09;
+        (wantsFloor ? 0.022 + localEnergy * 0.105 : 0.007 + localEnergy * 0.016) *
+          Math.abs(sway) +
+        cheer * 0.07;
       const drift = wantsFloor ? 0.05 + bass * 0.04 : 0.018;
       const px = member.currentX + side * drift;
       const pz = member.currentZ + sway * drift * 0.55;
@@ -246,67 +271,106 @@ export class CrowdSystem {
       const forwardX = Math.sin(yaw);
       const forwardZ = Math.cos(yaw);
       const gait = wantsFloor ? sway * (0.18 + localEnergy * 0.62) : side * 0.09;
-      const cheerRaise = cheer * 1.2;
+      const cheerRaise = cheer * 1.05;
 
       this.setInstance(
         this.body,
         i,
         px,
-        0.68 * scale + bob,
+        0.76 * scale + bob,
         pz,
         yaw,
         scale * member.shoulder,
         scale,
-        scale,
-        wantsFloor ? sway * 0.035 : 0,
-        wantsFloor ? side * 0.045 : 0,
+        scale * 0.9,
+        wantsFloor ? sway * 0.028 : 0,
+        wantsFloor ? side * 0.036 : 0,
       );
-      this.setInstance(this.head, i, px, 1.47 * scale + bob, pz, yaw, scale, scale, scale);
+      this.setInstance(
+        this.head,
+        i,
+        px,
+        1.47 * scale + bob,
+        pz,
+        yaw + side * 0.025,
+        scale * 0.94,
+        scale,
+        scale * 0.93,
+      );
 
-      const hairY = member.hairStyle === 2 ? 1.58 : member.hairStyle === 1 ? 1.6 : 1.64;
-      const hairScaleY = member.hairStyle === 2 ? 0.3 : member.hairStyle === 1 ? 1.75 : 1;
-      const hairScaleZ = member.hairStyle === 3 ? 1.35 : 1;
+      const hairY = member.hairStyle === 1 ? 1.55 : 1.59;
+      const hairScaleY = member.hairStyle === 2 ? 0.7 : member.hairStyle === 1 ? 1.48 : 0.82;
+      const hairScaleZ = member.hairStyle === 3 ? 1.12 : member.hairStyle === 1 ? 0.73 : 0.94;
       this.setInstance(
         this.hair,
         i,
         px,
         hairY * scale + bob,
-        pz - forwardZ * 0.015,
+        pz - forwardZ * 0.032,
         yaw,
-        scale * 1.02,
+        scale * (member.hairStyle === 3 ? 1.08 : 1),
         scale * hairScaleY,
         scale * hairScaleZ,
       );
 
-      const shoulderOffset = 0.29 * scale * member.shoulder;
-      const armY = 1.02 * scale + bob + cheer * 0.06;
+      const shoulderOffset = 0.275 * scale * member.shoulder;
+      const upperArmY = 1.08 * scale + bob + cheer * 0.05;
+      const forearmY = 0.87 * scale + bob + cheer * 0.08;
       const leftArmPitch = -gait - cheerRaise;
       const rightArmPitch = gait - cheerRaise * (0.65 + seeded(i, 52) * 0.35);
+      const leftElbow = -0.1 - Math.max(0, -gait) * 0.42 - cheerRaise * 0.15;
+      const rightElbow = -0.1 - Math.max(0, gait) * 0.42 - cheerRaise * 0.18;
       this.setInstance(
         this.leftArm,
         i,
         px - rightX * shoulderOffset,
-        armY,
+        upperArmY,
         pz - rightZ * shoulderOffset,
         yaw,
         scale,
         scale,
         scale,
         leftArmPitch,
-        -0.08,
+        -0.06,
       );
       this.setInstance(
         this.rightArm,
         i,
         px + rightX * shoulderOffset,
-        armY,
+        upperArmY,
         pz + rightZ * shoulderOffset,
         yaw,
         scale,
         scale,
         scale,
         rightArmPitch,
-        0.08,
+        0.06,
+      );
+      this.setInstance(
+        this.leftForearm,
+        i,
+        px - rightX * shoulderOffset + forwardX * leftArmPitch * 0.09,
+        forearmY + Math.abs(leftArmPitch) * 0.022,
+        pz - rightZ * shoulderOffset + forwardZ * leftArmPitch * 0.09,
+        yaw,
+        scale,
+        scale,
+        scale,
+        leftArmPitch + leftElbow,
+        -0.03,
+      );
+      this.setInstance(
+        this.rightForearm,
+        i,
+        px + rightX * shoulderOffset + forwardX * rightArmPitch * 0.09,
+        forearmY + Math.abs(rightArmPitch) * 0.022,
+        pz + rightZ * shoulderOffset + forwardZ * rightArmPitch * 0.09,
+        yaw,
+        scale,
+        scale,
+        scale,
+        rightArmPitch + rightElbow,
+        0.03,
       );
 
       const hip = 0.12 * scale;
