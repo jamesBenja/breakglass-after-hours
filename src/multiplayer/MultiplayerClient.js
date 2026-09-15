@@ -2,7 +2,7 @@ import { multiplayerAvatar } from '../avatar/profile.js';
 import { RemotePlayer } from './RemotePlayer.js';
 
 const DEFAULT_ROOM = 'breakglass-main';
-const DEFAULT_SERVER = 'https://multiplayer-production-8f39.up.railway.app';
+const DEFAULT_SERVER = 'https://multiplayer-live-production.up.railway.app';
 const SEND_INTERVAL_MS = 1000 / 15;
 const RECONNECT_MAX_MS = 10_000;
 
