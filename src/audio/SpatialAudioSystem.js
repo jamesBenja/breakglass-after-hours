@@ -142,7 +142,11 @@ export class SpatialAudioSystem {
       this.setParam(emitter.lfo.frequency, emitter.config.lfo * (0.55 + motion * 1.55), 0.12);
     }
     if (this.installationDelay) {
-      this.setParam(this.installationDelay.delayTime, 0.12 + this.installationMix.space * 0.42, 0.12);
+      this.setParam(
+        this.installationDelay.delayTime,
+        0.12 + this.installationMix.space * 0.42,
+        0.12,
+      );
       this.setParam(this.installationFeedback.gain, 0.08 + this.installationMix.space * 0.48, 0.12);
       this.setParam(this.installationWet.gain, this.installationMix.space * 0.58, 0.12);
     }
@@ -273,7 +277,11 @@ export class SpatialAudioSystem {
     }
     if (this.installationBus) {
       const active = level.definition.id === 'downstairs' && this.installationEnabled;
-      this.setParam(this.installationBus.gain, active ? (this.installationFocus ? 1.08 : 0.78) : 0, 0.18);
+      this.setParam(
+        this.installationBus.gain,
+        active ? (this.installationFocus ? 1.08 : 0.78) : 0,
+        0.18,
+      );
     }
   }
 
