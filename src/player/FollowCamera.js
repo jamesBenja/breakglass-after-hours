@@ -123,9 +123,10 @@ export class FollowCamera {
   }
 
   worldMovement(movement) {
+    const viewYaw = this.yaw + this.cameraYawOffset;
     return {
-      x: movement.x * Math.cos(this.yaw) + movement.z * Math.sin(this.yaw),
-      z: -movement.x * Math.sin(this.yaw) + movement.z * Math.cos(this.yaw),
+      x: movement.x * Math.cos(viewYaw) + movement.z * Math.sin(viewYaw),
+      z: -movement.x * Math.sin(viewYaw) + movement.z * Math.cos(viewYaw),
     };
   }
 
@@ -143,14 +144,39 @@ export class FollowCamera {
   }
 
   bestObstructionOffset(collision, pitch) {
-    if (!collision) return { offset: 0, hit: { fraction: 1, target: null } };
-    const offsets = this.mode === 'close' ? [0, 0.3, -0.3, 0.58, -0.58] : [0, 0.28, -0.28, 0.55, -0.55, 0.82, -0.82];
+    if (!collision) return { offset: 0, hit: { fraction: 1, target: null }, score: 2 };
+    const offsets =
+      this.mode === 'close'
+        ? [0, 0.24, -0.24, 0.48, -0.48, 0.76, -0.76, 1.05, -1.05, 1.35, -1.35]
+        : [
+            0,
+            0.22,
+            -0.22,
+            0.45,
+            -0.45,
+            0.7,
+            -0.7,
+            0.96,
+            -0.96,
+            1.22,
+            -1.22,
+            1.5,
+            -1.5,
+            1.82,
+            -1.82,
+            2.15,
+            -2.15,
+            2.5,
+            -2.5,
+          ];
     let best = null;
     for (const offset of offsets) {
       this.boomAt(this.yaw + offset, pitch, this.distance, this.candidate);
-      const hit = collision.cameraCast(this.target, this.candidate, 0.32);
-      // Prefer clear sightlines, but do not swing around a wall unless the improvement is real.
-      const score = hit.fraction - Math.abs(offset) * 0.055;
+      const hit = collision.cameraCast(this.target, this.candidate, 0.34);
+      const clear = hit.fraction >= 0.999;
+      // Any clear line wins over a partially obstructed one; among clear lines choose the
+      // smallest horizontal shift. This keeps pitch stable through studio doorways.
+      const score = (clear ? 2 : hit.fraction) - Math.abs(offset) * 0.075;
       if (!best || score > best.score) best = { offset, hit, score };
     }
     return best;
@@ -184,19 +210,20 @@ export class FollowCamera {
     this.target.y = Math.max(position.y + 0.78, this.target.y);
 
     const best = this.bestObstructionOffset(collision, this.pitch);
-    const targetOffset = best.hit.fraction > 0.9 ? best.offset : 0;
-    this.cameraYawOffset += (targetOffset - this.cameraYawOffset) * damp(targetOffset ? 8 : 4.5);
-
+    // Do not interpolate the camera through an obstructing wall. The old implementation solved
+    // this by changing pitch at doorways; now we keep the chosen pitch and pick the nearest clear
+    // horizontal shoulder angle instead.
+    this.cameraYawOffset = best.offset;
     this.boom(this.pitch, this.desired);
-    if (this.initialized) this.desired.lerpVectors(this.camera.position, this.desired, damp(10));
-    const hit = collision?.cameraCast(this.target, this.desired, 0.3) ?? {
+
+    const hit = collision?.cameraCast(this.target, this.desired, 0.34) ?? {
       fraction: 1,
       target: null,
     };
     this.collisionTarget = hit.target;
     const distance = this.target.distanceTo(this.desired);
-    const fraction =
-      hit.fraction < 1 ? Math.max(0.05, hit.fraction - 0.12 / Math.max(distance, 0.01)) : 1;
+    const safety = 0.42 / Math.max(distance, 0.01);
+    const fraction = hit.fraction < 1 ? Math.max(0.035, hit.fraction - safety) : 1;
     this.camera.position.lerpVectors(this.target, this.desired, fraction);
     this.clearance = this.camera.position.distanceTo(this.target);
 
@@ -205,8 +232,9 @@ export class FollowCamera {
       this.mode === 'close'
         ? Math.min(0.7, this.clearance * 0.1)
         : Math.min(1.9, this.clearance * 0.14);
-    this.look.x -= Math.sin(this.yaw) * anticipation;
-    this.look.z -= Math.cos(this.yaw) * anticipation;
+    const viewYaw = this.yaw + this.cameraYawOffset;
+    this.look.x -= Math.sin(viewYaw) * anticipation;
+    this.look.z -= Math.cos(viewYaw) * anticipation;
     this.camera.lookAt(this.look);
     this.initialized = true;
   }
