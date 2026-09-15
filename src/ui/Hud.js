@@ -66,6 +66,7 @@ export class Hud {
     if (this.status.textContent !== status) this.status.textContent = status;
     this.debug.hidden = !state.debug;
     if (!state.debug) return;
+    const lighting = level.lighting?.snapshot();
     this.debug.textContent = [
       `Scene: ${level.definition.id}${level.definition.pass ? ` / Pass ${level.definition.pass}` : ''} | transition: ${transitionPhase}`,
       `Position: ${player.position
@@ -78,6 +79,12 @@ export class Hud {
       `Interaction: ${target?.id ?? 'none'}`,
       `Geometry: ${level.geometrySource} (${level.definition.provenance.status})`,
       `Audio: ${audio.trackId ?? 'stopped'} | ${audio.context?.state ?? 'not started'} | voices: ${audio.voices.size}`,
+      ...(lighting
+        ? [
+            `Lighting: ${lighting.preset} | haze ${(lighting.haze * 100).toFixed(0)}% | lasers ${lighting.lasers ? 'on' : 'off'}`,
+            `Audio energy: ${lighting.energy.toFixed(2)} | bass ${lighting.bass.toFixed(2)} | beat ${lighting.beat.toFixed(2)}`,
+          ]
+        : []),
       `Contacts: ${state.contacts.join(', ') || 'none'} | last track: ${state.lastTrack ?? 'none'}`,
       `Visited: ${state.visited.join(', ')} | ${fps.toFixed(0)} fps`,
     ].join('\n');

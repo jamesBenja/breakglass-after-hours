@@ -2,6 +2,11 @@ import { Shape, ExtrudeGeometry, Mesh, MeshStandardMaterial, Group } from 'three
 import { buildStudioEquipment } from './upstairsFixtures.js';
 import { at } from '../../world/upstairs/plan.js';
 import { createPrimitives } from './primitives.js';
+import {
+  darkFloorMaterial,
+  studioFloorMaterial,
+  studioWallMaterial,
+} from '../materials/BreakglassMaterials.js';
 
 export function drawPrism(root, solid, material) {
   const shape = new Shape();
@@ -21,10 +26,17 @@ export function drawPrism(root, solid, material) {
 }
 
 export function buildUpstairsBlockout(root, definition) {
-  const wallMaterial = new MeshStandardMaterial({ color: 0xc1b8a4, roughness: 0.9 });
+  const wallMaterial = studioWallMaterial();
+  const woodFloor = studioFloorMaterial();
+  const circulationFloor = studioFloorMaterial({ dark: true });
+  const serviceFloor = darkFloorMaterial();
   const { mat, box, label } = createPrimitives();
   for (const [i, room] of definition.rooms.entries()) {
-    drawPrism(root, { ...room, y1: -0.25, y2: i === 0 ? 0 : 0.004 + i * 0.0003 }, mat(room.color));
+    let roomMaterial = woodFloor;
+    if (['circulation', 'emergency-hall', 'east-hall'].includes(room.id))
+      roomMaterial = circulationFloor;
+    if (['storage'].includes(room.id)) roomMaterial = serviceFloor;
+    drawPrism(root, { ...room, y1: -0.25, y2: i === 0 ? 0 : 0.004 + i * 0.0003 }, roomMaterial);
     if (room.label) label(root, room.name.toUpperCase(), ...room.label, 0.65, '#fff3d6');
   }
   for (const solid of definition.solids) {
