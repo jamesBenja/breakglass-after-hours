@@ -7,6 +7,7 @@ import './ui/mobileMixerEnhancements.js';
 import { Game } from './core/Game.js';
 import { installMusicEnhancements } from './gameplay/musicEnhancements.js';
 import { installPartyPressureEnhancements } from './gameplay/partyPressureEnhancements.js';
+import { installPartyLifeEnhancements } from './gameplay/partyLifeEnhancements.js';
 import { Hud } from './ui/Hud.js';
 
 const ui = new Hud(document);
@@ -17,6 +18,7 @@ try {
   });
   installMusicEnhancements(game, ui);
   installPartyPressureEnhancements(game, ui);
+  installPartyLifeEnhancements(game, ui);
   await game.initialize();
 } catch (error) {
   console.error('Breakglass startup failed', error);
