@@ -4,7 +4,7 @@ import { RealtimeMedia } from './RealtimeMedia.js';
 import { SharedWorld } from './SharedWorld.js';
 
 const DEFAULT_ROOM = 'breakglass-main';
-const DEFAULT_SERVER = 'https://multiplayer-phase2-live-production.up.railway.app';
+const DEFAULT_SERVER = 'https://multiplayer-phase2-production.up.railway.app';
 const SEND_INTERVAL_MS = 1000 / 15;
 const RECONNECT_MAX_MS = 10_000;
 
