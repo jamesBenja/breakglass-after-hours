@@ -41,6 +41,11 @@ function person(accent) {
   return { group, body, head, leftArm, rightArm, detail };
 }
 
+function safePosition(value, fallback = [0, 0, 0]) {
+  if (Array.isArray(value) && value.length >= 3 && value.every(Number.isFinite)) return value;
+  return fallback;
+}
+
 export class HouseDjSystem {
   constructor(game, ui) {
     this.game = game;
@@ -65,7 +70,8 @@ export class HouseDjSystem {
     const downstairs = this.game.scenes.get('downstairs');
     const upstairs = this.game.scenes.get('upstairs');
     if (!downstairs || !upstairs || this.performer) return;
-    const booth = downstairs.definition.anchors.dj.position;
+
+    const booth = safePosition(downstairs.definition.anchors?.dj?.position, [1.5, 0, -2.15]);
     const model = person(this.selected.accent);
     model.group.name = 'house-dj';
     model.group.position.set(booth[0], booth[1], booth[2] - 0.38);
@@ -73,7 +79,12 @@ export class HouseDjSystem {
     downstairs.gameplay.add(model.group);
     this.performer = model;
 
-    const anchor = upstairs.definition.anchors.houseDjDesk.position;
+    const consolePosition = safePosition(upstairs.definition.anchors?.console?.position, [0, 0, 0]);
+    const anchor = safePosition(upstairs.definition.anchors?.houseDjDesk?.position, [
+      consolePosition[0] + 1.8,
+      consolePosition[1],
+      consolePosition[2] + 0.9,
+    ]);
     const desk = new Group();
     desk.name = 'house-dj-production-desk';
     desk.position.fromArray(anchor);
