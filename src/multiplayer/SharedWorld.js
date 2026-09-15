@@ -28,6 +28,8 @@ export class SharedWorld {
     this.applyingLighting = false;
     this.applyingInstallation = false;
     this.authoritativeParty = false;
+    this.lastLocalEvacuationStarted = false;
+    this.partyResetPending = false;
     this.djPublishTimer = null;
     this.lightingPublishTimer = null;
     this.installationPublishTimer = null;
@@ -315,7 +317,7 @@ export class SharedWorld {
         this.client.joined && this.authoritativeParty ? undefined : baseSetContext(...args);
     alley.chat = (amount = 0.08) => {
       if (!this.client.joined || !this.authoritativeParty) return baseChat(amount);
-      this.send({ type: 'party_action', action: amount >= 0.08 ? 'rowdy' : 'talk' });
+      this.send({ type: 'party_action', action: amount >= 0.08 ? 'rowdy' : 'smoke' });
     };
     alley.quiet = (amount = 0.18) => {
       if (!this.client.joined || !this.authoritativeParty) return baseQuiet(amount);
@@ -359,6 +361,10 @@ export class SharedWorld {
     }
     alley.setPoliceVisible?.(state.policePresent || state.evacuationStarted);
     if (state.evacuationRequired && !this.game.evacuationStarted) this.game.beginEvacuation?.();
+    if (!state.evacuationRequired && !state.evacuationStarted) {
+      this.partyResetPending = false;
+      this.lastLocalEvacuationStarted = false;
+    }
   }
 
   patchInstallation() {
@@ -451,6 +457,20 @@ export class SharedWorld {
 
   update() {
     if (!this.client.joined) return;
+
+    if (this.game.evacuationStarted) this.lastLocalEvacuationStarted = true;
+    else if (
+      this.authoritativeParty &&
+      this.lastLocalEvacuationStarted &&
+      !this.partyResetPending
+    ) {
+      // The local raid UI only clears evacuationStarted when the player presses "Try the party
+      // again". Turn that local action into a canonical room reset so another client's next
+      // party packet cannot immediately put everyone back into the finished raid.
+      this.partyResetPending = true;
+      this.send({ type: 'party_action', action: 'reset-party' });
+    }
+
     const sceneId = this.game.sceneManager.current?.definition?.id;
     const position = this.game.player.position;
     for (const [resourceId, claim] of [...this.localClaims.entries()]) {
@@ -466,7 +486,8 @@ export class SharedWorld {
       if (claim.position && position.distanceTo) {
         const dx = position.x - claim.position[0];
         const dz = position.z - claim.position[2];
-        if (Math.hypot(dx, dz) > (resourceId === 'dj-booth' ? 5.5 : 4.2)) this.release(resourceId);
+        if (Math.hypot(dx, dz) > (resourceId === 'dj-booth' ? 5.5 : 4.2))
+          this.release(resourceId);
       }
     }
   }
