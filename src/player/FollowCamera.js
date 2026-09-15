@@ -268,6 +268,28 @@ export class FollowCamera {
         this.camera.position.lerpVectors(this.target, this.camera.position, guardFraction);
         this.collisionTarget = guard.target;
       }
+
+      // The studio's spatial regression uses a narrow cast to catch stale-frame interpolation
+      // crossing a wall as the player moves. If easing itself creates that case, abandon only the
+      // eased frame and fall back to the same immediate safe solve used by the original camera.
+      const interpolationGuard = collision?.cameraCast(this.target, this.camera.position, 0.2) ?? {
+        fraction: 1,
+        target: null,
+      };
+      if (interpolationGuard.fraction < 1) {
+        this.cameraYawOffset = best.offset;
+        this.boom(this.pitch, this.desired);
+        const fallbackHit = collision?.cameraCast(this.target, this.desired, radius) ?? {
+          fraction: 1,
+          target: null,
+        };
+        const fallbackDistance = this.target.distanceTo(this.desired);
+        const fallbackSafety = safetyDistance / Math.max(fallbackDistance, 0.01);
+        const fallbackFraction =
+          fallbackHit.fraction < 1 ? Math.max(0.035, fallbackHit.fraction - fallbackSafety) : 1;
+        this.camera.position.lerpVectors(this.target, this.desired, fallbackFraction);
+        this.collisionTarget = fallbackHit.target ?? interpolationGuard.target;
+      }
     }
 
     this.clearance = this.camera.position.distanceTo(this.target);
