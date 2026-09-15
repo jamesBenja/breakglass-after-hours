@@ -1,10 +1,4 @@
-import {
-  Mesh,
-  MeshBasicMaterial,
-  PlaneGeometry,
-  SRGBColorSpace,
-  TextureLoader,
-} from 'three';
+import { Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace, TextureLoader } from 'three';
 import { Hud } from '../ui/Hud.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { normalizeFaceTexture } from './profile.js';
