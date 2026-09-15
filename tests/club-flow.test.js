@@ -7,9 +7,7 @@ import { validateSave } from '../src/state/GameState.js';
 test('Below room functions are on the correct opposite sides', () => {
   const downstairs = levels.downstairs;
   const lounge = downstairs.navigation.surfaces.find((surface) => surface.id === 'lounge');
-  const loungeDoor = downstairs.navigation.surfaces.find(
-    (surface) => surface.id === 'lounge-door',
-  );
+  const loungeDoor = downstairs.navigation.surfaces.find((surface) => surface.id === 'lounge-door');
   const bar = downstairs.navigation.surfaces.find((surface) => surface.id === 'service');
   const barDoor = downstairs.navigation.surfaces.find((surface) => surface.id === 'bar-door');
   assert.ok(lounge.x1 > 6, 'Take A Break should be on the east side');
