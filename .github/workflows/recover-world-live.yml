@@ -1,0 +1,38 @@
+name: Recover world live
+
+on:
+  push:
+    branches:
+      - fix/recover-world-live
+    paths:
+      - .github/workflows/recover-world-live.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/recover-world-live
+          fetch-depth: 0
+
+      - name: Probe merge with current live branch
+        shell: bash
+        run: |
+          git fetch origin feat/multiplayer-phase-2-shared-world
+          set +e
+          git merge --no-commit --no-ff origin/feat/multiplayer-phase-2-shared-world
+          code=$?
+          set -e
+          echo "merge_exit=$code"
+          echo "UNMERGED FILES:"
+          git diff --name-only --diff-filter=U || true
+          echo "CONFLICT SUMMARY:"
+          git status --short
+          echo "COMBINED DIFF:"
+          git diff --cc || true
+          exit 1
