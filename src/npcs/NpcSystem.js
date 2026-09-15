@@ -116,11 +116,18 @@ export const CHARACTER_LOOKS = {
     heightScale: 1.04,
   },
   jashim: {
-    skin: 0x9a6b50,
-    hair: 0x201817,
-    outfit: 0x35465e,
-    accent: 0x657fb2,
-    hairStyle: 'short',
+    skin: 0xb78368,
+    hair: 0x151619,
+    outfit: 0x111214,
+    trousers: 0x777a7d,
+    accent: 0x4f565e,
+    hairStyle: 'long',
+    bangs: true,
+    tattoos: true,
+    neckTattoo: true,
+    handTattoos: true,
+    bodyWidth: 1.08,
+    heightScale: 0.98,
   },
   devin: {
     skin: 0xb57f60,
@@ -129,6 +136,19 @@ export const CHARACTER_LOOKS = {
     accent: 0x5d8998,
     hairStyle: 'short',
     prop: 'candy',
+  },
+  dave: {
+    skin: 0xb9876a,
+    hair: 0x231c1a,
+    outfit: 0x26292c,
+    trousers: 0x17191d,
+    accent: 0x9b895f,
+    hairStyle: 'short',
+    beard: true,
+    mustache: true,
+    cap: true,
+    bodyWidth: 1.0,
+    heightScale: 1.02,
   },
   david: {
     skin: 0xb68a68,
@@ -237,6 +257,49 @@ function addReferenceDetails(model, look) {
       curl.position.set(x, y, z);
       model.head.add(curl);
     }
+  }
+  if (look.bangs) {
+    for (const [x, y, scale, tilt] of [
+      [-0.13, 0.045, 1.0, -0.22],
+      [-0.045, 0.0, 1.12, -0.08],
+      [0.045, -0.01, 1.08, 0.08],
+      [0.13, 0.035, 0.96, 0.22],
+    ]) {
+      const lock = new Mesh(new SphereGeometry(0.072 * scale, 8, 6), model.materials.hair);
+      lock.scale.set(0.7, 1.55, 0.62);
+      lock.position.set(x, y, 0.19);
+      lock.rotation.z = tilt;
+      model.head.add(lock);
+    }
+  }
+  if (look.neckTattoo) {
+    for (let i = 0; i < 3; i++) {
+      const mark = new Mesh(new BoxGeometry(0.045 + i * 0.008, 0.012, 0.012), ink);
+      mark.position.set((i - 1) * 0.028, -0.015 - i * 0.018, 0.071);
+      mark.rotation.z = (i - 1) * 0.45;
+      model.neck.add(mark);
+    }
+  }
+  if (look.handTattoos) {
+    for (const hand of [model.leftHand, model.rightHand]) {
+      for (let i = 0; i < 2; i++) {
+        const mark = new Mesh(new BoxGeometry(0.032, 0.009, 0.01), ink);
+        mark.position.set((i ? 1 : -1) * 0.016, 0, 0.055);
+        mark.rotation.z = i ? 0.6 : -0.6;
+        hand.add(mark);
+      }
+    }
+  }
+  if (look.cap) {
+    const cap = new Mesh(new SphereGeometry(0.238, 10, 7), model.materials.hair);
+    cap.scale.set(1.02, 0.43, 1.02);
+    cap.position.set(0, 0.185, 0.002);
+    const brim = new Mesh(new BoxGeometry(0.24, 0.035, 0.16), model.materials.hair);
+    brim.position.set(0, 0.115, 0.21);
+    brim.rotation.x = -0.08;
+    const badge = new Mesh(new BoxGeometry(0.075, 0.018, 0.012), model.materials.accent);
+    badge.position.set(0, 0.155, 0.225);
+    model.head.add(cap, brim, badge);
   }
 }
 

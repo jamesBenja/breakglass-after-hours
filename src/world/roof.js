@@ -104,14 +104,7 @@ export const roofLevel = {
       role: 'founder',
       position: [1.55, 0, 1.0],
       rotationY: -2.55,
-      appearance: {
-        prop: 'founder',
-        skin: 0xb78667,
-        hair: 0x31241e,
-        outfit: 0x35383d,
-        accent: 0x765c46,
-        hairStyle: 'short',
-      },
+      appearance: { prop: 'founder' },
     },
   ],
   roofSystem: {

@@ -29,6 +29,10 @@ export const dialogues = {
     title: 'DEVIN · SOUND SYSTEM TECH',
     text: '“I’m listening. Something in this corner is bothering me. Also, do you have any candy?”',
   },
+  dave: {
+    title: 'DAVE · FOUNDER',
+    text: '“You found the roof. Grab a spot — the building looks different from up here.”',
+  },
   david: {
     title: 'DAVID · FURNITURE DEALER',
     text: '“Half the building is furniture if you know which wall to move.”',

@@ -15,12 +15,14 @@ The Drive folder supplied for the BG20 game is the visual source of truth for re
 - **Jace** — Drive/Jace. Long light/blond hair, glasses, dark stage/studio clothing.
 - **Boogaloo** — Drive/Boogaloo. Tall/slim, voluminous dark curls, light/grey top.
 - **Lunice** — Drive/Lunice. Close-cropped hair, full beard and a clean light top in the selected reference; used when Lunice rotates into the house-DJ booth.
+- **Jashim** — Drive/Jashim. Long shaggy black hair with heavy bangs, oversized black tee, loose grey pants, and visible neck/arm/hand tattoo detail.
+- **Dave** — Drive/Dave. Dark baseball cap, short dark hair, beard/moustache, and dark button-up. He is the third studio founder in the roof bonus level with James and Jace.
 
 ## Deliberately not guessed
 
 - **David**: the `David` folder is currently empty.
 - **Devin**: the available selected frames are environmental/group views rather than a clean single-person reference, so his existing look is retained until a clearer portrait is identified.
-- **Dave** is a separate Drive folder/reference and is not assumed to be David the furniture dealer.
+- **Dave and David remain separate characters**: Dave is the roof-level founder; David is the furniture dealer. The Dave reference is never applied to David.
 - **Hydra**: the available reference is a two-person booth photo, so no appearance is assigned until the intended person in that frame is unambiguous.
 - Folders for artists not yet represented as named roaming NPCs remain available for later character/DJ passes rather than being mapped to the wrong person.
 

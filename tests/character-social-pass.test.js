@@ -48,11 +48,30 @@ test('photo-backed recurring characters have explicit non-random reference trait
     'jace',
     'boogaloo',
     'lunice',
+    'jashim',
+    'dave',
   ]) {
     assert.ok(CHARACTER_LOOKS[id], `missing look for ${id}`);
     assert.ok(Number.isFinite(CHARACTER_LOOKS[id].bodyWidth), `missing body width for ${id}`);
     assert.ok(Number.isFinite(CHARACTER_LOOKS[id].heightScale), `missing height scale for ${id}`);
   }
+});
+
+test('Jashim and roof-founder Dave use their photo references without colliding with David', () => {
+  assert.equal(CHARACTER_LOOKS.jashim.hairStyle, 'long');
+  assert.equal(CHARACTER_LOOKS.jashim.bangs, true);
+  assert.equal(CHARACTER_LOOKS.jashim.tattoos, true);
+  assert.equal(CHARACTER_LOOKS.jashim.neckTattoo, true);
+  assert.equal(CHARACTER_LOOKS.jashim.handTattoos, true);
+  assert.equal(CHARACTER_LOOKS.dave.cap, true);
+  assert.equal(CHARACTER_LOOKS.dave.beard, true);
+  assert.equal(CHARACTER_LOOKS.dave.mustache, true);
+  assert.notEqual(CHARACTER_LOOKS.david.cap, true);
+  assert.ok(levels.roof.npcs.some((npc) => npc.id === 'dave' && npc.role === 'founder'));
+  assert.equal(
+    levels.roof.npcs.some((npc) => npc.id === 'david'),
+    false,
+  );
 });
 
 test('group photo countdown resolves to a synchronized 3-2-1-flash sequence', () => {
