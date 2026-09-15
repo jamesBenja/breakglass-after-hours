@@ -23,6 +23,8 @@ jobs:
       - name: Probe merge with current live branch
         shell: bash
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin feat/multiplayer-phase-2-shared-world
           set +e
           git merge --no-commit --no-ff origin/feat/multiplayer-phase-2-shared-world
