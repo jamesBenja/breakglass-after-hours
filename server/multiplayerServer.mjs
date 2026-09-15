@@ -526,9 +526,7 @@ function tickParty(room, dt, now) {
   const vibe = playing ? clamp(dj.metrics.vibe) : 0.2;
   const mixQuality = playing ? clamp(dj.metrics.mixQuality) : 0.55;
   party.clubMixQuality += (mixQuality - party.clubMixQuality) * (1 - Math.exp(-0.45 * dt));
-  const danceTarget = playing
-    ? clamp(0.4 + vibe * 0.36 + mixQuality * 0.2, 0.25, 0.9)
-    : 0.23;
+  const danceTarget = playing ? clamp(0.4 + vibe * 0.36 + mixQuality * 0.2, 0.25, 0.9) : 0.23;
   party.clubDanceShare += (danceTarget - party.clubDanceShare) * (1 - Math.exp(-0.18 * dt));
   const lostFloor = clamp((0.55 - party.clubDanceShare) / 0.45);
   const badBlend = clamp((0.58 - party.clubMixQuality) / 0.48);
@@ -558,8 +556,7 @@ function tickParty(room, dt, now) {
         party.spillOutPressure * 0.18 -
         0.12,
     );
-    party.disturbance +=
-      (targetDisturbance - party.disturbance) * (1 - Math.exp(-0.24 * dt));
+    party.disturbance += (targetDisturbance - party.disturbance) * (1 - Math.exp(-0.24 * dt));
 
     const tuning = POLICE_MODES[party.policeStrictness] ?? POLICE_MODES.normal;
     party.staffWarningLevel =

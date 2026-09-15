@@ -114,7 +114,9 @@ export class SharedWorld {
         position: Array.isArray(pending.target?.position) ? [...pending.target.position] : null,
       });
     } else if (message.resource) {
-      this.ui.warning?.(`${message.resource.ownerName || 'Another player'} is using that right now.`);
+      this.ui.warning?.(
+        `${message.resource.ownerName || 'Another player'} is using that right now.`,
+      );
     }
     pending.resolve(message.ok === true);
   }
@@ -227,11 +229,15 @@ export class SharedWorld {
         if (target.playing && deck.playing && typeof dj.restartDeckAt === 'function') {
           const baseBpm = Math.max(1, deck.baseBpm || target.bpm || 120);
           const elapsed = Math.max(0, Date.now() - Number(state.updatedAt || Date.now())) / 1000;
-          const expected = Math.max(0, Number(target.position) || 0) + elapsed * (target.bpm / baseBpm);
+          const expected =
+            Math.max(0, Number(target.position) || 0) + elapsed * (target.bpm / baseBpm);
           const current = dj.deckPosition?.(deckId) ?? expected;
           if (Math.abs(current - expected) > 0.18) dj.restartDeckAt(deckId, expected);
         }
-        if (typeof dj.setLoop === 'function' && Number(target.loopBeats) !== Number(deck.loopBeats || 0)) {
+        if (
+          typeof dj.setLoop === 'function' &&
+          Number(target.loopBeats) !== Number(deck.loopBeats || 0)
+        ) {
           if (target.loopBeats) dj.setLoop(deckId, target.loopBeats);
           else if (deck.loopBeats) dj.setLoop(deckId, deck.loopBeats);
         }
@@ -245,7 +251,14 @@ export class SharedWorld {
     const rig = this.game.scenes.get('downstairs')?.lighting;
     if (!rig || rig._multiplayerSharedPatched) return;
     rig._multiplayerSharedPatched = true;
-    for (const method of ['applyPreset', 'applyPalette', 'setHaze', 'adjustHaze', 'setLasers', 'toggleLasers']) {
+    for (const method of [
+      'applyPreset',
+      'applyPalette',
+      'setHaze',
+      'adjustHaze',
+      'setLasers',
+      'toggleLasers',
+    ]) {
       if (typeof rig[method] !== 'function') continue;
       const base = rig[method].bind(rig);
       rig[method] = (...args) => {
@@ -310,7 +323,8 @@ export class SharedWorld {
     };
     alley.resolvePolice = (response) => {
       if (!this.client.joined || !this.authoritativeParty) return baseResolvePolice(response);
-      const suffix = response === 'cooperate' ? 'cooperate' : response === 'brushOff' ? 'brushOff' : 'argue';
+      const suffix =
+        response === 'cooperate' ? 'cooperate' : response === 'brushOff' ? 'brushOff' : 'argue';
       this.send({ type: 'party_action', action: `police-${suffix}` });
       return 'Your response is sent to the officers. Everyone in the live room will see what happens next.';
     };
