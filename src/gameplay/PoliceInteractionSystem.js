@@ -13,9 +13,11 @@ export class PoliceInteractionSystem {
     if (snapshot.evacuationRequired) {
       this.ui.panel(
         'POLICE · PARTY SHUTDOWN',
-        snapshot.policeVisits >= 2
-          ? 'They came back after the warning. The party is over. Music has to stop and the building has to be cleared.'
-          : 'The conversation went badly. Police are ending the party and everyone has to leave.',
+        snapshot.lastPoliceOutcome === 'ignored'
+          ? 'The warning expired before anyone dealt with the officers. Police are ending the party and the building has to be cleared.'
+          : snapshot.policeVisits >= 2
+            ? 'The return visit escalated into a shutdown. Music has to stop and the building has to be cleared.'
+            : 'The conversation went badly. Police are ending the party and everyone has to leave.',
         [],
       );
       return true;
@@ -23,7 +25,9 @@ export class PoliceInteractionSystem {
 
     this.ui.panel(
       'POLICE · NEIGHBOUR COMPLAINT',
-      `Officers say they received a noise complaint from the alley. This is visit ${snapshot.policeVisits}. How you handle it matters.`,
+      snapshot.policeVisits > 1
+        ? `Officers are back after another alley noise complaint. This is visit ${snapshot.policeVisits}, so you have less time to calm things down.`
+        : 'Officers say they received a noise complaint from the alley. Talk to them and get the outside crowd under control before it escalates.',
       [
         [
           'Apologize + move everyone inside',
