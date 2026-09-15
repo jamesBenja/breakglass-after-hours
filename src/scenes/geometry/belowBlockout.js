@@ -1,5 +1,6 @@
 import { DoubleSide, Mesh, MeshStandardMaterial, RingGeometry } from 'three';
 import { createPrimitives } from './primitives.js';
+import { buildRealisticDjBooth } from './djBoothRealism.js';
 import {
   clubFloorMaterial,
   clubWallMaterial,
@@ -88,22 +89,7 @@ export function buildBelowBlockout(downScene) {
 export function buildBelowFixtures(downScene) {
   const { mat, MAT, box, cyl, label } = createPrimitives();
 
-  box(downScene, 3.7, 0.16, 1.75, mat(0x2d2725), 1.5, 0.08, -2.42);
-  box(downScene, 1.7, 0.1, 0.42, mat(0x4a3a31), 1.5, 0.05, -1.38);
-  box(downScene, 3.0, 1.0, 1.2, MAT.wood, 1.5, 0.66, -2.45);
-  box(downScene, 0.95, 0.13, 0.52, MAT.dark, 0.55, 1.18, -2.45);
-  box(downScene, 0.95, 0.13, 0.52, MAT.dark, 2.45, 1.18, -2.45);
-  box(downScene, 0.8, 0.17, 0.55, MAT.metal, 1.5, 1.18, -2.45);
-  for (const x of [0.55, 2.45]) {
-    cyl(downScene, 0.22, 0.055, mat(0x5d6269, 0.36, 0.5), x, 1.27, -2.45);
-    cyl(downScene, 0.08, 0.06, MAT.dark, x, 1.3, -2.45);
-  }
-  for (let i = 0; i < 4; i++) {
-    const x = 1.27 + i * 0.15;
-    box(downScene, 0.025, 0.035, 0.35, mat(0xb6b4aa), x, 1.28, -2.45);
-  }
-  box(downScene, 0.48, 0.42, 0.34, MAT.speaker, 3.25, 1.28, -2.55);
-  label(downScene, 'DJ BOOTH', 1.5, 2.05, -2.5, 0.36);
+  buildRealisticDjBooth(downScene);
 
   const ring = new Mesh(
     new RingGeometry(1.8, 2.35, 64),
