@@ -70,7 +70,7 @@ replace_one(levels, "      alley: [-5.7, 0, -0.55],", "      alley: [-9.25, -0.7
 replace_one(
     levels,
     "The club is alive now. Push toward the booth, cross east into Take A Break, find the kitchen bar on the west side, play the old Mortal Kombat II cabinet, or earn your way onto the Clark stair up to the studio.",
-    'The club is alive now. Take A Break is east with Nora\'s photo room beside it; the kitchen bar is west. The shared west stair goes up to the studio and turns down to the alley at its bottom landing.',
+    "The club is alive now. Take A Break is east with the Nora photo room beside it; the kitchen bar is west. The shared west stair goes up to the studio and turns down to the alley at its bottom landing.",
 )
 replace_one(
     levels,
