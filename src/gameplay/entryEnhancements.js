@@ -17,14 +17,22 @@ export function installEntryEnhancements(game, ui) {
       bouncer.waitUntil = 0;
       ui.panel(
         'DOOR · CLEARED BY SECURITY',
-        'Security gives you the nod. You are cleared to use the club entrance now.',
+        'Sam gives you the nod. You are cleared to use the club entrance now.',
         [],
       );
-      ui.warning?.('Security cleared you. Use the entrance door to go inside.');
+      ui.warning?.('Sam cleared you. Use the entrance door to go inside.');
     };
 
     bouncer.handle = (target) => {
       if (game.sceneManager.current?.definition?.id !== ENTRY_SCENE_ID) return false;
+
+      // Sam is the named security character at the alley entrance. The lower-level door system
+      // historically looked for an anonymous `bouncer` target, while the world exposes `sam`.
+      // Normalize Sam to that legacy target so talking to him actually performs the clearance
+      // flow instead of falling through to his generic dialogue.
+      const isSam = target?.npcId === 'sam' || target?.id === 'sam';
+      if (isSam) return baseHandle({ ...target, id: 'bouncer', npcId: 'bouncer' });
+
       const isDoor = target?.id === 'clubDoor' || target?.target === 'downstairs@alley';
       if (!isDoor) return baseHandle(target);
 
@@ -33,8 +41,8 @@ export function installEntryEnhancements(game, ui) {
         ui.panel(
           remaining > 0 ? 'DOOR · WAIT IN THE ALLEY' : 'DOOR · SECURITY FIRST',
           remaining > 0
-            ? `Security told you to wait. You can try talking to them again in about ${remaining} seconds.`
-            : 'The entrance is controlled by security. Talk to the bouncer before trying to go inside.',
+            ? `Sam told you to wait. You can try talking to him again in about ${remaining} seconds.`
+            : 'The entrance is controlled by security. Talk to Sam beside the door before trying to go inside.',
           [],
         );
         return true;
