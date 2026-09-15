@@ -78,7 +78,8 @@ function alignDeck(mixer, slaveId, masterId) {
   if (typeof mixer.restartDeckAt === 'function') aligned = mixer.restartDeckAt(slaveId, target);
   if (!aligned && slave.media) {
     const duration = Number(slave.media.duration);
-    slave.media.currentTime = Number.isFinite(duration) && duration > 0 ? target % duration : target;
+    slave.media.currentTime =
+      Number.isFinite(duration) && duration > 0 ? target % duration : target;
     aligned = true;
   }
   if (!aligned && !slave.source && !slave.media) {

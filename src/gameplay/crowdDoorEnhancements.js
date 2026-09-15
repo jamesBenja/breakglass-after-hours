@@ -69,7 +69,11 @@ function patchExpandedAlleyPressure() {
     const offFloor = attendance * (1 - danceShare);
     const badBlend = clamp((0.7 - (Number(this.clubMixQuality) || 0)) / 0.7);
     const target = clamp(
-      3 + offFloor * 0.36 + (this.spillOutPressure ?? 0) * 7 + badBlend * 4 + (this.rowdyLevel ?? 0) * 3,
+      3 +
+        offFloor * 0.36 +
+        (this.spillOutPressure ?? 0) * 7 +
+        badBlend * 4 +
+        (this.rowdyLevel ?? 0) * 3,
       2,
       38,
     );
@@ -204,7 +208,9 @@ class PoliceRaidSystem {
       }
       if (!this.phaseWarningShown && this.elapsed >= 5) {
         this.phaseWarningShown = true;
-        this.ui.warning?.('POLICE: MUSIC OFF. EVERYONE OUT. Officers are sweeping the club with flashlights.');
+        this.ui.warning?.(
+          'POLICE: MUSIC OFF. EVERYONE OUT. Officers are sweeping the club with flashlights.',
+        );
       }
     }
 
@@ -278,8 +284,14 @@ class BouncerDoorSystem {
     const correct = this.currentDj();
     const distractors = HOUSE_DJS.map((dj) => dj.name).filter((name) => name !== correct);
     const seed = this.wrongAnswers % Math.max(1, distractors.length);
-    const choices = [correct, distractors[seed], distractors[(seed + 3) % distractors.length]].filter(Boolean);
-    choices.sort((a, b) => (a.length + this.wrongAnswers) % 3 - (b.length + this.wrongAnswers) % 3);
+    const choices = [
+      correct,
+      distractors[seed],
+      distractors[(seed + 3) % distractors.length],
+    ].filter(Boolean);
+    choices.sort(
+      (a, b) => ((a.length + this.wrongAnswers) % 3) - ((b.length + this.wrongAnswers) % 3),
+    );
     this.ui.panel(
       'DOOR · WHO IS PLAYING?',
       'The bouncer asks who is on the decks right now.',
@@ -445,7 +457,9 @@ export function installCrowdDoorEnhancements(game, ui) {
                 } else {
                   alleyCrowd.react(index, 'quiet');
                   alleyCrowd.voice(game.audio, 'quiet');
-                  ui.warning?.(member.smoker ? 'They are down to their last one.' : 'They are not smoking.');
+                  ui.warning?.(
+                    member.smoker ? 'They are down to their last one.' : 'They are not smoking.',
+                  );
                 }
                 render();
               },
@@ -457,7 +471,10 @@ export function installCrowdDoorEnhancements(game, ui) {
                 game.audio.tone?.(1400, 0.035, 'square', 0.012);
                 alley?.chat?.(0.045);
                 alleyCrowd.voice(game.audio, 'talk');
-                game.state.data.smokesShared = Math.min(999, (game.state.data.smokesShared ?? 0) + 1);
+                game.state.data.smokesShared = Math.min(
+                  999,
+                  (game.state.data.smokesShared ?? 0) + 1,
+                );
                 game.save();
                 ui.warning?.('They take it and the conversation loosens up.');
                 render();

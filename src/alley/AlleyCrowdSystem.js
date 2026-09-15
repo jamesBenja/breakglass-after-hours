@@ -138,7 +138,8 @@ export class AlleyCrowdSystem {
   update(dt, snapshot = {}) {
     this.elapsed += dt;
     this.targetCount = Math.max(0, Math.min(this.max, Number(snapshot.occupancy) || 0));
-    if (Math.abs(this.targetCount - this.visibleCount) >= 0.5) this.setVisibleCount(this.targetCount);
+    if (Math.abs(this.targetCount - this.visibleCount) >= 0.5)
+      this.setVisibleCount(this.targetCount);
 
     const rowdy = clamp(snapshot.rowdyLevel ?? 0);
     const conversation = clamp(snapshot.conversationLevel ?? 0.2);
@@ -229,7 +230,10 @@ export class AlleyCrowdSystem {
     for (let i = 0; i < this.visibleCount; i++) {
       if (i === index) continue;
       const other = this.members[i];
-      const distance = Math.hypot(other.currentX - member.currentX, other.currentZ - member.currentZ);
+      const distance = Math.hypot(
+        other.currentX - member.currentX,
+        other.currentZ - member.currentZ,
+      );
       if (distance > 3.4) continue;
       if (type === 'rowdy') other.reaction = Math.max(other.reaction, 0.55);
       if (type === 'quiet') other.quietPulse = Math.max(other.quietPulse, 0.6);
