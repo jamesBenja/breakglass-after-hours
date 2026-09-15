@@ -68,10 +68,14 @@ jobs:
       - name: Formatting check
         run: pnpm exec prettier --check src tests server .github/workflows/iphone-preview.yml
 
-      - name: Commit verified recovery
+      - name: Commit verified game recovery
         shell: bash
         run: |
-          rm .github/workflows/fix-shared-media-sync.yml scripts/fix_shared_media_sync.py
+          # The Actions token cannot modify workflow files. Restore the deploy workflow here and
+          # leave this validation workflow in place; ChatGPT will update/delete both directly
+          # after the tested game code has safely reached the recovery branch.
+          git checkout HEAD -- .github/workflows/iphone-preview.yml .github/workflows/fix-shared-media-sync.yml
+          rm scripts/fix_shared_media_sync.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
