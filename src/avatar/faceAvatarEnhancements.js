@@ -63,6 +63,134 @@ async function makeFaceTexture(file) {
   }
 }
 
+function stopCamera(stream) {
+  for (const track of stream?.getTracks?.() ?? []) track.stop();
+}
+
+function snapshotVideo(ui, video) {
+  const sourceWidth = video.videoWidth || 640;
+  const sourceHeight = video.videoHeight || 480;
+  const width = Math.min(720, sourceWidth);
+  const height = Math.round((sourceHeight / sourceWidth) * width);
+  const canvas = ui.document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Could not capture a frame from the camera.');
+  context.translate(width, 0);
+  context.scale(-1, 1);
+  context.drawImage(video, 0, 0, width, height);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Could not capture a frame from the camera.'));
+      },
+      'image/jpeg',
+      0.92,
+    );
+  });
+}
+
+async function takeCameraSelfie(ui, trigger, status) {
+  const mediaDevices = globalThis.navigator?.mediaDevices;
+  if (!mediaDevices?.getUserMedia) {
+    throw new Error('Live camera is unavailable in this browser. Use CHOOSE PHOTO INSTEAD.');
+  }
+
+  trigger.disabled = true;
+  status.textContent = 'Requesting camera permission…';
+  let stream;
+  let dialog;
+  try {
+    stream = await mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    });
+
+    dialog = ui.document.createElement('dialog');
+    dialog.className = 'avatar-camera-dialog';
+    dialog.setAttribute('aria-label', 'Take avatar selfie');
+    dialog.style.maxWidth = 'min(92vw, 620px)';
+    dialog.style.width = '100%';
+
+    const heading = ui.document.createElement('strong');
+    heading.textContent = 'LIVE CAMERA · CENTER YOUR FACE';
+
+    const help = ui.document.createElement('small');
+    help.textContent = 'Nothing is uploaded. Capture is processed locally into the small avatar face texture.';
+
+    const video = ui.document.createElement('video');
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    video.style.display = 'block';
+    video.style.width = '100%';
+    video.style.margin = '12px 0';
+    video.style.transform = 'scaleX(-1)';
+    video.style.borderRadius = '8px';
+
+    const row = ui.document.createElement('div');
+    row.className = 'row';
+    const useFrame = ui.document.createElement('button');
+    useFrame.type = 'button';
+    useFrame.textContent = 'CAPTURE SELFIE';
+    const cancel = ui.document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'CANCEL';
+    row.append(useFrame, cancel);
+    dialog.append(heading, help, video, row);
+    ui.document.body.appendChild(dialog);
+
+    const result = new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (value, error = null) => {
+        if (settled) return;
+        settled = true;
+        if (error) reject(error);
+        else resolve(value);
+      };
+      useFrame.onclick = async () => {
+        useFrame.disabled = true;
+        status.textContent = 'Capturing face locally…';
+        try {
+          finish(await snapshotVideo(ui, video));
+        } catch (error) {
+          useFrame.disabled = false;
+          finish(null, error);
+        }
+      };
+      cancel.onclick = () => finish(null);
+      dialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        finish(null);
+      });
+    });
+
+    await video.play();
+    dialog.showModal();
+    return await result;
+  } catch (error) {
+    if (error?.name === 'NotAllowedError') {
+      throw new Error('Camera permission was denied. Allow camera access or use CHOOSE PHOTO INSTEAD.');
+    }
+    if (error?.name === 'NotFoundError') {
+      throw new Error('No camera was found. Use CHOOSE PHOTO INSTEAD.');
+    }
+    throw error;
+  } finally {
+    stopCamera(stream);
+    dialog?.close?.();
+    dialog?.remove?.();
+    trigger.disabled = false;
+  }
+}
+
 function syncFaceUi(ui) {
   const preview = ui.document.getElementById('avatarFacePreview');
   const status = ui.document.getElementById('avatarFaceStatus');
@@ -83,7 +211,7 @@ function syncFaceUi(ui) {
   if (status) {
     if (!hasFace) {
       status.textContent =
-        'Optional. Uses your camera. The photo is processed on this device and is not uploaded.';
+        'Optional. Opens your live camera when available. The photo is processed on this device and is not uploaded.';
     } else if (share?.checked) {
       status.textContent =
         'Face texture ready. Multiplayer sharing is ON, so the small processed texture will be sent to players in your live room.';
@@ -116,6 +244,9 @@ function ensureFaceUi(ui) {
   const capture = ui.document.createElement('button');
   capture.type = 'button';
   capture.textContent = 'SCAN FACE / TAKE SELFIE';
+  const choosePhoto = ui.document.createElement('button');
+  choosePhoto.type = 'button';
+  choosePhoto.textContent = 'CHOOSE PHOTO INSTEAD';
   const remove = ui.document.createElement('button');
   remove.type = 'button';
   remove.id = 'avatarFaceRemove';
@@ -126,7 +257,6 @@ function ensureFaceUi(ui) {
   input.id = 'avatarFaceInput';
   input.type = 'file';
   input.accept = 'image/*';
-  input.setAttribute('capture', 'user');
   input.hidden = true;
 
   const shareLabel = ui.document.createElement('label');
@@ -144,12 +274,27 @@ function ensureFaceUi(ui) {
   const status = ui.document.createElement('small');
   status.id = 'avatarFaceStatus';
 
-  capture.onclick = () => input.click();
+  capture.onclick = async () => {
+    try {
+      const photo = await takeCameraSelfie(ui, capture, status);
+      if (!photo) {
+        syncFaceUi(ui);
+        return;
+      }
+      status.textContent = 'Processing face locally…';
+      ui._faceTextureData = await makeFaceTexture(photo);
+      syncFaceUi(ui);
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  };
+  choosePhoto.onclick = () => input.click();
   input.onchange = async () => {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
     capture.disabled = true;
+    choosePhoto.disabled = true;
     status.textContent = 'Processing face locally…';
     try {
       ui._faceTextureData = await makeFaceTexture(file);
@@ -158,6 +303,7 @@ function ensureFaceUi(ui) {
       status.textContent = error.message;
     } finally {
       capture.disabled = false;
+      choosePhoto.disabled = false;
     }
   };
   remove.onclick = () => {
@@ -167,7 +313,7 @@ function ensureFaceUi(ui) {
   };
   share.onchange = () => syncFaceUi(ui);
 
-  controls.append(capture, remove, input);
+  controls.append(capture, choosePhoto, remove, input);
   host.append(heading, preview, controls, shareLabel, status);
   const photoConsent = ui.document.getElementById('avatarPhotos')?.closest('label');
   form.insertBefore(host, photoConsent ?? null);
