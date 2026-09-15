@@ -67,16 +67,31 @@ function syncFaceUi(ui) {
   const preview = ui.document.getElementById('avatarFacePreview');
   const status = ui.document.getElementById('avatarFaceStatus');
   const remove = ui.document.getElementById('avatarFaceRemove');
+  const share = ui.document.getElementById('avatarFaceShare');
+  const shareLabel = ui.document.getElementById('avatarFaceShareLabel');
   const hasFace = !!normalizeFaceTexture(ui._faceTextureData);
   if (preview) {
     preview.hidden = !hasFace;
     preview.src = hasFace ? ui._faceTextureData : '';
   }
   if (remove) remove.hidden = !hasFace;
-  if (status)
-    status.textContent = hasFace
-      ? 'Face texture ready. It stays in this browser unless you remove it.'
-      : 'Optional. Uses your front camera. The photo is processed on this device and is not uploaded.';
+  if (share) {
+    share.disabled = !hasFace;
+    if (!hasFace) share.checked = false;
+  }
+  if (shareLabel) shareLabel.hidden = !hasFace;
+  if (status) {
+    if (!hasFace) {
+      status.textContent =
+        'Optional. Uses your camera. The photo is processed on this device and is not uploaded.';
+    } else if (share?.checked) {
+      status.textContent =
+        'Face texture ready. Multiplayer sharing is ON, so the small processed texture will be sent to players in your live room.';
+    } else {
+      status.textContent =
+        'Face texture ready. It stays in this browser unless you explicitly enable multiplayer sharing below.';
+    }
+  }
 }
 
 function ensureFaceUi(ui) {
@@ -114,6 +129,18 @@ function ensureFaceUi(ui) {
   input.setAttribute('capture', 'user');
   input.hidden = true;
 
+  const shareLabel = ui.document.createElement('label');
+  shareLabel.id = 'avatarFaceShareLabel';
+  shareLabel.className = 'avatar-face-share';
+  shareLabel.hidden = true;
+  const share = ui.document.createElement('input');
+  share.id = 'avatarFaceShare';
+  share.type = 'checkbox';
+  share.checked = false;
+  const shareText = ui.document.createElement('span');
+  shareText.textContent = 'Share my processed face texture with other players in multiplayer';
+  shareLabel.append(share, shareText);
+
   const status = ui.document.createElement('small');
   status.id = 'avatarFaceStatus';
 
@@ -135,11 +162,13 @@ function ensureFaceUi(ui) {
   };
   remove.onclick = () => {
     ui._faceTextureData = null;
+    share.checked = false;
     syncFaceUi(ui);
   };
+  share.onchange = () => syncFaceUi(ui);
 
   controls.append(capture, remove, input);
-  host.append(heading, preview, controls, status);
+  host.append(heading, preview, controls, shareLabel, status);
   const photoConsent = ui.document.getElementById('avatarPhotos')?.closest('label');
   form.insertBefore(host, photoConsent ?? null);
   syncFaceUi(ui);
@@ -204,13 +233,18 @@ export function installFaceAvatarEnhancements() {
     ensureFaceUi(this);
     this._faceTextureData = normalizeFaceTexture(profile.faceTexture);
     baseSetAvatarProfile.call(this, profile);
+    const share = this.document.getElementById('avatarFaceShare');
+    if (share) share.checked = profile.shareFaceMultiplayer === true && !!this._faceTextureData;
     syncFaceUi(this);
   };
   Hud.prototype.avatarProfile = function avatarProfileWithFace() {
     ensureFaceUi(this);
+    const faceTexture = normalizeFaceTexture(this._faceTextureData);
     return {
       ...baseAvatarProfile.call(this),
-      faceTexture: normalizeFaceTexture(this._faceTextureData),
+      faceTexture,
+      shareFaceMultiplayer:
+        !!faceTexture && this.document.getElementById('avatarFaceShare')?.checked === true,
     };
   };
 
