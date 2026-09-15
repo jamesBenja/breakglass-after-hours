@@ -1,4 +1,5 @@
 import { installMultiplayerEmoteAnimations } from './emoteAnimations.js';
+import { InstrumentSync } from './InstrumentSync.js';
 import { MultiplayerClient, resolveMultiplayerConfig } from './MultiplayerClient.js';
 
 const EXTRA_SHARED_STATIONS = new Set([
@@ -33,6 +34,9 @@ export function installMultiplayerEnhancements(game, ui) {
     return baseResourceForTarget(target);
   };
 
+  const instrumentSync = new InstrumentSync(multiplayer);
+  multiplayer.instrumentSync = instrumentSync;
+
   const baseReady = ui.ready.bind(ui);
   ui.ready = (start) =>
     baseReady(async (avatarProfile) => {
@@ -55,12 +59,14 @@ export function installMultiplayerEnhancements(game, ui) {
 
   const baseUpdate = game.update.bind(game);
   game.update = (now, movementOverride = null) => {
+    instrumentSync.update();
     multiplayer.update(now);
     return baseUpdate(now, movementOverride);
   };
 
   const baseDispose = game.dispose.bind(game);
   game.dispose = async () => {
+    instrumentSync.dispose();
     multiplayer.dispose();
     return baseDispose();
   };
