@@ -1,6 +1,14 @@
 import { installMultiplayerEmoteAnimations } from './emoteAnimations.js';
 import { MultiplayerClient, resolveMultiplayerConfig } from './MultiplayerClient.js';
 
+const EXTRA_SHARED_STATIONS = new Set([
+  'houseDjDesk',
+  'tapeArchive',
+  'tapeMachine',
+  'liveArchive',
+  'livePlayback',
+]);
+
 export function installMultiplayerEnhancements(game, ui) {
   if (!game || game.multiplayer) return game?.multiplayer ?? null;
   installMultiplayerEmoteAnimations();
@@ -12,6 +20,18 @@ export function installMultiplayerEnhancements(game, ui) {
     room: config.room,
   });
   game.multiplayer = multiplayer;
+
+  const baseResourceForTarget = multiplayer.world.resourceForTarget.bind(multiplayer.world);
+  multiplayer.world.resourceForTarget = (target) => {
+    if (EXTRA_SHARED_STATIONS.has(target?.action)) {
+      const sceneId = game.sceneManager.current?.definition?.id ?? 'unknown';
+      const id = String(target.id || target.action)
+        .replace(/[^a-z0-9:._-]/gi, '-')
+        .slice(0, 72);
+      return `${sceneId}:${id}`;
+    }
+    return baseResourceForTarget(target);
+  };
 
   const baseReady = ui.ready.bind(ui);
   ui.ready = (start) =>
