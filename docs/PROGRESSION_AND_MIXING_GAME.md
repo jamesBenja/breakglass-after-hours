@@ -8,7 +8,8 @@ Named characters that expose gameplay interactions receive camera-facing green n
 
 The studio now has explicit state-driven access gates rather than relying on the player discovering every room accidentally.
 
-- `storageAccessGranted`: Jace explains the tape archive, escorts the player to Storage and unlocks both Storage entrances. The tape archive interaction is unavailable until this state is true. The hidden roof route remains its own Easter egg after Storage has been opened.
+- `tapeArchiveAccessGranted`: Jace explains the tape archive, escorts the player to upstairs Storage and unlocks both Storage entrances. The tape archive interaction is unavailable until this state is true. The hidden roof route remains its own Easter egg after Storage has been opened.
+- `storageAccessGranted`: remains reserved for David's separate disguised furniture-storage passage downstairs. This intentionally cannot unlock Jace's upstairs archive room, including for existing saves.
 - `deadRoomAccessGranted`: Boogaloo explains guitar/amp pairing, escorts the player to the Dead Room and unlocks the room. Guitar and amp interactions are unavailable until this state is true.
 - `alleyShortcutUnlocked`: the reward service stair connects the studio floor directly to the alley in both directions.
 
