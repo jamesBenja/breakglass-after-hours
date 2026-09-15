@@ -376,7 +376,12 @@ function updateObject(socket, message) {
   const objectId = OBJECT_ID_PATTERN.test(message.objectId) ? message.objectId : null;
   if (!objectId) return;
   const room = roomFor(player.roomId);
-  const data = objectId === 'dj-led-wall' ? sanitizeLedWall(message.data) : sanitizeJson(message.data);
+  if (objectId === 'dj-led-wall') {
+    const controller = room.resources.get('led-wall-controller');
+    if (!controller || controller.ownerId !== player.id) return;
+  }
+  const data =
+    objectId === 'dj-led-wall' ? sanitizeLedWall(message.data) : sanitizeJson(message.data);
   const serialized = JSON.stringify(data);
   const maxBytes = objectId === 'dj-led-wall' ? 150_000 : 16_000;
   if (serialized.length > maxBytes) return;
@@ -408,16 +413,18 @@ function sanitizeDjState(value = {}) {
       filter: clamp(deck.filter, -1, 1),
       reverb: clamp(deck.reverb),
       echo: clamp(deck.echo),
-      loopBeats: [0, 1, 2, 4, 8, 16, 32].includes(Number(deck.loopBeats)) ? Number(deck.loopBeats) : 0,
+      loopBeats: [0, 1, 2, 4, 8, 16, 32].includes(Number(deck.loopBeats))
+        ? Number(deck.loopBeats)
+        : 0,
       position: clamp(deck.position, 0, 60 * 60 * 4),
       deviceMode: ['cdj', 'vinyl'].includes(deck.deviceMode) ? deck.deviceMode : 'cdj',
       vinylRpm: Math.abs(finite(deck.vinylRpm, 33.333) - 45) < 1 ? 45 : 33.333,
       motorOn: deck.motorOn !== false,
       platterHeld: deck.platterHeld === true,
       cuePoints: Array.isArray(deck.cuePoints)
-        ? deck.cuePoints.slice(0, 8).map((value) =>
-            Number.isFinite(Number(value)) ? clamp(value, 0, 60 * 60 * 4) : null,
-          )
+        ? deck.cuePoints
+            .slice(0, 8)
+            .map((value) => (Number.isFinite(Number(value)) ? clamp(value, 0, 60 * 60 * 4) : null))
         : [],
       loopStart: clamp(deck.loopStart, 0, 60 * 60 * 4),
       loopEnd: clamp(deck.loopEnd, 0, 60 * 60 * 4),

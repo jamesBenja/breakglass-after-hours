@@ -240,9 +240,16 @@ export class SharedWorld {
         dj.setReverb?.(deckId, target.reverb);
         dj.setEcho?.(deckId, target.echo);
         if (target.deviceMode) dj.setDeviceMode?.(deckId, target.deviceMode);
-        if (target.deviceMode === 'vinyl' && target.vinylRpm) dj.setVinylRpm?.(deckId, target.vinylRpm);
-        deck.motorOn = target.motorOn !== false;
-        deck.platterHeld = target.platterHeld === true;
+        if (target.deviceMode === 'vinyl' && target.vinylRpm)
+          dj.setVinylRpm?.(deckId, target.vinylRpm);
+        const targetMotorOn = target.motorOn !== false;
+        if (typeof dj.toggleMotor === 'function' && deck.motorOn !== targetMotorOn)
+          dj.toggleMotor(deckId);
+        else deck.motorOn = targetMotorOn;
+        const targetHeld = target.platterHeld === true;
+        if (typeof dj.setPlatterHeld === 'function' && deck.platterHeld !== targetHeld)
+          dj.setPlatterHeld(deckId, targetHeld);
+        else deck.platterHeld = targetHeld;
         if (Array.isArray(target.cuePoints)) deck.cuePoints = target.cuePoints.slice(0, 8);
         if (target.playing && !deck.playing) await dj.playDeck(deckId);
         else if (!target.playing && deck.playing) dj.stopDeck(deckId);
@@ -258,8 +265,12 @@ export class SharedWorld {
           typeof dj.setLoop === 'function' &&
           Number(target.loopBeats) !== Number(deck.loopBeats || 0)
         ) {
-          if (target.loopBeats) (dj.setPreciseLoop ?? dj.setLoop).call(dj, deckId, target.loopBeats);
-          else if (deck.loopBeats) dj.setLoop(deckId, deck.loopBeats);
+          if (target.loopBeats)
+            (dj.setPreciseLoop ?? dj.setLoop).call(dj, deckId, target.loopBeats);
+          else if (deck.loopBeats) {
+            if (typeof dj.setPreciseLoop === 'function') dj.setPreciseLoop(deckId, 0);
+            else dj.setLoop(deckId, deck.loopBeats);
+          }
         }
       }
     } finally {
@@ -437,7 +448,8 @@ export class SharedWorld {
     if (!message.objectId) return;
     this.objects.set(message.objectId, message.data);
     if (message.objectId === 'take-a-break-installation') this.applyInstallation(message.data);
-    if (message.objectId === 'dj-led-wall') this.game.ledWall?.apply?.(message.data, { remote: true });
+    if (message.objectId === 'dj-led-wall')
+      this.game.ledWall?.apply?.(message.data, { remote: true });
   }
 
   patchSeats() {

@@ -16,7 +16,12 @@
   position: relative;
   height: 7px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255, 95, 95, 0.42), rgba(255, 255, 255, 0.2) 50%, rgba(76, 209, 255, 0.42));
+  background: linear-gradient(
+    90deg,
+    rgba(255, 95, 95, 0.42),
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(76, 209, 255, 0.42)
+  );
 }
 
 .dj-phase-rail::after {

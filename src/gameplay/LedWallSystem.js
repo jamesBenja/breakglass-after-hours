@@ -23,7 +23,8 @@ function normalizeState(value = {}) {
       ? value.graphic
       : 'text',
     imageData:
-      typeof value.imageData === 'string' && /^data:image\/(?:png|jpeg|webp);base64,/i.test(value.imageData)
+      typeof value.imageData === 'string' &&
+      /^data:image\/(?:png|jpeg|webp);base64,/i.test(value.imageData)
         ? value.imageData.slice(0, 140000)
         : null,
   };
@@ -114,14 +115,23 @@ export class LedWallSystem {
     const snapshot = this.snapshot();
     const signature = JSON.stringify(snapshot);
     if (signature === this.lastBroadcastState) return;
-    this.lastBroadcastState = signature;
     if (this.game.multiplayer?.joined) {
       if (world && !world.owns?.('led-wall-controller')) {
         this.ui.warning?.('Take control of the VISUALS desk before changing the shared LED wall.');
         return;
       }
-      this.game.multiplayer.send({ type: 'object_update', objectId: 'dj-led-wall', data: snapshot });
-    } else if (world?.objects) world.objects.set('dj-led-wall', snapshot);
+      if (
+        this.game.multiplayer.send({
+          type: 'object_update',
+          objectId: 'dj-led-wall',
+          data: snapshot,
+        })
+      )
+        this.lastBroadcastState = signature;
+    } else {
+      if (world?.objects) world.objects.set('dj-led-wall', snapshot);
+      this.lastBroadcastState = signature;
+    }
   }
 
   drawGraphic(ctx, width, height, time) {
@@ -202,12 +212,19 @@ export class LedWallSystem {
     this.elapsed += dt;
     const mesh = this.ensureMesh();
     if (!mesh || !this.context) return;
-    const animated = this.state.effect !== 'static' || ['bars', 'rings', 'checker'].includes(this.state.graphic);
+    const animated =
+      this.state.effect !== 'static' || ['bars', 'rings', 'checker'].includes(this.state.graphic);
     if (!this.dirty && !animated) return;
     this.dirty = false;
 
-    const pulse = this.state.effect === 'pulse' ? 0.5 + Math.sin(this.elapsed * this.state.speed * 5) * 0.5 : 1;
-    const strobe = this.state.effect === 'strobe' ? (Math.sin(this.elapsed * this.state.speed * 18) > 0 ? 1 : 0.08) : 1;
+    const pulse =
+      this.state.effect === 'pulse' ? 0.5 + Math.sin(this.elapsed * this.state.speed * 5) * 0.5 : 1;
+    const strobe =
+      this.state.effect === 'strobe'
+        ? Math.sin(this.elapsed * this.state.speed * 18) > 0
+          ? 1
+          : 0.08
+        : 1;
     mesh.material.emissiveIntensity = 0.35 + this.state.brightness * 2.3 * pulse * strobe;
     this.drawGraphic(this.context, this.canvas.width, this.canvas.height, this.elapsed);
     this.texture.needsUpdate = true;
@@ -251,7 +268,9 @@ export class LedWallSystem {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     const imageData = canvas.toDataURL('image/webp', 0.68);
     if (imageData.length > 120000) {
-      this.ui.warning?.('That image is still too large for the shared LED wall. Try a simpler image.');
+      this.ui.warning?.(
+        'That image is still too large for the shared LED wall. Try a simpler image.',
+      );
       return false;
     }
     await this.loadImage(imageData);
@@ -293,10 +312,12 @@ export class LedWallSystem {
         }),
       );
     }
-    row.appendChild(makeButton(this.document, 'UPLOAD IMAGE', async () => {
-      await this.chooseImage();
-      this.showControls();
-    }));
+    row.appendChild(
+      makeButton(this.document, 'UPLOAD IMAGE', async () => {
+        await this.chooseImage();
+        this.showControls();
+      }),
+    );
     this.ui.buttons.appendChild(row);
 
     const palette = this.document.createElement('div');

@@ -66,7 +66,9 @@ function enhanceSession(session) {
     return stem ? session.quantizeTake(stem.id) : false;
   };
   session.duplicateLatestTake = () => {
-    const source = [...session.stems].reverse().find((item) => item.performance || item.assetId == null);
+    const source = [...session.stems]
+      .reverse()
+      .find((item) => item.performance || item.assetId == null);
     if (!source) return false;
     const copy = JSON.parse(JSON.stringify(source));
     session.takeCounter += 1;
@@ -91,7 +93,9 @@ function enhanceSession(session) {
 
   const baseAttachPerformance = session.attachPerformance.bind(session);
   session.attachPerformance = (stemId, performance) => {
-    const prepared = performance ? { ...performance, events: performance.events?.map((event) => ({ ...event })) ?? [] } : performance;
+    const prepared = performance
+      ? { ...performance, events: performance.events?.map((event) => ({ ...event })) ?? [] }
+      : performance;
     if (prepared && session.loopEnabled) quantizePerformance(session, prepared);
     return baseAttachPerformance(stemId, prepared);
   };
@@ -240,7 +244,11 @@ function buildLoopPanel(game, ui) {
       },
     ],
   ];
-  ui.panel('STUDIO LOOP / SONG BUILDER', `${status}. Record takes into the console, quantize them to the shared loop, duplicate layers, and keep the backing session running while you overdub.`, actions);
+  ui.panel(
+    'STUDIO LOOP / SONG BUILDER',
+    `${status}. Record takes into the console, quantize them to the shared loop, duplicate layers, and keep the backing session running while you overdub.`,
+    actions,
+  );
 
   const row = ui.document.createElement('div');
   row.className = 'row studio-loop-grid';

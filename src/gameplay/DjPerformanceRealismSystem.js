@@ -37,6 +37,7 @@ function ensureState(deck) {
   deck.loopEnd ??= 0;
   deck._jogBend ??= 0;
   deck._phaseErrorMs ??= 0;
+  deck._transportFrozenAt ??= null;
 }
 
 function applyPlaybackRate(mixer, deck) {
@@ -47,7 +48,8 @@ function applyPlaybackRate(mixer, deck) {
   const rpmMultiplier = deck.deviceMode === 'vinyl' ? deck.vinylRpm / 33.333 : 1;
   const bend = 1 + clamp(deck._jogBend, -0.06, 0.06);
   const rate = Math.max(0.001, nominal * rpmMultiplier * bend);
-  if (deck.source?.playbackRate) deck.source.playbackRate.value = deck.platterHeld ? 0.001 : rate;
+  if (deck.source?.playbackRate)
+    deck.source.playbackRate.value = deck.platterHeld || !deck.motorOn ? 0.001 : rate;
   if (deck.media) {
     deck.media.playbackRate = rate;
     if (deck.platterHeld || !deck.motorOn) deck.media.pause();
@@ -99,10 +101,14 @@ function appendDetailedControls(ui, mixer) {
   header.className = 'dj-realism-header';
   const title = ui.document.createElement('strong');
   title.textContent = `DECK ${deckId} · ${deck.deviceMode === 'vinyl' ? 'SL-1200' : 'CDJ-3000'}`;
-  const toggle = button(ui.document, deck.deviceMode === 'vinyl' ? 'USE CDJ' : 'USE TURNTABLE', () => {
-    mixer.setDeviceMode(deckId, deck.deviceMode === 'vinyl' ? 'cdj' : 'vinyl');
-    ui.djMixer(mixer, DJ_TRACKS, { onChange: () => mixer.updateVibe?.() });
-  });
+  const toggle = button(
+    ui.document,
+    deck.deviceMode === 'vinyl' ? 'USE CDJ' : 'USE TURNTABLE',
+    () => {
+      mixer.setDeviceMode(deckId, deck.deviceMode === 'vinyl' ? 'cdj' : 'vinyl');
+      ui.djMixer(mixer, DJ_TRACKS, { onChange: () => mixer.updateVibe?.() });
+    },
+  );
   header.append(title, toggle);
   host.appendChild(header);
 
@@ -122,7 +128,9 @@ function appendDetailedControls(ui, mixer) {
   loops.className = 'dj-realism-grid dj-loop-grid';
   for (const beats of LOOP_LENGTHS) {
     loops.appendChild(
-      button(ui.document, `${beats} BEAT${beats === 1 ? '' : 'S'}`, () => mixer.setPreciseLoop(deckId, beats)),
+      button(ui.document, `${beats} BEAT${beats === 1 ? '' : 'S'}`, () =>
+        mixer.setPreciseLoop(deckId, beats),
+      ),
     );
   }
   loops.appendChild(button(ui.document, 'LOOP OUT', () => mixer.setPreciseLoop(deckId, 0)));
@@ -134,7 +142,9 @@ function appendDetailedControls(ui, mixer) {
     vinyl.append(
       button(ui.document, '33⅓', () => mixer.setVinylRpm(deckId, 33.333)),
       button(ui.document, '45', () => mixer.setVinylRpm(deckId, 45)),
-      button(ui.document, deck.motorOn ? 'MOTOR STOP' : 'MOTOR START', () => mixer.toggleMotor(deckId)),
+      button(ui.document, deck.motorOn ? 'MOTOR STOP' : 'MOTOR START', () =>
+        mixer.toggleMotor(deckId),
+      ),
       button(ui.document, 'HOLD PLATTER', () => mixer.setPlatterHeld(deckId, !deck.platterHeld)),
     );
     host.appendChild(vinyl);
@@ -156,6 +166,18 @@ export function installDjPerformanceRealism(game, ui) {
   const baseSetBpm = mixer.setBpm.bind(mixer);
   const baseUpdate = mixer.update.bind(mixer);
   const baseSnapshot = mixer.snapshot.bind(mixer);
+  const baseDeckPosition =
+    typeof mixer.deckPosition === 'function' ? mixer.deckPosition.bind(mixer) : null;
+
+  if (baseDeckPosition) {
+    mixer.deckPosition = (deckId) => {
+      const deck = mixer.decks[deckId];
+      if (!deck) return 0;
+      ensureState(deck);
+      if (Number.isFinite(deck._transportFrozenAt)) return deck._transportFrozenAt;
+      return baseDeckPosition(deckId);
+    };
+  }
 
   mixer.setDeviceMode = (deckId, mode) => {
     const deck = mixer.decks[deckId];
@@ -185,7 +207,17 @@ export function installDjPerformanceRealism(game, ui) {
     const deck = mixer.decks[deckId];
     if (!deck) return false;
     ensureState(deck);
-    deck.motorOn = !deck.motorOn;
+    if (deck.motorOn) {
+      deck._transportFrozenAt = mixer.deckPosition?.(deckId) ?? 0;
+      deck.motorOn = false;
+    } else {
+      const resumeAt = Number.isFinite(deck._transportFrozenAt)
+        ? deck._transportFrozenAt
+        : (mixer.deckPosition?.(deckId) ?? 0);
+      deck.motorOn = true;
+      deck._transportFrozenAt = null;
+      if (deck.playing) mixer.restartDeckAt?.(deckId, resumeAt);
+    }
     if (!deck.motorOn && deck.media) deck.media.pause();
     applyPlaybackRate(mixer, deck);
     return deck.motorOn;
@@ -195,7 +227,17 @@ export function installDjPerformanceRealism(game, ui) {
     const deck = mixer.decks[deckId];
     if (!deck) return false;
     ensureState(deck);
-    deck.platterHeld = held === true;
+    const next = held === true;
+    if (next && !deck.platterHeld) {
+      deck._transportFrozenAt = mixer.deckPosition?.(deckId) ?? 0;
+    } else if (!next && deck.platterHeld) {
+      const resumeAt = Number.isFinite(deck._transportFrozenAt)
+        ? deck._transportFrozenAt
+        : (mixer.deckPosition?.(deckId) ?? 0);
+      deck._transportFrozenAt = null;
+      if (deck.playing && deck.motorOn) mixer.restartDeckAt?.(deckId, resumeAt);
+    }
+    deck.platterHeld = next;
     applyPlaybackRate(mixer, deck);
     return deck.platterHeld;
   };
@@ -227,6 +269,10 @@ export function installDjPerformanceRealism(game, ui) {
     if (!deck?.playing) return false;
     const current = mixer.deckPosition?.(deckId) ?? 0;
     const target = Math.max(0, current + Number(beats || 0) * sourceBeatSeconds(deck));
+    if (Number.isFinite(deck._transportFrozenAt)) {
+      deck._transportFrozenAt = target;
+      return true;
+    }
     return mixer.restartDeckAt?.(deckId, target) ?? false;
   };
 
@@ -235,6 +281,10 @@ export function installDjPerformanceRealism(game, ui) {
     if (!deck?.playing) return false;
     const current = mixer.deckPosition?.(deckId) ?? 0;
     const target = Math.max(0, current + Number(beats || 0) * sourceBeatSeconds(deck));
+    if (Number.isFinite(deck._transportFrozenAt)) {
+      deck._transportFrozenAt = target;
+      return true;
+    }
     return mixer.restartDeckAt?.(deckId, target) ?? false;
   };
 
@@ -296,6 +346,7 @@ export function installDjPerformanceRealism(game, ui) {
       ensureState(deck);
       deck.platterHeld = false;
       deck._jogBend = 0;
+      deck._transportFrozenAt = null;
     }
     return baseStopDeck(deckId);
   };
