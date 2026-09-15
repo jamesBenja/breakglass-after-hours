@@ -1,0 +1,477 @@
+scoreboard apply: OK
+
+below/alley apply: FAILED
+Traceback (most recent call last):
+  File "/home/runner/work/_temp/01ed8aaf-5811-4799-9bed-de3e4ab99926.py", line 27, in <module>
+    execute_block(
+  File "/home/runner/work/_temp/01ed8aaf-5811-4799-9bed-de3e4ab99926.py", line 14, in execute_block
+    exec(compile(script, f'{path}:{marker}', 'exec'))
+  File ".github/workflows/apply-below-alley-world-pass.yml:      - name: Apply Below layout, circulation, storage and alley life pass", line 146, in <module>
+  File ".github/workflows/apply-below-alley-world-pass.yml:      - name: Apply Below layout, circulation, storage and alley life pass", line 14, in replace_regex
+    exec(compile(script, f'{path}:{marker}', 'exec'))
+                    ^^
+NameError: name 're' is not defined. Did you forget to import 're'
+
+
+pnpm test exit: 1
+STDOUT:
+TAP version 13
+# Subtest: larger alley crowds create more disturbance
+ok 1 - larger alley crowds create more disturbance
+  ---
+  duration_ms: 1.4456
+  ...
+# Subtest: a healthy indoor party does not call police just because the music is loud
+ok 2 - a healthy indoor party does not call police just because the music is loud
+  ---
+  duration_ms: 0.691459
+  ...
+# Subtest: losing the floor creates spill-out pressure and sends more people outside
+ok 3 - losing the floor creates spill-out pressure and sends more people outside
+  ---
+  duration_ms: 0.398557
+  ...
+# Subtest: sustained rowdy outside noise brings police and cooperation sends them away
+ok 4 - sustained rowdy outside noise brings police and cooperation sends them away
+  ---
+  duration_ms: 2.03594
+  ...
+# Subtest: return police visits warn first, while arguing or ignoring still shuts down the party
+ok 5 - return police visits warn first, while arguing or ignoring still shuts down the party
+  ---
+  duration_ms: 0.331829
+  ...
+# Subtest: underground kombat attacks damage an in-range opponent and blocking reduces damage
+ok 6 - underground kombat attacks damage an in-range opponent and blocking reduces damage
+  ---
+  duration_ms: 1.79894
+  ...
+# Subtest: single-player CPU closes distance and a finished round reports a winner
+ok 7 - single-player CPU closes distance and a finished round reports a winner
+  ---
+  duration_ms: 1.26952
+  ...
+# Subtest: single-player opening grace holds the CPU and round clock briefly
+ok 8 - single-player opening grace holds the CPU and round clock briefly
+  ---
+  duration_ms: 0.533226
+  ...
+# Subtest: audio starts after activation, keeps one transport/context, and Stop cancels scheduled voices
+ok 9 - audio starts after activation, keeps one transport/context, and Stop cancels scheduled voices
+  ---
+  duration_ms: 1.648379
+  ...
+# Subtest: slow audio downloads cannot restart after Stop or override a later selection
+ok 10 - slow audio downloads cannot restart after Stop or override a later selection
+  ---
+  duration_ms: 0.38007
+  ...
+# Subtest: background suspension does not schedule notes and one-shots release their graph
+ok 11 - background suspension does not schedule notes and one-shots release their graph
+  ---
+  duration_ms: 0.635076
+  ...
+# Subtest: pending model does not fetch; failed configured asset falls back and can be retried
+ok 12 - pending model does not fetch; failed configured asset falls back and can be retried
+  ---
+  duration_ms: 0.614756
+  ...
+# Subtest: model instances are separate owned trees with configured transforms
+ok 13 - model instances are separate owned trees with configured transforms
+  ---
+  duration_ms: 3.064115
+  ...
+# Subtest: replacement shells keep fixtures and gameplay, furnished models suppress duplicate fixtures
+ok 14 - replacement shells keep fixtures and gameplay, furnished models suppress duplicate fixtures
+  ---
+  duration_ms: 64.551294
+  ...
+# Subtest: mobile unlock primes an output source during the gesture before resume settles
+ok 15 - mobile unlock primes an output source during the gesture before resume settles
+  ---
+  duration_ms: 1.979137
+  ...
+# Subtest: DJ STOP cancels a PLAY that is still waiting for the iPhone audio unlock
+ok 16 - DJ STOP cancels a PLAY that is still waiting for the iPhone audio unlock
+  ---
+  duration_ms: 1.228781
+  ...
+# Subtest: bartender service raises persistent intoxication and water lowers it
+ok 17 - bartender service raises persistent intoxication and water lowers it
+  ---
+  duration_ms: 2.193191
+  ...
+# Subtest: coffee reduces handling impairment but does not erase underlying alcohol
+ok 18 - coffee reduces handling impairment but does not erase underlying alcohol
+  ---
+  duration_ms: 0.396725
+  ...
+# Subtest: bar cuts off heavily intoxicated player and intoxication decays over time
+ok 19 - bar cuts off heavily intoxicated player and intoxication decays over time
+  ---
+  duration_ms: 0.384316
+  ...
+# Subtest: bar service only intercepts its downstairs interactions
+not ok 20 - bar service only intercepts its downstairs interactions
+  ---
+  duration_ms: 1.822034
+  location: '/home/runner/work/breakglass-after-hours/breakglass-after-hours/tests/bar-service.test.js:90:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///home/runner/work/breakglass-after-hours/breakglass-after-hours/tests/bar-service.test.js:96:10)
+    Test.runInAsyncScope (node:async_hooks:211:14)
+    Test.run (node:internal/test_runner/test:979:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:677:18)
+    Test.postRun (node:internal/test_runner/test:1090:19)
+    Test.run (node:internal/test_runner/test:1018:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:677:7)
+  ...
+# Subtest: camera view cycles follow, close and POV without doorway-driven mode changes
+ok 21 - camera view cycles follow, close and POV without doorway-driven mode changes
+  ---
+  duration_ms: 2.469289
+  ...
+# Subtest: camera-only walls block the view but not player movement
+ok 22 - camera-only walls block the view but not player movement
+  ---
+  duration_ms: 0.626573
+  ...
+# Subtest: the furnished studio and Take A Break expose real seating
+ok 23 - the furnished studio and Take A Break expose real seating
+  ---
+  duration_ms: 0.710607
+  ...
+# Subtest: seated installation focus heavily attenuates the club and exposes adjustable layers
+ok 24 - seated installation focus heavily attenuates the club and exposes adjustable layers
+  ---
+  duration_ms: 0.473848
+  ...
+# Subtest: Below room functions are on the correct opposite sides
+ok 25 - Below room functions are on the correct opposite sides
+  ---
+  duration_ms: 0.927356
+  ...
+# Subtest: studio stair is gated by Zander and remains spatially accessible
+ok 26 - studio stair is gated by Zander and remains spatially accessible
+  ---
+  duration_ms: 0.236789
+  ...
+# Subtest: James gates discovery of the house-DJ producer table
+ok 27 - James gates discovery of the house-DJ producer table
+  ---
+  duration_ms: 1.768937
+  ...
+# Subtest: new progression flags survive save validation
+ok 28 - new progression flags survive save validation
+  ---
+  duration_ms: 1.041114
+  ...
+# Subtest: DJ phase sync preserves musical beat phase across different source BPMs
+ok 29 - DJ phase sync preserves musical beat phase across different source BPMs
+  ---
+  duration_ms: 1.879719
+  ...
+# Subtest: decoded masters get a musical beat-grid offset instead of assuming time zero is a beat
+ok 30 - decoded masters get a musical beat-grid offset instead of assuming time zero is a beat
+  ---
+  duration_ms: 12.635637
+  ...
+# Subtest: door difficulty lets DJs and promoters straight in while listeners face the guest flow
+ok 31 - door difficulty lets DJs and promoters straight in while listeners face the guest flow
+  ---
+  duration_ms: 0.288185
+  ...
+# Subtest: alley crowd turns occupancy into visible interactive people
+ok 32 - alley crowd turns occupancy into visible interactive people
+  ---
+  duration_ms: 5.870018
+  ...
+# Subtest: avatar profile keeps only small local data-image face textures
+ok 33 - avatar profile keeps only small local data-image face textures
+  ---
+  duration_ms: 1.131096
+  ...
+# Subtest: every game boot is forced to the alley start instead of a saved interior position
+ok 34 - every game boot is forced to the alley start instead of a saved interior position
+  ---
+  duration_ms: 1.341747
+  ...
+# Subtest: club door refuses entry until the player has talked to security
+ok 35 - club door refuses entry until the player has talked to security
+  ---
+  duration_ms: 0.41398
+  ...
+# Subtest: only in-range interactions on the active floor are offered
+ok 36 - only in-range interactions on the active floor are offered
+  ---
+  duration_ms: 1.976301
+  ...
+# Subtest: a nearer out-of-range target does not mask an eligible larger interaction radius
+ok 37 - a nearer out-of-range target does not mask an eligible larger interaction radius
+  ---
+  duration_ms: 0.195428
+  ...
+# Subtest: instrument, console and DJ actions survive extraction; stale panel actions cannot act across floors
+ok 38 - instrument, console and DJ actions survive extraction; stale panel actions cannot act across floors
+  ---
+  duration_ms: 1.646737
+  ...
+# Subtest: input is gated, normalizes diagonals, clears on blur, and ignores repeat actions
+ok 39 - input is gated, normalizes diagonals, clears on blur, and ignores repeat actions
+  ---
+  duration_ms: 1.768525
+  ...
+# Subtest: lighting rig exposes serializable controls and clamps haze
+ok 40 - lighting rig exposes serializable controls and clamps haze
+  ---
+  duration_ms: 5.35504
+  ...
+# Subtest: club palettes change fixture, strobe and laser colors together
+ok 41 - club palettes change fixture, strobe and laser colors together
+  ---
+  duration_ms: 1.923665
+  ...
+# Subtest: audio metrics modulate fixture, strobe and laser output
+ok 42 - audio metrics modulate fixture, strobe and laser output
+  ---
+  duration_ms: 1.575551
+  ...
+# Subtest: companion-only Maddox stays hidden until enabled and then follows the player
+ok 43 - companion-only Maddox stays hidden until enabled and then follows the player
+  ---
+  duration_ms: 13.89322
+  ...
+# Subtest: Maddox follows a waypoint route and settles at the hidden roof passage
+ok 44 - Maddox follows a waypoint route and settles at the hidden roof passage
+  ---
+  duration_ms: 9.718169
+  ...
+# Subtest: petting Maddox enough unlocks the roof secret and starts guide behavior
+ok 45 - petting Maddox enough unlocks the roof secret and starts guide behavior
+  ---
+  duration_ms: 3.764687
+  ...
+# Subtest: touch-note API plays and records the same event format as keyboard input
+ok 46 - touch-note API plays and records the same event format as keyboard input
+  ---
+  duration_ms: 2.487375
+  ...
+# Subtest: touch drum pads play and record named drum events
+ok 47 - touch drum pads play and record named drum events
+  ---
+  duration_ms: 0.695665
+  ...
+# Subtest: multiplayer avatar never sends a face texture without explicit opt-in
+ok 48 - multiplayer avatar never sends a face texture without explicit opt-in
+  ---
+  duration_ms: 0.975878
+  ...
+# Subtest: multiplayer avatar includes the processed face texture after explicit opt-in
+ok 49 - multiplayer avatar includes the processed face texture after explicit opt-in
+  ---
+  duration_ms: 0.171363
+  ...
+# Subtest: multiplayer server owns shared resources, world state, chat and media signaling
+ok 50 - multiplayer server owns shared resources, world state, chat and media signaling
+  ---
+  duration_ms: 161.426073
+  ...
+# Subtest: Below landing and main room connect, disconnected legacy side rooms remain documented boundaries
+ok 51 - Below landing and main room connect, disconnected legacy side rooms remain documented boundaries
+  ---
+  duration_ms: 4.723119
+  ...
+# Subtest: all gameplay anchors can be approached on their floor and spawns are valid
+not ok 52 - all gameplay anchors can be approached on their floor and spawns are valid
+  ---
+  duration_ms: 11.867044
+  location: '/home/runner/work/breakglass-after-hours/breakglass-after-hours/tests/navigation.test.js:18:1'
+  failureType: 'testCodeFailure'
+  error: 'downstairs/alley spawn -6.55, 0, -0.55'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///home/runner/work/breakglass-after-hours/breakglass-after-hours/tests/navigation.test.js:22:14)
+    Test.runInAsyncScope (node:async_hooks:211:14)
+    Test.run (node:internal/test_runner/test:979:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:677:18)
+    Test.postRun (node:internal/test_runner/test:1090:19)
+    Test.run (node:internal/test_runner/test:1018:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: thin obstacles block fast motion and permit sliding along their edge
+ok 53 - thin obstacles block fast motion and permit sliding along their edge
+  ---
+  duration_ms: 3.86192
+  ...
+# Subtest: ramps and small steps raise the player, tall steps block, stacked floors select by height
+ok 54 - ramps and small steps raise the player, tall steps block, stacked floors select by height
+  ---
+  duration_ms: 0.584682
+  ...
+# Subtest: jump lands on its floor and dancing has the same duration at different frame rates
+ok 55 - jump lands on its floor and dancing has the same duration at different frame rates
+  ---
+  duration_ms: 53.464134
+  ...
+# Subtest: party-life world puts Nora in the alley and cached studio definition
+ok 56 - party-life world puts Nora in the alley and cached studio definition
+  ---
+  duration_ms: 0.897563
+  ...
+# Subtest: fresh upstairs scene definition contains runtime party-life anchors and Nora
+ok 57 - fresh upstairs scene definition contains runtime party-life anchors and Nora
+  ---
+  duration_ms: 0.800329
+  ...
+# Subtest: the complete requested house-DJ roster is available
+ok 58 - the complete requested house-DJ roster is available
+  ---
+  duration_ms: 0.731928
+  ...
+# Subtest: every Live From Breakglass archive selection has an in-room band mapping
+ok 59 - every Live From Breakglass archive selection has an in-room band mapping
+  ---
+  duration_ms: 0.166125
+  ...
+# Subtest: directed photography stops Nora and pulls a nearby person toward the shot
+ok 60 - directed photography stops Nora and pulls a nearby person toward the shot
+  ---
+  duration_ms: 34.543826
+  ...
+# Subtest: party-life state persists the house DJ, smoke count and 18-photo roll
+ok 61 - party-life state persists the house DJ, smoke count and 18-photo roll
+  ---
+  duration_ms: 1.532448
+  ...
+# Subtest: repeated floor trips keep one player and independent scene trees; duplicate transitions are rejected
+ok 62 - repeated floor trips keep one player and independent scene trees; duplicate transitions are rejected
+  ---
+  duration_ms: 18.894114
+  ...
+# Subtest: valid saves restore floor and position; invalid positions safely use the named spawn
+ok 63 - valid saves restore floor and position; invalid positions safely use the named spawn
+  ---
+  duration_ms: 6.329075
+  ...
+# Subtest: save/reload retains contacts, visited floors and selected music without an autoplay flag
+ok 64 - save/reload retains contacts, visited floors and selected music without an autoplay flag
+  ---
+  duration_ms: 1.198186
+  ...
+# Subtest: corrupt, future and partial saves are validated; blocked storage never prevents play
+ok 65 - corrupt, future and partial saves are validated; blocked storage never prevents play
+  ---
+  duration_ms: 0.460058
+  ...
+# Subtest: bar scoreboard and Take A Break song player are discoverable interactions
+ok 66 - bar scoreboard and Take A Break song player are discoverable interactions
+  ---
+  duration_ms: 0.960705
+  ...
+# Subtest: studio kitchen has an interactive espresso machine
+ok 67 - studio kitchen has an interactive espresso machine
+  ---
+  duration_ms: 0.167197
+  ...
+# Subtest: crowd engagement rewards a dancing, high-vibe, well-mixed room
+ok 68 - crowd engagement rewards a dancing, high-vibe, well-mixed room
+  ---
+  duration_ms: 0.256568
+  ...
+# Subtest: game records and saved loop songs survive save validation
+ok 69 - game records and saved loop songs survive save validation
+  ---
+  duration_ms: 1.232346
+  ...
+# Subtest: studio session normalization preserves loop-builder settings
+ok 70 - studio session normalization preserves loop-builder settings
+  ---
+  duration_ms: 0.167647
+  ...
+# Subtest: Pass A: entry, full polygon loop, Live Room, Mixing Suite, Clark and return
+ok 71 - Pass A: entry, full polygon loop, Live Room, Mixing Suite, Clark and return
+  ---
+  duration_ms: 1174.488406
+  ...
+# Subtest: Pass B: entry, full polygon loop, Live Room, Mixing Suite, Clark and return
+ok 72 - Pass B: entry, full polygon loop, Live Room, Mixing Suite, Clark and return
+  ---
+  duration_ms: 2618.56474
+  ...
+# Subtest: Pass A: every visible open door is traversable
+ok 73 - Pass A: every visible open door is traversable
+  ---
+  duration_ms: 7.822756
+  ...
+# Subtest: Pass B: every visible open door is traversable
+ok 74 - Pass B: every visible open door is traversable
+  ---
+  duration_ms: 17.252941
+  ...
+# Subtest: historic Neve suite is enterable while remaining private suites stay solid
+ok 75 - historic Neve suite is enterable while remaining private suites stay solid
+  ---
+  duration_ms: 0.562058
+  ...
+# Subtest: coyote time accepts a late jump and rejects jumps after the grace period
+ok 76 - coyote time accepts a late jump and rejects jumps after the grace period
+  ---
+  duration_ms: 12.649808
+  ...
+# Subtest: jump input immediately before landing is buffered; it does not create repeated air jumps
+ok 77 - jump input immediately before landing is buffered; it does not create repeated air jumps
+  ---
+  duration_ms: 7.147802
+  ...
+# Subtest: ground contact is stable on a platform, low steps auto-climb and the edge can be left
+ok 78 - ground contact is stable on a platform, low steps auto-climb and the edge can be left
+  ---
+  duration_ms: 7.227369
+  ...
+# Subtest: camera clears diagonal walls and recovers after a tight corridor orbit
+ok 79 - camera clears diagonal walls and recovers after a tight corridor orbit
+  ---
+  duration_ms: 72.967319
+  ...
+# Subtest: optional overlook reaches the wall ledge while the Neve Suite remains open-topped
+ok 80 - optional overlook reaches the wall ledge while the Neve Suite remains open-topped
+  ---
+  duration_ms: 473.81307
+  ...
+# Subtest: orbiting close to a wall preserves a useful camera distance
+ok 81 - orbiting close to a wall preserves a useful camera distance
+  ---
+  duration_ms: 112.049423
+  ...
+# Subtest: a jump hits an overhead platform underside and returns to the floor
+ok 82 - a jump hits an overhead platform underside and returns to the floor
+  ---
+  duration_ms: 3.451525
+  ...
+1..82
+# tests 82
+# suites 0
+# pass 80
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5320.362829
+[ELIFECYCLE] Test failed. See above for more details.
+
+STDERR:
+$ node --test
