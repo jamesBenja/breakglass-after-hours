@@ -1,11 +1,9 @@
 # CODEX HANDOFF — Breakglass: After Hours
 
 ## Goal
-
 Turn the current browser prototype into a maintainable 3D mini-game set inside the real Breakglass Studios / Below Breakglass ecosystem.
 
 The player should eventually be able to:
-
 - navigate recognizable Breakglass spaces
 - play instruments in the Live Room
 - load, play, solo/mute, and lightly mix actual sessions in the Control Room
@@ -15,7 +13,6 @@ The player should eventually be able to:
 - discover small Breakglass stories/tasks
 
 ## Current build
-
 The canonical Vite + Three.js refactor now includes the A-103 upstairs spatial pass (package version 2.2.0). Start it with `./dev.sh`; see `README.md`, `ARCHITECTURE.md`, and `QA.md` for setup, module ownership, asset integration, and verification.
 
 - V2.1 was run before edits and preserved under Git tag `v2.1-baseline` and `archive/v2.1.html`.
@@ -26,14 +23,12 @@ The canonical Vite + Three.js refactor now includes the A-103 upstairs spatial p
 - Existing Below side-room connectivity and mesh/collision mismatches are documented in `QA.md` for reconciliation with the actual plans.
 
 ## Next engineering priorities
-
 1. Validate the A-103 tracing and gameplay clearances against current plans/models, then replace the procedural shell with reconciled GLB geometry. Keep GAME props separate and verify all door openings.
 2. Encode short, owned audio excerpts for browser playback. Do not ship giant source WAV stems directly.
 3. Build synchronized stem mixing on the shared audio engine, preserving transport ownership and stop/cancellation behavior.
 4. Refine the existing upstairs loop, case jumps and polygon perch with human playtests. Preserve camera/grounding checks. No copied Mario assets or levels.
 
 ## Design direction
-
 Stylized, low-poly, slightly miniature/diorama-like Breakglass rather than photorealism.
 Recognizable architecture, equipment and atmosphere matter more than graphical realism.
 
@@ -42,9 +37,7 @@ The experience should be a playful exploratory 3D music game, with the spatial l
 The game should feel like a music toy / studio sim / tiny social RPG, not a combat game.
 
 ## Next playable milestone
-
 A recognizable upstairs + Below loop:
-
 1. walk through actual studio geometry
 2. play a real instrument/loop
 3. go to control room
@@ -57,14 +50,12 @@ A recognizable upstairs + Below loop:
 10. return upstairs without state loss
 
 ## Asset sourcing
-
 See `DRIVE_ASSET_MANIFEST.md`.
 
 Do not assume every Drive item containing "Breakglass" is the current building.
 The `NCG_MAINROOM` Vectorworks/DWG folder discovered during search appears unrelated and must not be used unless confirmed.
 
 ## Coding quality
-
 - Keep asset references configurable.
 - No monolithic single-file architecture after refactor.
 - Scene transitions should have tests or a reproducible QA checklist.
