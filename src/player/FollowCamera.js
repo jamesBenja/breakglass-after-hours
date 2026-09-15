@@ -8,7 +8,7 @@ const DEFAULTS = {
   maxDistance: 16,
   pitch: 0.8,
   targetHeight: 1.05,
-  cameraRadius: 0.24,
+  cameraRadius: 0.34,
   shoulderSpeed: 7,
   pullInSpeed: 18,
   releaseSpeed: 5,
