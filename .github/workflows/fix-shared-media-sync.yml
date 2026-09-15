@@ -30,7 +30,10 @@ jobs:
         run: npm install --global pnpm@11.19.0
 
       - name: Apply shared media patch
-        run: python scripts/fix_shared_media_sync.py
+        shell: bash
+        run: |
+          sed -i '0,/if count != 1:/{s@if count != 1:@if count != 1 and not (path == "src/gameplay/StudioLoopEnhancements.js" and old.strip().startswith("playback.transportStartedAt") and count == 2):@}' scripts/fix_shared_media_sync.py
+          python scripts/fix_shared_media_sync.py
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
