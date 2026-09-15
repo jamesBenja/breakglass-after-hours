@@ -130,11 +130,30 @@ export function installAudioReliabilityEnhancements(game, ui) {
   window.addEventListener('keydown', arm, true);
 
   // Wrap the final DJ implementation after music FX + phase-sync patches have been installed.
+  // A transport intent counter makes STOP authoritative even when PLAY is still awaiting Safari's
+  // unlock promise. Without this, a late-resolving PLAY could start a deck after the user stopped it.
   const baseDjPlayDeck = game.dj?.playDeck?.bind(game.dj);
-  if (baseDjPlayDeck) {
+  const baseDjStopDeck = game.dj?.stopDeck?.bind(game.dj);
+  if (baseDjPlayDeck && baseDjStopDeck) {
     game.dj.playDeck = async (deckId) => {
+      const deck = game.dj.decks?.[deckId];
+      if (!deck) return false;
+      const intent = (deck._transportIntent ?? 0) + 1;
+      deck._transportIntent = intent;
       await audio.unlock();
-      return baseDjPlayDeck(deckId);
+      if (deck._transportIntent !== intent) return false;
+      const result = await baseDjPlayDeck(deckId);
+      if (deck._transportIntent !== intent) {
+        baseDjStopDeck(deckId);
+        return false;
+      }
+      return result;
+    };
+
+    game.dj.stopDeck = (deckId) => {
+      const deck = game.dj.decks?.[deckId];
+      if (deck) deck._transportIntent = (deck._transportIntent ?? 0) + 1;
+      return baseDjStopDeck(deckId);
     };
   }
 
