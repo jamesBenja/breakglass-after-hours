@@ -22,19 +22,28 @@ export function buildBelowBlockout(downScene) {
 
   // The Clark stair used to be hidden behind a continuous west wall. Split the wall around a
   // generous opening so the relationship between club and studio reads immediately.
-  wall(-6.1, -0.55, 0.24, 1.3);
+  // West wall now has two explicit openings: one into the bar and one onto the Clark stair.
+  wall(-6.1, -2.8, 0.24, 1.4);
+  wall(-6.1, -0.05, 0.24, 1.0);
   wall(-6.1, 2.45, 0.24, 2.1);
+  doorwayFrame(downScene, -5.98, -1.34, 'vertical', 'STUDIO ↑');
+  doorwayFrame(downScene, -5.98, 0.92, 'vertical', 'BAR');
+
+  // East wall gets a dedicated opening into Take A Break while preserving the service opening.
   wall(6.1, -2.825, 0.24, 1.35);
-  wall(6.1, 1.475, 0.24, 4.05);
+  wall(6.1, 0.4, 0.24, 1.9);
+  wall(6.1, 3.15, 0.24, 0.7);
+  doorwayFrame(downScene, 5.98, 2.05, 'vertical', 'TAKE A BREAK');
   wall(0, 3.5, 12.2, 0.24);
 
-  floor(downScene, -8.1, 1.7, 3.8, 4.3, mat(0x5e4331));
+  // West room: kitchen + bar. The original shell is preserved but its function is swapped.
+  floor(downScene, -8.1, 1.7, 3.8, 4.3, mat(0x4d2f2d));
   wall(-10, 1.7, 0.24, 4.3);
   wall(-8.1, 3.85, 3.8, 0.24);
   wall(-8.1, -0.45, 3.8, 0.24);
   wall(-6.2, 2.6, 0.24, 2.5);
-  box(downScene, 0.95, 0.035, 1.28, mat(0xc58a66), -6.08, 0.018, 0.76);
-  label(downScene, 'TAKE A BREAK', -8.1, 2.9, 1.7, 0.45);
+  box(downScene, 0.95, 0.035, 0.88, mat(0xb75c50), -6.08, 0.018, 0.9);
+  label(downScene, 'KITCHEN + BAR', -8.1, 2.9, 1.7, 0.42);
 
   floor(downScene, -1.6, 5.1, 7.0, 2.7, serviceFloor);
   wall(-1.6, 6.45, 7, 0.24);
@@ -42,14 +51,15 @@ export function buildBelowBlockout(downScene) {
   wall(1.9, 5.1, 0.24, 2.7);
   label(downScene, 'STORAGE', -1.6, 2.8, 5.1, 0.4);
 
-  floor(downScene, 7.65, 4.8, 2.8, 3.2, serviceFloor);
+  // East side: Take A Break sits above the remaining production/service strip.
+  floor(downScene, 7.65, 4.8, 2.8, 3.2, mat(0x5e4331));
   floor(downScene, 7.65, 1.5, 2.8, 2.6, serviceFloor);
-  floor(downScene, 7.65, -1.4, 2.8, 3.0, mat(0x4d2f2d));
+  floor(downScene, 7.65, -1.4, 2.8, 3.0, serviceFloor);
   wall(9.05, 1.7, 0.24, 9.4);
   wall(7.65, 6.4, 2.8, 0.24);
   wall(7.65, -2.9, 2.8, 0.24);
-  box(downScene, 0.95, 0.035, 1.28, mat(0xb75c50), 6.08, 0.018, -1.3);
-  label(downScene, 'KITCHEN + BAR', 7.65, 2.55, 4.8, 0.3);
+  box(downScene, 0.95, 0.035, 1.28, mat(0xc58a66), 6.08, 0.018, 2.05);
+  label(downScene, 'TAKE A BREAK', 7.65, 2.55, 4.8, 0.32);
   label(downScene, 'PRODUCTION', 7.65, 2.55, 1.5, 0.3);
   label(downScene, 'SERVICE', 7.65, 2.55, -1.4, 0.32);
 
@@ -136,16 +146,16 @@ export function buildBelowFixtures(downScene) {
 
   // Take A Break installation/chill room. Detailed couches and loose cushions are built by
   // roomFurniture.js so the room reads as a real lounge rather than placeholder boxes.
-  box(downScene, 0.08, 1.45, 2.35, mat(0xb7929f, 0.45, 0.02), -9.76, 1.55, 1.85);
-  box(downScene, 0.78, 0.52, 0.78, mat(0x2b242c), -8.72, 0.26, 1.85);
-  cyl(downScene, 0.19, 1.05, mat(0xd4a45f, 0.38, 0.12), -8.72, 1.03, 1.85);
-  label(downScene, 'IMMERSIVE INSTALLATION', -8.9, 2.45, 1.85, 0.25, '#f2c7df');
+  box(downScene, 0.08, 1.45, 2.35, mat(0xb7929f, 0.45, 0.02), 8.84, 1.55, 4.8);
+  box(downScene, 0.78, 0.52, 0.78, mat(0x2b242c), 7.65, 0.26, 4.8);
+  cyl(downScene, 0.19, 1.05, mat(0xd4a45f, 0.38, 0.12), 7.65, 1.03, 4.8);
+  label(downScene, 'IMMERSIVE INSTALLATION', 7.65, 2.45, 5.95, 0.23, '#f2c7df');
 
   for (const [x, y, z, accent] of [
-    [-9.15, 1.25, 0.35, 0xc98696],
-    [-7.05, 1.45, 0.55, 0x7799a6],
-    [-9.2, 1.6, 2.95, 0xb69b63],
-    [-7.0, 1.25, 3.0, 0x81719e],
+    [6.55, 1.25, 3.65, 0xc98696],
+    [8.55, 1.45, 3.75, 0x7799a6],
+    [6.55, 1.6, 5.9, 0xb69b63],
+    [8.55, 1.25, 6.0, 0x81719e],
   ]) {
     box(downScene, 0.24, 0.38, 0.2, mat(0x27242b), x, y, z);
     cyl(downScene, 0.07, 0.035, mat(accent, 0.48, 0.1), x, y + 0.02, z - 0.115).rotation.x =
@@ -186,19 +196,19 @@ export function buildBelowFixtures(downScene) {
   label(downScene, 'MORTAL KOMBAT II', -9.15, 1.76, -0.49, 0.14, '#ffd469');
   label(downScene, 'MKII', -9.15, 2.02, -0.02, 0.2, '#d5b056');
 
-  const counterZ = 4.42;
-  box(downScene, 2.58, 1.0, 0.82, MAT.wood, 7.65, 0.5, counterZ);
-  box(downScene, 2.68, 0.075, 0.9, mat(0xb18a61), 7.65, 1.025, counterZ);
-  for (const x of [6.78, 7.36, 7.94, 8.52]) {
-    cyl(downScene, 0.22, 0.62, MAT.metal, x, 0.31, 3.55);
-    cyl(downScene, 0.3, 0.08, mat(0x4e2729), x, 0.66, 3.55);
+  const counterZ = 2.55;
+  box(downScene, 2.7, 1.0, 0.82, MAT.wood, -8.15, 0.5, counterZ);
+  box(downScene, 2.8, 0.075, 0.9, mat(0xb18a61), -8.15, 1.025, counterZ);
+  for (const x of [-9.15, -8.48, -7.81, -7.14]) {
+    cyl(downScene, 0.22, 0.62, MAT.metal, x, 0.31, 1.62);
+    cyl(downScene, 0.3, 0.08, mat(0x4e2729), x, 0.66, 1.62);
   }
 
   const shelf = mat(0x6f523d, 0.78, 0.03);
   for (const y of [1.05, 1.62, 2.19]) {
-    box(downScene, 2.35, 0.07, 0.24, shelf, 7.65, y, 6.08);
-    for (let i = 0; i < 9; i++) {
-      const x = 6.7 + i * 0.235;
+    box(downScene, 3.1, 0.07, 0.24, shelf, -8.15, y, 3.62);
+    for (let i = 0; i < 10; i++) {
+      const x = -9.35 + i * 0.265;
       const bottleHeight = 0.18 + ((i + Math.round(y * 10)) % 3) * 0.045;
       cyl(
         downScene,
@@ -207,32 +217,32 @@ export function buildBelowFixtures(downScene) {
         mat([0x526a48, 0x74503c, 0x6a5178, 0x8c7646][i % 4], 0.38, 0.04),
         x,
         y + bottleHeight / 2 + 0.04,
-        6.0,
+        3.54,
       );
     }
   }
 
-  // Espresso machine on the working side of the kitchen bar.
+  // Espresso machine on the working side of the west-room bar.
   const steel = mat(0xa5a8a4, 0.3, 0.62);
   const coffeeDark = mat(0x242526, 0.5, 0.24);
-  box(downScene, 0.78, 0.52, 0.42, steel, 6.72, 1.1, 5.62);
-  box(downScene, 0.72, 0.12, 0.4, coffeeDark, 6.72, 1.41, 5.62);
-  box(downScene, 0.68, 0.08, 0.34, MAT.metal, 6.72, 0.81, 5.58);
-  for (const x of [6.54, 6.9]) {
-    cyl(downScene, 0.055, 0.12, coffeeDark, x, 1.16, 5.39).rotation.x = Math.PI / 2;
-    cyl(downScene, 0.022, 0.2, MAT.metal, x, 0.96, 5.4);
+  box(downScene, 0.78, 0.52, 0.42, steel, -9.18, 1.1, 2.55);
+  box(downScene, 0.72, 0.12, 0.4, coffeeDark, -9.18, 1.41, 2.55);
+  box(downScene, 0.68, 0.08, 0.34, MAT.metal, -9.18, 0.81, 2.51);
+  for (const x of [-9.36, -9.0]) {
+    cyl(downScene, 0.055, 0.12, coffeeDark, x, 1.16, 2.32).rotation.x = Math.PI / 2;
+    cyl(downScene, 0.022, 0.2, MAT.metal, x, 0.96, 2.33);
   }
-  cyl(downScene, 0.035, 0.34, MAT.metal, 7.12, 1.02, 5.55).rotation.z = 0.28;
-  for (const x of [6.5, 6.72, 6.94]) {
-    cyl(downScene, 0.075, 0.09, mat(0xe0d4c2, 0.82, 0.01), x, 1.54, 5.66);
+  cyl(downScene, 0.035, 0.34, MAT.metal, -8.78, 1.02, 2.48).rotation.z = 0.28;
+  for (const x of [-9.4, -9.18, -8.96]) {
+    cyl(downScene, 0.075, 0.09, mat(0xe0d4c2, 0.82, 0.01), x, 1.54, 2.59);
   }
-  label(downScene, 'COFFEE', 6.72, 1.92, 5.62, 0.2, '#f1dfc6');
+  label(downScene, 'COFFEE', -9.18, 1.92, 2.55, 0.2, '#f1dfc6');
 
-  for (const x of [7.28, 7.65, 8.02]) {
-    cyl(downScene, 0.035, 0.44, MAT.metal, x, 1.28, 4.72);
-    box(downScene, 0.18, 0.05, 0.1, MAT.metal, x, 1.49, 4.68);
+  for (const x of [-8.45, -8.08, -7.71]) {
+    cyl(downScene, 0.035, 0.44, MAT.metal, x, 1.28, 2.93);
+    box(downScene, 0.18, 0.05, 0.1, MAT.metal, x, 1.49, 2.89);
   }
-  label(downScene, 'COURTNEY + SIMLA · BAR', 7.65, 2.62, 5.45, 0.23, '#ffc9b0');
+  label(downScene, 'COURTNEY + SIMLA · BAR', -8.15, 2.62, 3.25, 0.23, '#ffc9b0');
 
   box(downScene, 1.45, 0.34, 0.08, mat(0x3f6c55, 0.45, 0.04), 4.6, 2.45, -3.33);
   label(downScene, 'EXIT', 4.6, 2.5, -3.28, 0.26, '#d9ffe3');

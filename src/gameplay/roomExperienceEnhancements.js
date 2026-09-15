@@ -22,7 +22,7 @@ export class TakeABreakInteractionSystem {
     const level = this.game.sceneManager.current;
     if (level?.definition?.id !== 'downstairs') return;
     const seat = TAKE_A_BREAK_SEATS[index] ?? TAKE_A_BREAK_SEATS[0];
-    const centre = [-8.72, 1.85];
+    const centre = [7.65, 4.8];
     const dx = centre[0] - seat[0];
     const dz = centre[1] - seat[2];
     const facing = Math.atan2(dx, dz);

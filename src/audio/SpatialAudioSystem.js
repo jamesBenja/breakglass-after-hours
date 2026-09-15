@@ -3,23 +3,23 @@ import { Vector3 } from 'three';
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
 const INSTALLATION_EMITTERS = [
-  { position: [-9.15, 1.25, 0.35], frequency: 110, wave: 'sine', lfo: 0.071, layer: 'low' },
+  { position: [6.55, 1.25, 3.65], frequency: 110, wave: 'sine', lfo: 0.071, layer: 'low' },
   {
-    position: [-7.05, 1.45, 0.55],
+    position: [8.55, 1.45, 3.75],
     frequency: 164.81,
     wave: 'triangle',
     lfo: 0.053,
     layer: 'texture',
   },
   {
-    position: [-9.2, 1.6, 2.95],
+    position: [6.55, 1.6, 5.9],
     frequency: 246.94,
     wave: 'sine',
     lfo: 0.043,
     layer: 'texture',
   },
   {
-    position: [-7.0, 1.25, 3.0],
+    position: [8.55, 1.25, 6.0],
     frequency: 329.63,
     wave: 'triangle',
     lfo: 0.061,

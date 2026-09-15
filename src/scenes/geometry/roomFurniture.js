@@ -81,42 +81,40 @@ export function buildTakeABreakFurniture(root) {
   const { box, cyl, mat } = primitives;
 
   couch(root, primitives, {
-    x: -8.08,
-    z: 0.92,
-    width: 2.75,
-    depth: 0.92,
+    x: 7.65,
+    z: 4.02,
+    width: 2.18,
+    depth: 0.78,
     color: 0x713e45,
   }).name = 'take-a-break-main-couch';
 
   couch(root, primitives, {
-    x: -8.2,
-    z: 3.08,
-    width: 2.55,
-    depth: 0.78,
+    x: 7.65,
+    z: 5.88,
+    width: 2.18,
+    depth: 0.72,
     color: 0x504452,
     rotation: Math.PI,
   }).name = 'take-a-break-back-couch';
 
   const cushionData = [
-    [-9.18, 1.55, 0x9f6a73, -0.2],
-    [-7.5, 1.62, 0x6d718f, 0.18],
-    [-8.0, 2.38, 0xb28b58, -0.08],
+    [6.72, 4.68, 0x9f6a73, -0.2],
+    [8.47, 4.75, 0x6d718f, 0.18],
+    [7.58, 5.25, 0xb28b58, -0.08],
   ];
   cushionData.forEach(([x, z, color, rotation], index) => {
     const cushion = floorCushion(root, primitives, x, z, color, rotation);
     cushion.name = `take-a-break-cushion-${index + 1}`;
   });
 
-  // Low table, lamp and scattered objects reinforce the real chill-room scale without blocking
-  // the central immersive-listening positions.
-  box(root, 0.72, 0.1, 0.55, mat(0x594431, 0.83, 0.03), -6.92, 0.27, 2.78);
-  for (const x of [-7.15, -6.7]) box(root, 0.06, 0.25, 0.06, mat(0x2f2c2d), x, 0.125, 2.78);
-  cyl(root, 0.09, 0.9, mat(0x3b3b40, 0.56, 0.15), -9.45, 0.46, 3.22);
-  cyl(root, 0.28, 0.18, mat(0xc89062, 0.5, 0.02), -9.45, 1.02, 3.22);
+  box(root, 0.66, 0.1, 0.5, mat(0x594431, 0.83, 0.03), 6.72, 0.27, 5.48);
+  for (const x of [6.55, 6.89]) box(root, 0.06, 0.25, 0.06, mat(0x2f2c2d), x, 0.125, 5.48);
+  cyl(root, 0.09, 0.9, mat(0x3b3b40, 0.56, 0.15), 8.62, 0.46, 5.82);
+  cyl(root, 0.28, 0.18, mat(0xc89062, 0.5, 0.02), 8.62, 1.02, 5.82);
 }
 
 export const TAKE_A_BREAK_SEATS = [
-  [-9.18, 0, 1.55],
-  [-7.5, 0, 1.62],
-  [-8.0, 0, 2.38],
+  [6.72, 0, 4.68],
+  [8.47, 0, 4.75],
+  [7.58, 0, 5.25],
 ];
