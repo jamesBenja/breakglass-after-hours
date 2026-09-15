@@ -4,7 +4,11 @@ import { RealtimeMedia } from './RealtimeMedia.js';
 import { SharedWorld } from './SharedWorld.js';
 
 const DEFAULT_ROOM = 'breakglass-main';
-const DEFAULT_SERVER = 'https://multiplayer-phase2-live-production.up.railway.app';
+const DEFAULT_SERVER = 'https://multiplayer-phase2-webrtc-production.up.railway.app';
+const LEGACY_SERVERS = new Set([
+  'https://multiplayer-phase2-live-production.up.railway.app',
+  'https://multiplayer-phase2-production.up.railway.app',
+]);
 const SEND_INTERVAL_MS = 1000 / 15;
 const RECONNECT_MAX_MS = 10_000;
 
@@ -37,6 +41,11 @@ export function resolveMultiplayerConfig() {
   let stored = null;
   try {
     stored = localStorage.getItem('breakglass.multiplayer.server');
+    // Migrate anyone who tested an earlier Phase 2 relay onto the fixed signaling service.
+    if (stored && LEGACY_SERVERS.has(stored.replace(/\/$/, ''))) {
+      localStorage.removeItem('breakglass.multiplayer.server');
+      stored = null;
+    }
   } catch {
     // Multiplayer remains optional when storage is blocked.
   }
