@@ -1,12 +1,5 @@
-import {
-  BoxGeometry,
-  CapsuleGeometry,
-  Group,
-  Mesh,
-  MeshStandardMaterial,
-  SphereGeometry,
-  Vector3,
-} from 'three';
+import { BoxGeometry, Mesh, MeshStandardMaterial, SphereGeometry, Vector3 } from 'three';
+import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
 import { dialogues } from './dialogues.js';
 
 const CHARACTER_LOOKS = {
@@ -26,7 +19,13 @@ const CHARACTER_LOOKS = {
     hairStyle: 'short',
     prop: 'camera',
   },
-  jace: { skin: 0xc18f6f, hair: 0x33231c, outfit: 0x283c46, accent: 0x7d664a, hairStyle: 'short' },
+  jace: {
+    skin: 0xc18f6f,
+    hair: 0x33231c,
+    outfit: 0x283c46,
+    accent: 0x7d664a,
+    hairStyle: 'short',
+  },
   zander: {
     skin: 0xb77d5e,
     hair: 0x211a18,
@@ -98,147 +97,32 @@ const variation = (id, salt = 0) => {
 
 function createCharacter(npc) {
   const look = { ...DEFAULT_LOOK, ...(CHARACTER_LOOKS[npc.id] ?? {}), ...(npc.appearance ?? {}) };
-  const group = new Group();
+  const bodyWidth = 0.94 + variation(npc.id, 2) * 0.13;
+  const model = createLightweightHuman({
+    skin: look.skin,
+    hair: look.hair,
+    outfit: look.outfit ?? npc.color ?? DEFAULT_LOOK.outfit,
+    trousers: 0x181a1e,
+    shoes: 0x14161a,
+    accent: look.accent,
+    hairStyle: look.hairStyle,
+  });
+  const group = model.group;
   group.name = `npc:${npc.id}`;
-  const bodyMat = material(look.outfit ?? npc.color ?? DEFAULT_LOOK.outfit);
-  const skinMat = material(look.skin);
-  const hairMat = material(look.hair);
-  const accentMat = material(look.accent);
+  model.body.scale.x = bodyWidth;
+  model.leftArm.position.x *= bodyWidth;
+  model.rightArm.position.x *= bodyWidth;
+
+  const accentMat = model.materials.accent;
   const darkMat = material(0x181a1e);
-  const eyeMat = material(0x151419);
-  const mouthMat = material(0x663f3c);
-
-  const torso = new Mesh(new CapsuleGeometry(0.245, 0.54, 5, 9), bodyMat);
-  torso.position.y = 1.04;
-  torso.scale.x = 0.94 + variation(npc.id, 2) * 0.14;
-  torso.castShadow = true;
-
-  const shoulder = new Mesh(new BoxGeometry(0.56, 0.12, 0.2), bodyMat);
-  shoulder.position.set(0, 1.29, 0);
-  shoulder.rotation.x = 0.04;
-  shoulder.castShadow = true;
-
-  const collar = new Mesh(new BoxGeometry(0.2, 0.12, 0.045), accentMat);
-  collar.position.set(0, 0.2, 0.225);
-  collar.rotation.z = 0.08;
-  torso.add(collar);
-
-  const neck = new Mesh(new CapsuleGeometry(0.075, 0.075, 4, 6), skinMat);
-  neck.position.y = 1.47;
-
-  const head = new Mesh(new SphereGeometry(0.22, 16, 12), skinMat);
-  head.scale.set(0.92 + variation(npc.id, 7) * 0.08, 1.04, 0.95);
-  head.position.y = 1.69;
-  head.castShadow = true;
-  for (const x of [-0.073, 0.073]) {
-    const eye = new Mesh(new SphereGeometry(0.022, 7, 5), eyeMat);
-    eye.position.set(x, 0.034, 0.205);
-    head.add(eye);
-    const brow = new Mesh(new BoxGeometry(0.068, 0.012, 0.012), hairMat);
-    brow.position.set(x, 0.092, 0.207);
-    brow.rotation.z = x < 0 ? -0.07 : 0.07;
-    head.add(brow);
-  }
-  const nose = new Mesh(new SphereGeometry(0.032, 7, 5), skinMat);
-  nose.scale.set(0.72, 1.08, 0.9);
-  nose.position.set(0, -0.02, 0.218);
-  head.add(nose);
-  const mouth = new Mesh(new BoxGeometry(0.082, 0.014, 0.018), mouthMat);
-  mouth.position.set(0, -0.095, 0.198);
-  head.add(mouth);
-  for (const x of [-0.218, 0.218]) {
-    const ear = new Mesh(new SphereGeometry(0.04, 7, 5), skinMat);
-    ear.scale.set(0.55, 1, 0.48);
-    ear.position.set(x, -0.01, 0);
-    head.add(ear);
-  }
-
-  const hair = new Mesh(new BoxGeometry(0.37, 0.16, 0.35), hairMat);
-  hair.position.y = 1.86;
-  hair.castShadow = true;
-  let hairBack = null;
-  if (look.hairStyle === 'long') {
-    hair.scale.set(1.04, 1.05, 1.06);
-    hair.position.y = 1.87;
-    hairBack = new Mesh(new BoxGeometry(0.39, 0.58, 0.16), hairMat);
-    hairBack.position.set(0, 1.58, -0.13);
-  } else if (look.hairStyle === 'bob') {
-    hair.scale.set(1.08, 1.2, 1.08);
-    hair.position.y = 1.84;
-    hairBack = new Mesh(new BoxGeometry(0.4, 0.34, 0.15), hairMat);
-    hairBack.position.set(0, 1.68, -0.12);
-  } else if (look.hairStyle === 'buzz') {
-    hair.scale.set(1.02, 0.34, 1.02);
-    hair.position.y = 1.88;
-  }
-  const hairBaseY = hair.position.y;
-  const hairBackBaseY = hairBack?.position.y ?? 0;
-
-  const leftArm = new Mesh(new CapsuleGeometry(0.075, 0.39, 4, 7), bodyMat);
-  const rightArm = leftArm.clone();
-  leftArm.material = bodyMat;
-  rightArm.material = bodyMat;
-  leftArm.position.set(-0.34, 1.08, 0);
-  rightArm.position.set(0.34, 1.08, 0);
-  leftArm.rotation.z = -0.08;
-  rightArm.rotation.z = 0.08;
-  for (const arm of [leftArm, rightArm]) {
-    const hand = new Mesh(new SphereGeometry(0.075, 8, 6), skinMat);
-    hand.position.y = -0.29;
-    arm.add(hand);
-  }
-
-  const leftLeg = new Mesh(new CapsuleGeometry(0.085, 0.47, 4, 7), darkMat);
-  const rightLeg = leftLeg.clone();
-  leftLeg.material = darkMat;
-  rightLeg.material = darkMat;
-  leftLeg.position.set(-0.13, 0.44, 0);
-  rightLeg.position.set(0.13, 0.44, 0);
-
-  const shoesLeft = new Mesh(new BoxGeometry(0.16, 0.09, 0.28), darkMat);
-  const shoesRight = shoesLeft.clone();
-  shoesLeft.position.set(-0.13, 0.08, 0.055);
-  shoesRight.position.set(0.13, 0.08, 0.055);
-
-  const accent = new Mesh(new BoxGeometry(0.31, 0.13, 0.06), accentMat);
-  accent.position.set(0, 1.28, 0.225);
-
-  for (const mesh of [
-    shoulder,
-    neck,
-    leftArm,
-    rightArm,
-    leftLeg,
-    rightLeg,
-    shoesLeft,
-    shoesRight,
-    accent,
-  ]) {
-    mesh.castShadow = true;
-  }
-  group.add(
-    torso,
-    shoulder,
-    neck,
-    head,
-    hair,
-    leftArm,
-    rightArm,
-    leftLeg,
-    rightLeg,
-    shoesLeft,
-    shoesRight,
-    accent,
-  );
-  if (hairBack) {
-    hairBack.castShadow = true;
-    group.add(hairBack);
-  }
+  const accent = new Mesh(new BoxGeometry(0.24, 0.055, 0.025), accentMat);
+  accent.position.set(0, 0.115, 0.205);
+  model.body.add(accent);
 
   let prop = null;
   if (look.prop === 'camera') {
     prop = new Mesh(new BoxGeometry(0.2, 0.13, 0.12), darkMat);
-    prop.position.set(0.31, 1.22, 0.19);
+    prop.position.set(0.31, 1.2, 0.2);
     const lens = new Mesh(new SphereGeometry(0.045, 8, 6), accentMat);
     lens.scale.z = 0.65;
     lens.position.set(0, 0, 0.085);
@@ -257,19 +141,13 @@ function createCharacter(npc) {
   }
 
   return {
-    group,
-    torso,
-    shoulder,
-    neck,
-    head,
-    hair,
-    hairBaseY,
-    hairBack,
-    hairBackBaseY,
-    leftArm,
-    rightArm,
-    leftLeg,
-    rightLeg,
+    ...model,
+    torso: model.body,
+    shoulder: model.body,
+    hairBaseY: model.hair.position.y,
+    hairBack: null,
+    hairBackBaseY: 0,
+    accent,
     prop,
     propKind: look.prop ?? null,
   };
@@ -382,36 +260,32 @@ export class NpcSystem {
         }
       }
 
-      const gait = Math.sin(this.elapsed * (npc.moving ? 7.5 : 2.2) + npc.phase);
       const clubDance =
         metrics.playing && ['dancer', 'photographer', 'host', 'artist'].includes(npc.role);
-      const danceAmount = clubDance ? 0.045 + energy * 0.09 : 0;
-      const bob = npc.moving
-        ? Math.abs(gait) * 0.025
-        : clubDance
-          ? Math.abs(gait) * danceAmount
-          : 0;
-      npc.torso.position.y = 1.04 + bob;
-      npc.shoulder.position.y = 1.29 + bob;
-      npc.neck.position.y = 1.47 + bob;
-      npc.head.position.y = 1.69 + bob;
-      npc.hair.position.y = npc.hairBaseY + bob;
-      if (npc.hairBack) npc.hairBack.position.y = npc.hairBackBaseY + bob;
+      poseLightweightHuman(npc, {
+        time: this.elapsed,
+        phase: npc.phase,
+        moving: npc.moving,
+        dancing: clubDance,
+        energy: clamp(energy * 0.72 + bass * 0.28),
+      });
 
-      const limb = npc.moving ? gait * 0.45 : clubDance ? gait * (0.12 + bass * 0.18) : 0;
-      npc.leftArm.rotation.x = limb;
-      npc.rightArm.rotation.x = -limb;
-      npc.leftLeg.rotation.x = -limb * 0.65;
-      npc.rightLeg.rotation.x = limb * 0.65;
-      npc.head.rotation.y = clubDance ? Math.sin(this.elapsed * 1.3 + npc.phase) * 0.06 : 0;
+      // Named characters subtly look around when idle instead of staring straight ahead.
+      if (!npc.moving && !clubDance && npc.photoPulse <= 0 && npc.servePulse <= 0) {
+        npc.head.rotation.y += Math.sin(this.elapsed * 0.45 + npc.phase) * 0.035;
+        npc.head.rotation.x += Math.sin(this.elapsed * 0.31 + npc.phase * 0.7) * 0.012;
+      }
 
       if (npc.photoPulse > 0 && npc.prop && ['nora', 'james'].includes(npc.id)) {
         const lift = clamp(npc.photoPulse / 0.45);
-        npc.prop.position.set(0.08, 1.46 + lift * 0.18, 0.28);
-        npc.rightArm.rotation.x = -1.25 * lift;
-        npc.leftArm.rotation.x = -1.0 * lift;
+        npc.prop.position.set(0.07, 1.48 + lift * 0.1, 0.29);
+        npc.rightArm.rotation.x = -1.08 * lift;
+        npc.leftArm.rotation.x = -0.94 * lift;
+        npc.rightForearm.rotation.x = -0.92 * lift;
+        npc.leftForearm.rotation.x = -0.82 * lift;
+        npc.head.rotation.x = -0.035 * lift;
       } else if (npc.prop && ['nora', 'james'].includes(npc.id)) {
-        npc.prop.position.set(0.31, 1.22, 0.19);
+        npc.prop.position.set(0.31, 1.2, 0.2);
       }
 
       if (npc.role === 'bartender' && npc.propKind === 'bar' && npc.prop) {
@@ -419,8 +293,11 @@ export class NpcSystem {
           const phase = 1 - clamp(npc.servePulse / 1.15);
           const reach = Math.sin(Math.min(1, phase * 1.3) * Math.PI) * 0.42;
           npc.prop.position.set(0.18, 1.1 + reach * 0.2, 0.2 + reach);
-          npc.rightArm.rotation.x = -0.25 - reach * 1.65;
-          npc.leftArm.rotation.x = -0.12 - reach * 0.45;
+          npc.rightArm.rotation.x = -0.2 - reach * 1.1;
+          npc.rightForearm.rotation.x = -0.25 - reach * 1.15;
+          npc.leftArm.rotation.x = -0.1 - reach * 0.25;
+          npc.leftForearm.rotation.x = -0.12 - reach * 0.4;
+          npc.body.rotation.x = -reach * 0.045;
         } else {
           npc.prop.position.set(0.3, 1.02, 0.2);
         }
