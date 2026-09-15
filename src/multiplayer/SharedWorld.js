@@ -1,6 +1,7 @@
 const LOCKED_ACTIONS = new Set([
   'dj',
   'clubLighting',
+  'ledWall',
   'drums',
   'piano',
   'synth',
@@ -48,6 +49,7 @@ export class SharedWorld {
     if (!target || !LOCKED_ACTIONS.has(target.action)) return null;
     if (target.action === 'dj') return 'dj-booth';
     if (target.action === 'clubLighting') return 'lighting-desk';
+    if (target.action === 'ledWall') return 'led-wall-controller';
     const sceneId = this.game.sceneManager.current?.definition?.id ?? 'unknown';
     const id = String(target.id || target.action)
       .replace(/[^a-z0-9:._-]/gi, '-')
@@ -142,6 +144,8 @@ export class SharedWorld {
     if (world.party) this.applyParty(world.party);
     const installation = this.objects.get('take-a-break-installation');
     if (installation) this.applyInstallation(installation);
+    const ledWall = this.objects.get('dj-led-wall');
+    if (ledWall) this.game.ledWall?.apply?.(ledWall, { remote: true });
   }
 
   patchWorldObjects() {
@@ -168,7 +172,16 @@ export class SharedWorld {
       'setReverb',
       'setEcho',
       'setLoop',
+      'setPreciseLoop',
       'hotCue',
+      'setHotCue',
+      'triggerHotCue',
+      'beatJump',
+      'jog',
+      'setDeviceMode',
+      'setVinylRpm',
+      'toggleMotor',
+      'setPlatterHeld',
     ]) {
       if (typeof dj[method] !== 'function') continue;
       const base = dj[method].bind(dj);
@@ -226,6 +239,11 @@ export class SharedWorld {
         dj.setFilter?.(deckId, target.filter);
         dj.setReverb?.(deckId, target.reverb);
         dj.setEcho?.(deckId, target.echo);
+        if (target.deviceMode) dj.setDeviceMode?.(deckId, target.deviceMode);
+        if (target.deviceMode === 'vinyl' && target.vinylRpm) dj.setVinylRpm?.(deckId, target.vinylRpm);
+        deck.motorOn = target.motorOn !== false;
+        deck.platterHeld = target.platterHeld === true;
+        if (Array.isArray(target.cuePoints)) deck.cuePoints = target.cuePoints.slice(0, 8);
         if (target.playing && !deck.playing) await dj.playDeck(deckId);
         else if (!target.playing && deck.playing) dj.stopDeck(deckId);
         if (target.playing && deck.playing && typeof dj.restartDeckAt === 'function') {
@@ -234,13 +252,13 @@ export class SharedWorld {
           const expected =
             Math.max(0, Number(target.position) || 0) + elapsed * (target.bpm / baseBpm);
           const current = dj.deckPosition?.(deckId) ?? expected;
-          if (Math.abs(current - expected) > 0.18) dj.restartDeckAt(deckId, expected);
+          if (Math.abs(current - expected) > 0.055) dj.restartDeckAt(deckId, expected);
         }
         if (
           typeof dj.setLoop === 'function' &&
           Number(target.loopBeats) !== Number(deck.loopBeats || 0)
         ) {
-          if (target.loopBeats) dj.setLoop(deckId, target.loopBeats);
+          if (target.loopBeats) (dj.setPreciseLoop ?? dj.setLoop).call(dj, deckId, target.loopBeats);
           else if (deck.loopBeats) dj.setLoop(deckId, deck.loopBeats);
         }
       }
@@ -419,6 +437,7 @@ export class SharedWorld {
     if (!message.objectId) return;
     this.objects.set(message.objectId, message.data);
     if (message.objectId === 'take-a-break-installation') this.applyInstallation(message.data);
+    if (message.objectId === 'dj-led-wall') this.game.ledWall?.apply?.(message.data, { remote: true });
   }
 
   patchSeats() {

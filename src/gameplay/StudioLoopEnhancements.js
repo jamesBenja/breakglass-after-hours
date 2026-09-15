@@ -268,8 +268,28 @@ function buildLoopPanel(game, ui) {
 }
 
 export function installStudioLoopEnhancements(game, ui) {
+  const saved = game.state?.data?.studio ?? {};
+  game.studio.loopEnabled = saved.loopEnabled === true;
+  game.studio.loopBars = LOOP_BARS.includes(Number(saved.loopBars)) ? Number(saved.loopBars) : 4;
+  game.studio.quantize = GRID_DIVISIONS[saved.quantize] ? saved.quantize : '1/16';
+  game.studio.swing = clamp(saved.swing, 0, 0.45);
   enhanceSession(game.studio);
   enhancePlayback(game.studioPlayback, game.studio);
   game.showStudioLoopBuilder = () => buildLoopPanel(game, ui);
+
+  if (!ui._studioLoopBuilderPatched && typeof ui.studioMixer === 'function') {
+    const baseStudioMixer = ui.studioMixer.bind(ui);
+    ui.studioMixer = (session, options = {}) => {
+      const result = baseStudioMixer(session, options);
+      const button = ui.document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'LOOP / SONG BUILDER';
+      button.className = 'studio-loop-builder-button';
+      button.onclick = () => buildLoopPanel(game, ui);
+      ui.buttons?.appendChild(button);
+      return result;
+    };
+    ui._studioLoopBuilderPatched = true;
+  }
   return game.studio;
 }

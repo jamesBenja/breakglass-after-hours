@@ -345,15 +345,41 @@ function releaseResourceMessage(socket, message) {
   if (resourceId && room) releaseResource(room, resourceId, player.id);
 }
 
+function sanitizeLedWall(value = {}) {
+  const color = (input, fallback) =>
+    typeof input === 'string' && /^#[0-9a-f]{6}$/i.test(input) ? input : fallback;
+  const imageData =
+    typeof value.imageData === 'string' &&
+    value.imageData.length <= 140_000 &&
+    /^data:image\/(?:png|jpeg|webp);base64,/i.test(value.imageData)
+      ? value.imageData
+      : null;
+  return {
+    text: sanitizeText(value.text || 'BREAKGLASS', 80) || 'BREAKGLASS',
+    foreground: color(value.foreground, '#ff4fb8'),
+    background: color(value.background, '#09030c'),
+    effect: ['static', 'crawl', 'pulse', 'wave', 'strobe'].includes(value.effect)
+      ? value.effect
+      : 'crawl',
+    speed: clamp(value.speed, 0.05, 2),
+    brightness: clamp(value.brightness, 0.1, 1),
+    graphic: ['text', 'bars', 'rings', 'checker', 'image'].includes(value.graphic)
+      ? value.graphic
+      : 'text',
+    imageData,
+  };
+}
+
 function updateObject(socket, message) {
   const player = socket.player;
   if (!player) return;
   const objectId = OBJECT_ID_PATTERN.test(message.objectId) ? message.objectId : null;
   if (!objectId) return;
   const room = roomFor(player.roomId);
-  const data = sanitizeJson(message.data);
+  const data = objectId === 'dj-led-wall' ? sanitizeLedWall(message.data) : sanitizeJson(message.data);
   const serialized = JSON.stringify(data);
-  if (serialized.length > 16_000) return;
+  const maxBytes = objectId === 'dj-led-wall' ? 150_000 : 16_000;
+  if (serialized.length > maxBytes) return;
   const entry = { data, by: player.id, updatedAt: Date.now() };
   room.objects.set(objectId, entry);
   broadcast(player.roomId, { type: 'object_state', objectId, data, by: player.id });
@@ -382,8 +408,19 @@ function sanitizeDjState(value = {}) {
       filter: clamp(deck.filter, -1, 1),
       reverb: clamp(deck.reverb),
       echo: clamp(deck.echo),
-      loopBeats: [0, 4, 8, 16].includes(Number(deck.loopBeats)) ? Number(deck.loopBeats) : 0,
+      loopBeats: [0, 1, 2, 4, 8, 16, 32].includes(Number(deck.loopBeats)) ? Number(deck.loopBeats) : 0,
       position: clamp(deck.position, 0, 60 * 60 * 4),
+      deviceMode: ['cdj', 'vinyl'].includes(deck.deviceMode) ? deck.deviceMode : 'cdj',
+      vinylRpm: Math.abs(finite(deck.vinylRpm, 33.333) - 45) < 1 ? 45 : 33.333,
+      motorOn: deck.motorOn !== false,
+      platterHeld: deck.platterHeld === true,
+      cuePoints: Array.isArray(deck.cuePoints)
+        ? deck.cuePoints.slice(0, 8).map((value) =>
+            Number.isFinite(Number(value)) ? clamp(value, 0, 60 * 60 * 4) : null,
+          )
+        : [],
+      loopStart: clamp(deck.loopStart, 0, 60 * 60 * 4),
+      loopEnd: clamp(deck.loopEnd, 0, 60 * 60 * 4),
     };
   }
   return output;
