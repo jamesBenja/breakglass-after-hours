@@ -18,6 +18,7 @@ import { installStudioLoopEnhancements } from './gameplay/StudioLoopEnhancements
 import { installPerformanceRealismSystems } from './gameplay/installPerformanceRealismSystems.js';
 import { installCrowdDoorEnhancements } from './gameplay/crowdDoorEnhancements.js';
 import { installEntryEnhancements } from './gameplay/entryEnhancements.js';
+import { installGuestlistDoorEnhancements } from './gameplay/guestlistDoorEnhancements.js';
 import { installRoomExperienceEnhancements } from './gameplay/roomExperienceEnhancements.js';
 import { installGameStatsEnhancements } from './gameplay/GameStatsSystem.js';
 import { installBelowAlleyWorldSystem } from './gameplay/BelowAlleyWorldSystem.js';
@@ -42,6 +43,7 @@ try {
   installPerformanceRealismSystems(game, ui);
   installCrowdDoorEnhancements(game, ui);
   installEntryEnhancements(game, ui);
+  installGuestlistDoorEnhancements(game, ui);
   installRoomExperienceEnhancements(game, ui);
   installGameStatsEnhancements(game, ui);
   installBelowAlleyWorldSystem(game, ui);
