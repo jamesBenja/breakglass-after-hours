@@ -23,7 +23,9 @@ export function createUpstairsDefinition(pass = 'B') {
   const solids = [...walls, ...closedSuites, ...platforms, ...fixtures, ...stairFloors];
   const surfaces = [
     ...floorRooms.map((r, i) => ({ ...r, y: 0, priority: i })),
-    ...[...platforms, ...fixtures].map((p) => ({ ...p, y: p.y2, priority: 20 })),
+    ...[...platforms, ...fixtures]
+      .filter((p) => p.surface !== false)
+      .map((p) => ({ ...p, y: p.y2, priority: 20 })),
     ...stairFloors.map((p) => ({ ...p, y: p.y2, priority: 30 })),
   ];
   const spawns = gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) };
