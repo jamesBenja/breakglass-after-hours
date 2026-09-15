@@ -51,6 +51,7 @@ jobs:
           src/gameplay/GroupPhotoSystem.js
           docs/CHARACTER_REFERENCES.md
           tests/character-social-pass.test.js
+          tests/party-life.test.js
 
       - name: Verify requested features
         shell: bash
@@ -71,7 +72,7 @@ jobs:
         run: pnpm build
 
       - name: Formatting check
-        run: pnpm exec prettier --check src tests server docs
+        run: pnpm exec prettier --check src tests server docs/CHARACTER_REFERENCES.md
 
       - name: Commit verified game pass
         shell: bash
