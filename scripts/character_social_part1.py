@@ -28,30 +28,168 @@ def sub_one(path, pattern, replacement):
     write(path, text)
 
 
+# -----------------------------------------------------------------------------
+# Reference-driven NPC looks
+# -----------------------------------------------------------------------------
 npc = 'src/npcs/NpcSystem.js'
 looks = r'''export const CHARACTER_LOOKS = {
-  nora: { skin: 0xc99779, hair: 0xef4d87, outfit: 0x303139, accent: 0xa95c83, hairStyle: 'long', prop: 'camera', bodyWidth: 0.9, heightScale: 0.99, tattoos: true },
-  malaika: { skin: 0xc89073, hair: 0xe8d2a9, outfit: 0x15171b, trousers: 0x111318, accent: 0xcf4058, hairStyle: 'long', curls: true, glasses: true, tattoos: true, lipColor: 0xd94f62, bodyWidth: 0.88, heightScale: 1.0 },
-  sam: { skin: 0xc68f72, hair: 0x211b1b, outfit: 0x1c2026, trousers: 0x12151b, accent: 0x606b77, hairStyle: 'bald', tattoos: true, headTattoo: true, bodyWidth: 0.78, heightScale: 1.13 },
-  james: { skin: 0xc79472, hair: 0xd1b47c, outfit: 0x1d2025, accent: 0x607184, hairStyle: 'long', bodyWidth: 0.9, heightScale: 1.02, prop: 'camera' },
-  jace: { skin: 0xc28f70, hair: 0xc7a878, outfit: 0x1d2024, accent: 0x9f4c5a, hairStyle: 'long', glasses: true, bodyWidth: 0.96, heightScale: 1.04 },
-  zander: { skin: 0xd1a083, hair: 0x76563e, outfit: 0xe6e0d5, trousers: 0x7b8792, accent: 0x493d39, hairStyle: 'long', curls: true, glasses: true, bodyWidth: 0.84, heightScale: 1.05 },
-  boogaloo: { skin: 0x9b684c, hair: 0x211b1a, outfit: 0xc9cac6, accent: 0xc0a35f, hairStyle: 'long', curls: true, bodyWidth: 0.92, heightScale: 1.06 },
-  courtney: { skin: 0xc18b70, hair: 0x251a1a, outfit: 0x202126, accent: 0xa9577c, hairStyle: 'bob', bun: true, glasses: true, tattoos: true, bodyWidth: 0.9, heightScale: 0.98, prop: 'bar' },
-  simla: { skin: 0xa97860, hair: 0x22191a, outfit: 0xd36c83, accent: 0xefb1c0, hairStyle: 'bob', bodyWidth: 0.86, heightScale: 0.98, prop: 'bar' },
-  jashim: { skin: 0x9a6b50, hair: 0x201817, outfit: 0x35465e, accent: 0x657fb2, hairStyle: 'short' },
-  devin: { skin: 0xb57f60, hair: 0x2a201c, outfit: 0x294752, accent: 0x5d8998, hairStyle: 'short', prop: 'candy' },
-  david: { skin: 0xb68a68, hair: 0x5a4638, outfit: 0x66513f, accent: 0xa88a62, hairStyle: 'short' },
-  beaver: { skin: 0xc28b6a, hair: 0x654736, outfit: 0x242326, accent: 0xc26d3e, hairStyle: 'short', beard: true, mustache: true, bodyWidth: 1.18, heightScale: 1.02 },
+  nora: {
+    skin: 0xc99779,
+    hair: 0xef4d87,
+    outfit: 0x303139,
+    accent: 0xa95c83,
+    hairStyle: 'long',
+    prop: 'camera',
+    bodyWidth: 0.9,
+    heightScale: 0.99,
+    tattoos: true,
+  },
+  malaika: {
+    skin: 0xc89073,
+    hair: 0xe8d2a9,
+    outfit: 0x15171b,
+    trousers: 0x111318,
+    accent: 0xcf4058,
+    hairStyle: 'long',
+    curls: true,
+    glasses: true,
+    tattoos: true,
+    lipColor: 0xd94f62,
+    bodyWidth: 0.88,
+    heightScale: 1.0,
+  },
+  sam: {
+    skin: 0xc68f72,
+    hair: 0x211b1b,
+    outfit: 0x1c2026,
+    trousers: 0x12151b,
+    accent: 0x606b77,
+    hairStyle: 'bald',
+    tattoos: true,
+    headTattoo: true,
+    bodyWidth: 0.78,
+    heightScale: 1.13,
+  },
+  james: {
+    skin: 0xc79472,
+    hair: 0xd1b47c,
+    outfit: 0x1d2025,
+    accent: 0x607184,
+    hairStyle: 'long',
+    bodyWidth: 0.9,
+    heightScale: 1.02,
+    prop: 'camera',
+  },
+  jace: {
+    skin: 0xc28f70,
+    hair: 0xc7a878,
+    outfit: 0x1d2024,
+    accent: 0x9f4c5a,
+    hairStyle: 'long',
+    glasses: true,
+    bodyWidth: 0.96,
+    heightScale: 1.04,
+  },
+  zander: {
+    skin: 0xd1a083,
+    hair: 0x76563e,
+    outfit: 0xe6e0d5,
+    trousers: 0x7b8792,
+    accent: 0x493d39,
+    hairStyle: 'long',
+    curls: true,
+    glasses: true,
+    bodyWidth: 0.84,
+    heightScale: 1.05,
+  },
+  boogaloo: {
+    skin: 0x9b684c,
+    hair: 0x211b1a,
+    outfit: 0xc9cac6,
+    accent: 0xc0a35f,
+    hairStyle: 'long',
+    curls: true,
+    bodyWidth: 0.92,
+    heightScale: 1.06,
+  },
+  courtney: {
+    skin: 0xc18b70,
+    hair: 0x251a1a,
+    outfit: 0x202126,
+    accent: 0xa9577c,
+    hairStyle: 'bob',
+    bun: true,
+    glasses: true,
+    tattoos: true,
+    bodyWidth: 0.9,
+    heightScale: 0.98,
+    prop: 'bar',
+  },
+  simla: {
+    skin: 0xa97860,
+    hair: 0x22191a,
+    outfit: 0xd36c83,
+    accent: 0xefb1c0,
+    hairStyle: 'bob',
+    bodyWidth: 0.86,
+    heightScale: 0.98,
+    prop: 'bar',
+  },
+  lunice: {
+    skin: 0x73503f,
+    hair: 0x211b19,
+    outfit: 0xe2e0db,
+    accent: 0x7467a8,
+    hairStyle: 'buzz',
+    beard: true,
+    bodyWidth: 1.02,
+    heightScale: 1.04,
+  },
+  jashim: {
+    skin: 0x9a6b50,
+    hair: 0x201817,
+    outfit: 0x35465e,
+    accent: 0x657fb2,
+    hairStyle: 'short',
+  },
+  devin: {
+    skin: 0xb57f60,
+    hair: 0x2a201c,
+    outfit: 0x294752,
+    accent: 0x5d8998,
+    hairStyle: 'short',
+    prop: 'candy',
+  },
+  david: {
+    skin: 0xb68a68,
+    hair: 0x5a4638,
+    outfit: 0x66513f,
+    accent: 0xa88a62,
+    hairStyle: 'short',
+  },
+  beaver: {
+    skin: 0xc28b6a,
+    hair: 0x654736,
+    outfit: 0x242326,
+    accent: 0xc26d3e,
+    hairStyle: 'short',
+    beard: true,
+    mustache: true,
+    bodyWidth: 1.18,
+    heightScale: 1.02,
+  },
 };'''
 sub_one(npc, r"const CHARACTER_LOOKS = \{.*?\n\};", looks)
-replace_one(npc, """const variation = (id, salt = 0) => {
+replace_one(
+    npc,
+    """const variation = (id, salt = 0) => {
   let value = salt + 13;
   for (const char of String(id)) value = (value * 31 + char.charCodeAt(0)) >>> 0;
   return (value % 1000) / 999;
 };
 
-function createCharacter(npc) {""", r"""const variation = (id, salt = 0) => {
+function createCharacter(npc) {""",
+    r"""const variation = (id, salt = 0) => {
   let value = salt + 13;
   for (const char of String(id)) value = (value * 31 + char.charCodeAt(0)) >>> 0;
   return (value % 1000) / 999;
@@ -116,7 +254,14 @@ function addReferenceDetails(model, look) {
     model.head.add(bun);
   }
   if (look.curls) {
-    for (const [x, y, z, s] of [[-0.18,-0.12,-0.08,1],[0.18,-0.12,-0.08,1],[-0.15,-0.3,-0.1,0.9],[0.15,-0.3,-0.1,0.9],[-0.05,-0.42,-0.12,0.82],[0.08,-0.45,-0.12,0.82]]) {
+    for (const [x, y, z, s] of [
+      [-0.18, -0.12, -0.08, 1],
+      [0.18, -0.12, -0.08, 1],
+      [-0.15, -0.3, -0.1, 0.9],
+      [0.15, -0.3, -0.1, 0.9],
+      [-0.05, -0.42, -0.12, 0.82],
+      [0.08, -0.45, -0.12, 0.82],
+    ]) {
       const curl = new Mesh(new SphereGeometry(0.074 * s, 8, 6), model.materials.hair);
       curl.scale.set(0.75, 1.25, 0.72);
       curl.position.set(x, y, z);
@@ -125,8 +270,11 @@ function addReferenceDetails(model, look) {
   }
 }
 
-export function createNpcCharacter(npc) {""")
-replace_one(npc, """  const bodyWidth = 0.94 + variation(npc.id, 2) * 0.13;
+export function createNpcCharacter(npc) {""",
+)
+replace_one(
+    npc,
+    """  const bodyWidth = 0.94 + variation(npc.id, 2) * 0.13;
   const model = createLightweightHuman({
     skin: look.skin,
     hair: look.hair,
@@ -135,7 +283,8 @@ replace_one(npc, """  const bodyWidth = 0.94 + variation(npc.id, 2) * 0.13;
     shoes: 0x14161a,
     accent: look.accent,
     hairStyle: look.hairStyle,
-  });""", """  const bodyWidth = look.bodyWidth ?? 0.94 + variation(npc.id, 2) * 0.13;
+  });""",
+    """  const bodyWidth = look.bodyWidth ?? 0.94 + variation(npc.id, 2) * 0.13;
   const model = createLightweightHuman({
     skin: look.skin,
     hair: look.hair,
@@ -144,22 +293,35 @@ replace_one(npc, """  const bodyWidth = 0.94 + variation(npc.id, 2) * 0.13;
     shoes: look.shoes ?? 0x14161a,
     accent: look.accent,
     hairStyle: look.hairStyle,
-  });""")
-replace_one(npc, """  model.leftArm.position.x *= bodyWidth;
+  });""",
+)
+replace_one(
+    npc,
+    """  model.leftArm.position.x *= bodyWidth;
   model.rightArm.position.x *= bodyWidth;
 
-  const accentMat = model.materials.accent;""", """  model.leftArm.position.x *= bodyWidth;
+  const accentMat = model.materials.accent;""",
+    """  model.leftArm.position.x *= bodyWidth;
   model.rightArm.position.x *= bodyWidth;
   addReferenceDetails(model, look);
 
-  const accentMat = model.materials.accent;""")
-replace_one(npc, """    prop,
+  const accentMat = model.materials.accent;""",
+)
+replace_one(
+    npc,
+    """    prop,
     propKind: look.prop ?? null,
   };
-}""", """    prop,
+}""",
+    """    prop,
     propKind: look.prop ?? null,
     heightScale: look.heightScale ?? null,
   };
-}""")
+}""",
+)
 replace_one(npc, "const model = createCharacter(npc);", "const model = createNpcCharacter(npc);")
-replace_one(npc, "const heightScale = 0.96 + variation(npc.id, 19) * 0.09;", "const heightScale = model.heightScale ?? 0.96 + variation(npc.id, 19) * 0.09;")
+replace_one(
+    npc,
+    "const heightScale = 0.96 + variation(npc.id, 19) * 0.09;",
+    "const heightScale = model.heightScale ?? 0.96 + variation(npc.id, 19) * 0.09;",
+)
