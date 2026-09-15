@@ -79,14 +79,14 @@ class SmokingSystem {
     this.game = game;
     this.ui = ui;
     this.puffs = [];
+    this.ambientTimer = 2 + Math.random() * 4;
   }
 
-  smoke() {
-    const level = this.game.sceneManager.current;
-    if (!level?.alley) return;
-    this.game.state.data.smokesShared = Math.min(999, (this.game.state.data.smokesShared ?? 0) + 1);
-    level.alley.chat(0.055);
-    for (let i = 0; i < 4; i++) {
+  emit(position, count = 4) {
+    const level = this.game.scenes.get('alley');
+    if (!level || !position) return;
+    const origin = position.isVector3 ? position : new Vector3().fromArray(position);
+    for (let i = 0; i < count; i++) {
       const material = new MeshBasicMaterial({
         color: 0xdfe4e5,
         transparent: true,
@@ -94,15 +94,34 @@ class SmokingSystem {
         depthWrite: false,
       });
       const mesh = new Mesh(new SphereGeometry(0.08 + i * 0.018, 8, 6), material);
-      mesh.position.copy(this.game.player.position).add(new Vector3(0.2 + i * 0.05, 1.45, -0.08));
+      mesh.position.copy(origin).add(new Vector3(0.2 + i * 0.05, 1.45 + i * 0.04, -0.08));
       level.gameplay.add(mesh);
       this.puffs.push({ mesh, life: 1.7 + i * 0.22 });
     }
+  }
+
+  smoke() {
+    const level = this.game.sceneManager.current;
+    if (!level?.alley) return;
+    this.game.state.data.smokesShared = Math.min(999, (this.game.state.data.smokesShared ?? 0) + 1);
+    level.alley.chat(0.055);
+    this.emit(this.game.player.position);
     this.game.save();
     this.ui.warning?.('You hang out for a smoke with the alley group.');
   }
 
   update(dt) {
+    const level = this.game.sceneManager.current;
+    if (level?.definition?.id === 'alley') {
+      this.ambientTimer -= dt;
+      if (this.ambientTimer <= 0) {
+        const smokerId = Math.random() < 0.5 ? 'smoker-1' : 'smoker-2';
+        const position = level.npcs?.positionOf?.(smokerId);
+        if (position) this.emit(position, 2);
+        this.ambientTimer = 3 + Math.random() * 5;
+      }
+    }
+
     for (const puff of this.puffs) {
       puff.life -= dt;
       puff.mesh.position.y += dt * 0.28;
