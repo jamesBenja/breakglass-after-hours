@@ -2,6 +2,7 @@ import { installMultiplayerEmoteAnimations } from './emoteAnimations.js';
 import { InstrumentSync } from './InstrumentSync.js';
 import { MultiplayerClient, resolveMultiplayerConfig } from './MultiplayerClient.js';
 import { SharedMediaSync } from './SharedMediaSync.js';
+import { SpatialVoiceSystem } from './SpatialVoice.js';
 
 const EXTRA_SHARED_STATIONS = new Set([
   'houseDjDesk',
@@ -39,6 +40,8 @@ export function installMultiplayerEnhancements(game, ui) {
   multiplayer.instrumentSync = instrumentSync;
   const sharedMedia = new SharedMediaSync(multiplayer);
   multiplayer.sharedMedia = sharedMedia;
+  const spatialVoice = new SpatialVoiceSystem(multiplayer);
+  multiplayer.spatialVoice = spatialVoice;
 
   const baseReady = ui.ready.bind(ui);
   ui.ready = (start) =>
@@ -65,6 +68,7 @@ export function installMultiplayerEnhancements(game, ui) {
     instrumentSync.update();
     sharedMedia.update();
     multiplayer.update(now);
+    spatialVoice.update(now);
     return baseUpdate(now, movementOverride);
   };
 
@@ -72,6 +76,7 @@ export function installMultiplayerEnhancements(game, ui) {
   game.dispose = async () => {
     instrumentSync.dispose();
     sharedMedia.dispose();
+    spatialVoice.dispose();
     multiplayer.dispose();
     return baseDispose();
   };
