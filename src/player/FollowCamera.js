@@ -8,6 +8,10 @@ const DEFAULTS = {
   maxDistance: 16,
   pitch: 0.8,
   targetHeight: 1.05,
+  cameraRadius: 0.24,
+  shoulderSpeed: 7,
+  pullInSpeed: 18,
+  releaseSpeed: 5,
 };
 
 const MODES = ['follow', 'close', 'first'];
@@ -20,6 +24,7 @@ export class FollowCamera {
     this.target = new Vector3();
     this.desired = new Vector3();
     this.candidate = new Vector3();
+    this.resolved = new Vector3();
     this.look = new Vector3();
     this.yaw = this.yawTarget = this.homeYaw = 0.55;
     this.pitch = DEFAULTS.pitch;
@@ -30,6 +35,7 @@ export class FollowCamera {
     this.config = { ...DEFAULTS };
     this.mode = this.preferredMode = 'follow';
     this.cameraYawOffset = 0;
+    this.cameraYawOffsetTarget = 0;
   }
 
   configure(offset, position, collision, options = {}) {
@@ -39,6 +45,7 @@ export class FollowCamera {
     this.homeYaw = Math.atan2(offset[0], offset[2]);
     this.yaw = this.yawTarget = this.homeYaw;
     this.cameraYawOffset = 0;
+    this.cameraYawOffsetTarget = 0;
     this.applyMode(this.mode, { instant: true });
     this.target.copy(position).add(new Vector3(0, this.config.targetHeight, 0));
     this.initialized = false;
@@ -91,6 +98,7 @@ export class FollowCamera {
       }
     }
     this.camera.updateProjectionMatrix();
+    this.cameraYawOffsetTarget = 0;
     this.initialized = false;
     return this.mode;
   }
@@ -111,6 +119,7 @@ export class FollowCamera {
   recenter() {
     this.yawTarget = this.homeYaw;
     this.cameraYawOffset = 0;
+    this.cameraYawOffsetTarget = 0;
   }
 
   zoom(amount) {
@@ -143,23 +152,35 @@ export class FollowCamera {
     return this.boomAt(this.yaw + this.cameraYawOffset, pitch, this.distance, out);
   }
 
+  cameraRadius() {
+    const base = this.config.cameraRadius ?? DEFAULTS.cameraRadius;
+    return this.mode === 'close' ? Math.min(base, 0.2) : base;
+  }
+
   bestObstructionOffset(collision, pitch) {
     if (!collision) return { offset: 0, hit: { fraction: 1, target: null }, score: 2 };
-    const offsets =
+    const baseOffsets =
       this.mode === 'close'
         ? [0, 0.24, -0.24, 0.48, -0.48, 0.76, -0.76, 1.05, -1.05, 1.35, -1.35]
         : [
             0, 0.22, -0.22, 0.45, -0.45, 0.7, -0.7, 0.96, -0.96, 1.22, -1.22, 1.5, -1.5, 1.82,
             -1.82, 2.15, -2.15, 2.5, -2.5,
           ];
+    const offsets = [this.cameraYawOffsetTarget, this.cameraYawOffset, ...baseOffsets].filter(
+      (offset, index, values) =>
+        values.findIndex((candidate) => Math.abs(candidate - offset) < 0.001) === index,
+    );
+    const radius = this.cameraRadius();
     let best = null;
     for (const offset of offsets) {
       this.boomAt(this.yaw + offset, pitch, this.distance, this.candidate);
-      const hit = collision.cameraCast(this.target, this.candidate, 0.34);
+      const hit = collision.cameraCast(this.target, this.candidate, radius);
       const clear = hit.fraction >= 0.999;
-      // Any clear line wins over a partially obstructed one; among clear lines choose the
-      // smallest horizontal shift. This keeps pitch stable through studio doorways.
-      const score = (clear ? 2 : hit.fraction) - Math.abs(offset) * 0.075;
+      const change = Math.abs(offset - this.cameraYawOffsetTarget);
+      // Prefer a clear line, then a view close to the normal centreline. A small hysteresis
+      // penalty keeps the shoulder angle from flipping left/right on successive door-frame edges.
+      const score =
+        (clear ? 2 : hit.fraction) - Math.abs(offset) * 0.075 - Math.min(0.12, change * 0.06);
       if (!best || score > best.score) best = { offset, hit, score };
     }
     return best;
@@ -193,23 +214,62 @@ export class FollowCamera {
     this.target.y = Math.max(position.y + 0.78, this.target.y);
 
     const best = this.bestObstructionOffset(collision, this.pitch);
-    // Do not interpolate the camera through an obstructing wall. The old implementation solved
-    // this by changing pitch at doorways; now we keep the chosen pitch and pick the nearest clear
-    // horizontal shoulder angle instead.
-    this.cameraYawOffset = best.offset;
-    this.boom(this.pitch, this.desired);
+    this.cameraYawOffsetTarget = best.offset;
 
-    const hit = collision?.cameraCast(this.target, this.desired, 0.34) ?? {
+    // Ease toward the chosen shoulder angle instead of snapping every time a door jamb becomes
+    // the closest obstruction. If that interpolated angle itself crosses a wall, jump only to the
+    // already-tested clear shoulder angle so the camera stays outside geometry without zooming in.
+    const nextOffset =
+      this.cameraYawOffset +
+      (this.cameraYawOffsetTarget - this.cameraYawOffset) * damp(this.config.shoulderSpeed);
+    this.boomAt(this.yaw + nextOffset, this.pitch, this.distance, this.candidate);
+    const nextHit = collision?.cameraCast(this.target, this.candidate, this.cameraRadius()) ?? {
+      fraction: 1,
+      target: null,
+    };
+    if (nextHit.fraction >= 0.999 || best.hit.fraction < 0.999) {
+      this.cameraYawOffset = nextOffset;
+    } else {
+      this.cameraYawOffset = best.offset;
+    }
+
+    this.boom(this.pitch, this.desired);
+    const radius = this.cameraRadius();
+    const hit = collision?.cameraCast(this.target, this.desired, radius) ?? {
       fraction: 1,
       target: null,
     };
     this.collisionTarget = hit.target;
     const distance = this.target.distanceTo(this.desired);
-    const safety = 0.42 / Math.max(distance, 0.01);
+    const safety = (radius + 0.08) / Math.max(distance, 0.01);
     const fraction = hit.fraction < 1 ? Math.max(0.035, hit.fraction - safety) : 1;
-    this.camera.position.lerpVectors(this.target, this.desired, fraction);
-    this.clearance = this.camera.position.distanceTo(this.target);
+    this.resolved.lerpVectors(this.target, this.desired, fraction);
 
+    if (!this.initialized) {
+      this.camera.position.copy(this.resolved);
+    } else {
+      const currentDistance = this.camera.position.distanceTo(this.target);
+      const resolvedDistance = this.resolved.distanceTo(this.target);
+      const speed =
+        resolvedDistance < currentDistance ? this.config.pullInSpeed : this.config.releaseSpeed;
+      this.camera.position.lerp(this.resolved, damp(speed));
+
+      // The eased position is checked again before rendering. Recovery can be slow and cinematic,
+      // but wall avoidance remains immediate and authoritative.
+      const guard = collision?.cameraCast(this.target, this.camera.position, radius) ?? {
+        fraction: 1,
+        target: null,
+      };
+      if (guard.fraction < 1) {
+        const guardDistance = this.target.distanceTo(this.camera.position);
+        const guardSafety = (radius + 0.08) / Math.max(guardDistance, 0.01);
+        const guardFraction = Math.max(0.035, guard.fraction - guardSafety);
+        this.camera.position.lerpVectors(this.target, this.camera.position, guardFraction);
+        this.collisionTarget = guard.target;
+      }
+    }
+
+    this.clearance = this.camera.position.distanceTo(this.target);
     this.look.copy(this.target);
     const anticipation =
       this.mode === 'close'
