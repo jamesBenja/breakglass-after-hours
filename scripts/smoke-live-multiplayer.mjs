@@ -2,7 +2,7 @@ import { WebSocket } from 'ws';
 import assert from 'node:assert/strict';
 
 const endpoint =
-  process.env.MULTIPLAYER_URL || 'wss://multiplayer-phase2-production.up.railway.app';
+  process.env.MULTIPLAYER_URL || 'wss://multiplayer-phase2-webrtc-production.up.railway.app';
 const healthUrl = endpoint.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:') + '/health';
 const room = `smoke-${Date.now().toString(36)}`;
 
@@ -251,6 +251,28 @@ b.send(
 );
 const signal = await signalOnA;
 assert.equal(signal.data.candidate.candidate, 'phase2-smoke-candidate');
+
+const longSdp = `v=0\r\n${Array.from(
+  { length: 80 },
+  (_, index) => `a=x-breakglass-${index}:${'x'.repeat(48)}\r\n`,
+).join('')}`;
+assert.ok(longSdp.length > 500);
+const descriptionOnA = onceMessage(
+  a,
+  (message) =>
+    message.type === 'signal' &&
+    message.fromId === welcomeB.id &&
+    message.data?.description?.type === 'offer',
+);
+b.send(
+  JSON.stringify({
+    type: 'signal',
+    targetId: welcomeA.id,
+    data: { description: { type: 'offer', sdp: longSdp } },
+  }),
+);
+const descriptionSignal = await descriptionOnA;
+assert.equal(descriptionSignal.data.description.sdp, longSdp);
 
 const partyOnA = onceMessage(
   a,
