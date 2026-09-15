@@ -25,6 +25,7 @@ export const DEFAULT_AVATAR = Object.freeze({
   skinTone: 'warm',
   photoConsent: true,
   faceTexture: null,
+  shareFaceMultiplayer: false,
 });
 
 const allowed = (value, values, fallback) => (values.includes(value) ? value : fallback);
@@ -50,6 +51,15 @@ export function normalizeAvatar(value = {}) {
     skinTone: allowed(value.skinTone, AVATAR_SKIN_TONES, DEFAULT_AVATAR.skinTone),
     photoConsent: value.photoConsent !== false,
     faceTexture: normalizeFaceTexture(value.faceTexture),
+    shareFaceMultiplayer: value.shareFaceMultiplayer === true,
+  };
+}
+
+export function multiplayerAvatar(value = {}) {
+  const avatar = normalizeAvatar(value);
+  return {
+    ...avatar,
+    faceTexture: avatar.shareFaceMultiplayer ? avatar.faceTexture : null,
   };
 }
 

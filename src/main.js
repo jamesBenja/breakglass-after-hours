@@ -3,6 +3,7 @@ import './ui/mobilePerformance.css';
 import './ui/mobileMixing.css';
 import './ui/musicEnhancements.css';
 import './ui/avatarFace.css';
+import './ui/multiplayer.css';
 import './ui/arcade.css';
 import './ui/mobileMixerEnhancements.js';
 import { Game } from './core/Game.js';
@@ -15,6 +16,7 @@ import { installCrowdDoorEnhancements } from './gameplay/crowdDoorEnhancements.j
 import { installEntryEnhancements } from './gameplay/entryEnhancements.js';
 import { installRoomExperienceEnhancements } from './gameplay/roomExperienceEnhancements.js';
 import { installAudioReliabilityEnhancements } from './gameplay/audioReliabilityEnhancements.js';
+import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
 
 installFaceAvatarEnhancements();
@@ -33,6 +35,7 @@ try {
   installEntryEnhancements(game, ui);
   installRoomExperienceEnhancements(game, ui);
   installAudioReliabilityEnhancements(game, ui);
+  installMultiplayerEnhancements(game, ui);
   await game.initialize();
 } catch (error) {
   console.error('Breakglass startup failed', error);

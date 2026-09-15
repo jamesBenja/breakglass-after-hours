@@ -5,6 +5,7 @@ on:
     branches:
       - feat/dynamic-below-avatar-foundation
       - feat/mobile-performance-dj-surface
+      - feat/live-multiplayer-foundation
   workflow_dispatch:
 
 permissions:
