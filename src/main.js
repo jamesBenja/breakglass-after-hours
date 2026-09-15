@@ -10,6 +10,7 @@ import { installPartyPressureEnhancements } from './gameplay/partyPressureEnhanc
 import { installPartyLifeEnhancements } from './gameplay/partyLifeEnhancements.js';
 import { installDjSyncEnhancements } from './gameplay/djSyncEnhancements.js';
 import { installCrowdDoorEnhancements } from './gameplay/crowdDoorEnhancements.js';
+import { installAudioReliabilityEnhancements } from './gameplay/audioReliabilityEnhancements.js';
 import { Hud } from './ui/Hud.js';
 
 const ui = new Hud(document);
@@ -23,6 +24,7 @@ try {
   installPartyLifeEnhancements(game, ui);
   installDjSyncEnhancements(game, ui);
   installCrowdDoorEnhancements(game, ui);
+  installAudioReliabilityEnhancements(game, ui);
   await game.initialize();
 } catch (error) {
   console.error('Breakglass startup failed', error);
