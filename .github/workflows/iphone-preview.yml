@@ -8,6 +8,7 @@ on:
       - feat/live-multiplayer-foundation
       - feat/multiplayer-phase-2-shared-world
       - feat/performance-realism-pass
+      - feat/character-realism-pass
   workflow_dispatch:
 
 permissions:
