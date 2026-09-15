@@ -1,6 +1,8 @@
 import { ARCHIVE_TAPE_IDS } from '../archive/tapeArchive.js';
 import { LIVE_ARCHIVE_IDS } from '../archive/liveArchive.js';
 import { normalizeAvatar } from '../avatar/profile.js';
+import { normalizeDifficulty } from '../gameplay/guidance.js';
+import { MIXING_CHALLENGE_IDS } from '../studio/MixingChallenge.js';
 import { normalizeStudioSession } from '../studio/StudioSession.js';
 import { LEVEL_IDS } from '../world/levels.js';
 
@@ -32,6 +34,11 @@ const CONTACT_IDS = [
   'courtney',
   'simla',
   'devin',
+  'david',
+  'beaver',
+  'sam',
+  'malaika',
+  'dave',
   'bouncer',
 ];
 const HOUSE_DJ_IDS = [
@@ -79,6 +86,53 @@ const normalizePhoto = (photo) => {
   };
 };
 
+const normalizeGameStats = (value = {}) => {
+  const djLongestByName = {};
+  if (value.djLongestByName && typeof value.djLongestByName === 'object') {
+    for (const [rawKey, rawEntry] of Object.entries(value.djLongestByName).slice(0, 32)) {
+      if (typeof rawKey !== 'string' || !rawKey.trim()) continue;
+      const key = rawKey.trim().slice(0, 48);
+      const entry = rawEntry && typeof rawEntry === 'object' ? rawEntry : {};
+      djLongestByName[key] = {
+        label:
+          typeof entry.label === 'string' && entry.label.trim()
+            ? entry.label.trim().slice(0, 32)
+            : key.slice(0, 32),
+        seconds: Math.max(0, Math.min(86400, Number(entry.seconds) || 0)),
+      };
+    }
+  }
+  return {
+    walkingMeters: Math.max(0, Math.min(10000000, Number(value.walkingMeters) || 0)),
+    peakCrowdEngagement: Math.max(
+      0,
+      Math.min(100, Math.round(Number(value.peakCrowdEngagement) || 0)),
+    ),
+    peakDanceFloorCount: Math.max(
+      0,
+      Math.min(999, Math.floor(Number(value.peakDanceFloorCount) || 0)),
+    ),
+    djLongestByName,
+  };
+};
+
+const normalizeStudioSong = (song, index) => {
+  if (!song || typeof song !== 'object') return null;
+  const session = normalizeStudioSession(song.session);
+  return {
+    id:
+      typeof song.id === 'string' && song.id.trim()
+        ? song.id.trim().slice(0, 64)
+        : `studio-song-${index + 1}`,
+    name:
+      typeof song.name === 'string' && song.name.trim()
+        ? song.name.trim().slice(0, 72)
+        : `Studio song ${index + 1}`,
+    savedAt: Math.max(0, Math.floor(Number(song.savedAt) || 0)),
+    session,
+  };
+};
+
 const defaults = () => ({
   version: 1,
   sceneId: 'upstairs',
@@ -90,6 +144,8 @@ const defaults = () => ({
   avatar: normalizeAvatar(),
   avatarConfigured: false,
   studio: normalizeStudioSession(),
+  studioSongs: [],
+  gameStats: normalizeGameStats(),
   candy: 0,
   devinFavor: 0,
   intoxication: 0,
@@ -99,6 +155,17 @@ const defaults = () => ({
   maddoxAffection: 0,
   maddoxPets: 0,
   roofSecretUnlocked: false,
+  studioAccessGranted: false,
+  houseDjDeskIntroduced: false,
+  storageAccessGranted: false,
+  tapeArchiveAccessGranted: false,
+  deadRoomAccessGranted: false,
+  difficulty: 'medium',
+  mixingChallengeCompleted: [],
+  mixingRewardKey: false,
+  alleyShortcutUnlocked: false,
+  hotDogsEaten: 0,
+  tacosEaten: 0,
   maddoxCompanion: false,
   arcadeWins: 0,
   archiveTape: null,
@@ -136,6 +203,10 @@ export function validateSave(value) {
   state.avatar = normalizeAvatar(value.avatar);
   state.avatarConfigured = value.avatarConfigured === true;
   state.studio = normalizeStudioSession(value.studio);
+  state.gameStats = normalizeGameStats(value.gameStats);
+  if (Array.isArray(value.studioSongs)) {
+    state.studioSongs = value.studioSongs.map(normalizeStudioSong).filter(Boolean).slice(-8);
+  }
   state.candy = Math.max(0, Math.min(9, Math.floor(Number(value.candy) || 0)));
   state.devinFavor = Math.max(0, Math.min(99, Math.floor(Number(value.devinFavor) || 0)));
   state.intoxication = Math.max(0, Math.min(1, Number(value.intoxication) || 0));
@@ -145,6 +216,21 @@ export function validateSave(value) {
   state.maddoxAffection = Math.max(0, Math.min(9, Math.floor(Number(value.maddoxAffection) || 0)));
   state.maddoxPets = Math.max(0, Math.min(999, Math.floor(Number(value.maddoxPets) || 0)));
   state.roofSecretUnlocked = value.roofSecretUnlocked === true;
+  state.studioAccessGranted = value.studioAccessGranted === true;
+  state.houseDjDeskIntroduced = value.houseDjDeskIntroduced === true;
+  state.storageAccessGranted = value.storageAccessGranted === true;
+  state.tapeArchiveAccessGranted = value.tapeArchiveAccessGranted === true;
+  state.deadRoomAccessGranted = value.deadRoomAccessGranted === true;
+  state.difficulty = normalizeDifficulty(value.difficulty);
+  if (Array.isArray(value.mixingChallengeCompleted)) {
+    state.mixingChallengeCompleted = [
+      ...new Set(value.mixingChallengeCompleted.filter((id) => MIXING_CHALLENGE_IDS.includes(id))),
+    ];
+  }
+  state.mixingRewardKey = value.mixingRewardKey === true;
+  state.alleyShortcutUnlocked = value.alleyShortcutUnlocked === true || state.mixingRewardKey;
+  state.hotDogsEaten = Math.max(0, Math.min(999, Math.floor(Number(value.hotDogsEaten) || 0)));
+  state.tacosEaten = Math.max(0, Math.min(999, Math.floor(Number(value.tacosEaten) || 0)));
   state.maddoxCompanion = state.roofSecretUnlocked && value.maddoxCompanion === true;
   state.arcadeWins = Math.max(0, Math.min(999, Math.floor(Number(value.arcadeWins) || 0)));
   if (ARCHIVE_TAPE_IDS.includes(value.archiveTape)) state.archiveTape = value.archiveTape;

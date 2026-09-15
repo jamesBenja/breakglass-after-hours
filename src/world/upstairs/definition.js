@@ -28,18 +28,47 @@ export function createUpstairsDefinition(pass = 'B') {
       .map((p) => ({ ...p, y: p.y2, priority: 20 })),
     ...stairFloors.map((p) => ({ ...p, y: p.y2, priority: 30 })),
   ];
-  const spawns = gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) };
+  const spawns = gameSpace?.spawns ?? {
+    start: waypoints.entry,
+    stairs: waypoints.belowStairsTop,
+  };
   const fridgePosition = at(785, 635);
+  const doorGate = (id, requires, position, size) => {
+    const [x, , z] = position;
+    return {
+      id,
+      requires,
+      collision: {
+        x1: x - size[0] / 2,
+        x2: x + size[0] / 2,
+        z1: z - size[2] / 2,
+        z2: z + size[2] / 2,
+        y1: 0,
+        y2: size[1],
+      },
+      visual: { position: [x, size[1] / 2, z], size, color: 0x34463a },
+    };
+  };
+  const progressionGates = [
+    doorGate('dead-room-gate', 'deadRoomAccessGranted', at(386, 692), [1.72, 2.25, 0.16]),
+    doorGate('storage-gallery-gate', 'tapeArchiveAccessGranted', at(415, 995), [1.68, 2.25, 0.16]),
+    doorGate('storage-hall-gate', 'tapeArchiveAccessGranted', at(519, 1024), [0.16, 2.25, 1.48]),
+    doorGate('alley-shortcut-gate', 'alleyShortcutUnlocked', at(414, 1116), [1.64, 2.25, 0.18]),
+  ];
+  const guidePoints = {
+    storage: { player: at(430, 1020), npc: at(410, 1008) },
+    deadRoom: { player: at(386, 666), npc: at(386, 684) },
+  };
   return {
     id: 'upstairs',
-    layoutRevision: 'a103-spatial-8-maddox',
+    layoutRevision: 'a103-spatial-9-circulation-fix',
     pass,
     title: 'UPSTAIRS — BREAKGLASS STUDIOS',
     model: 'upstairs-building',
     provenance: {
       status: 'A-103 topology / historical Neve Suite / GAME circulation',
       reference: PLAN_SOURCE,
-      note: 'Traced room relationships; widened polygon gallery and Clark landing for traversal. The historic Neve Suite is intentionally open-topped in the game so its console, tape machine and archive activity remain visible from the third-person camera.',
+      note: 'Main entry, Clark exit and Below stair now match the corrected Breakglass circulation. The historic Neve Suite remains intentionally open-topped for the third-person camera.',
     },
     background: 0x171d24,
     fog: [45, 100],
@@ -52,10 +81,11 @@ export function createUpstairsDefinition(pass = 'B') {
     spawns: {
       ...spawns,
       roofReturn: at(435, 1075, 1.4),
+      alleyShortcut: at(414, 1090),
     },
     intro: [
       'THIRD FLOOR',
-      'Build a session, play the instruments, explore the tape archive, mix on the Spectra console, enter the historic Neve Suite, and say hello to Maddox if you see him wandering around.',
+      'Main entry is beside Storage. The southeast stair goes down to Below; the west landing exits to Clark. Build a session, explore the archive and say hello to Maddox if you see him.',
     ],
     rooms: floorRooms,
     solids,
@@ -65,6 +95,8 @@ export function createUpstairsDefinition(pass = 'B') {
     stairFloors,
     centralSuite,
     closedSuites,
+    progressionGates,
+    guidePoints,
     navigation: { allowAirborne: true, boundary: footprint, surfaces, obstacles: solids },
     anchors: {
       drums: { name: 'Drum station', position: at(583, 632), radius: 1.7, action: 'drums' },
@@ -86,6 +118,7 @@ export function createUpstairsDefinition(pass = 'B') {
         position: at(325, 748),
         radius: 1.55,
         action: 'houseDjDesk',
+        requires: 'houseDjDeskIntroduced',
       },
       photoFridge: {
         name: 'Kitchen fridge · Nora photos',
@@ -93,17 +126,25 @@ export function createUpstairsDefinition(pass = 'B') {
         radius: 1.6,
         action: 'photoFridge',
       },
+      coffeeMachine: {
+        name: 'Studio kitchen espresso machine',
+        position: at(786, 594),
+        radius: 1.5,
+        action: 'coffee',
+      },
       instruments: {
         name: 'Guitar + bass rack',
         position: at(305, 625),
         radius: 1.7,
         action: 'instruments',
+        requires: 'deadRoomAccessGranted',
       },
       amps: {
         name: 'Dead Room amps',
         position: at(365, 605),
         radius: 1.8,
         action: 'amps',
+        requires: 'deadRoomAccessGranted',
       },
       micLocker: {
         name: 'Microphone locker',
@@ -122,6 +163,31 @@ export function createUpstairsDefinition(pass = 'B') {
         position: at(383, 1027),
         radius: 1.55,
         action: 'tapeArchive',
+        requires: 'tapeArchiveAccessGranted',
+      },
+      deadRoomLock: {
+        name: 'Dead Room · locked',
+        position: at(386, 700),
+        radius: 1.55,
+        action: 'progressionDoor',
+        progression: 'dead-room',
+        requiresNot: 'deadRoomAccessGranted',
+      },
+      storageLock: {
+        name: 'Storage · locked',
+        position: at(415, 986),
+        radius: 1.55,
+        action: 'progressionDoor',
+        progression: 'storage',
+        requiresNot: 'tapeArchiveAccessGranted',
+      },
+      storageHallLock: {
+        name: 'Storage · locked',
+        position: at(532, 1024),
+        radius: 1.55,
+        action: 'progressionDoor',
+        progression: 'storage',
+        requiresNot: 'tapeArchiveAccessGranted',
       },
       neveConsole: {
         name: 'Historic Neve console',
@@ -149,9 +215,25 @@ export function createUpstairsDefinition(pass = 'B') {
         target: 'roof@hatch',
         requires: 'roofSecretUnlocked',
       },
+      alleyShortcut: {
+        name: 'Service stair ↓ alley',
+        position: at(414, 1100),
+        radius: 1.55,
+        action: 'travel',
+        target: 'alley@studioShortcut',
+        requires: 'alleyShortcutUnlocked',
+      },
+      alleyShortcutLock: {
+        name: 'Service stair · locked',
+        position: at(414, 1100),
+        radius: 1.55,
+        action: 'progressionDoor',
+        progression: 'shortcut',
+        requiresNot: 'alleyShortcutUnlocked',
+      },
       stairs: {
-        name: 'Clark stair → Below',
-        position: gameSpace?.stairAnchor ?? waypoints.clark,
+        name: 'Stairs ↓ Below Breakglass',
+        position: gameSpace?.stairAnchor ?? waypoints.belowStairsBottom,
         radius: 1.4,
         action: 'travel',
         target: 'downstairs',

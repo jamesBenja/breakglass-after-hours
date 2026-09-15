@@ -1,17 +1,24 @@
-import {
-  BoxGeometry,
-  CapsuleGeometry,
-  Group,
-  Mesh,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  SphereGeometry,
-} from 'three';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial } from 'three';
+import { poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import { createNpcCharacter } from '../npcs/NpcSystem.js';
 
 export const HOUSE_DJS = [
   { id: 'lunice', name: 'Lunice', trackId: 'atrakar', accent: 0x53b7ff },
   { id: 'kaytranada', name: 'Kaytranada', trackId: 'got-you-dancin', accent: 0xffa85a },
-  { id: 'james-benjamin', name: 'James Benjamin', trackId: 'in-flux-break', accent: 0xff5e91 },
+  {
+    id: 'james-benjamin',
+    characterId: 'james',
+    name: 'James Benjamin',
+    trackId: 'in-flux-break',
+    accent: 0xff5e91,
+  },
+  {
+    id: 'malaika',
+    characterId: 'malaika',
+    name: 'DJ FLLEUR',
+    trackId: 'atrakar',
+    accent: 0xff587e,
+  },
   { id: 'siren-mars', name: 'Siren Mars', trackId: 'bhab', accent: 0xc888ff },
   { id: 'monib', name: 'Monib', trackId: 'paharpur', accent: 0x72e0b5 },
   { id: 'hydra', name: 'Hydra', trackId: 'in-flux-breath', accent: 0x7d8cff },
@@ -22,23 +29,25 @@ export const HOUSE_DJS = [
 
 export const HOUSE_DJ_IDS = HOUSE_DJS.map((dj) => dj.id);
 
-function person(accent) {
-  const group = new Group();
-  const outfit = new MeshStandardMaterial({ color: 0x202329, roughness: 0.78 });
-  const skin = new MeshStandardMaterial({ color: 0xaa785d, roughness: 0.85 });
-  const detail = new MeshStandardMaterial({ color: accent, roughness: 0.55 });
-  const body = new Mesh(new CapsuleGeometry(0.24, 0.52, 5, 8), outfit);
-  const head = new Mesh(new SphereGeometry(0.21, 12, 9), skin);
-  const leftArm = new Mesh(new CapsuleGeometry(0.065, 0.36, 4, 6), outfit);
-  const rightArm = leftArm.clone();
-  body.position.y = 1.03;
-  head.position.y = 1.68;
-  leftArm.position.set(-0.31, 1.08, 0);
-  rightArm.position.set(0.31, 1.08, 0);
-  const headphones = new Mesh(new BoxGeometry(0.43, 0.055, 0.09), detail);
-  headphones.position.set(0, 1.83, 0.01);
-  group.add(body, head, leftArm, rightArm, headphones);
-  return { group, body, head, leftArm, rightArm, detail };
+function person(dj) {
+  const model = createNpcCharacter({
+    id: dj.characterId ?? dj.id,
+    name: dj.name,
+    appearance: { accent: dj.accent, prop: null },
+  });
+
+  // Headphones follow the head rather than floating at a fixed world-space height.
+  const detail = new MeshStandardMaterial({ color: dj.accent, roughness: 0.55 });
+  const band = new Mesh(new BoxGeometry(0.4, 0.045, 0.07), detail);
+  band.position.set(0, 0.17, 0);
+  const leftCup = new Mesh(new BoxGeometry(0.055, 0.12, 0.085), detail);
+  const rightCup = leftCup.clone();
+  leftCup.position.set(-0.205, 0.02, 0);
+  rightCup.position.set(0.205, 0.02, 0);
+  model.head.add(band, leftCup, rightCup);
+  model.headphones = { band, leftCup, rightCup };
+  model.detail = detail;
+  return model;
 }
 
 function safePosition(value, fallback = [0, 0, 0]) {
@@ -72,7 +81,7 @@ export class HouseDjSystem {
     if (!downstairs || !upstairs || this.performer) return;
 
     const booth = safePosition(downstairs.definition.anchors?.dj?.position, [1.5, 0, -2.15]);
-    const model = person(this.selected.accent);
+    const model = person(this.selected);
     model.group.name = 'house-dj';
     model.group.position.set(booth[0], booth[1], booth[2] - 0.38);
     model.group.rotation.y = Math.PI;
@@ -154,7 +163,17 @@ export class HouseDjSystem {
   }
 
   applyLook() {
-    if (this.performer) this.performer.detail.color.setHex(this.selected.accent);
+    const downstairs = this.game.scenes.get('downstairs');
+    if (!downstairs || !this.performer) return;
+    const position = this.performer.group.position.clone();
+    const rotation = this.performer.group.rotation.y;
+    this.performer.group.removeFromParent();
+    const model = person(this.selected);
+    model.group.name = 'house-dj';
+    model.group.position.copy(position);
+    model.group.rotation.y = rotation;
+    downstairs.gameplay.add(model.group);
+    this.performer = model;
   }
 
   next() {
@@ -177,19 +196,37 @@ export class HouseDjSystem {
     this.elapsed += dt;
     const downstairs = this.game.sceneManager.current?.definition?.id === 'downstairs';
     const playerDj = this.game.dj.metrics().playing;
+    const studioPlaybackDownstairs =
+      downstairs && this.game.audio.activeExternalTransport?.owner === 'studio';
     if (this.game.evacuationStarted) {
       this.stopHouseAudio();
       if (this.performer) this.performer.group.visible = false;
       return;
     }
     if (this.performer) {
-      this.performer.group.visible = !playerDj;
-      const pulse = Math.sin(this.elapsed * 5.2);
-      this.performer.leftArm.rotation.x = -0.48 + pulse * 0.2;
-      this.performer.rightArm.rotation.x = -0.62 - pulse * 0.24;
-      this.performer.head.rotation.y = Math.sin(this.elapsed * 1.7) * 0.12;
+      this.performer.group.visible = !playerDj && !studioPlaybackDownstairs;
+      const malaika = this.game.scenes.get('downstairs')?.npcs?.get?.('malaika');
+      if (malaika?.group)
+        malaika.group.visible = !(this.selectedId === 'malaika' && this.performer.group.visible);
+      const metrics = this.game.dj.metrics?.() ?? {};
+      const energy = Math.max(0.25, Number(metrics.energy) || 0.62);
+      poseLightweightHuman(this.performer, {
+        time: this.elapsed,
+        phase: 0.7,
+        dancing: true,
+        energy,
+        reach: 0.5,
+      });
+      // A DJ alternates between mixer work and a deck reach. Elbows make this read as hand work
+      // rather than the old full-arm windmill motion.
+      const phrase = Math.sin(this.elapsed * 1.7);
+      this.performer.leftArm.rotation.x = -0.58 + phrase * 0.11;
+      this.performer.rightArm.rotation.x = -0.72 - phrase * 0.15;
+      this.performer.leftForearm.rotation.x = -0.62 - Math.max(0, phrase) * 0.2;
+      this.performer.rightForearm.rotation.x = -0.76 - Math.max(0, -phrase) * 0.24;
+      this.performer.head.rotation.y += Math.sin(this.elapsed * 0.8) * 0.055;
     }
-    if (playerDj) {
+    if (playerDj || studioPlaybackDownstairs) {
       this.playerHold = 8;
       return;
     }

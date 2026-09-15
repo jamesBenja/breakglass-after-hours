@@ -1,68 +1,134 @@
-import {
-  BoxGeometry,
-  CapsuleGeometry,
-  Group,
-  Mesh,
-  MeshStandardMaterial,
-  SphereGeometry,
-  Vector3,
-} from 'three';
+import { BoxGeometry, Mesh, MeshStandardMaterial, SphereGeometry, Vector3 } from 'three';
+import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import { createWorldNameplate } from '../ui/WorldNameplate.js';
 import { dialogues } from './dialogues.js';
 
-const CHARACTER_LOOKS = {
+export const CHARACTER_LOOKS = {
   nora: {
-    skin: 0xb98768,
-    hair: 0x2b1c18,
-    outfit: 0x25252a,
-    accent: 0x8f315e,
+    skin: 0xc99779,
+    hair: 0xef4d87,
+    outfit: 0x303139,
+    accent: 0xa95c83,
     hairStyle: 'long',
     prop: 'camera',
+    bodyWidth: 0.9,
+    heightScale: 0.99,
+    tattoos: true,
+  },
+  malaika: {
+    skin: 0xc89073,
+    hair: 0xe8d2a9,
+    outfit: 0x15171b,
+    trousers: 0x111318,
+    accent: 0xcf4058,
+    hairStyle: 'long',
+    curls: true,
+    glasses: true,
+    tattoos: true,
+    lipColor: 0xd94f62,
+    bodyWidth: 0.88,
+    heightScale: 1.0,
+  },
+  sam: {
+    skin: 0xc68f72,
+    hair: 0x211b1b,
+    outfit: 0x1c2026,
+    trousers: 0x12151b,
+    accent: 0x606b77,
+    hairStyle: 'bald',
+    tattoos: true,
+    headTattoo: true,
+    bodyWidth: 0.78,
+    heightScale: 1.13,
   },
   james: {
-    skin: 0xc49a78,
-    hair: 0x2c211d,
-    outfit: 0x20232a,
-    accent: 0x495e74,
-    hairStyle: 'short',
+    skin: 0xc79472,
+    hair: 0xd1b47c,
+    outfit: 0x1d2025,
+    accent: 0x607184,
+    hairStyle: 'long',
+    bodyWidth: 0.9,
+    heightScale: 1.02,
     prop: 'camera',
   },
-  jace: { skin: 0xc18f6f, hair: 0x33231c, outfit: 0x283c46, accent: 0x7d664a, hairStyle: 'short' },
+  jace: {
+    skin: 0xc28f70,
+    hair: 0xc7a878,
+    outfit: 0x1d2024,
+    accent: 0x9f4c5a,
+    hairStyle: 'long',
+    glasses: true,
+    bodyWidth: 0.96,
+    heightScale: 1.04,
+  },
   zander: {
-    skin: 0xb77d5e,
-    hair: 0x211a18,
-    outfit: 0x30363d,
-    accent: 0x5e776e,
-    hairStyle: 'short',
+    skin: 0xd1a083,
+    hair: 0x76563e,
+    outfit: 0xe6e0d5,
+    trousers: 0x7b8792,
+    accent: 0x493d39,
+    hairStyle: 'long',
+    curls: true,
+    glasses: true,
+    bodyWidth: 0.84,
+    heightScale: 1.05,
   },
   boogaloo: {
-    skin: 0x81543f,
-    hair: 0x231a17,
-    outfit: 0x4d354f,
-    accent: 0xa05f32,
-    hairStyle: 'short',
+    skin: 0x9b684c,
+    hair: 0x211b1a,
+    outfit: 0xc9cac6,
+    accent: 0xc0a35f,
+    hairStyle: 'long',
+    curls: true,
+    bodyWidth: 0.92,
+    heightScale: 1.06,
   },
   courtney: {
-    skin: 0x9d6b52,
-    hair: 0x251a18,
-    outfit: 0x472d46,
-    accent: 0xb66b93,
+    skin: 0xc18b70,
+    hair: 0x251a1a,
+    outfit: 0x202126,
+    accent: 0xa9577c,
     hairStyle: 'bob',
+    bun: true,
+    glasses: true,
+    tattoos: true,
+    bodyWidth: 0.9,
+    heightScale: 0.98,
     prop: 'bar',
   },
   simla: {
-    skin: 0x9d7258,
-    hair: 0x1f1917,
-    outfit: 0x345444,
-    accent: 0x6ea886,
-    hairStyle: 'long',
+    skin: 0xa97860,
+    hair: 0x22191a,
+    outfit: 0xd36c83,
+    accent: 0xefb1c0,
+    hairStyle: 'bob',
+    bodyWidth: 0.86,
+    heightScale: 0.98,
     prop: 'bar',
   },
+  lunice: {
+    skin: 0x73503f,
+    hair: 0x211b19,
+    outfit: 0xe2e0db,
+    accent: 0x7467a8,
+    hairStyle: 'buzz',
+    beard: true,
+    bodyWidth: 1.02,
+    heightScale: 1.04,
+  },
   jashim: {
-    skin: 0x9a6b50,
-    hair: 0x201817,
-    outfit: 0x35465e,
-    accent: 0x657fb2,
-    hairStyle: 'short',
+    skin: 0xb78368,
+    hair: 0x151619,
+    outfit: 0x111214,
+    trousers: 0x777a7d,
+    accent: 0x4f565e,
+    hairStyle: 'long',
+    bangs: true,
+    tattoos: true,
+    neckTattoo: true,
+    handTattoos: true,
+    bodyWidth: 1.08,
+    heightScale: 0.98,
   },
   devin: {
     skin: 0xb57f60,
@@ -72,12 +138,36 @@ const CHARACTER_LOOKS = {
     hairStyle: 'short',
     prop: 'candy',
   },
-  bouncer: {
-    skin: 0x8b624c,
-    hair: 0x231b19,
-    outfit: 0x22272b,
-    accent: 0x454f57,
-    hairStyle: 'buzz',
+  dave: {
+    skin: 0xb9876a,
+    hair: 0x231c1a,
+    outfit: 0x26292c,
+    trousers: 0x17191d,
+    accent: 0x9b895f,
+    hairStyle: 'short',
+    beard: true,
+    mustache: true,
+    cap: true,
+    bodyWidth: 1.0,
+    heightScale: 1.02,
+  },
+  david: {
+    skin: 0xb68a68,
+    hair: 0x5a4638,
+    outfit: 0x66513f,
+    accent: 0xa88a62,
+    hairStyle: 'short',
+  },
+  beaver: {
+    skin: 0xc28b6a,
+    hair: 0x654736,
+    outfit: 0x242326,
+    accent: 0xc26d3e,
+    hairStyle: 'short',
+    beard: true,
+    mustache: true,
+    bodyWidth: 1.18,
+    heightScale: 1.02,
   },
 };
 
@@ -96,149 +186,153 @@ const variation = (id, salt = 0) => {
   return (value % 1000) / 999;
 };
 
-function createCharacter(npc) {
+function addReferenceDetails(model, look) {
+  const ink = material(0x27262b);
+  if (look.glasses) {
+    for (const x of [-0.074, 0.074]) {
+      for (const y of [0.062, -0.002]) {
+        const bar = new Mesh(new BoxGeometry(0.12, 0.012, 0.012), ink);
+        bar.position.set(x, y, 0.232);
+        model.head.add(bar);
+      }
+      for (const side of [-1, 1]) {
+        const bar = new Mesh(new BoxGeometry(0.012, 0.072, 0.012), ink);
+        bar.position.set(x + side * 0.054, 0.03, 0.232);
+        model.head.add(bar);
+      }
+    }
+    const bridge = new Mesh(new BoxGeometry(0.035, 0.01, 0.012), ink);
+    bridge.position.set(0, 0.031, 0.234);
+    model.head.add(bridge);
+  }
+  if (look.lipColor) {
+    const lips = new Mesh(new BoxGeometry(0.086, 0.018, 0.016), material(look.lipColor));
+    lips.position.set(0, -0.116, 0.204);
+    model.head.add(lips);
+  }
+  if (look.tattoos) {
+    for (const arm of [model.leftForearm, model.rightForearm]) {
+      for (let i = 0; i < 4; i++) {
+        const mark = new Mesh(new BoxGeometry(0.055 + i * 0.008, 0.012, 0.012), ink);
+        mark.position.set((i % 2 ? 1 : -1) * 0.018, -0.08 - i * 0.058, 0.054);
+        mark.rotation.z = i * 0.43;
+        arm.add(mark);
+      }
+    }
+  }
+  if (look.headTattoo) {
+    for (let i = 0; i < 3; i++) {
+      const mark = new Mesh(new BoxGeometry(0.018, 0.085 - i * 0.014, 0.012), ink);
+      mark.position.set((i - 1) * 0.038, 0.135 - i * 0.02, 0.214);
+      mark.rotation.z = (i - 1) * 0.24;
+      model.head.add(mark);
+    }
+  }
+  if (look.beard) {
+    const beard = new Mesh(new SphereGeometry(0.15, 9, 7), model.materials.hair);
+    beard.scale.set(0.82, 0.52, 0.55);
+    beard.position.set(0, -0.145, 0.13);
+    model.head.add(beard);
+  }
+  if (look.mustache) {
+    const moustache = new Mesh(new BoxGeometry(0.105, 0.025, 0.02), model.materials.hair);
+    moustache.position.set(0, -0.086, 0.216);
+    model.head.add(moustache);
+  }
+  if (look.bun) {
+    const bun = new Mesh(new SphereGeometry(0.12, 9, 7), model.materials.hair);
+    bun.position.set(0, 0.16, -0.17);
+    model.head.add(bun);
+  }
+  if (look.curls) {
+    for (const [x, y, z, s] of [
+      [-0.18, -0.12, -0.08, 1],
+      [0.18, -0.12, -0.08, 1],
+      [-0.15, -0.3, -0.1, 0.9],
+      [0.15, -0.3, -0.1, 0.9],
+      [-0.05, -0.42, -0.12, 0.82],
+      [0.08, -0.45, -0.12, 0.82],
+    ]) {
+      const curl = new Mesh(new SphereGeometry(0.074 * s, 8, 6), model.materials.hair);
+      curl.scale.set(0.75, 1.25, 0.72);
+      curl.position.set(x, y, z);
+      model.head.add(curl);
+    }
+  }
+  if (look.bangs) {
+    for (const [x, y, scale, tilt] of [
+      [-0.13, 0.045, 1.0, -0.22],
+      [-0.045, 0.0, 1.12, -0.08],
+      [0.045, -0.01, 1.08, 0.08],
+      [0.13, 0.035, 0.96, 0.22],
+    ]) {
+      const lock = new Mesh(new SphereGeometry(0.072 * scale, 8, 6), model.materials.hair);
+      lock.scale.set(0.7, 1.55, 0.62);
+      lock.position.set(x, y, 0.19);
+      lock.rotation.z = tilt;
+      model.head.add(lock);
+    }
+  }
+  if (look.neckTattoo) {
+    for (let i = 0; i < 3; i++) {
+      const mark = new Mesh(new BoxGeometry(0.045 + i * 0.008, 0.012, 0.012), ink);
+      mark.position.set((i - 1) * 0.028, -0.015 - i * 0.018, 0.071);
+      mark.rotation.z = (i - 1) * 0.45;
+      model.neck.add(mark);
+    }
+  }
+  if (look.handTattoos) {
+    for (const hand of [model.leftHand, model.rightHand]) {
+      for (let i = 0; i < 2; i++) {
+        const mark = new Mesh(new BoxGeometry(0.032, 0.009, 0.01), ink);
+        mark.position.set((i ? 1 : -1) * 0.016, 0, 0.055);
+        mark.rotation.z = i ? 0.6 : -0.6;
+        hand.add(mark);
+      }
+    }
+  }
+  if (look.cap) {
+    const cap = new Mesh(new SphereGeometry(0.238, 10, 7), model.materials.hair);
+    cap.scale.set(1.02, 0.43, 1.02);
+    cap.position.set(0, 0.185, 0.002);
+    const brim = new Mesh(new BoxGeometry(0.24, 0.035, 0.16), model.materials.hair);
+    brim.position.set(0, 0.115, 0.21);
+    brim.rotation.x = -0.08;
+    const badge = new Mesh(new BoxGeometry(0.075, 0.018, 0.012), model.materials.accent);
+    badge.position.set(0, 0.155, 0.225);
+    model.head.add(cap, brim, badge);
+  }
+}
+
+export function createNpcCharacter(npc) {
   const look = { ...DEFAULT_LOOK, ...(CHARACTER_LOOKS[npc.id] ?? {}), ...(npc.appearance ?? {}) };
-  const group = new Group();
+  const bodyWidth = look.bodyWidth ?? 0.94 + variation(npc.id, 2) * 0.13;
+  const model = createLightweightHuman({
+    skin: look.skin,
+    hair: look.hair,
+    outfit: look.outfit ?? npc.color ?? DEFAULT_LOOK.outfit,
+    trousers: look.trousers ?? 0x181a1e,
+    shoes: look.shoes ?? 0x14161a,
+    accent: look.accent,
+    hairStyle: look.hairStyle,
+  });
+  const group = model.group;
   group.name = `npc:${npc.id}`;
-  const bodyMat = material(look.outfit ?? npc.color ?? DEFAULT_LOOK.outfit);
-  const skinMat = material(look.skin);
-  const hairMat = material(look.hair);
-  const accentMat = material(look.accent);
+  model.body.scale.x = bodyWidth;
+  model.leftArm.position.x *= bodyWidth;
+  model.rightArm.position.x *= bodyWidth;
+  addReferenceDetails(model, look);
+
+  const accentMat = model.materials.accent;
   const darkMat = material(0x181a1e);
-  const eyeMat = material(0x151419);
-  const mouthMat = material(0x663f3c);
-
-  const torso = new Mesh(new CapsuleGeometry(0.245, 0.54, 5, 9), bodyMat);
-  torso.position.y = 1.04;
-  torso.scale.x = 0.94 + variation(npc.id, 2) * 0.14;
-  torso.castShadow = true;
-
-  const shoulder = new Mesh(new BoxGeometry(0.56, 0.12, 0.2), bodyMat);
-  shoulder.position.set(0, 1.29, 0);
-  shoulder.rotation.x = 0.04;
-  shoulder.castShadow = true;
-
-  const collar = new Mesh(new BoxGeometry(0.2, 0.12, 0.045), accentMat);
-  collar.position.set(0, 0.2, 0.225);
-  collar.rotation.z = 0.08;
-  torso.add(collar);
-
-  const neck = new Mesh(new CapsuleGeometry(0.075, 0.075, 4, 6), skinMat);
-  neck.position.y = 1.47;
-
-  const head = new Mesh(new SphereGeometry(0.22, 16, 12), skinMat);
-  head.scale.set(0.92 + variation(npc.id, 7) * 0.08, 1.04, 0.95);
-  head.position.y = 1.69;
-  head.castShadow = true;
-  for (const x of [-0.073, 0.073]) {
-    const eye = new Mesh(new SphereGeometry(0.022, 7, 5), eyeMat);
-    eye.position.set(x, 0.034, 0.205);
-    head.add(eye);
-    const brow = new Mesh(new BoxGeometry(0.068, 0.012, 0.012), hairMat);
-    brow.position.set(x, 0.092, 0.207);
-    brow.rotation.z = x < 0 ? -0.07 : 0.07;
-    head.add(brow);
-  }
-  const nose = new Mesh(new SphereGeometry(0.032, 7, 5), skinMat);
-  nose.scale.set(0.72, 1.08, 0.9);
-  nose.position.set(0, -0.02, 0.218);
-  head.add(nose);
-  const mouth = new Mesh(new BoxGeometry(0.082, 0.014, 0.018), mouthMat);
-  mouth.position.set(0, -0.095, 0.198);
-  head.add(mouth);
-  for (const x of [-0.218, 0.218]) {
-    const ear = new Mesh(new SphereGeometry(0.04, 7, 5), skinMat);
-    ear.scale.set(0.55, 1, 0.48);
-    ear.position.set(x, -0.01, 0);
-    head.add(ear);
-  }
-
-  const hair = new Mesh(new BoxGeometry(0.37, 0.16, 0.35), hairMat);
-  hair.position.y = 1.86;
-  hair.castShadow = true;
-  let hairBack = null;
-  if (look.hairStyle === 'long') {
-    hair.scale.set(1.04, 1.05, 1.06);
-    hair.position.y = 1.87;
-    hairBack = new Mesh(new BoxGeometry(0.39, 0.58, 0.16), hairMat);
-    hairBack.position.set(0, 1.58, -0.13);
-  } else if (look.hairStyle === 'bob') {
-    hair.scale.set(1.08, 1.2, 1.08);
-    hair.position.y = 1.84;
-    hairBack = new Mesh(new BoxGeometry(0.4, 0.34, 0.15), hairMat);
-    hairBack.position.set(0, 1.68, -0.12);
-  } else if (look.hairStyle === 'buzz') {
-    hair.scale.set(1.02, 0.34, 1.02);
-    hair.position.y = 1.88;
-  }
-  const hairBaseY = hair.position.y;
-  const hairBackBaseY = hairBack?.position.y ?? 0;
-
-  const leftArm = new Mesh(new CapsuleGeometry(0.075, 0.39, 4, 7), bodyMat);
-  const rightArm = leftArm.clone();
-  leftArm.material = bodyMat;
-  rightArm.material = bodyMat;
-  leftArm.position.set(-0.34, 1.08, 0);
-  rightArm.position.set(0.34, 1.08, 0);
-  leftArm.rotation.z = -0.08;
-  rightArm.rotation.z = 0.08;
-  for (const arm of [leftArm, rightArm]) {
-    const hand = new Mesh(new SphereGeometry(0.075, 8, 6), skinMat);
-    hand.position.y = -0.29;
-    arm.add(hand);
-  }
-
-  const leftLeg = new Mesh(new CapsuleGeometry(0.085, 0.47, 4, 7), darkMat);
-  const rightLeg = leftLeg.clone();
-  leftLeg.material = darkMat;
-  rightLeg.material = darkMat;
-  leftLeg.position.set(-0.13, 0.44, 0);
-  rightLeg.position.set(0.13, 0.44, 0);
-
-  const shoesLeft = new Mesh(new BoxGeometry(0.16, 0.09, 0.28), darkMat);
-  const shoesRight = shoesLeft.clone();
-  shoesLeft.position.set(-0.13, 0.08, 0.055);
-  shoesRight.position.set(0.13, 0.08, 0.055);
-
-  const accent = new Mesh(new BoxGeometry(0.31, 0.13, 0.06), accentMat);
-  accent.position.set(0, 1.28, 0.225);
-
-  for (const mesh of [
-    shoulder,
-    neck,
-    leftArm,
-    rightArm,
-    leftLeg,
-    rightLeg,
-    shoesLeft,
-    shoesRight,
-    accent,
-  ]) {
-    mesh.castShadow = true;
-  }
-  group.add(
-    torso,
-    shoulder,
-    neck,
-    head,
-    hair,
-    leftArm,
-    rightArm,
-    leftLeg,
-    rightLeg,
-    shoesLeft,
-    shoesRight,
-    accent,
-  );
-  if (hairBack) {
-    hairBack.castShadow = true;
-    group.add(hairBack);
-  }
+  const accent = new Mesh(new BoxGeometry(0.24, 0.055, 0.025), accentMat);
+  accent.position.set(0, 0.115, 0.205);
+  model.body.add(accent);
 
   let prop = null;
   if (look.prop === 'camera') {
     prop = new Mesh(new BoxGeometry(0.2, 0.13, 0.12), darkMat);
-    prop.position.set(0.31, 1.22, 0.19);
+    prop.position.set(0.31, 1.2, 0.2);
     const lens = new Mesh(new SphereGeometry(0.045, 8, 6), accentMat);
     lens.scale.z = 0.65;
     lens.position.set(0, 0, 0.085);
@@ -257,21 +351,16 @@ function createCharacter(npc) {
   }
 
   return {
-    group,
-    torso,
-    shoulder,
-    neck,
-    head,
-    hair,
-    hairBaseY,
-    hairBack,
-    hairBackBaseY,
-    leftArm,
-    rightArm,
-    leftLeg,
-    rightLeg,
+    ...model,
+    torso: model.body,
+    shoulder: model.body,
+    hairBaseY: model.hair.position.y,
+    hairBack: null,
+    hairBackBaseY: 0,
+    accent,
     prop,
     propKind: look.prop ?? null,
+    heightScale: look.heightScale ?? null,
   };
 }
 
@@ -279,28 +368,36 @@ export class NpcSystem {
   constructor(root, definition) {
     this.definition = definition;
     this.npcs = (definition.npcs ?? []).map((npc, index) => {
-      const model = createCharacter(npc);
+      const model = createNpcCharacter(npc);
       const position = npc.anchor ? definition.anchors[npc.anchor].position : npc.position;
       model.group.position.fromArray(position ?? [0, 0, 0]);
-      const heightScale = 0.96 + variation(npc.id, 19) * 0.09;
+      const heightScale = model.heightScale ?? 0.96 + variation(npc.id, 19) * 0.09;
       model.group.scale.set(heightScale, heightScale, heightScale);
       if (Number.isFinite(npc.rotationY)) model.group.rotation.y = npc.rotationY;
       root.add(model.group);
       const route = (npc.route ?? []).map((point) => new Vector3().fromArray(point));
+      const interactive =
+        npc.interactive !== false &&
+        !npc.id.startsWith('line-') &&
+        !npc.id.startsWith('smoker-') &&
+        npc.id !== 'friend';
+      const nameplate = interactive && npc.name ? createWorldNameplate(npc.name) : null;
+      if (nameplate) model.group.add(nameplate.sprite);
       return {
         ...model,
         id: npc.id,
         name: npc.name ?? npc.id,
         role: npc.role ?? 'guest',
-        interactive:
-          npc.interactive !== false &&
-          !npc.id.startsWith('line-') &&
-          !npc.id.startsWith('smoker-') &&
-          npc.id !== 'friend',
+        interactive,
+        nameplate,
         radius: npc.radius ?? 1.25,
         route,
         routeIndex: 0,
         speed: npc.speed ?? 0.48,
+        companionId: npc.companionId ?? null,
+        companionOffset: Array.isArray(npc.companionOffset)
+          ? new Vector3().fromArray(npc.companionOffset)
+          : new Vector3(0.85, 0, 0.45),
         phase: index * 2.1,
         photoPulse: 0,
         servePulse: 0,
@@ -366,7 +463,23 @@ export class NpcSystem {
       npc.photoPulse = Math.max(0, npc.photoPulse - dt);
       npc.servePulse = Math.max(0, npc.servePulse - dt);
       npc.moving = false;
-      if (npc.route.length > 1 && npc.photoPulse <= 0 && npc.servePulse <= 0) {
+      const companion = npc.companionId ? this.get(npc.companionId) : null;
+      if (companion && npc.photoPulse <= 0 && npc.servePulse <= 0) {
+        const target = companion.group.position.clone().add(npc.companionOffset);
+        const dx = target.x - npc.group.position.x;
+        const dz = target.z - npc.group.position.z;
+        const distance = Math.hypot(dx, dz);
+        if (distance > 0.78) {
+          const amount = Math.min(Math.max(0, distance - 0.64), npc.speed * 1.18 * dt);
+          npc.group.position.x += (dx / distance) * amount;
+          npc.group.position.z += (dz / distance) * amount;
+          npc.group.position.y += (target.y - npc.group.position.y) * (1 - Math.exp(-5 * dt));
+          npc.group.rotation.y = Math.atan2(dx, dz);
+          npc.moving = amount > 0.001;
+        } else {
+          npc.group.rotation.y = companion.group.rotation.y;
+        }
+      } else if (npc.route.length > 1 && npc.photoPulse <= 0 && npc.servePulse <= 0) {
         const target = npc.route[npc.routeIndex % npc.route.length];
         const dx = target.x - npc.group.position.x;
         const dz = target.z - npc.group.position.z;
@@ -382,36 +495,32 @@ export class NpcSystem {
         }
       }
 
-      const gait = Math.sin(this.elapsed * (npc.moving ? 7.5 : 2.2) + npc.phase);
       const clubDance =
         metrics.playing && ['dancer', 'photographer', 'host', 'artist'].includes(npc.role);
-      const danceAmount = clubDance ? 0.045 + energy * 0.09 : 0;
-      const bob = npc.moving
-        ? Math.abs(gait) * 0.025
-        : clubDance
-          ? Math.abs(gait) * danceAmount
-          : 0;
-      npc.torso.position.y = 1.04 + bob;
-      npc.shoulder.position.y = 1.29 + bob;
-      npc.neck.position.y = 1.47 + bob;
-      npc.head.position.y = 1.69 + bob;
-      npc.hair.position.y = npc.hairBaseY + bob;
-      if (npc.hairBack) npc.hairBack.position.y = npc.hairBackBaseY + bob;
+      poseLightweightHuman(npc, {
+        time: this.elapsed,
+        phase: npc.phase,
+        moving: npc.moving,
+        dancing: clubDance,
+        energy: clamp(energy * 0.72 + bass * 0.28),
+      });
 
-      const limb = npc.moving ? gait * 0.45 : clubDance ? gait * (0.12 + bass * 0.18) : 0;
-      npc.leftArm.rotation.x = limb;
-      npc.rightArm.rotation.x = -limb;
-      npc.leftLeg.rotation.x = -limb * 0.65;
-      npc.rightLeg.rotation.x = limb * 0.65;
-      npc.head.rotation.y = clubDance ? Math.sin(this.elapsed * 1.3 + npc.phase) * 0.06 : 0;
+      // Named characters subtly look around when idle instead of staring straight ahead.
+      if (!npc.moving && !clubDance && npc.photoPulse <= 0 && npc.servePulse <= 0) {
+        npc.head.rotation.y += Math.sin(this.elapsed * 0.45 + npc.phase) * 0.035;
+        npc.head.rotation.x += Math.sin(this.elapsed * 0.31 + npc.phase * 0.7) * 0.012;
+      }
 
       if (npc.photoPulse > 0 && npc.prop && ['nora', 'james'].includes(npc.id)) {
         const lift = clamp(npc.photoPulse / 0.45);
-        npc.prop.position.set(0.08, 1.46 + lift * 0.18, 0.28);
-        npc.rightArm.rotation.x = -1.25 * lift;
-        npc.leftArm.rotation.x = -1.0 * lift;
+        npc.prop.position.set(0.07, 1.48 + lift * 0.1, 0.29);
+        npc.rightArm.rotation.x = -1.08 * lift;
+        npc.leftArm.rotation.x = -0.94 * lift;
+        npc.rightForearm.rotation.x = -0.92 * lift;
+        npc.leftForearm.rotation.x = -0.82 * lift;
+        npc.head.rotation.x = -0.035 * lift;
       } else if (npc.prop && ['nora', 'james'].includes(npc.id)) {
-        npc.prop.position.set(0.31, 1.22, 0.19);
+        npc.prop.position.set(0.31, 1.2, 0.2);
       }
 
       if (npc.role === 'bartender' && npc.propKind === 'bar' && npc.prop) {
@@ -419,8 +528,11 @@ export class NpcSystem {
           const phase = 1 - clamp(npc.servePulse / 1.15);
           const reach = Math.sin(Math.min(1, phase * 1.3) * Math.PI) * 0.42;
           npc.prop.position.set(0.18, 1.1 + reach * 0.2, 0.2 + reach);
-          npc.rightArm.rotation.x = -0.25 - reach * 1.65;
-          npc.leftArm.rotation.x = -0.12 - reach * 0.45;
+          npc.rightArm.rotation.x = -0.2 - reach * 1.1;
+          npc.rightForearm.rotation.x = -0.25 - reach * 1.15;
+          npc.leftArm.rotation.x = -0.1 - reach * 0.25;
+          npc.leftForearm.rotation.x = -0.12 - reach * 0.4;
+          npc.body.rotation.x = -reach * 0.045;
         } else {
           npc.prop.position.set(0.3, 1.02, 0.2);
         }
@@ -429,7 +541,10 @@ export class NpcSystem {
   }
 
   dispose() {
-    for (const npc of this.npcs) npc.group.removeFromParent();
+    for (const npc of this.npcs) {
+      npc.nameplate?.dispose?.();
+      npc.group.removeFromParent();
+    }
     this.npcs = [];
   }
 }

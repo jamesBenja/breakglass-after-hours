@@ -144,6 +144,7 @@ export class Game {
       },
       onEnter: (level) => {
         this.syncMaddoxPresence(level, { entered: true });
+        level.progressionGates?.sync?.(this.state.data);
         this.interactions.setLevel(level);
         this.camera.configure(
           level.definition.cameraOffset,

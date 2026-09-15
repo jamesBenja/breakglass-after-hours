@@ -3,9 +3,7 @@ name: iPhone Preview
 on:
   push:
     branches:
-      - feat/dynamic-below-avatar-foundation
-      - feat/mobile-performance-dj-surface
-      - feat/live-multiplayer-foundation
+      - feat/multiplayer-phase-2-shared-world
   workflow_dispatch:
 
 permissions:

@@ -19,12 +19,12 @@ export function buildAlleyBlockout(root) {
   // The doorway now reads as an actual stairwell down to Below rather than a flat teleport marker.
   doorwayFrame(root, -3.7, -2.24, 'horizontal', 'BREAKGLASS');
   box(root, 3.5, 0.16, 0.8, garden, -3.7, 0.04, -1.55);
-  label(root, 'CLUB ENTRANCE ↓ BELOW', -3.7, 3.35, -2.2, 0.42, '#ffd4a8');
+  label(root, 'STAIRWELL ↑ BREAKGLASS', -3.7, 3.35, -2.2, 0.42, '#ffd4a8');
 
   const stair = mat(0x453a34, 0.88, 0.02);
   for (let i = 0; i < 5; i++) {
-    const depth = 0.22;
-    box(root, 1.55, 0.08, depth, stair, -3.7, 0.01 - i * 0.035, -1.58 - i * 0.2);
+    const height = 0.08 * (i + 1);
+    box(root, 1.55, height, 0.22, stair, -3.7, height / 2, -1.5 - i * 0.18);
   }
   // Low stairwell cheeks and rails frame the descent without blocking the playable alley path.
   for (const x of [-4.55, -2.85]) {
@@ -51,6 +51,21 @@ export function buildAlleyBlockout(root) {
       box(root, 0.11, 0.62, 0.11, metal, x + dx, 0.34, z);
     }
   }
+
+  // Beaver's alley BBQ: grill, prep table and cooler, kept deliberately low-key outside.
+  const grill = mat(0x25282b, 0.5, 0.28);
+  const grillHot = mat(0x6d2d1f, 0.72, 0.05);
+  box(root, 1.05, 0.18, 0.62, grill, 15.35, 0.82, -0.78);
+  box(root, 1.0, 0.22, 0.58, grill, 15.35, 1.04, -0.78).rotation.x = -0.22;
+  for (const x of [14.95, 15.75]) box(root, 0.08, 0.8, 0.08, metal, x, 0.4, -0.78);
+  for (const x of [15.02, 15.25, 15.48, 15.7])
+    box(root, 0.15, 0.04, 0.34, grillHot, x, 0.94, -0.78);
+  box(root, 1.25, 0.1, 0.65, wood, 13.45, 0.72, -0.45);
+  for (const x of [12.95, 13.95]) box(root, 0.08, 0.68, 0.08, metal, x, 0.34, -0.45);
+  box(root, 0.82, 0.58, 0.62, mat(0x48647a, 0.7, 0.08), 16.65, 0.29, -0.52);
+  box(root, 0.84, 0.08, 0.64, mat(0xd8d7cc, 0.7, 0.03), 16.65, 0.62, -0.52);
+  label(root, 'BEAVER · BBQ', 14.65, 2.35, -2.15, 0.3, '#ffd0a6');
+  label(root, 'HOT DOGS · TACOS · BEER', 15.1, 1.85, -2.12, 0.2, '#f6dfc7');
 
   // Planters / trees create the narrow garden rhythm visible from De Castelnau.
   for (const [x, z] of [

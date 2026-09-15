@@ -1,8 +1,14 @@
 import { multiplayerAvatar } from '../avatar/profile.js';
 import { RemotePlayer } from './RemotePlayer.js';
+import { RealtimeMedia } from './RealtimeMedia.js';
+import { SharedWorld } from './SharedWorld.js';
 
 const DEFAULT_ROOM = 'breakglass-main';
-const DEFAULT_SERVER = 'https://multiplayer-live-production.up.railway.app';
+const DEFAULT_SERVER = 'https://multiplayer-phase2-webrtc-production.up.railway.app';
+const LEGACY_SERVERS = new Set([
+  'https://multiplayer-phase2-live-production.up.railway.app',
+  'https://multiplayer-phase2-production.up.railway.app',
+]);
 const SEND_INTERVAL_MS = 1000 / 15;
 const RECONNECT_MAX_MS = 10_000;
 
@@ -35,6 +41,11 @@ export function resolveMultiplayerConfig() {
   let stored = null;
   try {
     stored = localStorage.getItem('breakglass.multiplayer.server');
+    // Migrate anyone who tested an earlier Phase 2 relay onto the fixed signaling service.
+    if (stored && LEGACY_SERVERS.has(stored.replace(/\/$/, ''))) {
+      localStorage.removeItem('breakglass.multiplayer.server');
+      stored = null;
+    }
   } catch {
     // Multiplayer remains optional when storage is blocked.
   }
@@ -84,8 +95,19 @@ export class MultiplayerClient {
     this.lastFrameAt = null;
     this.reconnectDelay = 800;
     this.reconnectTimer = null;
+    this.clockOffsetMs = 0;
     this.presence = buildPresence(ui.document);
+    this.world = new SharedWorld(this);
+    this.media = new RealtimeMedia(this);
     this.updatePresence();
+  }
+
+  send(payload) {
+    return safeSend(this.socket, payload);
+  }
+
+  serverNow() {
+    return Date.now() + this.clockOffsetMs;
   }
 
   start(avatar) {
@@ -120,7 +142,7 @@ export class MultiplayerClient {
       if (socket !== this.socket || this.disposed) return;
       this.connected = true;
       this.reconnectDelay = 800;
-      safeSend(socket, {
+      this.send({
         type: 'join',
         room: this.room,
         avatar: this.avatar,
@@ -174,9 +196,16 @@ export class MultiplayerClient {
     if (!message || typeof message !== 'object') return;
 
     if (message.type === 'welcome') {
+      if (Number.isFinite(Number(message.serverTime)))
+        this.clockOffsetMs = Number(message.serverTime) - Date.now();
       this.localId = message.id;
       this.joined = true;
-      for (const player of message.players ?? []) this.addRemote(player);
+      for (const player of message.players ?? []) {
+        this.addRemote(player);
+        this.media.playerJoined(player);
+      }
+      this.world.hydrate(message.world ?? {});
+      this.media.hydrate(message.world?.chat ?? []);
       this.updatePresence();
       this.ui.warning?.(
         `LIVE ROOM · ${this.remotePlayers.size + 1} ${this.remotePlayers.size ? 'people' : 'person'} connected`,
@@ -185,6 +214,7 @@ export class MultiplayerClient {
     }
     if (message.type === 'player_joined') {
       this.addRemote(message.player);
+      this.media.playerJoined(message.player);
       this.updatePresence();
       const name = message.player?.avatar?.displayName ?? 'Someone';
       this.ui.warning?.(`${name} entered Breakglass.`);
@@ -193,6 +223,7 @@ export class MultiplayerClient {
     if (message.type === 'player_left') {
       const remote = this.remotePlayers.get(message.id);
       if (remote) this.ui.warning?.(`${remote.avatar.displayName} left Breakglass.`);
+      this.media.playerLeft(message.id);
       this.removeRemote(message.id);
       this.updatePresence();
       return;
@@ -203,6 +234,31 @@ export class MultiplayerClient {
     }
     if (message.type === 'emote') {
       this.handleEmote(message);
+      return;
+    }
+    if (message.type === 'chat') {
+      this.media.addChat(message.message);
+      return;
+    }
+    if (message.type === 'media_status') {
+      this.media.updatePlayerMedia(message.id, message.media);
+      return;
+    }
+    if (message.type === 'signal') {
+      void this.media.handleSignal(message.fromId, message.data);
+      return;
+    }
+    if (
+      [
+        'resource_result',
+        'resource',
+        'object_state',
+        'dj_state',
+        'lighting_state',
+        'party_state',
+      ].includes(message.type)
+    ) {
+      this.world.handleMessage(message);
       return;
     }
     if (message.type === 'error') {
@@ -265,7 +321,7 @@ export class MultiplayerClient {
     ]);
     // Send a heartbeat state at least every 1.2s even while perfectly still.
     if (signature === this.lastSnapshot && now - this.lastSentAt < 1200) return;
-    if (safeSend(this.socket, { type: 'state', state })) {
+    if (this.send({ type: 'state', state })) {
       this.lastSnapshot = signature;
       this.lastSentAt = now;
     }
@@ -276,6 +332,7 @@ export class MultiplayerClient {
       this.lastFrameAt == null ? 0 : Math.min(0.05, Math.max(0, (now - this.lastFrameAt) / 1000));
     this.lastFrameAt = now;
     for (const remote of this.remotePlayers.values()) remote.update(dt);
+    this.world.update();
     this.maybeSendState(now);
   }
 
@@ -287,6 +344,15 @@ export class MultiplayerClient {
       if (remote.sceneId === sceneId) targets.push(remote.interactionTarget());
     }
     return targets;
+  }
+
+  faceRemote(remote) {
+    if (!remote) return;
+    const player = this.game.player;
+    const dx = remote.object.position.x - player.position.x;
+    const dz = remote.object.position.z - player.position.z;
+    if (Math.hypot(dx, dz) > 0.01) player.object.rotation.y = Math.atan2(dx, dz);
+    remote.facePosition(player.position);
   }
 
   showInteraction(target) {
@@ -310,9 +376,14 @@ export class MultiplayerClient {
 
   sendEmote(kind, targetId = null) {
     if (!this.joined) return false;
-    const sent = safeSend(this.socket, { type: 'emote', kind, targetId });
-    if (sent && kind === 'dance') this.game.player.dance(1.8);
-    return sent;
+    const remote = targetId ? this.remotePlayers.get(targetId) : null;
+    if (remote) this.faceRemote(remote);
+    const sent = this.send({ type: 'emote', kind, targetId });
+    if (!sent) return false;
+    if (kind === 'dance') this.game.player.dance(1.8);
+    else this.game.player.performMultiplayerGesture?.(kind);
+    if (kind === 'highfive') remote?.emote('highfive');
+    return true;
   }
 
   handleEmote(message) {
@@ -321,15 +392,18 @@ export class MultiplayerClient {
     if (!remote) return;
     remote.emote(message.kind);
     if (message.targetId === this.localId) {
+      this.faceRemote(remote);
       const labels = {
         wave: 'waves at you',
         dance: 'starts dancing with you',
-        highfive: 'offers you a high five',
+        highfive: 'high-fives you',
       };
       this.ui.warning?.(
         `${remote.avatar.displayName} ${labels[message.kind] ?? 'interacts with you'}.`,
       );
       if (message.kind === 'dance') this.game.player.dance(1.8);
+      else if (message.kind === 'highfive')
+        this.game.player.performMultiplayerGesture?.('highfive');
     }
   }
 
@@ -359,6 +433,8 @@ export class MultiplayerClient {
   dispose() {
     this.disposed = true;
     this.clearReconnect();
+    this.world.dispose();
+    this.media.dispose();
     this.clearRemotes();
     if (this.socket && this.socket.readyState <= WebSocket.OPEN) this.socket.close(1000, 'leaving');
     this.socket = null;

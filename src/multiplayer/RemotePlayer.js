@@ -47,8 +47,6 @@ export class RemotePlayer {
     this.dancing = false;
     this.seated = false;
     this.grounded = true;
-    this.gesture = null;
-    this.gestureRemaining = 0;
     this.lastPacketAt = performance.now();
 
     const label = makeNameSprite(this.avatar.displayName);
@@ -94,9 +92,22 @@ export class RemotePlayer {
   }
 
   emote(kind) {
-    this.gesture = kind;
-    this.gestureRemaining = kind === 'dance' ? 1.6 : 0.85;
-    if (kind === 'dance') this.controller.dance(1.6);
+    if (kind === 'dance') {
+      this.controller.dance(1.8);
+      return;
+    }
+    this.controller.performMultiplayerGesture?.(kind);
+  }
+
+  facePosition(position) {
+    if (!position) return;
+    const dx = Number(position.x ?? position[0]) - this.object.position.x;
+    const dz = Number(position.z ?? position[2]) - this.object.position.z;
+    if (Math.hypot(dx, dz) > 0.01) {
+      const facing = Math.atan2(dx, dz);
+      this.targetRotationY = facing;
+      this.object.rotation.y = facing;
+    }
   }
 
   update(dt) {
@@ -119,15 +130,6 @@ export class RemotePlayer {
     if (this.dancing)
       this.controller.danceRemaining = Math.max(this.controller.danceRemaining, 0.18);
     this.controller.animate(dt);
-
-    this.gestureRemaining = Math.max(0, this.gestureRemaining - dt);
-    if (this.gestureRemaining > 0 && this.gesture !== 'dance') {
-      const pulse = Math.sin((1 - this.gestureRemaining / 0.85) * Math.PI * 3);
-      this.controller.rightArm.rotation.z = -0.55 - Math.abs(pulse) * 1.05;
-      this.controller.rightArm.rotation.x += pulse * 0.22;
-    } else if (this.gestureRemaining <= 0) {
-      this.gesture = null;
-    }
 
     // If updates stop arriving, do not leave a remote avatar walking forever.
     if (packetAge > 0.8) {

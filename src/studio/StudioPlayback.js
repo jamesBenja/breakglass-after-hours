@@ -48,10 +48,28 @@ export class StudioPlayback {
     this.assetBuffers = new Map();
     this.realSessionPlaying = false;
     this.bpm = 118;
+    this.transportOffset = 0;
+    this.transportStartedAt = 0;
   }
 
   get playing() {
     return this.timer !== null || this.realSessionPlaying || this.nativeStems.size > 0;
+  }
+
+  position() {
+    if (this.nativeStems.size) {
+      const first = this.nativeStems.values().next().value;
+      if (Number.isFinite(first?.currentTime)) return Math.max(0, first.currentTime);
+    }
+    const offset = Math.max(0, Number(this.transportOffset) || 0);
+    if (!this.playing || !this.audio.context) return offset;
+    let value = offset + Math.max(0, this.audio.context.currentTime - this.transportStartedAt);
+    if (this.session?.loopEnabled) {
+      const duration =
+        (60 / Math.max(1, this.bpm)) * 4 * Math.max(1, Number(this.session.loopBars) || 4);
+      if (duration > 0) value %= duration;
+    }
+    return value;
   }
 
   ensureBus(stem) {
@@ -74,6 +92,8 @@ export class StudioPlayback {
     high.gain.value = 0;
     const compressor = context.createDynamicsCompressor();
     const fader = context.createGain();
+    const fxGain = context.createGain();
+    const fxDelay = context.createDelay(0.5);
     const pan =
       typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
     input.connect(color);
@@ -83,7 +103,12 @@ export class StudioPlayback {
     compressor.connect(fader);
     fader.connect(pan ?? this.audio.master);
     pan?.connect(this.audio.master);
-    bus = { input, color, low, high, compressor, fader, pan };
+    fxGain.gain.value = 0;
+    fxDelay.delayTime.value = 0.18;
+    fader.connect(fxGain);
+    fxGain.connect(fxDelay);
+    fxDelay.connect(this.audio.master);
+    bus = { input, color, low, high, compressor, fader, pan, fxGain, fxDelay };
     this.buses.set(stem.id, bus);
     this.configureProcessing(stem, bus);
     return bus;
@@ -133,6 +158,7 @@ export class StudioPlayback {
       bus.high.gain.setTargetAtTime((stem.high ?? 0) * 15, time, 0.025);
       const audible = !stem.mute && (!anySolo || stem.solo);
       bus.fader.gain.setTargetAtTime(audible ? stem.level : 0, time, 0.025);
+      bus.fxGain.gain.setTargetAtTime((stem.fx ?? 0) * 0.38, time, 0.025);
       if (bus.pan) bus.pan.pan.setTargetAtTime(stem.pan ?? 0, time, 0.025);
     }
     for (const [id, bus] of this.buses) {
@@ -357,8 +383,11 @@ export class StudioPlayback {
     return buffers.size === stems.length ? buffers : null;
   }
 
-  startAlignedAssets(session, buffers) {
+  startAlignedAssets(session, buffers, offset = 0) {
     const start = this.audio.context.currentTime + 0.06;
+    const safeOffset = Math.max(0, Number(offset) || 0);
+    this.transportOffset = safeOffset;
+    this.transportStartedAt = start;
     for (const stem of session.stems) {
       if (!stem.assetId) continue;
       const buffer = buffers.get(stem.id);
@@ -372,7 +401,8 @@ export class StudioPlayback {
         this.sources.delete(source);
       };
       this.sources.add(source);
-      source.start(start);
+      const startOffset = buffer.duration > 0 ? safeOffset % buffer.duration : 0;
+      source.start(start, startOffset);
     }
     this.realSessionPlaying = true;
     this.audio.setExternalTransport?.(
@@ -386,8 +416,11 @@ export class StudioPlayback {
     );
   }
 
-  async startNativeAssets(session) {
+  async startNativeAssets(session, offset = 0) {
     if (typeof Audio === 'undefined' || !this.audio.assets?.mediaUrl) return false;
+    const safeOffset = Math.max(0, Number(offset) || 0);
+    this.transportOffset = safeOffset;
+    this.transportStartedAt = this.audio.context?.currentTime ?? 0;
     const stems = session.stems.filter((stem) => stem.assetId);
     if (!stems.length || stems.length !== session.stems.length) return false;
     const created = [];
@@ -403,6 +436,18 @@ export class StudioPlayback {
       media.playsInline = true;
       media.src = url;
       media.volume = 0;
+      const seek = () => {
+        if (!(safeOffset > 0)) return;
+        try {
+          const duration = Number(media.duration);
+          media.currentTime =
+            Number.isFinite(duration) && duration > 0 ? safeOffset % duration : safeOffset;
+        } catch {
+          // loadedmetadata will try again when a remote source delays seekability.
+        }
+      };
+      if (media.readyState >= 1) seek();
+      else media.addEventListener?.('loadedmetadata', seek, { once: true });
       created.push([stem.id, media]);
     }
     try {
@@ -430,24 +475,28 @@ export class StudioPlayback {
     return true;
   }
 
-  async play(session) {
+  async play(session, offset = 0) {
     if (!this.audio.context) return false;
     this.stop();
+    const safeOffset = Math.max(0, Number(offset) || 0);
     this.session = session;
     this.bpm = session.bpm ?? 118;
+    this.transportOffset = safeOffset;
+    this.transportStartedAt = this.audio.context.currentTime;
     this.updateMix(session);
 
     const alignedAssets = await this.loadAlignedAssets(session);
     if (alignedAssets) {
       this.assetBuffers = alignedAssets;
-      this.startAlignedAssets(session, alignedAssets);
+      this.startAlignedAssets(session, alignedAssets, safeOffset);
       return true;
     }
-    if (await this.startNativeAssets(session)) return true;
+    if (await this.startNativeAssets(session, safeOffset)) return true;
 
-    this.nextTime = this.audio.context.currentTime;
-    this.step = 0;
     const interval = 60 / this.bpm / 4;
+    this.step = Math.floor(safeOffset / interval) % 256;
+    const remainder = safeOffset % interval;
+    this.nextTime = this.audio.context.currentTime + (remainder > 0 ? interval - remainder : 0);
     this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
     const schedule = () => {
       if (!this.audio.context || this.audio.context.state !== 'running') return;
@@ -485,6 +534,8 @@ export class StudioPlayback {
       media.load?.();
     }
     this.nativeStems.clear();
+    this.transportOffset = 0;
+    this.transportStartedAt = 0;
     this.audio.clearExternalTransport?.('studio');
   }
 

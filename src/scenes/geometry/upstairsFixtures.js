@@ -134,6 +134,20 @@ export function buildStudioEquipment(root, definition) {
       box(group, w, 1.03, d, wood, 0, 0.515, 0);
       box(group, w, 0.07, d, cream, 0, 1.065, 0);
       for (const z of [-1, 0, 1]) cyl(group, 0.1, 0.2, navy, 0, 1.18, z);
+
+      // Working espresso machine in the upstairs studio kitchen.
+      const espresso = mat(0xa9afb0, 0.3, 0.62);
+      const espressoDark = mat(0x24282a, 0.48, 0.24);
+      box(group, 0.72, 0.48, 0.4, espresso, 0, 1.34, 0.72);
+      box(group, 0.66, 0.1, 0.38, espressoDark, 0, 1.61, 0.72);
+      box(group, 0.62, 0.07, 0.31, MAT.metal, 0, 1.11, 0.69);
+      for (const x of [-0.18, 0.18]) {
+        cyl(group, 0.05, 0.11, espressoDark, x, 1.39, 0.49).rotation.x = Math.PI / 2;
+        cyl(group, 0.02, 0.18, MAT.metal, x, 1.2, 0.5);
+      }
+      cyl(group, 0.025, 0.3, MAT.metal, 0.34, 1.25, 0.66).rotation.z = 0.25;
+      for (const x of [-0.2, 0, 0.2]) cyl(group, 0.07, 0.08, cream, x, 1.76, 0.75);
+      label(root, 'ESPRESSO', group.position.x, 2.0, group.position.z + 0.72, 0.18, '#f2dfc4');
     } else if (fixture.id === 'dead-gobo') {
       box(group, w, 1.5, d, navy, 0, 0.9, 0);
       for (const x of [-w / 2 + 0.1, w / 2 - 0.1]) box(group, 0.12, 0.08, 0.65, wood, x, 0.04, 0);

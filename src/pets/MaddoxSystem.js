@@ -8,6 +8,7 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
+import { createWorldNameplate } from '../ui/WorldNameplate.js';
 
 const material = (color, roughness = 0.9) =>
   new MeshStandardMaterial({ color, roughness, metalness: 0.02 });
@@ -160,6 +161,8 @@ export class MaddoxSystem {
     root.add(this.root);
 
     this.name = config.name ?? 'Maddox';
+    this.nameplate = createWorldNameplate(this.name, { height: 1.88, width: 1.62 });
+    if (this.nameplate) this.root.add(this.nameplate.sprite);
     this.radius = config.radius ?? 1.35;
     this.roamPoints = (config.roamPoints ?? []).map(toVector);
     this.napPoints = (config.napPoints ?? []).map(toVector);
@@ -331,6 +334,7 @@ export class MaddoxSystem {
   }
 
   dispose() {
+    this.nameplate?.dispose?.();
     this.root.removeFromParent();
   }
 }

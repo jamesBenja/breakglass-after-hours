@@ -35,7 +35,165 @@
   opacity: 0.46;
 }
 
-body.ui-minimal #multiplayerPresence {
+.live-social-dock {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 28;
+  width: min(340px, calc(100vw - 20px));
+  pointer-events: auto;
+  font-family: system-ui, sans-serif;
+}
+
+.live-social-toggle {
+  float: right;
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(8, 8, 11, 0.62);
+  color: #f4f4f4;
+  backdrop-filter: blur(8px);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.live-social-panel {
+  clear: both;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: min(58vh, 510px);
+  margin-top: 6px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 13px;
+  background: rgba(7, 7, 10, 0.72);
+  color: #f2f2f2;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.24);
+}
+
+.live-social-dock.collapsed .live-social-panel {
+  display: none;
+}
+
+.live-social-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.live-social-header strong {
+  font-size: 9px;
+  letter-spacing: 0.11em;
+}
+
+.live-social-header button {
+  min-height: 29px;
+  padding: 4px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(30, 30, 35, 0.72);
+  color: #eee;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.live-social-header button.active {
+  background: rgba(43, 120, 76, 0.72);
+  border-color: rgba(114, 227, 156, 0.55);
+}
+
+.live-chat-log {
+  min-height: 62px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 5px 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.live-chat-line {
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.live-chat-line strong {
+  color: rgba(255, 228, 181, 0.9);
+}
+
+.live-chat-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px;
+}
+
+.live-chat-form input {
+  min-width: 0;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.32);
+  color: #fff;
+}
+
+.live-chat-form button {
+  min-height: 32px;
+  padding: 4px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(105, 76, 41, 0.68);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 850;
+}
+
+.live-media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.live-media-grid:empty {
+  display: none;
+}
+
+.live-media-tile {
+  position: relative;
+  min-height: 34px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.live-media-tile video {
+  display: block;
+  width: 100%;
+  max-height: 112px;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.live-media-tile > small {
+  display: block;
+  padding: 3px 5px;
+  font-size: 8px;
+}
+
+.live-media-status {
+  opacity: 0.58;
+}
+
+body.ui-minimal #multiplayerPresence,
+body.ui-minimal .live-social-dock {
   opacity: 0.2;
 }
 
@@ -45,5 +203,25 @@ body.ui-minimal #multiplayerPresence {
     right: max(7px, env(safe-area-inset-right));
     padding: 5px 7px;
     font-size: 8px;
+  }
+
+  .live-social-dock {
+    right: max(7px, env(safe-area-inset-right));
+    bottom: max(7px, env(safe-area-inset-bottom));
+    width: min(94vw, 330px);
+  }
+
+  .live-social-panel {
+    max-height: 48vh;
+    padding: 7px;
+    background: rgba(7, 7, 10, 0.64);
+  }
+
+  .live-chat-log {
+    max-height: 105px;
+  }
+
+  .live-media-tile video {
+    max-height: 86px;
   }
 }

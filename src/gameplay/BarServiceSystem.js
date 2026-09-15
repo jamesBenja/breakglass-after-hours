@@ -139,11 +139,15 @@ export class BarServiceSystem {
   }
 
   handle(target) {
-    if (this.sceneManager.current?.definition?.id !== 'downstairs') return false;
+    const sceneId = this.sceneManager.current?.definition?.id;
     if (target?.action === 'coffee') {
-      this.coffeePanel();
+      if (!['downstairs', 'upstairs'].includes(sceneId)) return false;
+      this.coffeePanel(
+        sceneId === 'upstairs' ? 'You use the espresso machine in the studio kitchen.' : '',
+      );
       return true;
     }
+    if (sceneId !== 'downstairs') return false;
     const id = target?.npcId ?? target?.id;
     if (!BARTENDERS.has(id)) return false;
     this.state?.meet?.(id);

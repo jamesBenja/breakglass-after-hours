@@ -41,7 +41,7 @@ test('every game boot is forced to the alley start instead of a saved interior p
   assert.deepEqual(starts, [[ENTRY_SCENE_ID, null]]);
 });
 
-test('club door refuses entry until the player has talked to security', () => {
+test('Sam performs security clearance and the club door opens only after that', () => {
   const transitions = [];
   const panels = [];
   const bouncer = {
@@ -84,9 +84,10 @@ test('club door refuses entry until the player has talked to security', () => {
   assert.deepEqual(transitions, []);
   assert.equal(panels.at(-1), 'DOOR · SECURITY FIRST');
 
-  assert.equal(bouncer.handle({ id: 'bouncer' }), true);
+  assert.equal(bouncer.handle({ id: 'sam', npcId: 'sam', action: 'dialogue' }), true);
   assert.equal(bouncer.admitted, true);
   assert.deepEqual(transitions, []);
+  assert.equal(panels.at(-1), 'DOOR · CLEARED BY SECURITY');
 
   assert.equal(bouncer.handle({ id: 'clubDoor', target: 'downstairs@alley' }), true);
   assert.deepEqual(transitions, ['downstairs@alley']);

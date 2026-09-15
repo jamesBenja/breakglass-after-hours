@@ -29,8 +29,28 @@ export const dialogues = {
     title: 'DEVIN · SOUND SYSTEM TECH',
     text: '“I’m listening. Something in this corner is bothering me. Also, do you have any candy?”',
   },
-  bouncer: {
-    title: 'DOOR',
-    text: '“You’re good. Head in when you’re ready. And please keep it down if you come back outside.”',
+  dave: {
+    title: 'DAVE · FOUNDER',
+    text: '“You found the roof. Grab a spot — the building looks different from up here.”',
+  },
+  david: {
+    title: 'DAVID · FURNITURE DEALER',
+    text: '“Half the building is furniture if you know which wall to move.”',
+  },
+  dave: {
+    title: 'DAVE · BREAKGLASS FOUNDER',
+    text: '“We spent a lot of time up here when the studio was young. The roof was part smoke break, part meeting room.”',
+  },
+  beaver: {
+    title: 'BEAVER · BACK ALLEY BBQ',
+    text: '“Hot dogs, tacos, beer. Keep the alley chill and eat something.”',
+  },
+  sam: {
+    title: 'SAM · SECURITY',
+    text: '“You’re good. Head in when you’re ready. If you come back outside, keep the alley chill for the neighbours.”',
+  },
+  malaika: {
+    title: 'MALAIKA / DJ FLLEUR',
+    text: '“Get in the photo. Nora has the camera — I’ll make sure everybody actually looks alive.”',
   },
 };

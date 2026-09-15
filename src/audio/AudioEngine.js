@@ -277,7 +277,7 @@ export class AudioEngine {
 
   async playAsset(
     id,
-    { owner = 'archive', label = id, loop = true, vibe = 0.28, baseVolume = 0.82 } = {},
+    { owner = 'archive', label = id, loop = true, vibe = 0.28, baseVolume = 0.82, offset = 0 } = {},
   ) {
     if (!this.context || !this.assets?.entry?.(id)) return false;
     this.stop();
@@ -296,7 +296,9 @@ export class AudioEngine {
         if (!loop) this.clearExternalTransport(owner);
       };
       this.voices.set(source, []);
-      source.start();
+      const startOffset =
+        buffer.duration > 0 ? Math.max(0, Number(offset) || 0) % buffer.duration : 0;
+      source.start(0, startOffset);
       return true;
     }
 
@@ -311,8 +313,21 @@ export class AudioEngine {
     element.playsInline = true;
     element.src = url;
     element.volume = clamp(baseVolume * this.environment.gain);
+    const seek = () => {
+      if (!(offset > 0)) return;
+      try {
+        const duration = Number(element.duration);
+        element.currentTime =
+          Number.isFinite(duration) && duration > 0 ? Number(offset) % duration : Number(offset);
+      } catch {
+        // Remote media may not expose seeking until metadata is available.
+      }
+    };
+    if (element.readyState >= 1) seek();
+    else element.addEventListener?.('loadedmetadata', seek, { once: true });
     try {
       await element.play();
+      seek();
       this.nativeMedia.set(owner, { element, baseVolume });
       element.onended = () => {
         this.nativeMedia.delete(owner);

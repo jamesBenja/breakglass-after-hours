@@ -6,6 +6,7 @@ import { LightingRig } from '../lighting/LightingRig.js';
 import { AlleySystem } from '../alley/AlleySystem.js';
 import { RoofSystem } from '../roof/RoofSystem.js';
 import { CompanionMaddoxSystem } from '../pets/CompanionMaddoxSystem.js';
+import { ProgressionGateSystem } from '../gameplay/ProgressionGateSystem.js';
 import { disposeObject } from './disposeObject.js';
 
 export async function createLevel(definition, builders, assets) {
@@ -43,6 +44,9 @@ export async function createLevel(definition, builders, assets) {
     builders.fixtures(fixtures, definition);
 
   const collision = new CollisionWorld(definition.navigation);
+  const progressionGates = definition.progressionGates?.length
+    ? new ProgressionGateSystem(gameplay, collision, definition.progressionGates)
+    : null;
   const npcs = new NpcSystem(gameplay, definition);
   const crowd = definition.crowd ? new CrowdSystem(gameplay, definition.crowd) : null;
   const lighting = definition.lightingRig ? new LightingRig(scene, definition.lightingRig) : null;
@@ -56,6 +60,7 @@ export async function createLevel(definition, builders, assets) {
     fixtures,
     gameplay,
     collision,
+    progressionGates,
     npcs,
     crowd,
     lighting,
@@ -82,6 +87,7 @@ export async function createLevel(definition, builders, assets) {
     },
     dispose() {
       maddox?.dispose();
+      progressionGates?.dispose();
       roof?.dispose();
       alley?.dispose();
       lighting?.dispose();
