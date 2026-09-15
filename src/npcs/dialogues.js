@@ -37,8 +37,12 @@ export const dialogues = {
     title: 'BEAVER · BACK ALLEY BBQ',
     text: '“Hot dogs, tacos, beer. Keep the alley chill and eat something.”',
   },
-  bouncer: {
-    title: 'DOOR',
-    text: '“You’re good. Head in when you’re ready. And please keep it down if you come back outside.”',
+  sam: {
+    title: 'SAM · SECURITY',
+    text: '“You’re good. Head in when you’re ready. If you come back outside, keep the alley chill for the neighbours.”',
+  },
+  malaika: {
+    title: 'MALAIKA / DJ FLLEUR',
+    text: '“Get in the photo. Nora has the camera — I’ll make sure everybody actually looks alive.”',
   },
 };

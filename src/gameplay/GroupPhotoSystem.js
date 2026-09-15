@@ -303,8 +303,7 @@ export class GroupPhotoSystem {
       level.npcs.positionOf?.(session.photographerId || 'nora')?.clone?.() ?? null;
     // Malaika hypes every shot and jumps into roughly two out of three group photos.
     const sum = [...session.sessionId].reduce((value, char) => value + char.charCodeAt(0), 0);
-    if (sum % 3 !== 0)
-      malaika.photoJoinTarget = center.clone().add(new Vector3(0.9, 0, 0.15));
+    if (sum % 3 !== 0) malaika.photoJoinTarget = center.clone().add(new Vector3(0.9, 0, 0.15));
     else {
       malaika.photoJoinTarget = center.clone().add(new Vector3(1.55, 0, -0.45));
       malaika.photoJoinCamera = center.clone();
@@ -330,8 +329,7 @@ export class GroupPhotoSystem {
     camera.position.copy(source).add(new Vector3(0, 1.55, 0));
     const look = target.clone().add(new Vector3(0, 1.02, 0));
     const direction = look.clone().sub(camera.position);
-    if (direction.length() < 2.5)
-      camera.position.add(direction.normalize().multiplyScalar(-2.7));
+    if (direction.length() < 2.5) camera.position.add(direction.normalize().multiplyScalar(-2.7));
     camera.lookAt(look);
     camera.updateMatrixWorld(true);
     return camera;
@@ -377,10 +375,7 @@ export class GroupPhotoSystem {
     this.localSession = session;
     if (session.phase === 'joining') {
       this.posePhotoCrew(session);
-      if (
-        session.hostId === this.localParticipantId() &&
-        now >= Number(session.joinDeadline || 0)
-      )
+      if (session.hostId === this.localParticipantId() && now >= Number(session.joinDeadline || 0))
         this.beginCountdown(session);
       else this.promptJoin(session);
       return;
@@ -395,10 +390,7 @@ export class GroupPhotoSystem {
         return;
       }
       this.capture(session);
-      if (
-        session.hostId === this.localParticipantId() &&
-        now >= captureAt + COMPLETE_AFTER_MS
-      )
+      if (session.hostId === this.localParticipantId() && now >= captureAt + COMPLETE_AFTER_MS)
         this.complete(session);
       return;
     }

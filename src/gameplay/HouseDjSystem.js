@@ -1,10 +1,24 @@
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial } from 'three';
-import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import { poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import { createNpcCharacter } from '../npcs/NpcSystem.js';
 
 export const HOUSE_DJS = [
   { id: 'lunice', name: 'Lunice', trackId: 'atrakar', accent: 0x53b7ff },
   { id: 'kaytranada', name: 'Kaytranada', trackId: 'got-you-dancin', accent: 0xffa85a },
-  { id: 'james-benjamin', name: 'James Benjamin', trackId: 'in-flux-break', accent: 0xff5e91 },
+  {
+    id: 'james-benjamin',
+    characterId: 'james',
+    name: 'James Benjamin',
+    trackId: 'in-flux-break',
+    accent: 0xff5e91,
+  },
+  {
+    id: 'malaika',
+    characterId: 'malaika',
+    name: 'DJ FLLEUR',
+    trackId: 'atrakar',
+    accent: 0xff587e,
+  },
   { id: 'siren-mars', name: 'Siren Mars', trackId: 'bhab', accent: 0xc888ff },
   { id: 'monib', name: 'Monib', trackId: 'paharpur', accent: 0x72e0b5 },
   { id: 'hydra', name: 'Hydra', trackId: 'in-flux-breath', accent: 0x7d8cff },
@@ -15,18 +29,15 @@ export const HOUSE_DJS = [
 
 export const HOUSE_DJ_IDS = HOUSE_DJS.map((dj) => dj.id);
 
-function person(accent) {
-  const model = createLightweightHuman({
-    skin: 0xaa785d,
-    outfit: 0x202329,
-    trousers: 0x181a20,
-    hair: 0x211a18,
-    accent,
-    hairStyle: 'short',
+function person(dj) {
+  const model = createNpcCharacter({
+    id: dj.characterId ?? dj.id,
+    name: dj.name,
+    appearance: { accent: dj.accent, prop: null },
   });
 
   // Headphones follow the head rather than floating at a fixed world-space height.
-  const detail = new MeshStandardMaterial({ color: accent, roughness: 0.55 });
+  const detail = new MeshStandardMaterial({ color: dj.accent, roughness: 0.55 });
   const band = new Mesh(new BoxGeometry(0.4, 0.045, 0.07), detail);
   band.position.set(0, 0.17, 0);
   const leftCup = new Mesh(new BoxGeometry(0.055, 0.12, 0.085), detail);
@@ -70,7 +81,7 @@ export class HouseDjSystem {
     if (!downstairs || !upstairs || this.performer) return;
 
     const booth = safePosition(downstairs.definition.anchors?.dj?.position, [1.5, 0, -2.15]);
-    const model = person(this.selected.accent);
+    const model = person(this.selected);
     model.group.name = 'house-dj';
     model.group.position.set(booth[0], booth[1], booth[2] - 0.38);
     model.group.rotation.y = Math.PI;
@@ -152,10 +163,17 @@ export class HouseDjSystem {
   }
 
   applyLook() {
-    if (this.performer) {
-      this.performer.detail.color.setHex(this.selected.accent);
-      this.performer.materials.accent.color.setHex(this.selected.accent);
-    }
+    const downstairs = this.game.scenes.get('downstairs');
+    if (!downstairs || !this.performer) return;
+    const position = this.performer.group.position.clone();
+    const rotation = this.performer.group.rotation.y;
+    this.performer.group.removeFromParent();
+    const model = person(this.selected);
+    model.group.name = 'house-dj';
+    model.group.position.copy(position);
+    model.group.rotation.y = rotation;
+    downstairs.gameplay.add(model.group);
+    this.performer = model;
   }
 
   next() {
@@ -187,6 +205,9 @@ export class HouseDjSystem {
     }
     if (this.performer) {
       this.performer.group.visible = !playerDj && !studioPlaybackDownstairs;
+      const malaika = this.game.scenes.get('downstairs')?.npcs?.get?.('malaika');
+      if (malaika?.group)
+        malaika.group.visible = !(this.selectedId === 'malaika' && this.performer.group.visible);
       const metrics = this.game.dj.metrics?.() ?? {};
       const energy = Math.max(0.25, Number(metrics.energy) || 0.62);
       poseLightweightHuman(this.performer, {

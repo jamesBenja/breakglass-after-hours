@@ -60,13 +60,20 @@ export const alleyLevel = {
       ...anchor('Stairwell ↑ Breakglass', [-3.7, 0, -1.72], 1.7, 'travel'),
       target: 'downstairs@alley',
     },
-    bouncer: anchor('Bouncer', [-4.9, 0, -1.2], 1.2, 'dialogue'),
+    sam: anchor('Sam · security', [-4.9, 0, -1.2], 1.25, 'dialogue'),
     social: anchor('Alley conversation', [7.7, 0, 0.7], 1.9, 'alleySocial'),
     beaver: anchor('Beaver', [14.35, 0, -0.72], 1.35, 'dialogue'),
     beaverBbq: anchor('Beaver BBQ', [15.35, 0, -0.78], 1.6, 'beaverBbq'),
   },
   npcs: [
-    { id: 'bouncer', name: 'Door', anchor: 'bouncer', role: 'staff', color: 0x394653 },
+    {
+      id: 'sam',
+      name: 'Sam',
+      anchor: 'sam',
+      role: 'security',
+      color: 0x252a31,
+      rotationY: -Math.PI / 2,
+    },
     {
       id: 'james',
       name: 'James',
