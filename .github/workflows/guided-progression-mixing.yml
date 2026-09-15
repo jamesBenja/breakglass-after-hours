@@ -39,7 +39,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Format changed files
-        run: pnpm exec prettier --write src tests docs scripts server index.html vite.config.js
+        run: pnpm exec prettier --write src tests docs server index.html vite.config.js
 
       - name: Unit tests
         run: pnpm test
@@ -70,7 +70,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .github/workflows/guided-progression-mixing.yml scripts/apply-guided-progression-mixing.mjs
+          git rm -f .github/workflows/guided-progression-mixing.yml scripts/apply-guided-progression-mixing.mjs
           git add -A
           git commit -m "Add guided studio progression and Spectra mixing game"
           git push origin HEAD:feat/guided-progression-mixing-game
