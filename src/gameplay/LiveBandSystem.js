@@ -84,13 +84,25 @@ function instrument(kind, accent) {
     group.add(pole, mic);
     return group;
   }
+
   const guitar = new Group();
-  const body = new Mesh(new BoxGeometry(kind === 'bass' ? 0.22 : 0.25, 0.4, 0.09), material);
-  const neck = new Mesh(new BoxGeometry(0.065, kind === 'bass' ? 0.82 : 0.7, 0.055), material);
-  body.position.set(0.23, 0.95, 0.2);
-  neck.position.set(0.04, 1.33, 0.2);
-  body.rotation.z = neck.rotation.z = -0.28;
-  guitar.add(body, neck);
+  guitar.name = `${kind}-performance-prop`;
+  const wood = new MeshStandardMaterial({ color: 0x8d6844, roughness: 0.6, metalness: 0.02 });
+  const metal = new MeshStandardMaterial({ color: 0xc3c7ca, roughness: 0.34, metalness: 0.72 });
+  const body = new Mesh(
+    new BoxGeometry(kind === 'bass' ? 0.27 : 0.31, kind === 'bass' ? 0.45 : 0.42, 0.095),
+    material,
+  );
+  const neck = new Mesh(new BoxGeometry(0.065, kind === 'bass' ? 0.9 : 0.76, 0.055), wood);
+  const headstock = new Mesh(new BoxGeometry(0.12, 0.18, 0.06), wood);
+  const bridge = new Mesh(new BoxGeometry(0.15, 0.025, 0.035), metal);
+  body.position.set(0.14, 0.98, 0.23);
+  neck.position.set(-0.02, kind === 'bass' ? 1.46 : 1.39, 0.23);
+  headstock.position.set(-0.02, kind === 'bass' ? 1.96 : 1.84, 0.23);
+  bridge.position.set(0.14, 0.9, 0.285);
+  guitar.rotation.z = -0.48;
+  guitar.rotation.y = -0.12;
+  guitar.add(body, neck, headstock, bridge);
   return guitar;
 }
 
@@ -144,9 +156,10 @@ export class LiveBandSystem {
       const [x, z] = places[index] ?? [index - 2, 1.2];
       model.group.position.copy(this.center).add(new Vector3(x, 0, z));
       model.group.rotation.y = Math.PI;
-      model.group.add(instrument(kind, accent));
+      const prop = instrument(kind, accent);
+      model.group.add(prop);
       this.group.add(model.group);
-      this.performers.push({ ...model, kind });
+      this.performers.push({ ...model, kind, instrument: prop });
     });
   }
 
@@ -169,8 +182,17 @@ export class LiveBandSystem {
         model.leftArm.rotation.x = -0.12 + beat * 0.08;
         model.rightArm.rotation.x = -0.35;
       } else {
-        model.leftArm.rotation.x = -0.42;
-        model.rightArm.rotation.x = -0.62 + beat * 0.32;
+        const bass = model.kind === 'bass';
+        model.leftArm.position.set(-0.24, 1.22 + beat * 0.018, 0.19);
+        model.rightArm.position.set(0.27, 1.02, 0.2);
+        model.leftArm.rotation.x = -1.0 + beat * 0.08;
+        model.leftArm.rotation.z = -0.3;
+        model.rightArm.rotation.x = -0.78 + beat * (bass ? 0.22 : 0.48);
+        model.rightArm.rotation.z = 0.24;
+        if (model.instrument) {
+          model.instrument.rotation.z = -0.48 + Math.sin(this.elapsed * 1.3 + index) * 0.025;
+          model.instrument.rotation.x = beat * 0.018;
+        }
       }
     });
   }
