@@ -1,5 +1,6 @@
 name: Live Multiplayer Smoke
 
+# Keep this workflow tied to the same endpoint used by the Phase 2 browser preview.
 on:
   push:
     branches:
