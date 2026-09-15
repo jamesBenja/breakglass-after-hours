@@ -1,7 +1,9 @@
+import { installMultiplayerEmoteAnimations } from './emoteAnimations.js';
 import { MultiplayerClient, resolveMultiplayerConfig } from './MultiplayerClient.js';
 
 export function installMultiplayerEnhancements(game, ui) {
   if (!game || game.multiplayer) return game?.multiplayer ?? null;
+  installMultiplayerEmoteAnimations();
   const config = resolveMultiplayerConfig();
   const multiplayer = new MultiplayerClient({
     game,
@@ -24,6 +26,10 @@ export function installMultiplayerEnhancements(game, ui) {
   const baseDispatch = game.interactions.dispatch.bind(game.interactions);
   game.interactions.dispatch = (target) => {
     if (target?.action === 'remote-player' && multiplayer.showInteraction(target)) return;
+    if (multiplayer.joined) {
+      void multiplayer.world.useTarget(target, () => baseDispatch(target));
+      return;
+    }
     baseDispatch(target);
   };
 
