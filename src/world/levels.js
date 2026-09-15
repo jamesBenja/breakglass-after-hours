@@ -5,7 +5,7 @@ import { roofLevel } from './roof.js';
 // Y up. Upstairs is assembled from A-103 tracing; Below retains V2.1 authoring units.
 // Neither coordinate system is surveyed metres. Reconcile meshes and navigation together.
 const surface = (id, name, x1, x2, z1, z2) => ({ id, name, x1, x2, z1, z2, y: 0 });
-const rampSurface = (id, name, x1, x2, z1, z2, from, to) => ({
+const rampSurface = (id, name, x1, x2, z1, z2, from, to, axis = 'z') => ({
   id,
   name,
   x1,
@@ -13,7 +13,7 @@ const rampSurface = (id, name, x1, x2, z1, z2, from, to) => ({
   z1,
   z2,
   priority: 20,
-  ramp: { axis: 'z', from, to },
+  ramp: { axis, from, to },
 });
 const anchor = (name, position, radius, action) => ({ name, position, radius, action });
 const cameraWall = (id, x1, x2, z1, z2, y1 = 0, y2 = 3.3) => ({
@@ -138,16 +138,17 @@ export const levels = {
       avoid: [
         { x1: -0.95, x2: 5.15, z1: -3.25, z2: -1.2 },
         { x1: -7.9, x2: -5.25, z1: -3.3, z2: -0.7 },
+        { x1: -9.55, x2: -6.5, z1: -1.4, z2: -0.4 },
       ],
     },
     spawns: {
       start: [-5.15, 0, -1.25],
       stairs: [-6.55, 0.78, -2.95],
-      alley: [4.6, 0.64, -5.0],
+      alley: [-9.25, -0.72, -0.82],
     },
     intro: [
       'BELOW BREAKGLASS',
-      'The club is alive now. Push toward the booth, slip into Take A Break, play the old Mortal Kombat II cabinet, find the kitchen bar and coffee machine, or take the broad Clark stair back up to the studio.',
+      'The club is alive now. The shared west stair goes up to the studio; at its bottom landing the stair turns down to the alleyway. Push toward the booth, Take A Break, the bar or the old Mortal Kombat II cabinet.',
     ],
     navigation: {
       surfaces: [
@@ -158,7 +159,27 @@ export const levels = {
         surface('service', 'Service / Bar', 6.2, 8.8, -2.7, 6.15),
         surface('bar-door', 'Bar Doorway', 5.65, 6.5, -2.05, -0.55),
         surface('coat-check', 'Coat Check / Alley Entry', 3.55, 5.65, -5.35, -3.2),
-        rampSurface('alley-stairs', 'Stairs to alley', 3.82, 5.38, -5.2, -3.4, 0.72, 0),
+        rampSurface(
+          'alley-stairs',
+          'Stairs down to alley',
+          -9.2,
+          -6.8,
+          -1.28,
+          -0.48,
+          -0.72,
+          0,
+          'x',
+        ),
+        {
+          id: 'alley-stair-bottom',
+          name: 'Alley stair lower landing',
+          x1: -9.45,
+          x2: -9.15,
+          z1: -1.28,
+          z2: -0.48,
+          y: -0.72,
+          priority: 21,
+        },
         rampSurface(
           'studio-stairs',
           'Wide Clark stair to studio',
@@ -205,7 +226,7 @@ export const levels = {
         target: 'upstairs',
       },
       alleyExit: {
-        ...anchor('Stairs to alley / club entrance', [4.6, 0.64, -5.0], 1.3, 'travel'),
+        ...anchor('Stairs ↓ Alleyway', [-9.25, -0.72, -0.82], 1.35, 'travel'),
         target: 'alley@clubDoor',
       },
       nora: anchor('Nora', [-2.5, 0, 1.3], 1.2, 'dialogue'),

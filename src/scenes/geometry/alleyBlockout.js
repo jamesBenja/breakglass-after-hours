@@ -19,12 +19,12 @@ export function buildAlleyBlockout(root) {
   // The doorway now reads as an actual stairwell down to Below rather than a flat teleport marker.
   doorwayFrame(root, -3.7, -2.24, 'horizontal', 'BREAKGLASS');
   box(root, 3.5, 0.16, 0.8, garden, -3.7, 0.04, -1.55);
-  label(root, 'CLUB ENTRANCE ↓ BELOW', -3.7, 3.35, -2.2, 0.42, '#ffd4a8');
+  label(root, 'STAIRWELL ↑ BREAKGLASS', -3.7, 3.35, -2.2, 0.42, '#ffd4a8');
 
   const stair = mat(0x453a34, 0.88, 0.02);
   for (let i = 0; i < 5; i++) {
-    const depth = 0.22;
-    box(root, 1.55, 0.08, depth, stair, -3.7, 0.01 - i * 0.035, -1.58 - i * 0.2);
+    const height = 0.08 * (i + 1);
+    box(root, 1.55, height, 0.22, stair, -3.7, height / 2, -1.5 - i * 0.18);
   }
   // Low stairwell cheeks and rails frame the descent without blocking the playable alley path.
   for (const x of [-4.55, -2.85]) {

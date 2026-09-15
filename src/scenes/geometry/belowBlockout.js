@@ -18,7 +18,7 @@ export function buildBelowBlockout(downScene) {
   floor(downScene, 0, 0, 12.2, 7.0, mainFloor);
   wall(-1.275, -3.5, 9.65, 0.24);
   wall(5.875, -3.5, 0.45, 0.24);
-  doorwayFrame(downScene, 4.6, -3.38, 'horizontal', 'ALLEY / COAT CHECK');
+  doorwayFrame(downScene, 4.6, -3.38, 'horizontal', 'COAT CHECK');
 
   // The Clark stair used to be hidden behind a continuous west wall. Split the wall around a
   // generous opening so the relationship between club and studio reads immediately.
@@ -56,21 +56,9 @@ export function buildBelowBlockout(downScene) {
   floor(downScene, 4.6, -4.65, 2.3, 1.9, serviceFloor);
   wall(3.45, -4.65, 0.24, 1.9);
   wall(5.75, -4.65, 0.24, 1.9);
-  wall(3.78, -5.6, 0.66, 0.24);
-  wall(5.42, -5.6, 0.66, 0.24);
-  doorwayFrame(downScene, 4.6, -5.48, 'horizontal', 'ALLEY');
+  wall(4.6, -5.6, 2.3, 0.24);
   label(downScene, 'COAT CHECK', 4.6, 2.2, -4.0, 0.31);
-  label(downScene, 'ALLEY / EXIT ↑', 4.6, 2.85, -5.34, 0.36, '#ffd7ad');
 
-  const stairMaterial = mat(0x57463b, 0.86, 0.02);
-  for (let i = 0; i < 6; i++) {
-    const height = 0.12 * (i + 1);
-    box(downScene, 1.55, height, 0.31, stairMaterial, 4.6, height / 2, -3.58 - i * 0.31);
-  }
-  const rail = mat(0x2c3035, 0.52, 0.18);
-  for (const x of [3.76, 5.44]) box(downScene, 0.06, 1.05, 1.9, rail, x, 0.65, -4.45);
-
-  // Wide Clark stair to the studio. The navigable ramp in levels.js follows this visible run.
   const studioStep = mat(0x66564a, 0.88, 0.02);
   const studioRail = mat(0x3a3f43, 0.5, 0.2);
   for (let i = 0; i < 8; i++) {
@@ -84,6 +72,30 @@ export function buildBelowBlockout(downScene) {
     box(downScene, 0.09, 0.09, 2.95, studioRail, x, 1.32, -2.0).rotation.x = -0.23;
   }
   doorwayFrame(downScene, -6.55, -3.45, 'horizontal', 'UPSTAIRS / STUDIO');
+  label(downScene, 'STAIRS ↑ STUDIO', -6.55, 2.35, -3.1, 0.36, '#d8c1ff');
+
+  // At the bottom landing, the shared staircase turns ninety degrees and continues down to
+  // the alley. The alley travel interaction lives at the lower landing of this same run.
+  const alleyStep = mat(0x4b4039, 0.9, 0.02);
+  box(downScene, 2.55, 0.12, 0.82, alleyStep, -6.72, -0.03, -0.82);
+  for (let i = 0; i < 7; i++) {
+    const x = -7.02 - i * 0.34;
+    const top = -0.09 * (i + 1);
+    box(downScene, 0.38, 0.14, 1.42, alleyStep, x, top - 0.07, -0.82);
+  }
+  box(downScene, 0.55, 0.14, 1.42, alleyStep, -9.28, -0.79, -0.82);
+
+  for (const [x, y] of [
+    [-7.1, 0.4],
+    [-7.85, 0.2],
+    [-8.6, -0.02],
+  ]) {
+    box(downScene, 0.06, 0.92, 0.06, studioRail, x, y, -1.52);
+    box(downScene, 0.06, 0.92, 0.06, studioRail, x, y, -0.12);
+  }
+  doorwayFrame(downScene, -9.35, -0.82, 'vertical', 'ALLEY');
+  label(downScene, 'STAIRS ↓ ALLEYWAY', -7.95, 1.45, -0.82, 0.38, '#d8c1ff');
+  label(downScene, '↓ ALLEY', -9.15, 0.35, -0.82, 0.28, '#ead1f0');
 }
 
 export function buildBelowFixtures(downScene) {

@@ -28,18 +28,21 @@ export function createUpstairsDefinition(pass = 'B') {
       .map((p) => ({ ...p, y: p.y2, priority: 20 })),
     ...stairFloors.map((p) => ({ ...p, y: p.y2, priority: 30 })),
   ];
-  const spawns = gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) };
+  const spawns = gameSpace?.spawns ?? {
+    start: waypoints.entry,
+    stairs: waypoints.belowStairsTop,
+  };
   const fridgePosition = at(785, 635);
   return {
     id: 'upstairs',
-    layoutRevision: 'a103-spatial-8-maddox',
+    layoutRevision: 'a103-spatial-9-circulation-fix',
     pass,
     title: 'UPSTAIRS — BREAKGLASS STUDIOS',
     model: 'upstairs-building',
     provenance: {
       status: 'A-103 topology / historical Neve Suite / GAME circulation',
       reference: PLAN_SOURCE,
-      note: 'Traced room relationships; widened polygon gallery and Clark landing for traversal. The historic Neve Suite is intentionally open-topped in the game so its console, tape machine and archive activity remain visible from the third-person camera.',
+      note: 'Main entry, Clark exit and Below stair now match the corrected Breakglass circulation. The historic Neve Suite remains intentionally open-topped for the third-person camera.',
     },
     background: 0x171d24,
     fog: [45, 100],
@@ -55,7 +58,7 @@ export function createUpstairsDefinition(pass = 'B') {
     },
     intro: [
       'THIRD FLOOR',
-      'Build a session, play the instruments, explore the tape archive, mix on the Spectra console, enter the historic Neve Suite, and say hello to Maddox if you see him wandering around.',
+      'Main entry is beside Storage. The southeast stair goes down to Below; the west landing exits to Clark. Build a session, explore the archive and say hello to Maddox if you see him.',
     ],
     rooms: floorRooms,
     solids,
@@ -150,8 +153,8 @@ export function createUpstairsDefinition(pass = 'B') {
         requires: 'roofSecretUnlocked',
       },
       stairs: {
-        name: 'Clark stair → Below',
-        position: gameSpace?.stairAnchor ?? waypoints.clark,
+        name: 'Stairs ↓ Below Breakglass',
+        position: gameSpace?.stairAnchor ?? waypoints.belowStairsBottom,
         radius: 1.4,
         action: 'travel',
         target: 'downstairs',
