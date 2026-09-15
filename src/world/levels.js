@@ -136,7 +136,7 @@ export const levels = {
         { x1: 6.35, x2: 8.55, z1: 3.35, z2: 4.05, weight: 1.7, kind: 'social' },
       ],
       avoid: [
-        { x1: 0.0, x2: 3.15, z1: -3.15, z2: -1.55 },
+        { x1: -0.95, x2: 5.15, z1: -3.25, z2: -1.2 },
         { x1: -7.9, x2: -5.25, z1: -3.3, z2: -0.7 },
       ],
     },
@@ -197,8 +197,9 @@ export const levels = {
       ],
     },
     anchors: {
-      dj: anchor('DJ booth', [1.5, 0, -2.15], 1.7, 'dj'),
-      lightingDesk: anchor('Lighting / laser controller', [3.45, 0, -2.15], 1.25, 'clubLighting'),
+      dj: anchor('DJ booth', [1.5, 0, -2.15], 2.05, 'dj'),
+      lightingDesk: anchor('Lighting / laser controller', [4.28, 0, -1.62], 1.15, 'clubLighting'),
+      ledWallDesk: anchor('DJ LED wall controller', [4.55, 0, -2.3], 1.15, 'ledWall'),
       stairs: {
         ...anchor('Stairs upstairs', [-6.55, 0.82, -3.0], 1.55, 'travel'),
         target: 'upstairs',
