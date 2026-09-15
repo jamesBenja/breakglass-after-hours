@@ -1,12 +1,10 @@
 import {
-  BoxGeometry,
   CapsuleGeometry,
   Color,
   DynamicDrawUsage,
   Euler,
   InstancedMesh,
   Matrix4,
-  MeshBasicMaterial,
   MeshStandardMaterial,
   Quaternion,
   SphereGeometry,
@@ -23,6 +21,7 @@ const BODY_COLORS = [
   0x25252b, 0x5e3550, 0x31525a, 0x76503a, 0x4e4269, 0x3f5b43, 0x8a5e3b, 0x354f75,
 ];
 const SKIN_COLORS = [0xe8c8ad, 0xd5a784, 0xb98463, 0x95664f, 0x704b39, 0x503528];
+const HAIR_COLORS = [0x171417, 0x2c211d, 0x4b3426, 0x744d32, 0x9a7651, 0x402b35];
 const LEG_COLORS = [0x16171a, 0x242830, 0x302c34, 0x24343d];
 
 function avoidTables(x, z) {
@@ -40,6 +39,7 @@ function targetFor(index) {
   return avoidTables(x, z);
 }
 
+/** Mobile-friendly outdoor crowd made from articulated instanced silhouettes. */
 export class AlleyCrowdSystem {
   constructor(root, { max = 52, door = [-2.9, 0, -0.35] } = {}) {
     this.root = root;
@@ -56,24 +56,68 @@ export class AlleyCrowdSystem {
     this.euler = new Euler();
 
     const bodyMaterial = new MeshStandardMaterial({ roughness: 0.8, metalness: 0.03 });
-    const skinMaterial = new MeshStandardMaterial({ roughness: 0.84, metalness: 0.015 });
+    const skinMaterial = new MeshStandardMaterial({ roughness: 0.8, metalness: 0.015 });
+    const hairMaterial = new MeshStandardMaterial({ roughness: 0.9, metalness: 0.01 });
     const legMaterial = new MeshStandardMaterial({ roughness: 0.86, metalness: 0.02 });
-    this.body = new InstancedMesh(new CapsuleGeometry(0.22, 0.56, 3, 6), bodyMaterial, max);
-    this.head = new InstancedMesh(new SphereGeometry(0.19, 8, 6), skinMaterial, max);
+
+    this.body = new InstancedMesh(new CapsuleGeometry(0.205, 0.5, 3, 6), bodyMaterial, max);
+    this.head = new InstancedMesh(new SphereGeometry(0.185, 9, 7), skinMaterial, max);
+    this.hair = new InstancedMesh(new SphereGeometry(0.19, 8, 6), hairMaterial, max);
     this.leftArm = new InstancedMesh(
-      new CapsuleGeometry(0.055, 0.34, 3, 5),
-      skinMaterial.clone(),
+      new CapsuleGeometry(0.052, 0.22, 3, 5),
+      bodyMaterial.clone(),
       max,
     );
     this.rightArm = new InstancedMesh(
-      new CapsuleGeometry(0.055, 0.34, 3, 5),
+      new CapsuleGeometry(0.052, 0.22, 3, 5),
+      bodyMaterial.clone(),
+      max,
+    );
+    this.leftForearm = new InstancedMesh(
+      new CapsuleGeometry(0.045, 0.18, 3, 5),
       skinMaterial.clone(),
       max,
     );
-    this.legs = new InstancedMesh(new BoxGeometry(0.3, 0.62, 0.18), legMaterial, max);
-    this.meshes = [this.body, this.head, this.leftArm, this.rightArm, this.legs];
+    this.rightForearm = new InstancedMesh(
+      new CapsuleGeometry(0.045, 0.18, 3, 5),
+      skinMaterial.clone(),
+      max,
+    );
+    this.leftLeg = new InstancedMesh(
+      new CapsuleGeometry(0.068, 0.33, 3, 5),
+      legMaterial,
+      max,
+    );
+    this.rightLeg = new InstancedMesh(
+      new CapsuleGeometry(0.068, 0.33, 3, 5),
+      legMaterial.clone(),
+      max,
+    );
+
+    this.meshes = [
+      this.body,
+      this.head,
+      this.hair,
+      this.leftArm,
+      this.rightArm,
+      this.leftForearm,
+      this.rightForearm,
+      this.leftLeg,
+      this.rightLeg,
+    ];
+    const names = [
+      'body',
+      'head',
+      'hair',
+      'left-upper-arm',
+      'right-upper-arm',
+      'left-forearm',
+      'right-forearm',
+      'left-leg',
+      'right-leg',
+    ];
     for (const [index, mesh] of this.meshes.entries()) {
-      mesh.name = `alley-crowd:${['body', 'head', 'left-arm', 'right-arm', 'legs'][index]}`;
+      mesh.name = `alley-crowd:${names[index]}`;
       mesh.instanceMatrix.setUsage(DynamicDrawUsage);
       mesh.castShadow = true;
       root.add(mesh);
@@ -88,8 +132,10 @@ export class AlleyCrowdSystem {
         currentX: this.door.x + seeded(i, 12) * 0.8,
         currentZ: this.door.z + (seeded(i, 13) - 0.5) * 1.2,
         scale: 0.88 + seeded(i, 14) * 0.24,
+        shoulder: 0.9 + seeded(i, 29) * 0.2,
         phase: seeded(i, 15) * Math.PI * 2,
         tempo: 0.75 + seeded(i, 16) * 0.8,
+        hairStyle: Math.floor(seeded(i, 27) * 4),
         smoker: seeded(i, 17) < 0.48,
         generous: seeded(i, 18) < 0.62,
         reaction: 0,
@@ -99,12 +145,17 @@ export class AlleyCrowdSystem {
       this.members.push(member);
       const bodyColor = new Color(BODY_COLORS[i % BODY_COLORS.length]);
       const skinColor = new Color(SKIN_COLORS[(i * 3) % SKIN_COLORS.length]);
-      const legColor = new Color(LEG_COLORS[(i * 5) % LEG_COLORS.length]);
+      const hairColor = new Color(HAIR_COLORS[(i * 5) % HAIR_COLORS.length]);
+      const legColor = new Color(LEG_COLORS[(i * 7) % LEG_COLORS.length]);
       this.body.setColorAt(i, bodyColor);
       this.head.setColorAt(i, skinColor);
-      this.leftArm.setColorAt(i, skinColor);
-      this.rightArm.setColorAt(i, skinColor);
-      this.legs.setColorAt(i, legColor);
+      this.hair.setColorAt(i, hairColor);
+      this.leftArm.setColorAt(i, bodyColor);
+      this.rightArm.setColorAt(i, bodyColor);
+      this.leftForearm.setColorAt(i, skinColor);
+      this.rightForearm.setColorAt(i, skinColor);
+      this.leftLeg.setColorAt(i, legColor);
+      this.rightLeg.setColorAt(i, legColor);
     }
     for (const mesh of this.meshes) if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     this.setVisibleCount(0);
@@ -159,44 +210,134 @@ export class AlleyCrowdSystem {
       const side = Math.cos(this.elapsed * member.tempo * 1.1 + member.phase * 1.7);
       const reaction = member.reaction;
       const quiet = member.quietPulse;
-      const bob = Math.abs(sway) * (0.008 + mood * 0.055) + reaction * 0.08;
+      const bob = Math.abs(sway) * (0.008 + mood * 0.045) + reaction * 0.065;
       const px = member.currentX + side * (0.018 + mood * 0.025);
       const pz = member.currentZ + sway * 0.014;
       const yaw = side * (0.08 + mood * 0.24);
       const s = member.scale;
+      const shoulderWidth = 0.275 * s * member.shoulder;
+      const rightX = Math.cos(yaw);
+      const rightZ = -Math.sin(yaw);
+      const forwardX = Math.sin(yaw);
+      const forwardZ = Math.cos(yaw);
       const armEnergy = Math.max(0, mood + reaction * 0.9 - quiet * 0.55);
-      const leftPitch = -sway * (0.12 + armEnergy * 0.55) - reaction * 0.8;
-      const rightPitch = sway * (0.12 + armEnergy * 0.55) - reaction * 1.05;
+      const gait = sway * (0.12 + armEnergy * 0.48);
+      const leftUpperPitch = -gait - reaction * 0.66;
+      const rightUpperPitch = gait - reaction * 0.8;
+      const leftElbow = -0.12 - Math.max(0, -sway) * armEnergy * 0.35 - reaction * 0.2;
+      const rightElbow = -0.12 - Math.max(0, sway) * armEnergy * 0.35 - reaction * 0.32;
 
-      this.setInstance(this.body, i, px, 0.72 * s + bob, pz, yaw, s, s, s);
-      this.setInstance(this.head, i, px, 1.48 * s + bob, pz, yaw, s, s, s);
+      this.setInstance(
+        this.body,
+        i,
+        px,
+        0.79 * s + bob,
+        pz,
+        yaw,
+        s * member.shoulder,
+        s,
+        s * 0.9,
+        evacuation ? -0.035 : sway * mood * 0.02,
+        side * mood * 0.025,
+      );
+      this.setInstance(this.head, i, px, 1.5 * s + bob, pz, yaw, s * 0.94, s, s * 0.93);
+
+      const hairTall = member.hairStyle === 1 ? 1.5 : member.hairStyle === 2 ? 1.16 : 0.72;
+      const hairWide = member.hairStyle === 3 ? 1.08 : 1;
+      this.setInstance(
+        this.hair,
+        i,
+        px,
+        (member.hairStyle === 1 ? 1.58 : 1.61) * s + bob,
+        pz - forwardZ * 0.035,
+        yaw,
+        s * hairWide,
+        s * hairTall,
+        s * (member.hairStyle === 1 ? 0.72 : 0.92),
+      );
+
+      const upperArmY = 1.09 * s + bob;
+      const forearmY = 0.88 * s + bob;
       this.setInstance(
         this.leftArm,
         i,
-        px - 0.29 * s,
-        1.04 * s + bob,
-        pz,
+        px - rightX * shoulderWidth,
+        upperArmY,
+        pz - rightZ * shoulderWidth,
         yaw,
         s,
         s,
         s,
-        leftPitch,
-        -0.08,
+        leftUpperPitch,
+        -0.06,
       );
       this.setInstance(
         this.rightArm,
         i,
-        px + 0.29 * s,
-        1.04 * s + bob,
-        pz,
+        px + rightX * shoulderWidth,
+        upperArmY,
+        pz + rightZ * shoulderWidth,
         yaw,
         s,
         s,
         s,
-        rightPitch,
-        0.08,
+        rightUpperPitch,
+        0.06,
       );
-      this.setInstance(this.legs, i, px, 0.36 * s, pz, yaw, s, s, s);
+      this.setInstance(
+        this.leftForearm,
+        i,
+        px - rightX * shoulderWidth + forwardX * leftUpperPitch * 0.09,
+        forearmY + Math.abs(leftUpperPitch) * 0.025,
+        pz - rightZ * shoulderWidth + forwardZ * leftUpperPitch * 0.09,
+        yaw,
+        s,
+        s,
+        s,
+        leftUpperPitch + leftElbow,
+        -0.03,
+      );
+      this.setInstance(
+        this.rightForearm,
+        i,
+        px + rightX * shoulderWidth + forwardX * rightUpperPitch * 0.09,
+        forearmY + Math.abs(rightUpperPitch) * 0.025,
+        pz + rightZ * shoulderWidth + forwardZ * rightUpperPitch * 0.09,
+        yaw,
+        s,
+        s,
+        s,
+        rightUpperPitch + rightElbow,
+        0.03,
+      );
+
+      const hip = 0.115 * s;
+      const legY = 0.34 * s + bob * 0.12;
+      const legSwing = evacuation ? sway * 0.56 : sway * (0.12 + mood * 0.16);
+      this.setInstance(
+        this.leftLeg,
+        i,
+        px - rightX * hip + forwardX * legSwing * 0.045,
+        legY,
+        pz - rightZ * hip + forwardZ * legSwing * 0.045,
+        yaw,
+        s,
+        s,
+        s,
+        legSwing,
+      );
+      this.setInstance(
+        this.rightLeg,
+        i,
+        px + rightX * hip - forwardX * legSwing * 0.045,
+        legY,
+        pz + rightZ * hip - forwardZ * legSwing * 0.045,
+        yaw,
+        s,
+        s,
+        s,
+        -legSwing,
+      );
     }
 
     for (const mesh of this.meshes) mesh.instanceMatrix.needsUpdate = true;
