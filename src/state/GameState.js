@@ -34,6 +34,17 @@ const CONTACT_IDS = [
   'devin',
   'bouncer',
 ];
+const HOUSE_DJ_IDS = [
+  'lunice',
+  'kaytranada',
+  'james-benjamin',
+  'siren-mars',
+  'monib',
+  'hydra',
+  'bootyspoon',
+  'marie-davidson',
+  'frankie-teardrop',
+];
 
 const normalizePhoto = (photo) => {
   if (!photo || typeof photo !== 'object') return null;
@@ -93,6 +104,8 @@ const defaults = () => ({
   archiveTape: null,
   threadedTape: null,
   liveRoomArchive: null,
+  houseDjId: null,
+  smokesShared: 0,
   photos: [],
 });
 
@@ -138,8 +151,10 @@ export function validateSave(value) {
   if (ARCHIVE_TAPE_IDS.includes(value.threadedTape)) state.threadedTape = value.threadedTape;
   if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive))
     state.liveRoomArchive = value.liveRoomArchive;
+  if (HOUSE_DJ_IDS.includes(value.houseDjId)) state.houseDjId = value.houseDjId;
+  state.smokesShared = Math.max(0, Math.min(999, Math.floor(Number(value.smokesShared) || 0)));
   if (Array.isArray(value.photos)) {
-    state.photos = value.photos.map(normalizePhoto).filter(Boolean).slice(-6);
+    state.photos = value.photos.map(normalizePhoto).filter(Boolean).slice(-18);
   }
   return state;
 }

@@ -1,0 +1,59 @@
+.avatar-face-capture {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.avatar-face-capture > strong,
+.avatar-face-capture > small {
+  grid-column: 1 / -1;
+}
+
+#avatarFacePreview {
+  width: 68px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 44% 44% 48% 48%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.avatar-face-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.avatar-face-controls button {
+  min-height: 36px;
+  padding: 7px 10px;
+  font-size: 10px;
+}
+
+#avatarFaceStatus {
+  opacity: 0.72;
+  line-height: 1.35;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .avatar-face-capture {
+    padding: 8px;
+    gap: 7px 9px;
+  }
+
+  #avatarFacePreview {
+    width: 58px;
+    height: 66px;
+  }
+
+  .avatar-face-controls button {
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: 9px;
+  }
+}

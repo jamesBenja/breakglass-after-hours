@@ -66,6 +66,7 @@ export class CollisionWorld {
     return (
       this.obstacles.find(
         (o) =>
+          o.player !== false &&
           y + height > o.y1 + EPSILON &&
           y < o.y2 - EPSILON &&
           circleOverlaps(o.points, x, z, radius),
@@ -129,6 +130,7 @@ export class CollisionWorld {
   ceiling(position, nextY, height = 1.95) {
     let limit = nextY;
     for (const obstacle of this.obstacles) {
+      if (obstacle.player === false) continue;
       if (obstacle.y1 < position.y + height - EPSILON || obstacle.y1 > nextY + height) continue;
       if (circleOverlaps(obstacle.points, position.x, position.z, 0.32)) {
         limit = Math.min(limit, obstacle.y1 - height);
@@ -143,7 +145,25 @@ export class CollisionWorld {
       target = null;
     for (const obstacle of this.obstacles) {
       if (obstacle.camera === false) continue;
-      const hit = segmentPrism(from, to, obstacle, radius);
+      let hit = segmentPrism(from, to, obstacle, radius);
+
+      // The camera target can legitimately sit inside the outer edge of the full camera-volume
+      // padding while the player is beside a wall. If that happens, progressively reduce the
+      // clearance shell instead of jumping straight to a point ray. This still catches a real
+      // crossing early enough to keep the camera on the player's side of the wall, while a line
+      // travelling away from the wall remains clear.
+      if (hit !== null && hit <= EPSILON && radius > 0) {
+        const reducedRadius = Math.min(0.2, radius * 0.6);
+        const reducedHit = segmentPrism(from, to, obstacle, reducedRadius);
+        if (reducedHit === null) hit = null;
+        else if (reducedHit > EPSILON) hit = reducedHit;
+        else {
+          const centreHit = segmentPrism(from, to, obstacle, 0);
+          if (centreHit === null) hit = null;
+          else hit = centreHit;
+        }
+      }
+
       if (hit !== null && hit < fraction) {
         fraction = hit;
         target = obstacle.id;

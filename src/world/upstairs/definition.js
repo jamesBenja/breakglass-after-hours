@@ -23,10 +23,13 @@ export function createUpstairsDefinition(pass = 'B') {
   const solids = [...walls, ...closedSuites, ...platforms, ...fixtures, ...stairFloors];
   const surfaces = [
     ...floorRooms.map((r, i) => ({ ...r, y: 0, priority: i })),
-    ...[...platforms, ...fixtures].map((p) => ({ ...p, y: p.y2, priority: 20 })),
+    ...[...platforms, ...fixtures]
+      .filter((p) => p.surface !== false)
+      .map((p) => ({ ...p, y: p.y2, priority: 20 })),
     ...stairFloors.map((p) => ({ ...p, y: p.y2, priority: 30 })),
   ];
   const spawns = gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) };
+  const fridgePosition = at(785, 635);
   return {
     id: 'upstairs',
     layoutRevision: 'a103-spatial-8-maddox',
@@ -77,6 +80,18 @@ export function createUpstairsDefinition(pass = 'B') {
         position: at(620, 565),
         radius: 2.0,
         action: 'livePlayback',
+      },
+      houseDjDesk: {
+        name: 'House DJ production desk',
+        position: at(325, 748),
+        radius: 1.55,
+        action: 'houseDjDesk',
+      },
+      photoFridge: {
+        name: 'Kitchen fridge · Nora photos',
+        position: fridgePosition,
+        radius: 1.6,
+        action: 'photoFridge',
       },
       instruments: {
         name: 'Guitar + bass rack',
@@ -192,6 +207,14 @@ export function createUpstairsDefinition(pass = 'B') {
         position: at(600, 790),
         route: [at(600, 790), at(590, 824), at(386, 692), at(597, 774)],
         speed: 0.48,
+      },
+      {
+        id: 'nora',
+        name: 'Nora',
+        role: 'photographer',
+        position: at(606, 575),
+        route: [at(606, 575), at(269, 819), at(602, 816), at(773, 638), at(606, 575)],
+        speed: 0.5,
       },
     ],
   };

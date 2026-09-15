@@ -1,0 +1,463 @@
+@media (hover: none) and (pointer: coarse) {
+  #mobileControls {
+    left: max(6px, env(safe-area-inset-left));
+    right: max(6px, env(safe-area-inset-right));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    gap: 8px;
+    opacity: 0.78;
+  }
+
+  .touch-pad {
+    grid-template-columns: repeat(3, 42px);
+    grid-template-rows: repeat(3, 42px);
+    gap: 2px;
+  }
+
+  .touch-pad button {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    font-size: 16px;
+  }
+
+  .touch-actions {
+    width: min(42vw, 172px);
+    gap: 4px;
+  }
+
+  .touch-actions button {
+    height: 42px;
+    border-radius: 11px;
+    font-size: 9px;
+  }
+
+  .touch-pad button,
+  .touch-actions button {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(13, 13, 16, 0.28);
+    box-shadow: none;
+    backdrop-filter: blur(3px);
+  }
+
+  .touch-pad button.pressed,
+  .touch-actions button.pressed {
+    background: rgba(105, 105, 112, 0.58);
+  }
+
+  .touch-center {
+    opacity: 0.5;
+  }
+
+  #uiToggle {
+    min-height: 30px;
+    padding: 5px 8px;
+    background: rgba(10, 10, 12, 0.32);
+    border-color: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(4px);
+    font-size: 9px;
+  }
+
+  #hud {
+    background: rgba(8, 8, 10, 0.4);
+    border-color: rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(5px);
+    padding: 8px 10px;
+  }
+
+  #panel {
+    background: rgba(9, 9, 12, 0.52);
+    border-color: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(7px);
+  }
+
+  body.performance-active #mobileControls,
+  body.mixer-active:not(.mixer-collapsed) #mobileControls,
+  body.mixer-active:not(.mixer-collapsed) #floorTag {
+    display: none !important;
+  }
+
+  body.performance-active #panel {
+    max-height: 48vh;
+    background: rgba(8, 8, 11, 0.48);
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  body.performance-active #panel p {
+    display: none;
+  }
+
+  body.performance-active #buttons > button {
+    min-height: 34px;
+    padding: 5px 7px;
+    font-size: 9px;
+  }
+
+  .performance-surface {
+    gap: 5px;
+    padding: 6px;
+    background: linear-gradient(180deg, rgba(27, 27, 32, 0.62), rgba(8, 8, 11, 0.58));
+    border-color: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(6px);
+  }
+
+  .performance-surface-header {
+    font-size: 10px;
+  }
+
+  .touch-keyboard {
+    height: 94px;
+  }
+
+  .touch-drum-pads {
+    gap: 5px;
+  }
+
+  .touch-drum-pad {
+    min-height: 47px;
+    font-size: 9px;
+  }
+
+  .touch-fretboard {
+    padding: 4px 3px;
+  }
+
+  .touch-string-row {
+    min-width: 360px;
+    grid-template-columns: 20px repeat(6, minmax(44px, 1fr));
+  }
+
+  .touch-fret {
+    height: 28px;
+    font-size: 8px;
+  }
+
+  body.mixer-active #panel {
+    left: max(6px, env(safe-area-inset-left));
+    right: max(6px, env(safe-area-inset-right));
+    top: auto;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    max-height: 46vh;
+    padding: 7px;
+    overflow: auto;
+    background: rgba(7, 7, 10, 0.45);
+    border-color: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(8px);
+    z-index: 15;
+  }
+
+  body.mixer-active #panel > h3,
+  body.mixer-active #panel > p {
+    display: none;
+  }
+
+  body.mixer-active #buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .mobile-mixer-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    touch-action: manipulation;
+  }
+
+  .mobile-mixer-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 7px;
+    min-height: 27px;
+  }
+
+  .mobile-mixer-top strong {
+    font-size: 9px;
+    letter-spacing: 0.11em;
+    opacity: 0.78;
+  }
+
+  .mobile-mixer-min {
+    min-height: 28px !important;
+    padding: 3px 8px !important;
+    border-radius: 999px;
+    background: rgba(18, 18, 22, 0.4);
+    font-size: 8px !important;
+    letter-spacing: 0.08em;
+  }
+
+  .mobile-mixer-body {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .mobile-mixer-shell.collapsed .mobile-mixer-body {
+    display: none;
+  }
+
+  body.mixer-collapsed #panel {
+    max-height: 118px;
+    width: min(74vw, 330px);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    bottom: calc(116px + env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+
+  body.mixer-collapsed.dj-mobile-active #buttons > :not(.mobile-mixer-shell),
+  body.mixer-collapsed.studio-mobile-active #buttons > :not(.mobile-mixer-shell) {
+    display: none !important;
+  }
+
+  .mobile-dj-meters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+
+  .mobile-dj-meters span {
+    padding: 4px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-align: center;
+  }
+
+  .mobile-deck-tabs,
+  .mobile-stem-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .mobile-deck-tabs::-webkit-scrollbar,
+  .mobile-stem-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-deck-tabs button,
+  .mobile-stem-tabs button {
+    flex: 0 0 auto;
+    min-height: 30px;
+    padding: 4px 9px;
+    border-radius: 8px;
+    background: rgba(17, 17, 21, 0.4);
+    border-color: rgba(255, 255, 255, 0.16);
+    font-size: 9px;
+    font-weight: 800;
+  }
+
+  .mobile-deck-tabs button.active,
+  .mobile-stem-tabs button.active,
+  .mobile-stem-switches button.active {
+    background: rgba(132, 108, 71, 0.66);
+    border-color: rgba(255, 224, 174, 0.58);
+  }
+
+  .mobile-deck-body,
+  .mobile-stem-focus {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .mobile-track-row select {
+    width: 100%;
+    height: 31px;
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(16, 16, 20, 0.56);
+    color: #eee;
+    padding: 3px 7px;
+    font-size: 10px;
+  }
+
+  .mobile-dj-transport,
+  .mobile-studio-transport,
+  .mobile-stem-switches {
+    display: flex;
+    gap: 5px;
+  }
+
+  .mobile-dj-transport button,
+  .mobile-studio-transport button,
+  .mobile-stem-switches button {
+    flex: 1 1 0;
+    min-height: 32px;
+    padding: 4px 7px;
+    background: rgba(22, 22, 27, 0.44);
+    border-color: rgba(255, 255, 255, 0.16);
+    font-size: 9px;
+    font-weight: 800;
+  }
+
+  .mobile-dj-transport .primary,
+  .mobile-studio-transport .primary {
+    background: rgba(119, 91, 54, 0.64);
+    border-color: rgba(237, 201, 146, 0.46);
+  }
+
+  .mobile-studio-transport .record {
+    background: rgba(103, 34, 35, 0.62);
+    border-color: rgba(238, 113, 113, 0.4);
+  }
+
+  .mobile-mixer-range {
+    display: grid;
+    grid-template-columns: minmax(62px, auto) 1fr;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+  }
+
+  .mobile-mixer-range input[type='range'] {
+    width: 100%;
+    height: 27px;
+    margin: 0;
+    touch-action: pan-x;
+  }
+
+  .mobile-mixer-range input[type='range']::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobile-dj-performance-pads {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .mobile-dj-performance-pads button {
+    min-height: 38px;
+    min-width: 0;
+    padding: 3px;
+    border-radius: 9px;
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(18, 18, 23, 0.4);
+    font-size: 8px;
+    font-weight: 850;
+    line-height: 1.05;
+  }
+
+  .mobile-dj-performance-pads button.punch {
+    background: rgba(73, 47, 33, 0.44);
+  }
+
+  .mobile-dj-performance-pads button.active {
+    transform: translateY(1px) scale(0.97);
+    background: rgba(190, 129, 64, 0.76);
+  }
+
+  .mobile-dj-eq,
+  .mobile-stem-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 7px;
+  }
+
+  .mobile-dj-tempo {
+    display: block;
+  }
+
+  .mobile-crossfader {
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .mobile-crossfader .mobile-mixer-range {
+    grid-template-columns: 48px 1fr;
+  }
+
+  .mobile-stem-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 7px;
+  }
+
+  .mobile-stem-heading > strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+  }
+
+  .mobile-stem-switches {
+    flex: 0 0 auto;
+  }
+
+  .mobile-stem-switches button {
+    min-height: 28px;
+    padding: 3px 7px;
+  }
+
+  body.dj-mobile-active #buttons > .row,
+  body.studio-mobile-active #buttons > .row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 4px;
+    scrollbar-width: none;
+  }
+
+  body.dj-mobile-active #buttons > .row::-webkit-scrollbar,
+  body.studio-mobile-active #buttons > .row::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.dj-mobile-active #buttons > .row button,
+  body.dj-mobile-active #buttons > button,
+  body.studio-mobile-active #buttons > button {
+    flex: 0 0 auto;
+    min-height: 29px;
+    padding: 4px 7px;
+    font-size: 8px;
+    background: rgba(15, 15, 19, 0.4);
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  body.performance-active #panel,
+  body.mixer-active #panel {
+    max-height: 64vh;
+  }
+
+  .performance-surface {
+    grid-template-columns: auto 1fr;
+  }
+
+  .performance-surface-header {
+    grid-column: 1 / -1;
+  }
+
+  .touch-keyboard {
+    height: 82px;
+  }
+
+  .touch-drum-pad {
+    min-height: 40px;
+  }
+
+  .mobile-dj-performance-pads button {
+    min-height: 33px;
+  }
+}

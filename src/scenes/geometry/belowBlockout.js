@@ -148,10 +148,8 @@ export function buildBelowFixtures(downScene) {
   for (const x of [-4.8, -1.6, 1.6, 4.8])
     box(downScene, 0.035, 0.035, 6.2, mat(0x25262a, 0.68, 0.12), x, 3.14, 0);
 
-  // Take A Break installation/chill room.
-  box(downScene, 2.6, 0.62, 0.82, MAT.red, -8.1, 0.33, 1.0);
-  box(downScene, 1.25, 0.48, 0.72, mat(0x6f4936), -8.65, 0.24, 3.0);
-  box(downScene, 1.25, 0.48, 0.72, mat(0x4e3d52), -7.25, 0.24, 3.0);
+  // Take A Break installation/chill room. Detailed couches and loose cushions are built by
+  // roomFurniture.js so the room reads as a real lounge rather than placeholder boxes.
   box(downScene, 0.08, 1.45, 2.35, mat(0xb7929f, 0.45, 0.02), -9.76, 1.55, 1.85);
   box(downScene, 0.78, 0.52, 0.78, mat(0x2b242c), -8.72, 0.26, 1.85);
   cyl(downScene, 0.19, 1.05, mat(0xd4a45f, 0.38, 0.12), -8.72, 1.03, 1.85);

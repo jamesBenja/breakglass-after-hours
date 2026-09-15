@@ -126,6 +126,7 @@ export class PlayerController {
     this.danceRemaining = 0;
     this.intoxication = 0;
     this.elapsed = 0;
+    this.seated = false;
   }
 
   get position() {
@@ -170,9 +171,11 @@ export class PlayerController {
       this.hair.scale.set(1, 1, 1);
       this.hair.position.y = 1.91;
     }
+    this.hairStandingY = this.hair.position.y;
   }
 
   spawn(position, collision) {
+    this.seated = false;
     this.position.fromArray(position);
     const ground = collision.surfaceAt(this.position.x, this.position.z, this.position.y + 0.25);
     this.grounded = !!ground && Math.abs(this.position.y - ground.height) < 0.01;
@@ -184,11 +187,40 @@ export class PlayerController {
     this.object.rotation.set(0, 0, 0);
   }
 
+  sit(position, collision, rotationY = null) {
+    if (position) this.position.fromArray(position);
+    const ground = collision?.surfaceAt(this.position.x, this.position.z, this.position.y + 0.8);
+    if (ground) this.position.y = ground.height;
+    this.seated = true;
+    this.grounded = true;
+    this.verticalVelocity = 0;
+    this.velocity.x = this.velocity.z = 0;
+    this.jumpBuffer = 0;
+    this.coyoteRemaining = 0;
+    this.safePosition.copy(this.position);
+    if (Number.isFinite(rotationY)) this.object.rotation.y = rotationY;
+    return true;
+  }
+
+  stand() {
+    if (!this.seated) return false;
+    this.seated = false;
+    this.velocity.x = this.velocity.z = 0;
+    return true;
+  }
+
   dance(duration = 70 / 60) {
+    if (this.seated) return;
     this.danceRemaining = duration;
   }
 
   update(dt, movement, collision, jump = false) {
+    if (this.seated) {
+      this.velocity.x = this.velocity.z = 0;
+      this.verticalVelocity = 0;
+      this.animate(dt);
+      return;
+    }
     if (jump) this.jumpBuffer = 0.16;
     const steps = Math.max(1, Math.ceil(dt / (1 / 120)));
     this.collisionTarget = null;
@@ -269,6 +301,34 @@ export class PlayerController {
   animate(dt) {
     this.elapsed += dt;
     this.landingPulse *= Math.exp(-12 * dt);
+    if (this.seated) {
+      this.object.scale.set(1, 1, 1);
+      this.body.position.y = 0.84;
+      this.neck.position.y = 1.26;
+      this.head.position.y = 1.47;
+      this.hair.position.y = (this.hairStandingY ?? 1.91) - 0.22;
+      this.jacket.position.y = 1.08;
+      this.leftArm.position.y = this.rightArm.position.y = 0.92;
+      this.leftLeg.position.y = this.rightLeg.position.y = 0.36;
+      this.leftShoe.position.y = this.rightShoe.position.y = 0.22;
+      this.leftShoe.position.z = this.rightShoe.position.z = 0.38;
+      this.leftArm.rotation.x = this.rightArm.rotation.x = -0.42;
+      this.leftLeg.rotation.x = this.rightLeg.rotation.x = -1.08;
+      this.head.rotation.y = 0;
+      this.object.rotation.z = 0;
+      return;
+    }
+
+    this.body.position.y = 1.02;
+    this.neck.position.y = 1.47;
+    this.head.position.y = 1.69;
+    this.hair.position.y = this.hairStandingY ?? 1.91;
+    this.jacket.position.y = 1.26;
+    this.leftArm.position.y = this.rightArm.position.y = 1.08;
+    this.leftLeg.position.y = this.rightLeg.position.y = 0.43;
+    this.leftShoe.position.y = this.rightShoe.position.y = 0.07;
+    this.leftShoe.position.z = this.rightShoe.position.z = 0.07;
+
     this.object.scale.set(
       1 + this.landingPulse * 0.35,
       1 - this.landingPulse,

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/dynamic-below-avatar-foundation
+      - feat/mobile-performance-dj-surface
   workflow_dispatch:
 
 permissions:
