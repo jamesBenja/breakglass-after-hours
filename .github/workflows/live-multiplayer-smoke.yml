@@ -1,0 +1,26 @@
+name: Live Multiplayer Smoke
+
+on:
+  push:
+    branches:
+      - feat/live-multiplayer-foundation
+    paths:
+      - src/multiplayer/**
+      - src/avatar/**
+      - scripts/smoke-live-multiplayer.mjs
+      - .github/workflows/live-multiplayer-smoke.yml
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm install --frozen-lockfile
+      - name: Verify production WebSocket room
+        run: node scripts/smoke-live-multiplayer.mjs
