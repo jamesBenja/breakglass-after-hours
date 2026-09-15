@@ -35,8 +35,7 @@ export function estimateBeatOffset(buffer, bpm) {
   const beatSeconds = 60 / Math.max(1, Number(bpm) || 120);
   if (!sampleRate || !firstChannel?.length || !Number.isFinite(beatSeconds)) return 0;
 
-  const secondChannel =
-    Number(buffer.numberOfChannels) > 1 ? buffer.getChannelData?.(1) : null;
+  const secondChannel = Number(buffer.numberOfChannels) > 1 ? buffer.getChannelData?.(1) : null;
   const analysisSamples = Math.min(firstChannel.length, Math.floor(sampleRate * 24));
   const stride = 4;
   const frameSamples = Math.max(stride, Math.round(sampleRate * 0.006));

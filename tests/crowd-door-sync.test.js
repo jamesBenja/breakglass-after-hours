@@ -3,10 +3,7 @@ import test from 'node:test';
 import { Group } from 'three';
 import { AlleyCrowdSystem } from '../src/alley/AlleyCrowdSystem.js';
 import { doorAccessTier } from '../src/gameplay/crowdDoorEnhancements.js';
-import {
-  alignedSourcePosition,
-  estimateBeatOffset,
-} from '../src/gameplay/djSyncEnhancements.js';
+import { alignedSourcePosition, estimateBeatOffset } from '../src/gameplay/djSyncEnhancements.js';
 
 const mod = (value, divisor) => ((value % divisor) + divisor) % divisor;
 
