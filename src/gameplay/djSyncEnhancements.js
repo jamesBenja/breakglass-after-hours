@@ -21,6 +21,108 @@ export function alignedSourcePosition(
   return Math.max(0, slaveBeatOffset + (nearestBeat + masterPhase) * slaveBeat);
 }
 
+/**
+ * Estimate the quarter-note beat-grid phase of a decoded master.
+ *
+ * The catalogue already supplies BPM. What was missing was the phase offset between time zero in
+ * each exported file and the actual musical beat grid. On real masters that offset is rarely
+ * exactly 0 because of encoder padding, silence or pickups. We derive it from low-frequency onset
+ * energy so SYNC aligns audible kicks rather than merely aligning file timestamps.
+ */
+export function estimateBeatOffset(buffer, bpm) {
+  const sampleRate = Number(buffer?.sampleRate);
+  const firstChannel = buffer?.getChannelData?.(0);
+  const beatSeconds = 60 / Math.max(1, Number(bpm) || 120);
+  if (!sampleRate || !firstChannel?.length || !Number.isFinite(beatSeconds)) return 0;
+
+  const secondChannel =
+    Number(buffer.numberOfChannels) > 1 ? buffer.getChannelData?.(1) : null;
+  const analysisSamples = Math.min(firstChannel.length, Math.floor(sampleRate * 24));
+  const stride = 4;
+  const frameSamples = Math.max(stride, Math.round(sampleRate * 0.006));
+  const frameCount = Math.max(1, Math.ceil(analysisSamples / frameSamples));
+  const onset = new Float32Array(frameCount);
+  const lowpassAlpha = 1 - Math.exp((-2 * Math.PI * 180 * stride) / sampleRate);
+
+  let lowpass = 0;
+  let smoothed = 0;
+  let peakOnset = 0;
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const start = frame * frameSamples;
+    const end = Math.min(analysisSamples, start + frameSamples);
+    let lowEnergy = 0;
+    let count = 0;
+    for (let sampleIndex = start; sampleIndex < end; sampleIndex += stride) {
+      const sample = secondChannel
+        ? (firstChannel[sampleIndex] + secondChannel[sampleIndex]) * 0.5
+        : firstChannel[sampleIndex];
+      lowpass += lowpassAlpha * (sample - lowpass);
+      lowEnergy += lowpass * lowpass;
+      count += 1;
+    }
+    const envelope = count ? Math.sqrt(lowEnergy / count) : 0;
+    const transient = Math.max(0, envelope - smoothed);
+    onset[frame] = transient;
+    peakOnset = Math.max(peakOnset, transient);
+    smoothed = smoothed * 0.72 + envelope * 0.28;
+  }
+
+  if (peakOnset < 1e-5) return 0;
+  const frameSeconds = frameSamples / sampleRate;
+  const analysisSeconds = (frameCount - 1) * frameSeconds;
+  const phaseSteps = 128;
+  const toleranceFrames = Math.max(1, Math.round(0.018 / frameSeconds));
+  let bestPhase = 0;
+  let bestScore = -1;
+
+  for (let phaseIndex = 0; phaseIndex < phaseSteps; phaseIndex += 1) {
+    const phase = (phaseIndex / phaseSteps) * beatSeconds;
+    let score = 0;
+    let hits = 0;
+    for (let time = phase; time <= analysisSeconds; time += beatSeconds) {
+      const center = Math.round(time / frameSeconds);
+      let localPeak = 0;
+      for (let delta = -toleranceFrames; delta <= toleranceFrames; delta += 1) {
+        const index = center + delta;
+        if (index >= 0 && index < onset.length) localPeak = Math.max(localPeak, onset[index]);
+      }
+      score += localPeak;
+      hits += 1;
+    }
+    if (hits) score /= hits;
+    if (score > bestScore) {
+      bestScore = score;
+      bestPhase = phase;
+    }
+  }
+
+  return modulo(bestPhase, beatSeconds);
+}
+
+function deckBeatOffset(deck, track) {
+  return Number.isFinite(deck?.beatOffset) ? deck.beatOffset : (track.beatOffset ?? 0);
+}
+
+function ensureBeatGrid(mixer, deck) {
+  if (!deck) return 0;
+  const track = trackById(deck.trackId);
+  mixer._beatOffsetCache ??= new Map();
+  if (mixer._beatOffsetCache.has(track.id)) {
+    deck.beatOffset = mixer._beatOffsetCache.get(track.id);
+    return deck.beatOffset;
+  }
+
+  const buffer = deck.source?.buffer;
+  const offset = buffer
+    ? estimateBeatOffset(buffer, track.bpm)
+    : Number.isFinite(track.beatOffset)
+      ? track.beatOffset
+      : 0;
+  deck.beatOffset = offset;
+  if (buffer || Number.isFinite(track.beatOffset)) mixer._beatOffsetCache.set(track.id, offset);
+  return offset;
+}
+
 function deckPosition(mixer, deckId) {
   if (typeof mixer.deckPosition === 'function') return mixer.deckPosition(deckId);
   const deck = mixer.decks[deckId];
@@ -36,7 +138,7 @@ function beatPhase(mixer, deckId) {
   if (!deck?.playing) return 0;
   const track = trackById(deck.trackId);
   const beat = 60 / Math.max(1, track.bpm);
-  return modulo((deckPosition(mixer, deckId) - (track.beatOffset ?? 0)) / beat, 1);
+  return modulo((deckPosition(mixer, deckId) - deckBeatOffset(deck, track)) / beat, 1);
 }
 
 function setWideBpm(mixer, deckId, bpm) {
@@ -65,13 +167,15 @@ function alignDeck(mixer, slaveId, masterId) {
 
   const masterTrack = trackById(master.trackId);
   const slaveTrack = trackById(slave.trackId);
+  ensureBeatGrid(mixer, master);
+  ensureBeatGrid(mixer, slave);
   const target = alignedSourcePosition(
     deckPosition(mixer, masterId),
     masterTrack.bpm,
     deckPosition(mixer, slaveId),
     slaveTrack.bpm,
-    masterTrack.beatOffset ?? 0,
-    slaveTrack.beatOffset ?? 0,
+    deckBeatOffset(master, masterTrack),
+    deckBeatOffset(slave, slaveTrack),
   );
 
   let aligned = false;
@@ -174,7 +278,7 @@ export function installDjSyncEnhancements(game, ui) {
     mixer.updateVibe?.();
     ui?.warning?.(
       master.playing
-        ? `Deck ${deckId} synced to ${masterId} at ${sharedTempo.toFixed(1)} BPM · beats aligned.`
+        ? `Deck ${deckId} synced to ${masterId} at ${sharedTempo.toFixed(1)} BPM · beat grid locked.`
         : `Deck ${deckId} matched to ${masterId} at ${sharedTempo.toFixed(1)} BPM. Start the master to phase-sync.`,
     );
     return aligned || true;
@@ -183,9 +287,11 @@ export function installDjSyncEnhancements(game, ui) {
   mixer.playDeck = async (deckId) => {
     const result = await basePlayDeck(deckId);
     const deck = mixer.decks[deckId];
+    if (result && deck) ensureBeatGrid(mixer, deck);
     const masterId = deck?._syncMaster;
     const master = masterId ? mixer.decks[masterId] : null;
     if (result && deck && master?.playing) {
+      ensureBeatGrid(mixer, master);
       setWideBpm(mixer, deckId, master.bpm);
       alignDeck(mixer, deckId, masterId);
       mixer.updateVibe?.();
@@ -194,10 +300,12 @@ export function installDjSyncEnhancements(game, ui) {
   };
 
   mixer.load = (deckId, trackId) => {
-    const result = baseLoad(deckId, trackId);
     const deck = mixer.decks[deckId];
-    const master = deck?._syncMaster ? mixer.decks[deck._syncMaster] : null;
-    if (deck && master?.playing) setWideBpm(mixer, deckId, master.bpm);
+    if (deck) deck.beatOffset = null;
+    const result = baseLoad(deckId, trackId);
+    const updatedDeck = mixer.decks[deckId];
+    const master = updatedDeck?._syncMaster ? mixer.decks[updatedDeck._syncMaster] : null;
+    if (updatedDeck && master?.playing) setWideBpm(mixer, deckId, master.bpm);
     return result;
   };
 
@@ -212,6 +320,7 @@ export function installDjSyncEnhancements(game, ui) {
       const deck = mixer.decks[deckId];
       state.syncedTo = deck?._syncMaster ?? null;
       state.beatPhase = beatPhase(mixer, deckId);
+      state.beatOffset = Number.isFinite(deck?.beatOffset) ? deck.beatOffset : null;
     }
     return snapshot;
   };
