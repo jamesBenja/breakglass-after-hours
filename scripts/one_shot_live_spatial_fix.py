@@ -156,7 +156,7 @@ replace_one(
 gamespace = "src/world/upstairs/gameSpace.js"
 sub_one(
     gamespace,
-    r"  // Replace just the west end of the floor with a real descending stair run\..*?  return \{",
+    r"  // Replace just the west end of the floor with a real descending stair run\..*?\n  return \{",
     """  // Below descends from the former southeast MAIN ENTRY pocket.
   const stairFloors = [0, 1, 2, 3].map((i) => {
     const z1 = 980 + i * 15;
@@ -238,11 +238,7 @@ replace_one(
     stairs: waypoints.belowStairsTop,
   };""",
 )
-replace_one(
-    definition,
-    "layoutRevision: 'a103-spatial-8-maddox'",
-    "layoutRevision: 'a103-spatial-9-circulation-fix'",
-)
+replace_one(definition, "layoutRevision: 'a103-spatial-8-maddox'", "layoutRevision: 'a103-spatial-9-circulation-fix'")
 replace_one(
     definition,
     "Traced room relationships; widened polygon gallery and Clark landing for traversal. The historic Neve Suite is intentionally open-topped in the game so its console, tape machine and archive activity remain visible from the third-person camera.",
@@ -487,6 +483,11 @@ replace_one(
     """    for (const door of level.doors) {
       if (door.exterior) continue;
       const position = new Vector3(""",
+)
+replace_one(
+    spatial_test,
+    "['live', 'galleryNE', 'galleryE', 'gallerySE', 'eastJunction', 'entry']",
+    "['live', 'galleryNE', 'galleryE', 'gallerySE', 'entryPassage', 'entry']",
 )
 
 
