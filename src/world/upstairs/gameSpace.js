@@ -20,7 +20,7 @@ export function createGameSpace() {
       name: 'Live Room · drum riser',
     }),
     prop('overlook-step', 557, 849, 0.8, 1.55, 0.3, 0xbba166, { name: 'Overlook step' }),
-    prop('live-overlook', 583, 849, 1.8, 1.55, 1.1, 0x98724f, {
+    prop('live-overlook', 583, 849, 1.8, 1.55, 1.1, 0x527075, {
       name: 'Live Room · polygon overlook',
     }),
     prop('overlook-upper-case', 568, 850, 0.8, 0.85, 2.1, 0x527075, {
@@ -63,7 +63,7 @@ export function createGameSpace() {
       kind: 'equipment',
       name: 'Spectra control-room couch',
     }),
-    prop('mix-sofa-side', 292, 770, 0.86, 2.15, 0.8, 0x60514b, {
+    prop('mix-sofa-side', 292, 738, 0.86, 2.15, 0.8, 0x60514b, {
       kind: 'equipment',
       name: 'Spectra control-room loveseat',
       rotationY: Math.PI / 2,
@@ -128,42 +128,45 @@ export function createGameSpace() {
       kind: 'stair',
     };
   });
-  const floorRooms = rooms.map((room) =>
+  const stairRun = {
+    id: 'clark-stair-run',
+    name: 'Clark stair run',
+    points: trace([
+      [132, 938],
+      [211, 938],
+      [211, 982],
+      [132, 982],
+    ]),
+    y1: -1.5,
+    y2: 0,
+    kind: 'stair',
+  };
+  const roomSet = rooms.map((room) =>
     room.id === 'circulation'
       ? {
           ...room,
           points: trace([
-            [172, 518],
-            [842, 518],
-            [842, 1040],
-            [692, 1040],
-            [692, 1116],
-            [345, 1116],
-            [345, 982],
-            [211, 982],
-            [211, 938],
+            [172, 692],
+            [542, 692],
+            [542, 995],
+            [345, 995],
+            [345, 938],
             [172, 938],
           ]),
         }
-      : room.id === 'clark-stair'
-        ? {
-            ...room,
-            points: trace([
-              [211, 938],
-              [345, 938],
-              [345, 982],
-              [211, 982],
-            ]),
-          }
-        : room,
+      : room,
   );
   return {
     platforms,
     fixtures,
+    rooms: roomSet,
     stairFloors,
-    rooms: floorRooms,
-    boundary: footprint,
-    spawns: { start: waypoints.entry, stairs: at(227, 958) },
-    stairAnchor: at(152, 958, -0.84),
+    stairRun,
+    spawns: {
+      start: waypoints.entry,
+      stairs: at(227, 958),
+    },
+    stairAnchor: at(152, 958),
+    footprint,
   };
 }
