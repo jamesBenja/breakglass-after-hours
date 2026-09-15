@@ -1,4 +1,4 @@
-name: Finalize Performance Realism
+name: Finalize Performance Realism v2
 
 on:
   push:
@@ -26,153 +26,146 @@ jobs:
       - run: npm install --global pnpm@11.19.0
       - run: pnpm install --frozen-lockfile
 
-      - name: Harden turntable transport and shared ownership
+      - name: Harden performance transport and multiplayer ownership
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
-          # Turntable motor / platter should freeze the real transport position, not merely the UI.
+          def must_sub(text, pattern, replacement, label, flags=0):
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=flags)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected one match, got {count}')
+              return updated
+
+          # Real turntable transport: platter hold and motor stop freeze the musical position.
           path = Path('src/gameplay/DjPerformanceRealismSystem.js')
           text = path.read_text()
+          if 'deck._transportFrozenAt ??= null;' not in text:
+              text = text.replace(
+                  '  deck._phaseErrorMs ??= 0;\n',
+                  '  deck._phaseErrorMs ??= 0;\n  deck._transportFrozenAt ??= null;\n',
+                  1,
+              )
           text = text.replace(
-              "  deck._phaseErrorMs ??= 0;\n}",
-              "  deck._phaseErrorMs ??= 0;\n  deck._transportFrozenAt ??= null;\n}",
+              'if (deck.source?.playbackRate) deck.source.playbackRate.value = deck.platterHeld ? 0.001 : rate;',
+              'if (deck.source?.playbackRate)\n    deck.source.playbackRate.value = deck.platterHeld || !deck.motorOn ? 0.001 : rate;',
               1,
           )
-          text = text.replace(
-              "  if (deck.source?.playbackRate) deck.source.playbackRate.value = deck.platterHeld ? 0.001 : rate;",
-              "  if (deck.source?.playbackRate)\n    deck.source.playbackRate.value = deck.platterHeld || !deck.motorOn ? 0.001 : rate;",
-              1,
-          )
-          text = text.replace(
-              "  const baseSnapshot = mixer.snapshot.bind(mixer);\n\n  mixer.setDeviceMode",
-              "  const baseSnapshot = mixer.snapshot.bind(mixer);\n  const baseDeckPosition =\n    typeof mixer.deckPosition === 'function' ? mixer.deckPosition.bind(mixer) : null;\n\n  if (baseDeckPosition) {\n    mixer.deckPosition = (deckId) => {\n      const deck = mixer.decks[deckId];\n      if (!deck) return 0;\n      ensureState(deck);\n      if (Number.isFinite(deck._transportFrozenAt)) return deck._transportFrozenAt;\n      return baseDeckPosition(deckId);\n    };\n  }\n\n  mixer.setDeviceMode",
-              1,
-          )
-          old = """  mixer.toggleMotor = (deckId) => {
-              const deck = mixer.decks[deckId];
-              if (!deck) return false;
-              ensureState(deck);
-              deck.motorOn = !deck.motorOn;
-              if (!deck.motorOn && deck.media) deck.media.pause();
-              applyPlaybackRate(mixer, deck);
-              return deck.motorOn;
-            };
+          if 'const baseDeckPosition =' not in text:
+              text = text.replace(
+                  '  const baseSnapshot = mixer.snapshot.bind(mixer);\n',
+                  "  const baseSnapshot = mixer.snapshot.bind(mixer);\n  const baseDeckPosition =\n    typeof mixer.deckPosition === 'function' ? mixer.deckPosition.bind(mixer) : null;\n\n  if (baseDeckPosition) {\n    mixer.deckPosition = (deckId) => {\n      const deck = mixer.decks[deckId];\n      if (!deck) return 0;\n      ensureState(deck);\n      if (Number.isFinite(deck._transportFrozenAt)) return deck._transportFrozenAt;\n      return baseDeckPosition(deckId);\n    };\n  }\n",
+                  1,
+              )
 
-            mixer.setPlatterHeld = (deckId, held) => {
-              const deck = mixer.decks[deckId];
-              if (!deck) return false;
-              ensureState(deck);
-              deck.platterHeld = held === true;
-              applyPlaybackRate(mixer, deck);
-              return deck.platterHeld;
-            };
-          """
-          new = """  mixer.toggleMotor = (deckId) => {
-              const deck = mixer.decks[deckId];
-              if (!deck) return false;
-              ensureState(deck);
-              if (deck.motorOn) {
-                deck._transportFrozenAt = mixer.deckPosition?.(deckId) ?? 0;
-                deck.motorOn = false;
-              } else {
-                const resumeAt = Number.isFinite(deck._transportFrozenAt)
-                  ? deck._transportFrozenAt
-                  : mixer.deckPosition?.(deckId) ?? 0;
-                deck.motorOn = true;
-                deck._transportFrozenAt = null;
-                if (deck.playing) mixer.restartDeckAt?.(deckId, resumeAt);
-              }
-              if (!deck.motorOn && deck.media) deck.media.pause();
-              applyPlaybackRate(mixer, deck);
-              return deck.motorOn;
-            };
+          transport_block = """  mixer.toggleMotor = (deckId) => {
+            const deck = mixer.decks[deckId];
+            if (!deck) return false;
+            ensureState(deck);
+            if (deck.motorOn) {
+              deck._transportFrozenAt = mixer.deckPosition?.(deckId) ?? 0;
+              deck.motorOn = false;
+            } else {
+              const resumeAt = Number.isFinite(deck._transportFrozenAt)
+                ? deck._transportFrozenAt
+                : mixer.deckPosition?.(deckId) ?? 0;
+              deck.motorOn = true;
+              deck._transportFrozenAt = null;
+              if (deck.playing) mixer.restartDeckAt?.(deckId, resumeAt);
+            }
+            if (!deck.motorOn && deck.media) deck.media.pause();
+            applyPlaybackRate(mixer, deck);
+            return deck.motorOn;
+          };
 
-            mixer.setPlatterHeld = (deckId, held) => {
-              const deck = mixer.decks[deckId];
-              if (!deck) return false;
-              ensureState(deck);
-              const next = held === true;
-              if (next && !deck.platterHeld) {
-                deck._transportFrozenAt = mixer.deckPosition?.(deckId) ?? 0;
-              } else if (!next && deck.platterHeld) {
-                const resumeAt = Number.isFinite(deck._transportFrozenAt)
-                  ? deck._transportFrozenAt
-                  : mixer.deckPosition?.(deckId) ?? 0;
-                deck._transportFrozenAt = null;
-                if (deck.playing && deck.motorOn) mixer.restartDeckAt?.(deckId, resumeAt);
-              }
-              deck.platterHeld = next;
-              applyPlaybackRate(mixer, deck);
-              return deck.platterHeld;
-            };
+          mixer.setPlatterHeld = (deckId, held) => {
+            const deck = mixer.decks[deckId];
+            if (!deck) return false;
+            ensureState(deck);
+            const next = held === true;
+            if (next && !deck.platterHeld) {
+              deck._transportFrozenAt = mixer.deckPosition?.(deckId) ?? 0;
+            } else if (!next && deck.platterHeld) {
+              const resumeAt = Number.isFinite(deck._transportFrozenAt)
+                ? deck._transportFrozenAt
+                : mixer.deckPosition?.(deckId) ?? 0;
+              deck._transportFrozenAt = null;
+              if (deck.playing && deck.motorOn) mixer.restartDeckAt?.(deckId, resumeAt);
+            }
+            deck.platterHeld = next;
+            applyPlaybackRate(mixer, deck);
+            return deck.platterHeld;
+          };
           """
-          if old not in text:
-              raise SystemExit('turntable motor block not found')
-          text = text.replace(old, new, 1)
-          text = text.replace(
-              "    return mixer.restartDeckAt?.(deckId, target) ?? false;\n  };\n\n  mixer.jog =",
-              "    if (Number.isFinite(deck._transportFrozenAt)) {\n      deck._transportFrozenAt = target;\n      return true;\n    }\n    return mixer.restartDeckAt?.(deckId, target) ?? false;\n  };\n\n  mixer.jog =",
-              1,
+          text = must_sub(
+              text,
+              r"  mixer\.toggleMotor = \(deckId\) => \{.*?\n  \};\n\n  mixer\.setPlatterHeld = \(deckId, held\) => \{.*?\n  \};\n",
+              transport_block,
+              'turntable transport block',
+              re.S,
           )
-          text = text.replace(
-              "    const target = Math.max(0, current + Number(beats || 0) * sourceBeatSeconds(deck));\n    return mixer.restartDeckAt?.(deckId, target) ?? false;\n  };\n\n  mixer.setPreciseLoop",
-              "    const target = Math.max(0, current + Number(beats || 0) * sourceBeatSeconds(deck));\n    if (Number.isFinite(deck._transportFrozenAt)) {\n      deck._transportFrozenAt = target;\n      return true;\n    }\n    return mixer.restartDeckAt?.(deckId, target) ?? false;\n  };\n\n  mixer.setPreciseLoop",
-              1,
+
+          # Beat-jump and jog should move the frozen record position while the platter is held.
+          beatjump_pattern = r"(  mixer\.beatJump = \(deckId, beats\) => \{.*?const target = Math\.max\(0, current \+ Number\(beats \|\| 0\) \* sourceBeatSeconds\(deck\)\);\n)(    return mixer\.restartDeckAt\?\.\(deckId, target\) \?\? false;\n  \};)"
+          text = must_sub(
+              text,
+              beatjump_pattern,
+              r"\1    if (Number.isFinite(deck._transportFrozenAt)) {\n      deck._transportFrozenAt = target;\n      return true;\n    }\n\2",
+              'beat jump frozen transport',
+              re.S,
           )
-          text = text.replace(
-              "      deck._jogBend = 0;\n    }",
-              "      deck._jogBend = 0;\n      deck._transportFrozenAt = null;\n    }",
-              1,
+          jog_pattern = r"(  mixer\.jog = \(deckId, beats\) => \{.*?const target = Math\.max\(0, current \+ Number\(beats \|\| 0\) \* sourceBeatSeconds\(deck\)\);\n)(    return mixer\.restartDeckAt\?\.\(deckId, target\) \?\? false;\n  \};)"
+          text = must_sub(
+              text,
+              jog_pattern,
+              r"\1    if (Number.isFinite(deck._transportFrozenAt)) {\n      deck._transportFrozenAt = target;\n      return true;\n    }\n\2",
+              'jog frozen transport',
+              re.S,
+          )
+          if 'deck._transportFrozenAt = null;' not in re.search(r"mixer\.stopDeck = .*?\n  \};", text, re.S).group(0):
+              text = text.replace(
+                  '      deck._jogBend = 0;\n',
+                  '      deck._jogBend = 0;\n      deck._transportFrozenAt = null;\n',
+                  1,
+              )
+          path.write_text(text)
+
+          # LED wall: only mark a state broadcast once the send succeeds.
+          path = Path('src/gameplay/LedWallSystem.js')
+          text = path.read_text()
+          publish_block = """    if (signature === this.lastBroadcastState) return;
+            if (this.game.multiplayer?.joined) {
+              if (world && !world.owns?.('led-wall-controller')) {
+                this.ui.warning?.('Take control of the VISUALS desk before changing the shared LED wall.');
+                return;
+              }
+              if (
+                this.game.multiplayer.send({
+                  type: 'object_update',
+                  objectId: 'dj-led-wall',
+                  data: snapshot,
+                })
+              )
+                this.lastBroadcastState = signature;
+            } else {
+              if (world?.objects) world.objects.set('dj-led-wall', snapshot);
+              this.lastBroadcastState = signature;
+            }
+          """
+          text = must_sub(
+              text,
+              r"    if \(signature === this\.lastBroadcastState\) return;.*?\n  \}\n\n  drawGraphic",
+              publish_block + "\n  }\n\n  drawGraphic",
+              'LED publish block',
+              re.S,
           )
           path.write_text(text)
 
-          # Do not mark an LED state as broadcast before the multiplayer ownership guard succeeds.
-          path = Path('src/gameplay/LedWallSystem.js')
-          text = path.read_text()
-          old = """    if (signature === this.lastBroadcastState) return;
-              this.lastBroadcastState = signature;
-              if (this.game.multiplayer?.joined) {
-                if (world && !world.owns?.('led-wall-controller')) {
-                  this.ui.warning?.('Take control of the VISUALS desk before changing the shared LED wall.');
-                  return;
-                }
-                this.game.multiplayer.send({ type: 'object_update', objectId: 'dj-led-wall', data: snapshot });
-              } else if (world?.objects) world.objects.set('dj-led-wall', snapshot);
-          """
-          new = """    if (signature === this.lastBroadcastState) return;
-              if (this.game.multiplayer?.joined) {
-                if (world && !world.owns?.('led-wall-controller')) {
-                  this.ui.warning?.('Take control of the VISUALS desk before changing the shared LED wall.');
-                  return;
-                }
-                if (
-                  this.game.multiplayer.send({
-                    type: 'object_update',
-                    objectId: 'dj-led-wall',
-                    data: snapshot,
-                  })
-                )
-                  this.lastBroadcastState = signature;
-              } else {
-                if (world?.objects) world.objects.set('dj-led-wall', snapshot);
-                this.lastBroadcastState = signature;
-              }
-          """
-          if old not in text:
-              raise SystemExit('LED broadcast block not found')
-          path.write_text(text.replace(old, new, 1))
-
-          # Applying a remote motor/platter state must update the actual audio source too.
+          # Remote DJ clients must apply motor/platter and loop-off state to the actual audio engine.
           path = Path('src/multiplayer/SharedWorld.js')
           text = path.read_text()
-          old = """        if (target.deviceMode) dj.setDeviceMode?.(deckId, target.deviceMode);
-                if (target.deviceMode === 'vinyl' && target.vinylRpm) dj.setVinylRpm?.(deckId, target.vinylRpm);
-                deck.motorOn = target.motorOn !== false;
-                deck.platterHeld = target.platterHeld === true;
-                if (Array.isArray(target.cuePoints)) deck.cuePoints = target.cuePoints.slice(0, 8);
-          """
-          new = """        if (target.deviceMode) dj.setDeviceMode?.(deckId, target.deviceMode);
+          remote_block = """        if (target.deviceMode) dj.setDeviceMode?.(deckId, target.deviceMode);
                 if (target.deviceMode === 'vinyl' && target.vinylRpm)
                   dj.setVinylRpm?.(deckId, target.vinylRpm);
                 const targetMotorOn = target.motorOn !== false;
@@ -185,40 +178,41 @@ jobs:
                 else deck.platterHeld = targetHeld;
                 if (Array.isArray(target.cuePoints)) deck.cuePoints = target.cuePoints.slice(0, 8);
           """
-          if old not in text:
-              raise SystemExit('remote turntable apply block not found')
-          text = text.replace(old, new, 1)
-          old = """          if (target.loopBeats) (dj.setPreciseLoop ?? dj.setLoop).call(dj, deckId, target.loopBeats);
-                    else if (deck.loopBeats) dj.setLoop(deckId, deck.loopBeats);
+          text = must_sub(
+              text,
+              r"        if \(target\.deviceMode\) dj\.setDeviceMode\?\.\(deckId, target\.deviceMode\);.*?        if \(Array\.isArray\(target\.cuePoints\)\) deck\.cuePoints = target\.cuePoints\.slice\(0, 8\);\n",
+              remote_block,
+              'remote turntable state',
+              re.S,
+          )
+          loop_block = """          if (target.loopBeats)
+                    (dj.setPreciseLoop ?? dj.setLoop).call(dj, deckId, target.loopBeats);
+                  else if (deck.loopBeats) {
+                    if (typeof dj.setPreciseLoop === 'function') dj.setPreciseLoop(deckId, 0);
+                    else dj.setLoop(deckId, deck.loopBeats);
+                  }
           """
-          new = """          if (target.loopBeats)
-                      (dj.setPreciseLoop ?? dj.setLoop).call(dj, deckId, target.loopBeats);
-                    else if (deck.loopBeats) {
-                      if (typeof dj.setPreciseLoop === 'function') dj.setPreciseLoop(deckId, 0);
-                      else dj.setLoop(deckId, deck.loopBeats);
-                    }
-          """
-          if old not in text:
-              raise SystemExit('remote loop release block not found')
-          path.write_text(text.replace(old, new, 1))
+          text = must_sub(
+              text,
+              r"          if \(target\.loopBeats\).*?          else if \(deck\.loopBeats\) dj\.setLoop\(deckId, deck\.loopBeats\);\n",
+              loop_block,
+              'remote loop release',
+              re.S,
+          )
+          path.write_text(text)
 
-          # LED updates are authoritative: only the player holding the VISUALS desk may change it.
+          # Server-side LED ownership enforcement, not just a browser-side convention.
           path = Path('server/multiplayerServer.mjs')
           text = path.read_text()
-          old = """  const room = roomFor(player.roomId);
-            const data = objectId === 'dj-led-wall' ? sanitizeLedWall(message.data) : sanitizeJson(message.data);
-          """
-          new = """  const room = roomFor(player.roomId);
-            if (objectId === 'dj-led-wall') {
-              const controller = room.resources.get('led-wall-controller');
-              if (!controller || controller.ownerId !== player.id) return;
-            }
-            const data =
-              objectId === 'dj-led-wall' ? sanitizeLedWall(message.data) : sanitizeJson(message.data);
-          """
-          if old not in text:
-              raise SystemExit('server LED ownership insertion point not found')
-          path.write_text(text.replace(old, new, 1))
+          if "room.resources.get('led-wall-controller')" not in text:
+              text = must_sub(
+                  text,
+                  r"(  const room = roomFor\(player\.roomId\);\n)(  const data =\s*objectId === 'dj-led-wall' \? sanitizeLedWall\(message\.data\) : sanitizeJson\(message\.data\);)",
+                  r"\1  if (objectId === 'dj-led-wall') {\n    const controller = room.resources.get('led-wall-controller');\n    if (!controller || controller.ownerId !== player.id) return;\n  }\n  const data =\n    objectId === 'dj-led-wall' ? sanitizeLedWall(message.data) : sanitizeJson(message.data);",
+                  'server LED ownership',
+                  re.S,
+              )
+          path.write_text(text)
           PY
 
       - name: Format touched files
@@ -244,6 +238,7 @@ jobs:
         run: |
           pnpm test
           pnpm build
+          pnpm exec prettier --check src server tests .github/workflows
 
       - name: Remove temporary one-shot workflows
         run: |
