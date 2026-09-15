@@ -40,7 +40,7 @@ export function resolveMultiplayerConfig() {
   const configured =
     queryServer ||
     globalThis.BREAKGLASS_MULTIPLAYER_URL ||
-    import.meta.env.VITE_MULTIPLAYER_URL ||
+    import.meta.env?.VITE_MULTIPLAYER_URL ||
     stored ||
     null;
   return { url: websocketUrl(configured), room };
@@ -88,7 +88,9 @@ export class MultiplayerClient {
   }
 
   start(avatar) {
-    this.avatar = normalizeAvatar(avatar);
+    // The optional selfie texture was promised as local-only. Multiplayer therefore shares the
+    // chosen avatar shape/style/name but deliberately never uploads that processed face image.
+    this.avatar = { ...normalizeAvatar(avatar), faceTexture: null };
     if (!this.url) {
       this.updatePresence('SOLO · multiplayer server not configured');
       return false;
