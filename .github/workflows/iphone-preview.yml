@@ -9,6 +9,7 @@ on:
       - feat/multiplayer-phase-2-shared-world
       - feat/performance-realism-pass
       - feat/character-realism-pass
+      - feat/below-alley-world-systems
   workflow_dispatch:
 
 permissions:
