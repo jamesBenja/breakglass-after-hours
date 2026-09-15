@@ -15,17 +15,28 @@ import { createUpstairsDefinition } from '../src/world/upstairs/definition.js';
 
 test('Jace and Boogaloo progression gates protect the archive and Dead Room', () => {
   const upstairs = createUpstairsDefinition('B');
-  assert.equal(upstairs.anchors.tapeArchive.requires, 'storageAccessGranted');
+  assert.equal(upstairs.anchors.tapeArchive.requires, 'tapeArchiveAccessGranted');
   assert.equal(upstairs.anchors.instruments.requires, 'deadRoomAccessGranted');
   assert.equal(upstairs.anchors.amps.requires, 'deadRoomAccessGranted');
   assert.equal(upstairs.anchors.storageLock.progression, 'storage');
   assert.equal(upstairs.anchors.deadRoomLock.progression, 'dead-room');
   assert.ok(
-    upstairs.progressionGates.filter((gate) => gate.requires === 'storageAccessGranted').length >= 2,
+    upstairs.progressionGates.filter((gate) => gate.requires === 'tapeArchiveAccessGranted')
+      .length >= 2,
   );
   assert.ok(
     upstairs.progressionGates.some((gate) => gate.requires === 'deadRoomAccessGranted'),
   );
+});
+
+test('David downstairs storage access does not bypass Jace tape archive access', () => {
+  const saved = validateSave({
+    version: 1,
+    storageAccessGranted: true,
+    tapeArchiveAccessGranted: false,
+  });
+  assert.equal(saved.storageAccessGranted, true);
+  assert.equal(saved.tapeArchiveAccessGranted, false);
 });
 
 test('service stair is a bidirectional reward gated by the mixing key state', () => {
@@ -69,14 +80,14 @@ test('new progression state survives save validation', () => {
   const state = validateSave({
     version: 1,
     difficulty: 'easy',
-    storageAccessGranted: true,
+    tapeArchiveAccessGranted: true,
     deadRoomAccessGranted: true,
     mixingChallengeCompleted: [firstChallenge],
     mixingRewardKey: true,
     alleyShortcutUnlocked: true,
   });
   assert.equal(state.difficulty, 'easy');
-  assert.equal(state.storageAccessGranted, true);
+  assert.equal(state.tapeArchiveAccessGranted, true);
   assert.equal(state.deadRoomAccessGranted, true);
   assert.deepEqual(state.mixingChallengeCompleted, [firstChallenge]);
   assert.equal(state.mixingRewardKey, true);
