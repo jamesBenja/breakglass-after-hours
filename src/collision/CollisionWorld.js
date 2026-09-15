@@ -147,15 +147,21 @@ export class CollisionWorld {
       if (obstacle.camera === false) continue;
       let hit = segmentPrism(from, to, obstacle, radius);
 
-      // When the player/camera target is simply standing within the camera's padded clearance
-      // distance of a wall, the expanded volume reports an immediate hit at t=0 even if the
-      // actual sightline runs away from the wall. That is not an occlusion. In that one case,
-      // fall back to the centre ray so true wall crossings remain blocked while doorway/edge
-      // grazing no longer makes the camera appear to clip or snap.
+      // The camera target can legitimately sit inside the outer edge of the full camera-volume
+      // padding while the player is beside a wall. If that happens, progressively reduce the
+      // clearance shell instead of jumping straight to a point ray. This still catches a real
+      // crossing early enough to keep the camera on the player's side of the wall, while a line
+      // travelling away from the wall remains clear.
       if (hit !== null && hit <= EPSILON && radius > 0) {
-        const centreHit = segmentPrism(from, to, obstacle, 0);
-        if (centreHit === null) hit = null;
-        else hit = centreHit;
+        const reducedRadius = Math.min(0.2, radius * 0.6);
+        const reducedHit = segmentPrism(from, to, obstacle, reducedRadius);
+        if (reducedHit === null) hit = null;
+        else if (reducedHit > EPSILON) hit = reducedHit;
+        else {
+          const centreHit = segmentPrism(from, to, obstacle, 0);
+          if (centreHit === null) hit = null;
+          else hit = centreHit;
+        }
       }
 
       if (hit !== null && hit < fraction) {
