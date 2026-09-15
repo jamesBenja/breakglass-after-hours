@@ -178,13 +178,15 @@ export class HouseDjSystem {
     this.elapsed += dt;
     const downstairs = this.game.sceneManager.current?.definition?.id === 'downstairs';
     const playerDj = this.game.dj.metrics().playing;
+    const studioPlaybackDownstairs =
+      downstairs && this.game.audio.activeExternalTransport?.owner === 'studio';
     if (this.game.evacuationStarted) {
       this.stopHouseAudio();
       if (this.performer) this.performer.group.visible = false;
       return;
     }
     if (this.performer) {
-      this.performer.group.visible = !playerDj;
+      this.performer.group.visible = !playerDj && !studioPlaybackDownstairs;
       const metrics = this.game.dj.metrics?.() ?? {};
       const energy = Math.max(0.25, Number(metrics.energy) || 0.62);
       poseLightweightHuman(this.performer, {
@@ -203,7 +205,7 @@ export class HouseDjSystem {
       this.performer.rightForearm.rotation.x = -0.76 - Math.max(0, -phrase) * 0.24;
       this.performer.head.rotation.y += Math.sin(this.elapsed * 0.8) * 0.055;
     }
-    if (playerDj) {
+    if (playerDj || studioPlaybackDownstairs) {
       this.playerHold = 8;
       return;
     }

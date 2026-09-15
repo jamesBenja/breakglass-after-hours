@@ -17,7 +17,7 @@ const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
 /**
  * Nora takes real rendered in-game photos. The six newest captures are also mounted as actual
- * textures in frames on the north wall of Take A Break, so the saved club night becomes visible
+ * textures in frames in Nora's photo room beside Take A Break, so the saved club night becomes visible
  * inside the world instead of only in a menu.
  */
 export class PhotoSystem {
@@ -43,28 +43,28 @@ export class PhotoSystem {
     const frameMaterial = new MeshStandardMaterial({ color: 0x161318, roughness: 0.82 });
     const matteMaterial = new MeshStandardMaterial({ color: 0xe7ded0, roughness: 0.92 });
     const positions = [
-      [-9.18, 2.28, 3.7],
-      [-8.13, 2.28, 3.7],
-      [-7.08, 2.28, 3.7],
-      [-9.18, 1.32, 3.7],
-      [-8.13, 1.32, 3.7],
-      [-7.08, 1.32, 3.7],
+      [8.9, 2.28, -2.1],
+      [8.9, 2.28, -1.05],
+      [8.9, 2.28, 0.0],
+      [8.9, 1.32, -2.1],
+      [8.9, 1.32, -1.05],
+      [8.9, 1.32, 0.0],
     ];
     for (let i = 0; i < positions.length; i++) {
       const [x, y, z] = positions[i];
       const frame = new Mesh(new BoxGeometry(0.94, 0.73, 0.055), frameMaterial);
       frame.position.set(x, y, z);
-      frame.rotation.y = Math.PI;
+      frame.rotation.y = -Math.PI / 2;
       frame.castShadow = true;
       group.add(frame);
       const matte = new Mesh(new PlaneGeometry(0.82, 0.61), matteMaterial);
-      matte.position.set(x, y, z - 0.031);
-      matte.rotation.y = Math.PI;
+      matte.position.set(x - 0.031, y, z);
+      matte.rotation.y = -Math.PI / 2;
       group.add(matte);
       const material = new MeshBasicMaterial({ color: 0x242027, toneMapped: false });
       const plane = new Mesh(new PlaneGeometry(0.76, 0.55), material);
-      plane.position.set(x, y, z - 0.038);
-      plane.rotation.y = Math.PI;
+      plane.position.set(x - 0.038, y, z);
+      plane.rotation.y = -Math.PI / 2;
       plane.renderOrder = 2;
       group.add(plane);
       this.wallSlots.push({ plane, material, photoId: null });

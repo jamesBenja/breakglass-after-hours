@@ -19,6 +19,8 @@ import { installPerformanceRealismSystems } from './gameplay/installPerformanceR
 import { installCrowdDoorEnhancements } from './gameplay/crowdDoorEnhancements.js';
 import { installEntryEnhancements } from './gameplay/entryEnhancements.js';
 import { installRoomExperienceEnhancements } from './gameplay/roomExperienceEnhancements.js';
+import { installGameStatsEnhancements } from './gameplay/GameStatsSystem.js';
+import { installBelowAlleyWorldSystem } from './gameplay/BelowAlleyWorldSystem.js';
 import { installAudioReliabilityEnhancements } from './gameplay/audioReliabilityEnhancements.js';
 import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
@@ -41,6 +43,8 @@ try {
   installCrowdDoorEnhancements(game, ui);
   installEntryEnhancements(game, ui);
   installRoomExperienceEnhancements(game, ui);
+  installGameStatsEnhancements(game, ui);
+  installBelowAlleyWorldSystem(game, ui);
   installAudioReliabilityEnhancements(game, ui);
   installMultiplayerEnhancements(game, ui);
   await game.initialize();

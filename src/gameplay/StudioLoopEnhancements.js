@@ -1,3 +1,5 @@
+import { StudioSession } from '../studio/StudioSession.js';
+
 const GRID_DIVISIONS = {
   '1/4': 1,
   '1/8': 2,
@@ -116,13 +118,16 @@ function enhancePlayback(playback, session) {
   playback.nativeSyncTimer = null;
   playback.transportStartedAt = 0;
 
-  playback.loopDuration = () => loopSeconds(session);
-  playback.loopSteps = () => Math.max(16, session.loopBars * 16);
+  playback.loopDuration = (activeSession = playback.session ?? session) =>
+    loopSeconds(activeSession);
+  playback.loopSteps = (activeSession = playback.session ?? session) =>
+    Math.max(16, activeSession.loopBars * 16);
   playback.transportPosition = () => {
     if (!playback.audio.context || !playback.playing) return 0;
+    const activeSession = playback.session ?? session;
     const elapsed = Math.max(0, playback.audio.context.currentTime - playback.transportStartedAt);
-    if (!session.loopEnabled) return elapsed;
-    return elapsed % playback.loopDuration();
+    if (!activeSession.loopEnabled) return elapsed;
+    return elapsed % playback.loopDuration(activeSession);
   };
 
   const baseStartAlignedAssets = playback.startAlignedAssets.bind(playback);
@@ -171,13 +176,14 @@ function enhancePlayback(playback, session) {
 
   const baseRenderPerformance = playback.renderPerformance.bind(playback);
   playback.renderPerformance = (stem, step, when) => {
-    if (!session.loopEnabled) return baseRenderPerformance(stem, step, when);
+    const activeSession = playback.session ?? session;
+    if (!activeSession.loopEnabled) return baseRenderPerformance(stem, step, when);
     const performance = stem.performance;
     if (performance?.events?.length) {
-      performance.duration = loopSeconds(session);
-      performance.bpm = session.bpm;
+      performance.duration = loopSeconds(activeSession);
+      performance.bpm = activeSession.bpm;
     }
-    return baseRenderPerformance(stem, step % playback.loopSteps(), when);
+    return baseRenderPerformance(stem, step % playback.loopSteps(activeSession), when);
   };
 
   const baseUpdateMix = playback.updateMix.bind(playback);
@@ -193,6 +199,110 @@ function enhancePlayback(playback, session) {
     playback.transportStartedAt = 0;
     return baseStop();
   };
+}
+
+function cloneSongSnapshot(session) {
+  const snapshot = session.snapshot();
+  const droppedMicTakes = snapshot.stems.filter(
+    (stem) => stem.source === 'browser-microphone' && !stem.assetId && !stem.performance,
+  ).length;
+  snapshot.stems = snapshot.stems.filter(
+    (stem) => stem.source !== 'browser-microphone' || stem.assetId || stem.performance,
+  );
+  return { snapshot, droppedMicTakes };
+}
+
+function saveSongToLibrary(game, ui) {
+  const songs = game.state.data.studioSongs ?? (game.state.data.studioSongs = []);
+  const { snapshot, droppedMicTakes } = cloneSongSnapshot(game.studio);
+  const number = songs.length + 1;
+  const song = {
+    id: `studio-song-${Date.now()}`,
+    name: `${game.studio.name || 'Breakglass Session'} · loop ${number}`,
+    savedAt: Date.now(),
+    session: snapshot,
+  };
+  songs.push(song);
+  if (songs.length > 8) songs.splice(0, songs.length - 8);
+  game.save();
+  if (droppedMicTakes) {
+    ui.warning?.(
+      'Saved the playable loop. Browser-mic audio remains available in the current studio session but is not yet stored in the house song library.',
+    );
+  } else ui.warning?.(`Saved “${song.name}” to the Breakglass house song library.`);
+  return song;
+}
+
+function makeSongSession(song) {
+  const session = new StudioSession(song.session);
+  enhanceSession(session);
+  return session;
+}
+
+async function playStudioSessionDownstairs(game, session, songId = null) {
+  game.dj?.stop?.();
+  game.partyLife?.houseDj?.holdForPlayer?.(8);
+  game.audio?.stop?.();
+  enhanceSession(session);
+  const played = await game.studioPlayback.play(session);
+  game.activeStudioSongId = played ? songId : null;
+  return played;
+}
+
+function buildSongLibraryPanel(game, ui, location = 'HOUSE PLAYBACK') {
+  const songs = game.state.data.studioSongs ?? [];
+  const currentHasMaterial =
+    game.studio.takeCounter > 0 ||
+    game.studio.stems.some(
+      (stem) => stem.assetId || stem.performance || game.studio.recordings.has(stem.id),
+    );
+  const actions = [
+    ...(currentHasMaterial
+      ? [
+          [
+            'Play current studio session',
+            async () => {
+              await playStudioSessionDownstairs(game, game.studio, 'current');
+              buildSongLibraryPanel(game, ui, location);
+            },
+          ],
+        ]
+      : []),
+    ...[...songs].reverse().map((song) => [
+      `Play ${song.name}`,
+      async () => {
+        await playStudioSessionDownstairs(game, makeSongSession(song), song.id);
+        buildSongLibraryPanel(game, ui, location);
+      },
+    ]),
+    [
+      'Stop studio playback',
+      () => {
+        game.studioPlayback.stop();
+        game.activeStudioSongId = null;
+        buildSongLibraryPanel(game, ui, location);
+      },
+    ],
+    ...(songs.length
+      ? [
+          [
+            'Delete newest saved song',
+            () => {
+              songs.pop();
+              game.save();
+              buildSongLibraryPanel(game, ui, location);
+            },
+          ],
+        ]
+      : []),
+  ];
+  ui.panel(
+    `${location.toUpperCase()} · STUDIO SONGS`,
+    songs.length
+      ? `${songs.length} saved studio loop${songs.length === 1 ? '' : 's'} are in the house library. The current studio session can also be auditioned directly, including any in-memory mic takes.`
+      : 'No studio loops have been saved to the house library yet. Build one upstairs and use SAVE SONG TO HOUSE LIBRARY. The current studio session can still be auditioned directly.',
+    actions,
+  );
 }
 
 function buildLoopPanel(game, ui) {
@@ -243,6 +353,14 @@ function buildLoopPanel(game, ui) {
         buildLoopPanel(game, ui);
       },
     ],
+    [
+      'Save song to house library',
+      () => {
+        saveSongToLibrary(game, ui);
+        buildLoopPanel(game, ui);
+      },
+    ],
+    ['Open house song library', () => buildSongLibraryPanel(game, ui, 'Studio')],
   ];
   ui.panel(
     'STUDIO LOOP / SONG BUILDER',
@@ -284,6 +402,20 @@ export function installStudioLoopEnhancements(game, ui) {
   enhanceSession(game.studio);
   enhancePlayback(game.studioPlayback, game.studio);
   game.showStudioLoopBuilder = () => buildLoopPanel(game, ui);
+  game.showStudioSongLibrary = (location = 'House playback') =>
+    buildSongLibraryPanel(game, ui, location);
+
+  if (!game.interactions._studioSongPlayerPatched) {
+    const baseDispatch = game.interactions.dispatch.bind(game.interactions);
+    game.interactions.dispatch = (target) => {
+      if (target?.action === 'studioSongPlayer') {
+        buildSongLibraryPanel(game, ui, target.location ?? target.name ?? 'House playback');
+        return;
+      }
+      baseDispatch(target);
+    };
+    game.interactions._studioSongPlayerPatched = true;
+  }
 
   if (!ui._studioLoopBuilderPatched && typeof ui.studioMixer === 'function') {
     const baseStudioMixer = ui.studioMixer.bind(ui);
@@ -298,6 +430,20 @@ export function installStudioLoopEnhancements(game, ui) {
       return result;
     };
     ui._studioLoopBuilderPatched = true;
+  }
+
+  if (!ui._studioSongDjPatched && typeof ui.djMixer === 'function') {
+    const baseDjMixer = ui.djMixer.bind(ui);
+    ui.djMixer = (...args) => {
+      const result = baseDjMixer(...args);
+      const button = ui.document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'STUDIO SONGS / LOOPS';
+      button.onclick = () => buildSongLibraryPanel(game, ui, 'DJ booth');
+      ui.buttons?.appendChild(button);
+      return result;
+    };
+    ui._studioSongDjPatched = true;
   }
   return game.studio;
 }

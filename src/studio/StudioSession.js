@@ -24,6 +24,9 @@ export const DEFAULT_STEMS = [
 
 export const DANCE_SHOES_STEMS = studioSessionById('dance-shoes').stems;
 
+const LOOP_BAR_OPTIONS = [1, 2, 4, 8, 16];
+const QUANTIZE_OPTIONS = ['1/4', '1/8', '1/16'];
+
 const normalizePerformance = (performance) => {
   if (!performance || typeof performance !== 'object' || !Array.isArray(performance.events)) {
     return null;
@@ -112,6 +115,10 @@ export function normalizeStudioSession(value = {}) {
     setup,
     stems,
     takeCounter: Math.max(0, Math.floor(Number(value.takeCounter) || 0)),
+    loopEnabled: value.loopEnabled === true,
+    loopBars: LOOP_BAR_OPTIONS.includes(Number(value.loopBars)) ? Number(value.loopBars) : 4,
+    quantize: QUANTIZE_OPTIONS.includes(value.quantize) ? value.quantize : '1/16',
+    swing: clamp(Number(value.swing) || 0, 0, 0.45),
   };
 }
 
@@ -123,6 +130,10 @@ export class StudioSession {
     this.setup = normalized.setup;
     this.stems = normalized.stems;
     this.takeCounter = normalized.takeCounter;
+    this.loopEnabled = normalized.loopEnabled;
+    this.loopBars = normalized.loopBars;
+    this.quantize = normalized.quantize;
+    this.swing = normalized.swing;
     this.recordings = new Map();
   }
 
@@ -237,6 +248,10 @@ export class StudioSession {
         processing: stem.processing ? { ...stem.processing } : null,
       })),
       takeCounter: this.takeCounter,
+      loopEnabled: this.loopEnabled === true,
+      loopBars: LOOP_BAR_OPTIONS.includes(Number(this.loopBars)) ? Number(this.loopBars) : 4,
+      quantize: QUANTIZE_OPTIONS.includes(this.quantize) ? this.quantize : '1/16',
+      swing: clamp(Number(this.swing) || 0, 0, 0.45),
     };
   }
 }

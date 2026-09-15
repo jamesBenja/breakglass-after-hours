@@ -94,6 +94,12 @@ export function createUpstairsDefinition(pass = 'B') {
         radius: 1.6,
         action: 'photoFridge',
       },
+      coffeeMachine: {
+        name: 'Studio kitchen espresso machine',
+        position: at(786, 594),
+        radius: 1.5,
+        action: 'coffee',
+      },
       instruments: {
         name: 'Guitar + bass rack',
         position: at(305, 625),

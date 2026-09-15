@@ -29,6 +29,14 @@ export const dialogues = {
     title: 'DEVIN · SOUND SYSTEM TECH',
     text: '“I’m listening. Something in this corner is bothering me. Also, do you have any candy?”',
   },
+  david: {
+    title: 'DAVID · FURNITURE DEALER',
+    text: '“Half the building is furniture if you know which wall to move.”',
+  },
+  beaver: {
+    title: 'BEAVER · BACK ALLEY BBQ',
+    text: '“Hot dogs, tacos, beer. Keep the alley chill and eat something.”',
+  },
   bouncer: {
     title: 'DOOR',
     text: '“You’re good. Head in when you’re ready. And please keep it down if you come back outside.”',
