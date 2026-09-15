@@ -118,18 +118,18 @@ export function createGameSpace() {
     // the east-hand storage circulation remains fully traversable.
     prop('tape-archive-shelves', 362, 1027, 0.65, 2.2, 1.9, 0x51483e, { kind: 'equipment' }),
   ];
-  // Replace just the west end of the floor with a real descending stair run.
+  // Below descends from the former southeast MAIN ENTRY pocket.
   const stairFloors = [0, 1, 2, 3].map((i) => {
-    const x2 = 211 - i * 20,
-      x1 = i === 3 ? 132 : x2 - 20;
+    const z1 = 980 + i * 15;
+    const z2 = i === 3 ? 1040 : z1 + 15;
     return {
-      id: `clark-step-${i}`,
-      name: 'Clark stair ↓ Below',
+      id: `below-step-${i}`,
+      name: 'Stairs ↓ Below Breakglass',
       points: trace([
-        [x1, 938],
-        [x2, 938],
-        [x2, 982],
-        [x1, 982],
+        [704, z1],
+        [736, z1],
+        [736, z2],
+        [704, z2],
       ]),
       y1: -1.5,
       y2: -(i + 1) * 0.28,
@@ -137,42 +137,55 @@ export function createGameSpace() {
       kind: 'stair',
     };
   });
-  const floorRooms = rooms.map((room) =>
-    room.id === 'circulation'
-      ? {
+
+  // Remove the flat southeast layers that used to hide the stairs. The old west stair stays
+  // flat because that location is the Clark exit landing, not the route to Below.
+  const floorRooms = rooms
+    .filter((room) => room.id !== 'below-stair')
+    .map((room) => {
+      if (room.id === 'circulation') {
+        return {
           ...room,
           points: trace([
             [172, 518],
             [842, 518],
             [842, 1040],
+            [736, 1040],
+            [736, 980],
+            [704, 980],
+            [704, 1040],
             [692, 1040],
             [692, 1116],
             [345, 1116],
             [345, 982],
-            [211, 982],
-            [211, 938],
+            [132, 982],
+            [132, 938],
             [172, 938],
           ]),
-        }
-      : room.id === 'clark-stair'
-        ? {
-            ...room,
-            points: trace([
-              [211, 938],
-              [345, 938],
-              [345, 982],
-              [211, 982],
-            ]),
-          }
-        : room,
-  );
+        };
+      }
+      if (room.id === 'east-hall') {
+        return {
+          ...room,
+          points: trace([
+            [704, 639],
+            [752, 639],
+            [752, 1040],
+            [736, 1040],
+            [736, 980],
+            [704, 980],
+          ]),
+        };
+      }
+      return room;
+    });
   return {
     platforms,
     fixtures,
     stairFloors,
     rooms: floorRooms,
     boundary: footprint,
-    spawns: { start: waypoints.entry, stairs: at(227, 958) },
-    stairAnchor: at(152, 958, -0.84),
+    spawns: { start: waypoints.entry, stairs: waypoints.belowStairsTop },
+    stairAnchor: waypoints.belowStairsBottom,
   };
 }

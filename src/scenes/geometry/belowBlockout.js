@@ -96,6 +96,29 @@ export function buildBelowBlockout(downScene) {
     box(downScene, 0.09, 0.09, 2.95, studioRail, x, 1.32, -2.0).rotation.x = -0.23;
   }
   doorwayFrame(downScene, -6.55, -3.45, 'horizontal', 'STUDIO ↑ · ALLEY ↓');
+  label(downScene, 'STAIRS ↑ STUDIO', -6.55, 2.35, -3.1, 0.36, '#d8c1ff');
+
+  // The shared west stair turns at its bottom landing and continues physically down to the alley.
+  // This replaces the old abstract passage button with readable stair architecture.
+  const alleyStep = mat(0x4b4039, 0.9, 0.02);
+  box(downScene, 2.55, 0.12, 0.82, alleyStep, -6.72, -0.03, -0.82);
+  for (let i = 0; i < 7; i++) {
+    const x = -7.02 - i * 0.34;
+    const top = -0.09 * (i + 1);
+    box(downScene, 0.38, 0.14, 1.42, alleyStep, x, top - 0.07, -0.82);
+  }
+  box(downScene, 0.55, 0.14, 1.42, alleyStep, -9.28, -0.79, -0.82);
+  for (const [x, y] of [
+    [-7.1, 0.4],
+    [-7.85, 0.2],
+    [-8.6, -0.02],
+  ]) {
+    box(downScene, 0.06, 0.92, 0.06, studioRail, x, y, -1.52);
+    box(downScene, 0.06, 0.92, 0.06, studioRail, x, y, -0.12);
+  }
+  doorwayFrame(downScene, -9.35, -0.82, 'vertical', 'ALLEY');
+  label(downScene, 'STAIRS ↓ ALLEYWAY', -7.95, 1.45, -0.82, 0.38, '#d8c1ff');
+  label(downScene, '↓ ALLEY', -9.15, 0.35, -0.82, 0.28, '#ead1f0');
 }
 
 export function buildBelowFixtures(downScene) {

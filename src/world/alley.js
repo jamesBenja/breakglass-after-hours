@@ -57,7 +57,7 @@ export const alleyLevel = {
   },
   anchors: {
     clubDoor: {
-      ...anchor('Bouncer / club entrance', [-3.7, 0, -1.72], 1.7, 'travel'),
+      ...anchor('Stairwell ↑ Breakglass', [-3.7, 0, -1.72], 1.7, 'travel'),
       target: 'downstairs@alley',
     },
     bouncer: anchor('Bouncer', [-4.9, 0, -1.2], 1.2, 'dialogue'),

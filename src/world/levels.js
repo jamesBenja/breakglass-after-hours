@@ -5,7 +5,7 @@ import { roofLevel } from './roof.js';
 // Y up. Upstairs is assembled from A-103 tracing; Below retains V2.1 authoring units.
 // Neither coordinate system is surveyed metres. Reconcile meshes and navigation together.
 const surface = (id, name, x1, x2, z1, z2) => ({ id, name, x1, x2, z1, z2, y: 0 });
-const rampSurface = (id, name, x1, x2, z1, z2, from, to) => ({
+const rampSurface = (id, name, x1, x2, z1, z2, from, to, axis = 'z') => ({
   id,
   name,
   x1,
@@ -13,7 +13,7 @@ const rampSurface = (id, name, x1, x2, z1, z2, from, to) => ({
   z1,
   z2,
   priority: 20,
-  ramp: { axis: 'z', from, to },
+  ramp: { axis, from, to },
 });
 const anchor = (name, position, radius, action) => ({ name, position, radius, action });
 const cameraWall = (id, x1, x2, z1, z2, y1 = 0, y2 = 3.3) => ({
@@ -138,16 +138,17 @@ export const levels = {
       avoid: [
         { x1: -0.95, x2: 5.15, z1: -3.25, z2: -1.2 },
         { x1: -7.9, x2: -5.25, z1: -3.3, z2: -0.7 },
+        { x1: -9.55, x2: -6.5, z1: -1.4, z2: -0.4 },
       ],
     },
     spawns: {
       start: [-5.15, 0, -1.25],
       stairs: [-6.55, 0.78, -2.95],
-      alley: [-5.7, 0, -0.55],
+      alley: [-9.25, -0.72, -0.82],
     },
     intro: [
       'BELOW BREAKGLASS',
-      'The club is alive now. Push toward the booth, cross east into Take A Break, find the kitchen bar on the west side, play the old Mortal Kombat II cabinet, or earn your way onto the Clark stair up to the studio.',
+      'The club is alive now. Take A Break is east with the Nora photo room beside it; the kitchen bar is west. The shared west stair goes up to the studio and turns down to the alley at its bottom landing.',
     ],
     navigation: {
       surfaces: [
@@ -169,6 +170,27 @@ export const levels = {
           0.72,
           0,
         ),
+        rampSurface(
+          'alley-stairs',
+          'Stairs down to alley',
+          -9.2,
+          -6.8,
+          -1.28,
+          -0.48,
+          -0.72,
+          0,
+          'x',
+        ),
+        {
+          id: 'alley-stair-bottom',
+          name: 'Alley stair lower landing',
+          x1: -9.45,
+          x2: -9.15,
+          z1: -1.28,
+          z2: -0.48,
+          y: -0.72,
+          priority: 21,
+        },
         rampSurface(
           'studio-stairs',
           'Wide Clark stair to studio',
@@ -237,12 +259,7 @@ export const levels = {
         requires: 'studioAccessGranted',
       },
       alleyExit: {
-        ...anchor(
-          'Alley stairs · down from the studio stair core',
-          [-5.7, 0, -0.55],
-          1.35,
-          'travel',
-        ),
+        ...anchor('Stairs ↓ Alleyway', [-9.25, -0.72, -0.82], 1.35, 'travel'),
         target: 'alley@clubDoor',
       },
       clarkEmergencyExit: anchor(
