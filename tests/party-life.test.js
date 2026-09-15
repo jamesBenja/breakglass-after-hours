@@ -8,6 +8,7 @@ import { preparePartyLifeWorld } from '../src/gameplay/partyLifeEnhancements.js'
 import { NpcSystem } from '../src/npcs/NpcSystem.js';
 import { validateSave } from '../src/state/GameState.js';
 import { levels } from '../src/world/levels.js';
+import { createUpstairsDefinition } from '../src/world/upstairs/definition.js';
 
 const requestedHouseDjs = [
   'Lunice',
@@ -21,12 +22,21 @@ const requestedHouseDjs = [
   'Frankie Teardrop',
 ];
 
-test('party-life world puts Nora in the alley and studio and adds both production anchors', () => {
+test('party-life world puts Nora in the alley and cached studio definition', () => {
   preparePartyLifeWorld();
   assert.ok(levels.alley.npcs.some((npc) => npc.id === 'nora'));
   assert.ok(levels.upstairs.npcs.some((npc) => npc.id === 'nora'));
   assert.equal(levels.upstairs.anchors.houseDjDesk.action, 'houseDjDesk');
   assert.equal(levels.upstairs.anchors.photoFridge.action, 'photoFridge');
+});
+
+test('fresh upstairs scene definition contains runtime party-life anchors and Nora', () => {
+  const upstairs = createUpstairsDefinition('B');
+  assert.equal(upstairs.anchors.houseDjDesk.action, 'houseDjDesk');
+  assert.equal(upstairs.anchors.photoFridge.action, 'photoFridge');
+  assert.ok(Array.isArray(upstairs.anchors.houseDjDesk.position));
+  assert.ok(Array.isArray(upstairs.anchors.photoFridge.position));
+  assert.ok(upstairs.npcs.some((npc) => npc.id === 'nora' && npc.role === 'photographer'));
 });
 
 test('the complete requested house-DJ roster is available', () => {
