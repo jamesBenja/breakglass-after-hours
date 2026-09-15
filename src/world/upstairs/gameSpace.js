@@ -13,6 +13,9 @@ export function createGameSpace() {
     prop('listening-deck', 260, 828, 4.7, 3.5, 0.28, 0x98724f, {
       name: 'Mixing Suite A · listening platform',
     }),
+    prop('mix-rug', 260, 758, 4.2, 2.4, 0.035, 0x51463f, {
+      name: 'Spectra control-room rug',
+    }),
     prop('drum-riser', 583, 606, 3.5, 2.7, 0.28, 0x7a5038, {
       name: 'Live Room · drum riser',
     }),
@@ -46,7 +49,7 @@ export function createGameSpace() {
     }),
     prop('kitchen-bench', 781, 612, 2, 0.85, 0.3, 0x9b7757, { name: 'Bar / Kitchen' }),
   ];
-  // Actual blocking envelopes for equipment; anchors sit on the listening side.
+  // Actual blocking envelopes for equipment and furniture; anchors sit on the listening side.
   const fixtures = [
     prop('spectra-console', 254, 836, 3.6, 1.15, 1.5, 0x54778b, { kind: 'equipment' }),
     prop('monitor-left', 219, 852, 0.65, 0.6, 2.1, 0x1f292b, { kind: 'equipment' }),
@@ -54,6 +57,19 @@ export function createGameSpace() {
     prop('tape-bank', 189, 830, 1, 2.2, 1.8, 0x78604b, { kind: 'equipment' }),
     prop('patch-rack', 185, 777, 0.5, 2.2, 2, 0x534c43, { kind: 'equipment' }),
     prop('side-rack', 310, 714, 0.85, 1.3, 1.7, 0x414f57, { kind: 'equipment' }),
+    prop('mix-sofa-rear', 252, 706, 3.25, 0.95, 0.82, 0x4b4544, {
+      kind: 'furniture',
+      name: 'Spectra control-room couch',
+    }),
+    prop('mix-sofa-side', 312, 770, 2.15, 0.86, 0.8, 0x60514b, {
+      kind: 'furniture',
+      name: 'Spectra control-room loveseat',
+      rotationY: Math.PI / 2,
+    }),
+    prop('mix-coffee-table', 260, 765, 1.45, 0.72, 0.38, 0x6f543f, {
+      kind: 'furniture',
+      name: 'Control-room coffee table',
+    }),
     prop('piano-body', 647, 726, 2.1, 1.2, 1.05, 0x493c35, { kind: 'equipment' }),
     prop('synth-table', 590, 807, 1.6, 0.8, 0.95, 0x434f57, { kind: 'equipment' }),
     prop('drum-shells', 583, 602, 1.8, 1.25, 1.25, 0x947342, { kind: 'equipment' }),
