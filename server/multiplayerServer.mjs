@@ -464,7 +464,39 @@ function signal(socket, message) {
   const room = roomFor(player.roomId);
   const target = room?.players.get(message.targetId);
   if (!target) return;
-  const data = sanitizeJson(message.data);
+  const source = message.data;
+  if (!source || typeof source !== 'object') return;
+  let data = null;
+  if (source.description && typeof source.description === 'object') {
+    const type = source.description.type;
+    const sdp = source.description.sdp;
+    if (!['offer', 'answer'].includes(type) || typeof sdp !== 'string' || sdp.length > 28_000)
+      return;
+    data = {
+      description: {
+        type,
+        // SDP is line-oriented. Preserve CR/LF exactly; the generic text sanitizer intentionally
+        // strips control characters and therefore cannot be used for WebRTC descriptions.
+        sdp: sdp.replace(/\u0000/g, ''),
+      },
+    };
+  } else if (source.candidate && typeof source.candidate === 'object') {
+    const candidate = source.candidate;
+    if (typeof candidate.candidate !== 'string' || candidate.candidate.length > 4096) return;
+    data = {
+      candidate: {
+        candidate: candidate.candidate.replace(/\u0000/g, ''),
+        sdpMid: typeof candidate.sdpMid === 'string' ? candidate.sdpMid.slice(0, 128) : null,
+        sdpMLineIndex: Number.isInteger(candidate.sdpMLineIndex)
+          ? Math.max(0, Math.min(256, candidate.sdpMLineIndex))
+          : null,
+        usernameFragment:
+          typeof candidate.usernameFragment === 'string'
+            ? candidate.usernameFragment.slice(0, 256)
+            : null,
+      },
+    };
+  } else return;
   if (JSON.stringify(data).length > 32_000) return;
   send(target.socket, { type: 'signal', fromId: player.id, data });
 }
