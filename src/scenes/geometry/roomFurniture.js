@@ -1,10 +1,9 @@
+import { Group } from 'three';
 import { createPrimitives } from './primitives.js';
 
 function couch(root, primitives, { x, z, width, depth = 0.9, rotation = 0, color = 0x4c4544 }) {
   const { box, mat } = primitives;
-  const group = new (root.constructor)();
-  // A Group is preferable, but createLevel fixture roots are Three Groups and constructing via
-  // their class keeps this helper free of duplicate Three imports in the rendered bundle.
+  const group = new Group();
   group.position.set(x, 0, z);
   group.rotation.y = rotation;
   group.name = 'studio-couch';
