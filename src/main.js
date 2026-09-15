@@ -2,6 +2,7 @@ import './ui/styles.css';
 import './ui/mobilePerformance.css';
 import './ui/mobileMixing.css';
 import './ui/musicEnhancements.css';
+import './ui/performanceRealism.css';
 import './ui/avatarFace.css';
 import './ui/multiplayer.css';
 import './ui/arcade.css';
