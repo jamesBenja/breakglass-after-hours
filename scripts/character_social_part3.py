@@ -31,6 +31,14 @@ def sub_one(path, pattern, replacement):
 # -----------------------------------------------------------------------------
 # Reference inventory / regression tests
 # -----------------------------------------------------------------------------
+
+party_test = 'tests/party-life.test.js'
+replace_one(
+    party_test,
+    "  'James Benjamin',\n  'Siren Mars',",
+    "  'James Benjamin',\n  'DJ FLLEUR',\n  'Siren Mars',",
+)
+
 write(
     'docs/CHARACTER_REFERENCES.md',
     r'''# Character visual references
