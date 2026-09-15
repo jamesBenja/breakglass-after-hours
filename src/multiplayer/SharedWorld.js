@@ -486,8 +486,7 @@ export class SharedWorld {
       if (claim.position && position.distanceTo) {
         const dx = position.x - claim.position[0];
         const dz = position.z - claim.position[2];
-        if (Math.hypot(dx, dz) > (resourceId === 'dj-booth' ? 5.5 : 4.2))
-          this.release(resourceId);
+        if (Math.hypot(dx, dz) > (resourceId === 'dj-booth' ? 5.5 : 4.2)) this.release(resourceId);
       }
     }
   }
