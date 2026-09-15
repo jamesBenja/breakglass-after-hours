@@ -13,6 +13,7 @@ import { installPartyLifeEnhancements } from './gameplay/partyLifeEnhancements.j
 import { installDjSyncEnhancements } from './gameplay/djSyncEnhancements.js';
 import { installCrowdDoorEnhancements } from './gameplay/crowdDoorEnhancements.js';
 import { installEntryEnhancements } from './gameplay/entryEnhancements.js';
+import { installRoomExperienceEnhancements } from './gameplay/roomExperienceEnhancements.js';
 import { installAudioReliabilityEnhancements } from './gameplay/audioReliabilityEnhancements.js';
 import { Hud } from './ui/Hud.js';
 
@@ -30,6 +31,7 @@ try {
   installDjSyncEnhancements(game, ui);
   installCrowdDoorEnhancements(game, ui);
   installEntryEnhancements(game, ui);
+  installRoomExperienceEnhancements(game, ui);
   installAudioReliabilityEnhancements(game, ui);
   await game.initialize();
 } catch (error) {
