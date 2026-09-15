@@ -1,0 +1,67 @@
+name: Debug Below Pass Tests
+
+on:
+  push:
+    branches:
+      - feat/below-alley-world-systems
+    paths:
+      - .github/workflows/debug-below-pass.yml
+
+permissions:
+  contents: write
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/below-alley-world-systems
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm install --frozen-lockfile
+      - name: Reproduce the complete pass in the runner
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def execute_block(path, marker, next_marker):
+              workflow = Path(path).read_text()
+              section = workflow.index(marker)
+              start = workflow.index('        run: |\n', section) + len('        run: |\n')
+              end = workflow.index(next_marker, start)
+              block = workflow[start:end]
+              script = '\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())
+              exec(compile(script, f'{path}:{marker}', 'exec'))
+
+          execute_block(
+              '.github/workflows/apply-scoreboard-song-pass.yml',
+              '      - name: Apply stats, scoreboard, song playback and upstairs espresso pass',
+              '\n      - name: Format changed files',
+          )
+          execute_block(
+              '.github/workflows/apply-below-alley-world-pass.yml',
+              '      - name: Apply Below layout, circulation, storage and alley life pass',
+              '\n      - name: Format changed files',
+          )
+      - name: Capture unit-test output
+        shell: bash
+        run: |
+          set +e
+          pnpm test > debug-test-output.txt 2>&1
+          status=$?
+          cat debug-test-output.txt
+          echo "$status" > debug-test-status.txt
+          exit 0
+      - name: Publish debug output
+        shell: bash
+        run: |
+          git config user.name "jamesBenja"
+          git config user.email "70452184+jamesBenja@users.noreply.github.com"
+          git add debug-test-output.txt debug-test-status.txt
+          git commit -m "Capture Below pass test failure"
+          git push origin HEAD:feat/below-alley-world-systems
