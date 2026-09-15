@@ -110,3 +110,50 @@ test('mobile unlock primes an output source during the gesture before resume set
   await game.dispose();
   globalThis.window = originalWindow;
 });
+
+test('DJ STOP cancels a PLAY that is still waiting for the iPhone audio unlock', async () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = {
+    addEventListener() {},
+    removeEventListener() {},
+  };
+
+  let finishUnlock;
+  let starts = 0;
+  let stops = 0;
+  const audio = {
+    context: { state: 'suspended' },
+    _audioReady: false,
+    unlock() {
+      return new Promise((resolve) => {
+        finishUnlock = resolve;
+      });
+    },
+  };
+  const dj = {
+    decks: { A: {}, B: {} },
+    async playDeck(deckId) {
+      starts += 1;
+      this.decks[deckId].playing = true;
+      return true;
+    },
+    stopDeck(deckId) {
+      stops += 1;
+      this.decks[deckId].playing = false;
+    },
+  };
+  const game = { audio, dj, async dispose() {} };
+  installAudioReliabilityEnhancements(game, { warning() {} });
+
+  const pendingPlay = game.dj.playDeck('B');
+  game.dj.stopDeck('B');
+  finishUnlock(true);
+
+  assert.equal(await pendingPlay, false);
+  assert.equal(starts, 0, 'late unlock must not resurrect the stopped deck');
+  assert.equal(stops, 1);
+  assert.equal(game.dj.decks.B.playing, false);
+
+  await game.dispose();
+  globalThis.window = originalWindow;
+});
