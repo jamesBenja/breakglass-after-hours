@@ -50,6 +50,8 @@ export function createGameSpace() {
     prop('kitchen-bench', 781, 612, 2, 0.85, 0.3, 0x9b7757, { name: 'Bar / Kitchen' }),
   ];
   // Actual blocking envelopes for equipment and furniture; anchors sit on the listening side.
+  // Furniture uses the equipment kind so the architectural blockout does not draw a duplicate
+  // generic prism; its detailed render is supplied by roomFurniture.js while collision remains.
   const fixtures = [
     prop('spectra-console', 254, 836, 3.6, 1.15, 1.5, 0x54778b, { kind: 'equipment' }),
     prop('monitor-left', 219, 852, 0.65, 0.6, 2.1, 0x1f292b, { kind: 'equipment' }),
@@ -58,16 +60,16 @@ export function createGameSpace() {
     prop('patch-rack', 185, 777, 0.5, 2.2, 2, 0x534c43, { kind: 'equipment' }),
     prop('side-rack', 310, 714, 0.85, 1.3, 1.7, 0x414f57, { kind: 'equipment' }),
     prop('mix-sofa-rear', 252, 706, 3.25, 0.95, 0.82, 0x4b4544, {
-      kind: 'furniture',
+      kind: 'equipment',
       name: 'Spectra control-room couch',
     }),
-    prop('mix-sofa-side', 312, 770, 2.15, 0.86, 0.8, 0x60514b, {
-      kind: 'furniture',
+    prop('mix-sofa-side', 312, 770, 0.86, 2.15, 0.8, 0x60514b, {
+      kind: 'equipment',
       name: 'Spectra control-room loveseat',
       rotationY: Math.PI / 2,
     }),
     prop('mix-coffee-table', 260, 765, 1.45, 0.72, 0.38, 0x6f543f, {
-      kind: 'furniture',
+      kind: 'equipment',
       name: 'Control-room coffee table',
     }),
     prop('piano-body', 647, 726, 2.1, 1.2, 1.05, 0x493c35, { kind: 'equipment' }),
