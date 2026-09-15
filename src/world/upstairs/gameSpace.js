@@ -49,9 +49,9 @@ export function createGameSpace() {
     }),
     prop('kitchen-bench', 781, 612, 2, 0.85, 0.3, 0x9b7757, { name: 'Bar / Kitchen' }),
   ];
-  // Actual blocking envelopes for equipment and furniture; anchors sit on the listening side.
-  // Furniture uses the equipment kind so the architectural blockout does not draw a duplicate
-  // generic prism; its detailed render is supplied by roomFurniture.js while collision remains.
+  // Actual blocking envelopes for equipment; anchors sit on the listening side. The added
+  // lounge furniture is intentionally visual-only so it can make the control room feel occupied
+  // without narrowing the already-tested studio circulation paths.
   const fixtures = [
     prop('spectra-console', 254, 836, 3.6, 1.15, 1.5, 0x54778b, { kind: 'equipment' }),
     prop('monitor-left', 219, 852, 0.65, 0.6, 2.1, 0x1f292b, { kind: 'equipment' }),
@@ -62,15 +62,24 @@ export function createGameSpace() {
     prop('mix-sofa-rear', 252, 706, 3.25, 0.95, 0.82, 0x4b4544, {
       kind: 'equipment',
       name: 'Spectra control-room couch',
+      player: false,
+      camera: false,
+      surface: false,
     }),
-    prop('mix-sofa-side', 292, 738, 0.86, 2.15, 0.8, 0x60514b, {
+    prop('mix-sofa-side', 292, 770, 0.86, 2.15, 0.8, 0x60514b, {
       kind: 'equipment',
       name: 'Spectra control-room loveseat',
       rotationY: Math.PI / 2,
+      player: false,
+      camera: false,
+      surface: false,
     }),
     prop('mix-coffee-table', 260, 765, 1.45, 0.72, 0.38, 0x6f543f, {
       kind: 'equipment',
       name: 'Control-room coffee table',
+      player: false,
+      camera: false,
+      surface: false,
     }),
     prop('piano-body', 647, 726, 2.1, 1.2, 1.05, 0x493c35, { kind: 'equipment' }),
     prop('synth-table', 590, 807, 1.6, 0.8, 0.95, 0x434f57, { kind: 'equipment' }),
@@ -128,45 +137,42 @@ export function createGameSpace() {
       kind: 'stair',
     };
   });
-  const stairRun = {
-    id: 'clark-stair-run',
-    name: 'Clark stair run',
-    points: trace([
-      [132, 938],
-      [211, 938],
-      [211, 982],
-      [132, 982],
-    ]),
-    y1: -1.5,
-    y2: 0,
-    kind: 'stair',
-  };
-  const roomSet = rooms.map((room) =>
+  const floorRooms = rooms.map((room) =>
     room.id === 'circulation'
       ? {
           ...room,
           points: trace([
-            [172, 692],
-            [542, 692],
-            [542, 995],
-            [345, 995],
-            [345, 938],
+            [172, 518],
+            [842, 518],
+            [842, 1040],
+            [692, 1040],
+            [692, 1116],
+            [345, 1116],
+            [345, 982],
+            [211, 982],
+            [211, 938],
             [172, 938],
           ]),
         }
-      : room,
+      : room.id === 'clark-stair'
+        ? {
+            ...room,
+            points: trace([
+              [211, 938],
+              [345, 938],
+              [345, 982],
+              [211, 982],
+            ]),
+          }
+        : room,
   );
   return {
     platforms,
     fixtures,
-    rooms: roomSet,
     stairFloors,
-    stairRun,
-    spawns: {
-      start: waypoints.entry,
-      stairs: at(227, 958),
-    },
-    stairAnchor: at(152, 958),
-    footprint,
+    rooms: floorRooms,
+    boundary: footprint,
+    spawns: { start: waypoints.entry, stairs: at(227, 958) },
+    stairAnchor: at(152, 958, -0.84),
   };
 }
