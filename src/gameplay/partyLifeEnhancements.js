@@ -34,6 +34,8 @@ export function preparePartyLifeWorld() {
         [-1.75, 0, 1.55],
       ],
       speed: 0.58,
+      companionId: 'nora',
+      companionOffset: [0.9, 0, 0.45],
     });
   }
 

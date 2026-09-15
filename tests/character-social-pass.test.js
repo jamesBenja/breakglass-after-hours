@@ -28,6 +28,8 @@ test('Malaika roams with Nora and can appear as DJ FLLEUR', () => {
   assert.ok(malaika);
   assert.ok(nora);
   assert.ok(malaika.route.length >= 5);
+  assert.equal(malaika.companionId, 'nora');
+  assert.deepEqual(malaika.companionOffset, [0.9, 0, 0.45]);
   assert.ok(HOUSE_DJS.some((dj) => dj.id === 'malaika' && dj.name === 'DJ FLLEUR'));
   assert.equal(CHARACTER_LOOKS.malaika.hairStyle, 'long');
   assert.equal(CHARACTER_LOOKS.malaika.curls, true);

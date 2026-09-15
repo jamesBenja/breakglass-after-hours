@@ -326,6 +326,10 @@ export class NpcSystem {
         route,
         routeIndex: 0,
         speed: npc.speed ?? 0.48,
+        companionId: npc.companionId ?? null,
+        companionOffset: Array.isArray(npc.companionOffset)
+          ? new Vector3().fromArray(npc.companionOffset)
+          : new Vector3(0.85, 0, 0.45),
         phase: index * 2.1,
         photoPulse: 0,
         servePulse: 0,
@@ -391,7 +395,23 @@ export class NpcSystem {
       npc.photoPulse = Math.max(0, npc.photoPulse - dt);
       npc.servePulse = Math.max(0, npc.servePulse - dt);
       npc.moving = false;
-      if (npc.route.length > 1 && npc.photoPulse <= 0 && npc.servePulse <= 0) {
+      const companion = npc.companionId ? this.get(npc.companionId) : null;
+      if (companion && npc.photoPulse <= 0 && npc.servePulse <= 0) {
+        const target = companion.group.position.clone().add(npc.companionOffset);
+        const dx = target.x - npc.group.position.x;
+        const dz = target.z - npc.group.position.z;
+        const distance = Math.hypot(dx, dz);
+        if (distance > 0.78) {
+          const amount = Math.min(Math.max(0, distance - 0.64), npc.speed * 1.18 * dt);
+          npc.group.position.x += (dx / distance) * amount;
+          npc.group.position.z += (dz / distance) * amount;
+          npc.group.position.y += (target.y - npc.group.position.y) * (1 - Math.exp(-5 * dt));
+          npc.group.rotation.y = Math.atan2(dx, dz);
+          npc.moving = amount > 0.001;
+        } else {
+          npc.group.rotation.y = companion.group.rotation.y;
+        }
+      } else if (npc.route.length > 1 && npc.photoPulse <= 0 && npc.servePulse <= 0) {
         const target = npc.route[npc.routeIndex % npc.route.length];
         const dx = target.x - npc.group.position.x;
         const dz = target.z - npc.group.position.z;
