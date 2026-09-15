@@ -122,7 +122,8 @@ async function takeCameraSelfie(ui, trigger, status) {
     heading.textContent = 'LIVE CAMERA · CENTER YOUR FACE';
 
     const help = ui.document.createElement('small');
-    help.textContent = 'Nothing is uploaded. Capture is processed locally into the small avatar face texture.';
+    help.textContent =
+      'Nothing is uploaded. Capture is processed locally into the small avatar face texture.';
 
     const video = ui.document.createElement('video');
     video.autoplay = true;
@@ -177,7 +178,9 @@ async function takeCameraSelfie(ui, trigger, status) {
     return await result;
   } catch (error) {
     if (error?.name === 'NotAllowedError') {
-      throw new Error('Camera permission was denied. Allow camera access or use CHOOSE PHOTO INSTEAD.');
+      throw new Error(
+        'Camera permission was denied. Allow camera access or use CHOOSE PHOTO INSTEAD.',
+      );
     }
     if (error?.name === 'NotFoundError') {
       throw new Error('No camera was found. Use CHOOSE PHOTO INSTEAD.');
