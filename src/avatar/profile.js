@@ -24,9 +24,16 @@ export const DEFAULT_AVATAR = Object.freeze({
   role: 'explorer',
   skinTone: 'warm',
   photoConsent: true,
+  faceTexture: null,
 });
 
 const allowed = (value, values, fallback) => (values.includes(value) ? value : fallback);
+
+export function normalizeFaceTexture(value) {
+  if (typeof value !== 'string' || value.length > 180000) return null;
+  if (!/^data:image\/(?:png|webp|jpeg);base64,/i.test(value)) return null;
+  return value;
+}
 
 export function normalizeAvatar(value = {}) {
   const displayName =
@@ -42,6 +49,7 @@ export function normalizeAvatar(value = {}) {
     role: allowed(value.role, AVATAR_ROLES, DEFAULT_AVATAR.role),
     skinTone: allowed(value.skinTone, AVATAR_SKIN_TONES, DEFAULT_AVATAR.skinTone),
     photoConsent: value.photoConsent !== false,
+    faceTexture: normalizeFaceTexture(value.faceTexture),
   };
 }
 
