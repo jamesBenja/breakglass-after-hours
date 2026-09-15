@@ -3,7 +3,10 @@ import test from 'node:test';
 import { Group } from 'three';
 import { AlleyCrowdSystem } from '../src/alley/AlleyCrowdSystem.js';
 import { doorAccessTier } from '../src/gameplay/crowdDoorEnhancements.js';
-import { alignedSourcePosition } from '../src/gameplay/djSyncEnhancements.js';
+import {
+  alignedSourcePosition,
+  estimateBeatOffset,
+} from '../src/gameplay/djSyncEnhancements.js';
 
 const mod = (value, divisor) => ((value % divisor) + divisor) % divisor;
 
@@ -15,6 +18,36 @@ test('DJ phase sync preserves musical beat phase across different source BPMs', 
   const slavePhase = mod(target / (60 / 118), 1);
   assert.ok(Math.abs(masterPhase - slavePhase) < 1e-9);
   assert.ok(Math.abs(target - slavePosition) <= 60 / 118 / 2 + 1e-9);
+});
+
+test('decoded masters get a musical beat-grid offset instead of assuming time zero is a beat', () => {
+  const sampleRate = 48000;
+  const seconds = 8;
+  const bpm = 120;
+  const beat = 60 / bpm;
+  const expectedOffset = 0.137;
+  const data = new Float32Array(sampleRate * seconds);
+
+  for (let time = expectedOffset; time < seconds; time += beat) {
+    const start = Math.round(time * sampleRate);
+    const burst = Math.round(sampleRate * 0.08);
+    for (let i = 0; i < burst && start + i < data.length; i += 1) {
+      const envelope = Math.exp(-i / (sampleRate * 0.022));
+      data[start + i] += Math.sin((2 * Math.PI * 82 * i) / sampleRate) * envelope;
+    }
+  }
+
+  const buffer = {
+    sampleRate,
+    numberOfChannels: 1,
+    getChannelData: () => data,
+  };
+  const estimated = estimateBeatOffset(buffer, bpm);
+  const difference = Math.min(
+    Math.abs(estimated - expectedOffset),
+    beat - Math.abs(estimated - expectedOffset),
+  );
+  assert.ok(difference < 0.025, `expected ${expectedOffset}s beat phase, got ${estimated}s`);
 });
 
 test('door difficulty lets DJs and promoters straight in while listeners face the guest flow', () => {
