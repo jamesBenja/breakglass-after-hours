@@ -594,7 +594,22 @@ export function createActions({
       vibe: 0.3,
       baseVolume: 0.82,
     });
-    if (played) return true;
+    if (played) {
+      if (typeof CustomEvent === 'function' && globalThis.dispatchEvent)
+        globalThis.dispatchEvent(
+          new CustomEvent('breakglass:archive-audio', {
+            detail: {
+              action: 'play',
+              assetId: tape.assetId,
+              label: `Tape · ${tape.label}`,
+              loop: true,
+              vibe: 0.3,
+              baseVolume: 0.82,
+            },
+          }),
+        );
+      return true;
+    }
 
     // Last-resort signal if the remote media host refuses browser playback. It is explicitly
     // labelled as a prototype rather than pretending to be the archived performance.
@@ -643,6 +658,10 @@ export function createActions({
                 () => {
                   audio.stopAsset?.('archive');
                   audio.clearExternalTransport?.('archive');
+                  if (typeof CustomEvent === 'function' && globalThis.dispatchEvent)
+                    globalThis.dispatchEvent(
+                      new CustomEvent('breakglass:archive-audio', { detail: { action: 'stop' } }),
+                    );
                 },
               ],
               [
@@ -651,6 +670,10 @@ export function createActions({
                   state.data.archiveTape = threaded.id;
                   state.data.threadedTape = null;
                   audio.stopAsset?.('archive');
+                  if (typeof CustomEvent === 'function' && globalThis.dispatchEvent)
+                    globalThis.dispatchEvent(
+                      new CustomEvent('breakglass:archive-audio', { detail: { action: 'stop' } }),
+                    );
                   saveState();
                   tapeMachinePanel();
                 },
@@ -825,12 +848,85 @@ export function createActions({
       const id = target.npcId ?? target.id;
       const dialogue = sceneManager.current.npcs?.dialogue?.(id);
       if (!dialogue) return;
+      const level = sceneManager.current;
+      const sceneId = level.definition.id;
       state?.meet?.(id);
       saveState();
+
+      if (id === 'zander' && sceneId === 'downstairs') {
+        const admitted = state?.data?.studioAccessGranted === true;
+        panel(
+          'ZANDER · STUDIO DOOR',
+          admitted
+            ? '“You already told me what you are here for. Studio is upstairs. Go make something.”'
+            : '“Upstairs is the studio, not another party room. What are you actually here to do?”',
+          admitted
+            ? []
+            : [
+                [
+                  'I want to make music, not just party.',
+                  () => {
+                    state.data.studioAccessGranted = true;
+                    saveState();
+                    panel(
+                      'ZANDER · STUDIO ACCESS',
+                      '“Good answer. Head through this doorway and take the Clark stair up. We will get deeper into the studio once you are there.”',
+                    );
+                  },
+                ],
+                [
+                  'Honestly, I am just here to party.',
+                  () =>
+                    panel(
+                      'ZANDER · STUDIO DOOR',
+                      '“Then stay down here for now. Come back when you actually want to make something.”',
+                    ),
+                ],
+              ],
+        );
+        return;
+      }
+
       const characterActions = [];
       if (id === 'nora' && photos) characterActions.push(['Pose for a photo', takeNoraPhoto]);
       if (id === 'jace' && sceneManager.current.definition.id === 'upstairs')
         characterActions.push(['Ask about the Neve room', neveConsolePanel]);
+      if (id === 'james' && sceneManager.current.definition.id === 'upstairs') {
+        characterActions.push([
+          'Show me the tape archive',
+          () =>
+            panel(
+              'JAMES · BREAKGLASS TAPES',
+              '“These reels are part of the building memory. Pick one from the archive, bring it into the historic Neve room, thread it on the machine and listen there.”',
+              [
+                ['Browse the tape archive', tapeArchivePanel],
+                ['Go to the tape machine', tapeMachinePanel],
+              ],
+            ),
+        ]);
+        characterActions.push([
+          state?.data?.houseDjDeskIntroduced
+            ? 'Take me back to the downstairs DJ producer table'
+            : 'How do you decide who DJs downstairs?',
+          () => {
+            const desk = level.definition.anchors?.houseDjDesk;
+            if (!desk || !player) return;
+            state.data.houseDjDeskIntroduced = true;
+            saveState();
+            const [x, y, z] = desk.position;
+            player.spawn([x, y, z + 1.35], level.collision);
+            const james = level.npcs?.get?.('james');
+            if (james?.group) {
+              james.group.position.set(x - 0.82, y, z + 0.62);
+              james.group.rotation.y = Math.PI;
+            }
+            panel(
+              'JAMES · PRODUCER TABLE',
+              '“This is the table. We use it to decide who is holding down the booth downstairs. Pick somebody here, then go hear what they do in the club.”',
+            );
+          },
+        ]);
+      }
       if (id === 'zander' && sceneManager.current.definition.id === 'upstairs')
         characterActions.push(['Check the tape machine', tapeMachinePanel]);
       if (id === 'boogaloo' && sceneManager.current.definition.id === 'upstairs')

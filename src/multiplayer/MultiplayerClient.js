@@ -95,6 +95,7 @@ export class MultiplayerClient {
     this.lastFrameAt = null;
     this.reconnectDelay = 800;
     this.reconnectTimer = null;
+    this.clockOffsetMs = 0;
     this.presence = buildPresence(ui.document);
     this.world = new SharedWorld(this);
     this.media = new RealtimeMedia(this);
@@ -103,6 +104,10 @@ export class MultiplayerClient {
 
   send(payload) {
     return safeSend(this.socket, payload);
+  }
+
+  serverNow() {
+    return Date.now() + this.clockOffsetMs;
   }
 
   start(avatar) {
@@ -191,6 +196,8 @@ export class MultiplayerClient {
     if (!message || typeof message !== 'object') return;
 
     if (message.type === 'welcome') {
+      if (Number.isFinite(Number(message.serverTime)))
+        this.clockOffsetMs = Number(message.serverTime) - Date.now();
       this.localId = message.id;
       this.joined = true;
       for (const player of message.players ?? []) {

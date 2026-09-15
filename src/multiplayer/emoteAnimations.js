@@ -32,21 +32,30 @@ export function installMultiplayerEmoteAnimations() {
 
     if (this.multiplayerGesture === 'wave') {
       const wave = Math.sin(progress * Math.PI * 7.5);
-      this.rightArm.rotation.x = -0.22 + wave * 0.18;
-      this.rightArm.rotation.z = -1.55 - wave * 0.28;
+      // Raise the upper arm once, then wave mainly from the elbow/forearm instead of swinging the
+      // entire limb like a signpost.
+      this.rightArm.rotation.x = -0.42;
+      this.rightArm.rotation.z = -1.05 - ease * 0.24;
+      this.rightForearm.rotation.x = -1.02 + wave * 0.11;
+      this.rightForearm.rotation.z = -0.18 + wave * 0.42;
       this.leftArm.rotation.x *= 0.25;
+      this.leftForearm.rotation.x *= 0.4;
       this.head.rotation.y = -0.08 * ease;
-      this.object.rotation.z += 0.035 * ease;
+      this.object.rotation.z += 0.025 * ease;
     } else if (this.multiplayerGesture === 'highfive') {
-      // One clear hand-up-and-forward motion, held near the midpoint long enough to read as a
-      // high-five rather than another wave.
+      // The shoulder brings the hand up and the elbow opens toward the other person. Holding the
+      // forearm extension through the midpoint makes contact read clearly in close multiplayer.
       const reach = Math.sin(Math.min(1, progress) * Math.PI);
       const contactHold = progress > 0.34 && progress < 0.7 ? 1 : reach;
-      this.rightArm.rotation.x = -1.08 - contactHold * 0.42;
-      this.rightArm.rotation.z = -0.82 - contactHold * 0.48;
+      this.rightArm.rotation.x = -0.92 - contactHold * 0.22;
+      this.rightArm.rotation.z = -0.72 - contactHold * 0.34;
+      this.rightForearm.rotation.x = -0.45 - contactHold * 0.55;
+      this.rightForearm.rotation.z = -0.06 - contactHold * 0.08;
       this.leftArm.rotation.x *= 0.18;
-      this.body.rotation.x = -0.05 * contactHold;
-      this.head.rotation.y = -0.06 * contactHold;
+      this.leftForearm.rotation.x *= 0.35;
+      this.body.rotation.x = -0.045 * contactHold;
+      this.body.rotation.y = -0.035 * contactHold;
+      this.head.rotation.y = -0.065 * contactHold;
     }
 
     if (this.multiplayerGestureRemaining <= 0) {

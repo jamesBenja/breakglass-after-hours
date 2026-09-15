@@ -52,6 +52,21 @@ export function buildAlleyBlockout(root) {
     }
   }
 
+  // Beaver's alley BBQ: grill, prep table and cooler, kept deliberately low-key outside.
+  const grill = mat(0x25282b, 0.5, 0.28);
+  const grillHot = mat(0x6d2d1f, 0.72, 0.05);
+  box(root, 1.05, 0.18, 0.62, grill, 15.35, 0.82, -0.78);
+  box(root, 1.0, 0.22, 0.58, grill, 15.35, 1.04, -0.78).rotation.x = -0.22;
+  for (const x of [14.95, 15.75]) box(root, 0.08, 0.8, 0.08, metal, x, 0.4, -0.78);
+  for (const x of [15.02, 15.25, 15.48, 15.7])
+    box(root, 0.15, 0.04, 0.34, grillHot, x, 0.94, -0.78);
+  box(root, 1.25, 0.1, 0.65, wood, 13.45, 0.72, -0.45);
+  for (const x of [12.95, 13.95]) box(root, 0.08, 0.68, 0.08, metal, x, 0.34, -0.45);
+  box(root, 0.82, 0.58, 0.62, mat(0x48647a, 0.7, 0.08), 16.65, 0.29, -0.52);
+  box(root, 0.84, 0.08, 0.64, mat(0xd8d7cc, 0.7, 0.03), 16.65, 0.62, -0.52);
+  label(root, 'BEAVER · BBQ', 14.65, 2.35, -2.15, 0.3, '#ffd0a6');
+  label(root, 'HOT DOGS · TACOS · BEER', 15.1, 1.85, -2.12, 0.2, '#f6dfc7');
+
   // Planters / trees create the narrow garden rhythm visible from De Castelnau.
   for (const [x, z] of [
     [-23, 1.25],

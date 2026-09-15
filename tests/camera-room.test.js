@@ -62,7 +62,10 @@ test('the furnished studio and Take A Break expose real seating', () => {
   assert.ok(fixtureIds.has('mix-sofa-side'));
   assert.ok(fixtureIds.has('mix-coffee-table'));
   assert.ok(platformIds.has('mix-rug'));
-  assert.equal(TAKE_A_BREAK_SEATS.length, 3);
+  assert.ok(
+    TAKE_A_BREAK_SEATS.length >= 5,
+    'expanded Take A Break exposes additional real seating',
+  );
   assert.ok(
     levels.downstairs.navigation.obstacles.some((obstacle) => obstacle.player === false),
     'Below includes camera-only wall volumes',

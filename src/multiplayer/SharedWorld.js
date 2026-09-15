@@ -255,11 +255,12 @@ export class SharedWorld {
         else if (!target.playing && deck.playing) dj.stopDeck(deckId);
         if (target.playing && deck.playing && typeof dj.restartDeckAt === 'function') {
           const baseBpm = Math.max(1, deck.baseBpm || target.bpm || 120);
-          const elapsed = Math.max(0, Date.now() - Number(state.updatedAt || Date.now())) / 1000;
+          const serverNow = this.client.serverNow?.() ?? Date.now();
+          const elapsed = Math.max(0, serverNow - Number(state.updatedAt || serverNow)) / 1000;
           const expected =
             Math.max(0, Number(target.position) || 0) + elapsed * (target.bpm / baseBpm);
           const current = dj.deckPosition?.(deckId) ?? expected;
-          if (Math.abs(current - expected) > 0.055) dj.restartDeckAt(deckId, expected);
+          if (Math.abs(current - expected) > 0.055) await dj.restartDeckAt(deckId, expected);
         }
         if (
           typeof dj.setLoop === 'function' &&
