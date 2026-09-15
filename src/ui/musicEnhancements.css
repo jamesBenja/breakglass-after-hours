@@ -1,0 +1,133 @@
+.game-option.police-pressure-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.game-option.police-pressure-option select {
+  min-width: 110px;
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(12, 12, 16, 0.9);
+  color: #f3f3f3;
+  padding: 4px 8px;
+}
+
+.touch-strum-row,
+.music-performance-row {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.touch-strum-row::-webkit-scrollbar,
+.music-performance-row::-webkit-scrollbar {
+  display: none;
+}
+
+.touch-strum-button,
+.music-performance-row button {
+  flex: 1 0 auto;
+  min-height: 34px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.touch-strum-button {
+  background: rgba(91, 62, 39, 0.66);
+  border-color: rgba(232, 193, 140, 0.35);
+}
+
+.music-dj-extras,
+.music-channel-fx {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.music-fx-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.studio-fx-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.music-fx-range {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.music-fx-range span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-fx-range input[type='range'] {
+  width: 100%;
+  min-width: 0;
+}
+
+.music-performance-row button.active {
+  background: rgba(177, 110, 48, 0.75);
+  border-color: rgba(255, 210, 151, 0.6);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .music-dj-extras,
+  .music-channel-fx {
+    gap: 4px;
+    margin-top: 3px;
+    padding-top: 4px;
+  }
+
+  .music-fx-grid {
+    gap: 4px;
+  }
+
+  .music-fx-range {
+    font-size: 7px;
+  }
+
+  .music-fx-range input[type='range'] {
+    height: 24px;
+    margin: 0;
+  }
+
+  .music-performance-row button,
+  .touch-strum-button {
+    min-height: 31px;
+    padding: 3px 6px;
+    font-size: 8px;
+    background: rgba(18, 18, 23, 0.42);
+  }
+
+  .touch-strum-button {
+    background: rgba(91, 62, 39, 0.5);
+  }
+}
