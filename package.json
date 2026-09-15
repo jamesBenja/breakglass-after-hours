@@ -15,6 +15,9 @@
     "format": "prettier --write src tests index.html vite.config.js",
     "format:check": "prettier --check src tests index.html vite.config.js"
   },
-  "dependencies": { "three": "0.160.0" },
+  "dependencies": {
+    "three": "0.160.0",
+    "ws": "8.18.3"
+  },
   "devDependencies": { "vite": "7.3.1", "prettier": "3.6.2" }
 }
