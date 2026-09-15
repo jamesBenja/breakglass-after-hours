@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/live-multiplayer-foundation
+      - feat/multiplayer-phase-2-shared-world
     paths:
       - src/multiplayer/**
       - src/avatar/**
