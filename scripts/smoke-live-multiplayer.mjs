@@ -201,8 +201,7 @@ assert.equal(djState.state.decks.A.position, 8.5);
 
 const objectOnA = onceMessage(
   a,
-  (message) =>
-    message.type === 'object_state' && message.objectId === 'take-a-break-installation',
+  (message) => message.type === 'object_state' && message.objectId === 'take-a-break-installation',
 );
 b.send(
   JSON.stringify({

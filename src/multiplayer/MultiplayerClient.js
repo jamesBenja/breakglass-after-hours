@@ -233,9 +233,14 @@ export class MultiplayerClient {
       return;
     }
     if (
-      ['resource_result', 'resource', 'object_state', 'dj_state', 'lighting_state', 'party_state'].includes(
-        message.type,
-      )
+      [
+        'resource_result',
+        'resource',
+        'object_state',
+        'dj_state',
+        'lighting_state',
+        'party_state',
+      ].includes(message.type)
     ) {
       this.world.handleMessage(message);
       return;
@@ -381,7 +386,8 @@ export class MultiplayerClient {
         `${remote.avatar.displayName} ${labels[message.kind] ?? 'interacts with you'}.`,
       );
       if (message.kind === 'dance') this.game.player.dance(1.8);
-      else if (message.kind === 'highfive') this.game.player.performMultiplayerGesture?.('highfive');
+      else if (message.kind === 'highfive')
+        this.game.player.performMultiplayerGesture?.('highfive');
     }
   }
 

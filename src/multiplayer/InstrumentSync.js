@@ -175,8 +175,11 @@ export class InstrumentSync {
 
     if (event.type === 'midi') playMidi(event.midi);
     else if (event.type === 'chord') {
-      const notes = event.direction === 'up' ? [...(event.midis ?? [])].reverse() : event.midis ?? [];
-      notes.forEach((midi, index) => playMidi(midi, index * (config.mode === 'bass' ? 0.032 : 0.021)));
+      const notes =
+        event.direction === 'up' ? [...(event.midis ?? [])].reverse() : (event.midis ?? []);
+      notes.forEach((midi, index) =>
+        playMidi(midi, index * (config.mode === 'bass' ? 0.032 : 0.021)),
+      );
     }
   }
 
