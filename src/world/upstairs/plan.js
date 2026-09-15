@@ -222,7 +222,16 @@ const wall = (id, a, b, openings = [], height = 2.9) => ({
 // travel anchors and the rendered architecture agree in the live multiplayer build.
 const exteriorOpenings = {
   2: [{ id: 'below-door', name: 'Below Breakglass', at: 0.81, width: 2.0, exterior: true }],
-  4: [{ id: 'main-entry-door', name: 'Main entry', at: 0.43, width: 2.0, exterior: true }],
+  4: [
+    { id: 'main-entry-door', name: 'Main entry', at: 0.43, width: 2.0, exterior: true },
+    {
+      id: 'alley-shortcut-door',
+      name: 'Service stair to alley',
+      at: 0.8,
+      width: 1.55,
+      exterior: true,
+    },
+  ],
   7: [{ id: 'clark-exit-door', name: 'Exit to Clark', at: 0.5, width: 1.8, exterior: true }],
 };
 

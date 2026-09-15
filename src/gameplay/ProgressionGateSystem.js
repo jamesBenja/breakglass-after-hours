@@ -18,8 +18,7 @@ export class ProgressionGateSystem {
       const obstacle = {
         id: config.id,
         ...shape,
-        points:
-          shape.points ?? rectangle(shape.x1, shape.x2, shape.z1, shape.z2),
+        points: shape.points ?? rectangle(shape.x1, shape.x2, shape.z1, shape.z2),
       };
       collision.obstacles.push(obstacle);
 
@@ -33,10 +32,7 @@ export class ProgressionGateSystem {
           emissive: visual.emissive ?? 0x07140b,
           emissiveIntensity: 0.5,
         });
-        mesh = new Mesh(
-          new BoxGeometry(visual.size[0], visual.size[1], visual.size[2]),
-          material,
-        );
+        mesh = new Mesh(new BoxGeometry(visual.size[0], visual.size[1], visual.size[2]), material);
         mesh.name = `progression-gate:${config.id}`;
         mesh.position.fromArray(visual.position);
         mesh.castShadow = true;

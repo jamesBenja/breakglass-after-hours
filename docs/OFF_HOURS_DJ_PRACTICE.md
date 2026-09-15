@@ -9,6 +9,7 @@ Below Breakglass should exist as a usable venue even when there is no party. Thi
 The club should support at least three broad operating modes:
 
 ### 1. Party mode
+
 - active crowd / dynamic attendance
 - bouncer / lineup / coat-check flow
 - staffed bar
@@ -17,6 +18,7 @@ The club should support at least three broad operating modes:
 - Nora photography
 
 ### 2. Off-hours / rehearsal mode
+
 - little or no crowd
 - no bouncer line
 - club access available from inside the building to authorized/current players
@@ -27,6 +29,7 @@ The club should support at least three broad operating modes:
 - club acoustics remain spatial and fully simulated
 
 ### 3. Closed / unavailable mode
+
 - booth or room inaccessible because of another booking, maintenance, event prep, or story condition
 - state should be communicated through the environment rather than a generic error where possible
 
@@ -45,6 +48,7 @@ The emotional contrast is useful. During a party, Below feels crowded and diffic
 Practice mode should expose the same core `DjState` and deck engine used during parties, but without crowd pressure.
 
 Possible activities:
+
 - free-mix tracks from unlocked crate
 - practice cueing and transitions
 - learn controls with no failure consequence
@@ -58,6 +62,7 @@ The same physical booth should be used in all modes. Do not create a separate tu
 ## Role integration
 
 Players who chose DJ as one of their roles should naturally receive prompts like:
+
 - `Below is free right now — want to practice?`
 - `Your booked set starts later; you can rehearse downstairs.`
 
@@ -66,6 +71,7 @@ Non-DJ players can still discover and use practice mode unless a specific event/
 ## Multiplayer
 
 Off-hours practice can support:
+
 - B2B rehearsal with another player
 - one player DJing while friends listen/dance in an otherwise empty club
 - remote collaborators testing a set before an event
@@ -75,6 +81,7 @@ Because party systems are absent or minimal, this is also a good early multiplay
 ## Audio / spatial identity
 
 The empty club should sound dramatically different from party mode:
+
 - less crowd absorption/noise
 - more audible room/reverb character
 - clearer footsteps and booth mechanics

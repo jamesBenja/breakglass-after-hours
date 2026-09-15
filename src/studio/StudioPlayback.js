@@ -92,6 +92,8 @@ export class StudioPlayback {
     high.gain.value = 0;
     const compressor = context.createDynamicsCompressor();
     const fader = context.createGain();
+    const fxGain = context.createGain();
+    const fxDelay = context.createDelay(0.5);
     const pan =
       typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
     input.connect(color);
@@ -101,7 +103,12 @@ export class StudioPlayback {
     compressor.connect(fader);
     fader.connect(pan ?? this.audio.master);
     pan?.connect(this.audio.master);
-    bus = { input, color, low, high, compressor, fader, pan };
+    fxGain.gain.value = 0;
+    fxDelay.delayTime.value = 0.18;
+    fader.connect(fxGain);
+    fxGain.connect(fxDelay);
+    fxDelay.connect(this.audio.master);
+    bus = { input, color, low, high, compressor, fader, pan, fxGain, fxDelay };
     this.buses.set(stem.id, bus);
     this.configureProcessing(stem, bus);
     return bus;
@@ -151,6 +158,7 @@ export class StudioPlayback {
       bus.high.gain.setTargetAtTime((stem.high ?? 0) * 15, time, 0.025);
       const audible = !stem.mute && (!anySolo || stem.solo);
       bus.fader.gain.setTargetAtTime(audible ? stem.level : 0, time, 0.025);
+      bus.fxGain.gain.setTargetAtTime((stem.fx ?? 0) * 0.38, time, 0.025);
       if (bus.pan) bus.pan.pan.setTargetAtTime(stem.pan ?? 0, time, 0.025);
     }
     for (const [id, bus] of this.buses) {

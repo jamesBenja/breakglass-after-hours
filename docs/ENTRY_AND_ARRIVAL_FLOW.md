@@ -62,6 +62,7 @@ The alley should feel like a threshold between the city and the party.
 Lineup length should correlate with but not exactly equal attendance.
 
 Possible inputs:
+
 - current attendance vs capacity
 - arrival-rate wave
 - time of night

@@ -1,6 +1,8 @@
 import { ARCHIVE_TAPE_IDS } from '../archive/tapeArchive.js';
 import { LIVE_ARCHIVE_IDS } from '../archive/liveArchive.js';
 import { normalizeAvatar } from '../avatar/profile.js';
+import { normalizeDifficulty } from '../gameplay/guidance.js';
+import { MIXING_CHALLENGE_IDS } from '../studio/MixingChallenge.js';
 import { normalizeStudioSession } from '../studio/StudioSession.js';
 import { LEVEL_IDS } from '../world/levels.js';
 
@@ -34,6 +36,9 @@ const CONTACT_IDS = [
   'devin',
   'david',
   'beaver',
+  'sam',
+  'malaika',
+  'dave',
   'bouncer',
 ];
 const HOUSE_DJ_IDS = [
@@ -153,6 +158,12 @@ const defaults = () => ({
   studioAccessGranted: false,
   houseDjDeskIntroduced: false,
   storageAccessGranted: false,
+  tapeArchiveAccessGranted: false,
+  deadRoomAccessGranted: false,
+  difficulty: 'medium',
+  mixingChallengeCompleted: [],
+  mixingRewardKey: false,
+  alleyShortcutUnlocked: false,
   hotDogsEaten: 0,
   tacosEaten: 0,
   maddoxCompanion: false,
@@ -208,6 +219,16 @@ export function validateSave(value) {
   state.studioAccessGranted = value.studioAccessGranted === true;
   state.houseDjDeskIntroduced = value.houseDjDeskIntroduced === true;
   state.storageAccessGranted = value.storageAccessGranted === true;
+  state.tapeArchiveAccessGranted = value.tapeArchiveAccessGranted === true;
+  state.deadRoomAccessGranted = value.deadRoomAccessGranted === true;
+  state.difficulty = normalizeDifficulty(value.difficulty);
+  if (Array.isArray(value.mixingChallengeCompleted)) {
+    state.mixingChallengeCompleted = [
+      ...new Set(value.mixingChallengeCompleted.filter((id) => MIXING_CHALLENGE_IDS.includes(id))),
+    ];
+  }
+  state.mixingRewardKey = value.mixingRewardKey === true;
+  state.alleyShortcutUnlocked = value.alleyShortcutUnlocked === true || state.mixingRewardKey;
   state.hotDogsEaten = Math.max(0, Math.min(999, Math.floor(Number(value.hotDogsEaten) || 0)));
   state.tacosEaten = Math.max(0, Math.min(999, Math.floor(Number(value.tacosEaten) || 0)));
   state.maddoxCompanion = state.roofSecretUnlocked && value.maddoxCompanion === true;

@@ -177,7 +177,12 @@ export function scoreMix(session, id) {
     0,
     Math.min(100, Math.round((1 - normalizedError / Math.max(1, measurements)) * 100)),
   );
-  return { pass, score, misses: misses.filter((miss) => miss.absolute > miss.tolerance), challenge };
+  return {
+    pass,
+    score,
+    misses: misses.filter((miss) => miss.absolute > miss.tolerance),
+    challenge,
+  };
 }
 
 function directionFor(miss) {

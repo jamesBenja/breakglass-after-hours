@@ -33,6 +33,32 @@ export function createUpstairsDefinition(pass = 'B') {
     stairs: waypoints.belowStairsTop,
   };
   const fridgePosition = at(785, 635);
+  const doorGate = (id, requires, position, size) => {
+    const [x, , z] = position;
+    return {
+      id,
+      requires,
+      collision: {
+        x1: x - size[0] / 2,
+        x2: x + size[0] / 2,
+        z1: z - size[2] / 2,
+        z2: z + size[2] / 2,
+        y1: 0,
+        y2: size[1],
+      },
+      visual: { position: [x, size[1] / 2, z], size, color: 0x34463a },
+    };
+  };
+  const progressionGates = [
+    doorGate('dead-room-gate', 'deadRoomAccessGranted', at(386, 692), [1.72, 2.25, 0.16]),
+    doorGate('storage-gallery-gate', 'tapeArchiveAccessGranted', at(415, 995), [1.68, 2.25, 0.16]),
+    doorGate('storage-hall-gate', 'tapeArchiveAccessGranted', at(519, 1024), [0.16, 2.25, 1.48]),
+    doorGate('alley-shortcut-gate', 'alleyShortcutUnlocked', at(414, 1116), [1.64, 2.25, 0.18]),
+  ];
+  const guidePoints = {
+    storage: { player: at(430, 1020), npc: at(410, 1008) },
+    deadRoom: { player: at(386, 666), npc: at(386, 684) },
+  };
   return {
     id: 'upstairs',
     layoutRevision: 'a103-spatial-9-circulation-fix',
@@ -55,6 +81,7 @@ export function createUpstairsDefinition(pass = 'B') {
     spawns: {
       ...spawns,
       roofReturn: at(435, 1075, 1.4),
+      alleyShortcut: at(414, 1090),
     },
     intro: [
       'THIRD FLOOR',
@@ -68,6 +95,8 @@ export function createUpstairsDefinition(pass = 'B') {
     stairFloors,
     centralSuite,
     closedSuites,
+    progressionGates,
+    guidePoints,
     navigation: { allowAirborne: true, boundary: footprint, surfaces, obstacles: solids },
     anchors: {
       drums: { name: 'Drum station', position: at(583, 632), radius: 1.7, action: 'drums' },
@@ -108,12 +137,14 @@ export function createUpstairsDefinition(pass = 'B') {
         position: at(305, 625),
         radius: 1.7,
         action: 'instruments',
+        requires: 'deadRoomAccessGranted',
       },
       amps: {
         name: 'Dead Room amps',
         position: at(365, 605),
         radius: 1.8,
         action: 'amps',
+        requires: 'deadRoomAccessGranted',
       },
       micLocker: {
         name: 'Microphone locker',
@@ -132,6 +163,31 @@ export function createUpstairsDefinition(pass = 'B') {
         position: at(383, 1027),
         radius: 1.55,
         action: 'tapeArchive',
+        requires: 'tapeArchiveAccessGranted',
+      },
+      deadRoomLock: {
+        name: 'Dead Room · locked',
+        position: at(386, 700),
+        radius: 1.55,
+        action: 'progressionDoor',
+        progression: 'dead-room',
+        requiresNot: 'deadRoomAccessGranted',
+      },
+      storageLock: {
+        name: 'Storage · locked',
+        position: at(415, 986),
+        radius: 1.55,
+        action: 'progressionDoor',
+        progression: 'storage',
+        requiresNot: 'tapeArchiveAccessGranted',
+      },
+      storageHallLock: {
+        name: 'Storage · locked',
+        position: at(532, 1024),
+        radius: 1.55,
+        action: 'progressionDoor',
+        progression: 'storage',
+        requiresNot: 'tapeArchiveAccessGranted',
       },
       neveConsole: {
         name: 'Historic Neve console',
@@ -158,6 +214,22 @@ export function createUpstairsDefinition(pass = 'B') {
         action: 'travel',
         target: 'roof@hatch',
         requires: 'roofSecretUnlocked',
+      },
+      alleyShortcut: {
+        name: 'Service stair ↓ alley',
+        position: at(414, 1100),
+        radius: 1.55,
+        action: 'travel',
+        target: 'alley@studioShortcut',
+        requires: 'alleyShortcutUnlocked',
+      },
+      alleyShortcutLock: {
+        name: 'Service stair · locked',
+        position: at(414, 1100),
+        radius: 1.55,
+        action: 'progressionDoor',
+        progression: 'shortcut',
+        requiresNot: 'alleyShortcutUnlocked',
       },
       stairs: {
         name: 'Stairs ↓ Below Breakglass',

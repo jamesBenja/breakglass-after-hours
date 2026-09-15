@@ -60,6 +60,7 @@ const normalizeStem = (stem, index) => ({
   pan: clamp(Number(stem.pan) || 0, -1, 1),
   low: clamp(Number(stem.low) || 0, -1, 1),
   high: clamp(Number(stem.high) || 0, -1, 1),
+  fx: clamp(Number(stem.fx) || 0, 0, 1),
   mute: stem.mute === true,
   solo: stem.solo === true,
   assetId: typeof stem.assetId === 'string' ? stem.assetId.slice(0, 64) : null,
@@ -177,6 +178,7 @@ export class StudioSession {
       pan: 0,
       low: 0,
       high: 0,
+      fx: 0,
       mute: false,
       solo: false,
       assetId: null,
@@ -218,6 +220,13 @@ export class StudioSession {
     const stem = this.stems.find((item) => item.id === id);
     if (!stem || !['low', 'high'].includes(band)) return false;
     stem[band] = clamp(Number(value) || 0, -1, 1);
+    return true;
+  }
+
+  setFx(id, value) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.fx = clamp(Number(value) || 0, 0, 1);
     return true;
   }
 

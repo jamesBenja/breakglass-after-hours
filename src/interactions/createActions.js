@@ -2,6 +2,17 @@ import { showLiveArchivePlayer } from '../archive/LiveArchivePlayer.js';
 import { LIVE_FROM_BREAKGLASS, liveArchiveById } from '../archive/liveArchive.js';
 import { TAPE_ARCHIVE, tapeArchiveById } from '../archive/tapeArchive.js';
 import { DJ_TRACKS } from '../dj/DjMixer.js';
+import { progressionHint } from '../gameplay/guidance.js';
+import {
+  MIXING_CHALLENGES,
+  createReferenceMix,
+  feedbackForMix,
+  mixingChallengeById,
+  mixingGameComplete,
+  nextMixingChallenge,
+  scoreMix,
+  startMixingChallenge,
+} from '../studio/MixingChallenge.js';
 import { STUDIO_SESSION_TEMPLATES } from '../studio/sessionCatalog.js';
 import {
   AMPS,
@@ -47,6 +58,31 @@ export function createActions({
 
   const hasStudio = !!studio;
   const hasDj = !!dj && typeof ui.djMixer === 'function';
+  let activeMixChallengeId = null;
+
+  const syncProgression = () => sceneManager.current?.progressionGates?.sync?.(state?.data ?? {});
+
+  const escortToGuide = (guideId, npcId) => {
+    const level = sceneManager.current;
+    const guide = level?.definition?.guidePoints?.[guideId];
+    if (!level || !guide || !player) return false;
+    player.spawn(guide.player, level.collision);
+    const npc = level.npcs?.get?.(npcId);
+    if (npc?.group) {
+      npc.group.position.fromArray(guide.npc);
+      npc.group.rotation.y = Math.atan2(
+        player.position.x - npc.group.position.x,
+        player.position.z - npc.group.position.z,
+      );
+    }
+    return true;
+  };
+
+  const progressionDoorPanel = (target) =>
+    panel(
+      (target?.name ?? 'LOCKED').toUpperCase(),
+      progressionHint(target?.progression, state?.data?.difficulty),
+    );
 
   const appendButton = (label, action) => {
     if (!ui.document || !ui.buttons) return;
@@ -486,6 +522,159 @@ export function createActions({
     );
   };
 
+  const mixChallengeMenu = () => {
+    if (!studio || !studioPlayback) return;
+    const completed = new Set(state?.data?.mixingChallengeCompleted ?? []);
+    const available = MIXING_CHALLENGES.filter(
+      (challenge, index) =>
+        index === 0 ||
+        completed.has(challenge.id) ||
+        completed.has(MIXING_CHALLENGES[index - 1].id),
+    );
+    const reward = state?.data?.mixingRewardKey === true;
+    panel(
+      'SPECTRA · MIX MATCH',
+      reward
+        ? 'All current mix levels are complete. The Spectra master key has opened the direct service stair between the studio and alley.'
+        : 'Match the hidden reference mixes by ear. Each level adds another part of the console. Dance Shoes is the temporary multitrack source until more Breakglass stem folders are attached.',
+      [
+        ...available.map((challenge) => [
+          (completed.has(challenge.id) ? '✓ ' : '') +
+            'Level ' +
+            challenge.level +
+            ' · ' +
+            challenge.label,
+          () => beginMixChallenge(challenge.id),
+        ]),
+        ['Back to console', consolePanel],
+      ],
+    );
+  };
+
+  const beginMixChallenge = (id) => {
+    const challenge = startMixingChallenge(studio, id);
+    if (!challenge) return;
+    studioPlayback.stop();
+    activeMixChallengeId = challenge.id;
+    rememberStudio();
+    mixChallengeConsolePanel();
+  };
+
+  const listenMixReference = async () => {
+    const challenge = mixingChallengeById(activeMixChallengeId);
+    const reference = createReferenceMix(activeMixChallengeId);
+    if (!challenge || !reference) return;
+    studioPlayback.stop();
+    dj?.stop?.();
+    audio.stop();
+    await studioPlayback.play(reference);
+    panel(
+      'REFERENCE MIX · LEVEL ' + challenge.level,
+      'Listen to the target. The reference uses a separate console snapshot, so your working faders and settings are not overwritten.',
+      [
+        [
+          'Return to my mix',
+          () => {
+            studioPlayback.stop();
+            mixChallengeConsolePanel();
+          },
+        ],
+      ],
+    );
+  };
+
+  const checkMixChallenge = () => {
+    const challenge = mixingChallengeById(activeMixChallengeId);
+    if (!challenge) return mixChallengeMenu();
+    const result = scoreMix(studio, challenge.id);
+    if (!result.pass) {
+      const feedback = feedbackForMix(result, state?.data?.difficulty).join(' ');
+      panel(
+        'MIX CHECK · ' + result.score + '%',
+        (feedback || 'The mix is not close enough yet.') +
+          ' Listen again, make a few changes and resubmit.',
+        [
+          ['Keep mixing', mixChallengeConsolePanel],
+          ['Hear reference again', listenMixReference],
+          ['Restart level', () => beginMixChallenge(challenge.id)],
+        ],
+      );
+      return;
+    }
+
+    const completed = state.data.mixingChallengeCompleted ?? [];
+    if (!completed.includes(challenge.id)) completed.push(challenge.id);
+    state.data.mixingChallengeCompleted = completed;
+    const finished = mixingGameComplete(completed);
+    if (finished) {
+      state.data.mixingRewardKey = true;
+      state.data.alleyShortcutUnlocked = true;
+      syncProgression();
+      saveState();
+      panel(
+        'SPECTRA MASTER KEY',
+        'All mix levels passed. A green service key releases from beneath the console. It unlocks the direct service stair beside Storage, giving you a new route between the studio floor and the alley.',
+        [
+          [
+            'Pocket the key',
+            () => {
+              activeMixChallengeId = null;
+              consolePanel();
+            },
+          ],
+        ],
+      );
+      return;
+    }
+
+    saveState();
+    const next = nextMixingChallenge(completed);
+    panel(
+      'LEVEL ' + challenge.level + ' PASSED · ' + result.score + '%',
+      'That mix matches. The next Spectra challenge is now unlocked.',
+      [
+        ...(next ? [['Start next level', () => beginMixChallenge(next.id)]] : []),
+        ['Challenge menu', mixChallengeMenu],
+      ],
+    );
+  };
+
+  const mixChallengeConsolePanel = () => {
+    const challenge = mixingChallengeById(activeMixChallengeId);
+    if (!challenge || !studio || !studioPlayback || typeof ui.studioMixer !== 'function') {
+      mixChallengeMenu();
+      return;
+    }
+    ui.studioMixer(studio, {
+      onMix: () => {
+        studioPlayback.updateMix(studio);
+        rememberStudio();
+      },
+      onPlay: async () => {
+        dj?.stop?.();
+        audio.stop();
+        await studioPlayback.play(studio);
+      },
+      onStop: () => studioPlayback.stop(),
+    });
+    if (ui.title) ui.title.textContent = 'SPECTRA MIX CHALLENGE · LEVEL ' + challenge.level;
+    if (ui.text) {
+      ui.text.textContent =
+        challenge.label +
+        '. Match the reference by ear, then submit the mix. Scored controls: ' +
+        challenge.parameters.join(', ') +
+        '.';
+    }
+    appendButton('Hear reference mix', listenMixReference);
+    appendButton('Check my mix', checkMixChallenge);
+    appendButton('Restart level', () => beginMixChallenge(challenge.id));
+    appendButton('Exit challenge', () => {
+      studioPlayback.stop();
+      activeMixChallengeId = null;
+      consolePanel();
+    });
+  };
+
   const consolePanel = () => {
     if (!studio || !studioPlayback || typeof ui.studioMixer !== 'function') {
       panel('CONTROL ROOM', 'Load a session and hear the room become active.', [
@@ -507,6 +696,7 @@ export function createActions({
       onStop: () => studioPlayback.stop(),
       onRecordVocal: recordVocal,
     });
+    appendButton('Spectra mix challenge', mixChallengeMenu);
     appendButton('Load Breakglass session', sessionLibraryPanel);
   };
 
@@ -843,6 +1033,7 @@ export function createActions({
     photoWall: () => ui.photoGallery?.(state?.data?.photos ?? []),
     alleySocial: alleySocialPanel,
     installation: installationPanel,
+    progressionDoor: progressionDoorPanel,
     travel: (target) => sceneManager.request(target.target),
     dialogue: (target) => {
       const id = target.npcId ?? target.id;
@@ -889,19 +1080,38 @@ export function createActions({
 
       const characterActions = [];
       if (id === 'nora' && photos) characterActions.push(['Pose for a photo', takeNoraPhoto]);
-      if (id === 'jace' && sceneManager.current.definition.id === 'upstairs')
+      if (id === 'jace' && sceneManager.current.definition.id === 'upstairs') {
+        const storageUnlocked = state?.data?.tapeArchiveAccessGranted === true;
+        characterActions.push([
+          storageUnlocked
+            ? 'Take me back to the tape archive'
+            : 'Tell me about the studio tape archives',
+          () => {
+            state.data.tapeArchiveAccessGranted = true;
+            syncProgression();
+            saveState();
+            escortToGuide('storage', 'jace');
+            panel(
+              'JACE · TAPE ARCHIVE',
+              storageUnlocked
+                ? '“Here it is again. Storage is open now, so you can come back whenever you want.”'
+                : '“The tape archive is in Storage. I keep that room closed when nobody is using it. Come on — I will open it and show you where the reels live.”',
+            );
+          },
+        ]);
         characterActions.push(['Ask about the Neve room', neveConsolePanel]);
+      }
       if (id === 'james' && sceneManager.current.definition.id === 'upstairs') {
         characterActions.push([
-          'Show me the tape archive',
+          state?.data?.tapeArchiveAccessGranted
+            ? 'Where are the tape archives again?'
+            : 'Where are the tape archives?',
           () =>
             panel(
               'JAMES · BREAKGLASS TAPES',
-              '“These reels are part of the building memory. Pick one from the archive, bring it into the historic Neve room, thread it on the machine and listen there.”',
-              [
-                ['Browse the tape archive', tapeArchivePanel],
-                ['Go to the tape machine', tapeMachinePanel],
-              ],
+              state?.data?.tapeArchiveAccessGranted
+                ? '“Storage is open now. The reels are in there; bring one to the historic Neve room if you want to hear it.”'
+                : '“Jace looks after the tape room. Ask him about the archive and he can open Storage for you.”',
             ),
         ]);
         characterActions.push([
@@ -929,8 +1139,27 @@ export function createActions({
       }
       if (id === 'zander' && sceneManager.current.definition.id === 'upstairs')
         characterActions.push(['Check the tape machine', tapeMachinePanel]);
-      if (id === 'boogaloo' && sceneManager.current.definition.id === 'upstairs')
+      if (id === 'boogaloo' && sceneManager.current.definition.id === 'upstairs') {
+        const deadRoomUnlocked = state?.data?.deadRoomAccessGranted === true;
+        characterActions.push([
+          deadRoomUnlocked
+            ? 'Take me back to the guitars and amps'
+            : 'Which amps should I pair with which guitars?',
+          () => {
+            state.data.deadRoomAccessGranted = true;
+            syncProgression();
+            saveState();
+            escortToGuide('deadRoom', 'boogaloo');
+            panel(
+              'BOOGALOO · DEAD ROOM',
+              deadRoomUnlocked
+                ? '“Dead Room is still open. Try another chain.”'
+                : '“Start with the instrument, then pick the amp for what you want it to do. Come on — I will open the Dead Room and you can actually try the combinations.”',
+            );
+          },
+        ]);
         characterActions.push(['Play the synth', synthPanel]);
+      }
       panel(dialogue.title, dialogue.text, [
         ...characterActions,
         ...(player ? [['Dance', () => player.dance(80 / 60)]] : []),

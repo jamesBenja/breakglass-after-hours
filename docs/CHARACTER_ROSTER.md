@@ -11,6 +11,7 @@ Keep role/state data serializable so the same characters can later exist consist
 Primary location: Below bar.
 
 Gameplay role:
+
 - serves drinks / water / non-alcoholic options
 - accepts venue tokens / drink tickets
 - can refuse service when participant intoxication is too high
@@ -19,6 +20,7 @@ Gameplay role:
 - has short contextual dialogue rather than standing idle
 
 Behavior:
+
 - mostly anchored to the bar during service
 - can move within the bar zone
 - becomes busier as attendance rises
@@ -29,11 +31,13 @@ Behavior:
 Primary location: Below bar.
 
 Gameplay role:
+
 - same core service system as Courtney
 - should feel like a distinct bartender rather than a duplicate service terminal
 - dialogue/reactions can differ by time of night, crowd state and participant condition
 
 Behavior:
+
 - shares the bar workload with Courtney
 - crowd density can determine which bartender is easier to reach
 - future multiplayer sessions can distribute players naturally across both service points
@@ -41,6 +45,7 @@ Behavior:
 ### Nora — Club photographer
 
 Primary locations:
+
 - dance floor
 - DJ booth edge
 - bar
@@ -48,6 +53,7 @@ Primary locations:
 - entry / quieter social corners
 
 Gameplay role:
+
 - takes candid and posed avatar photos
 - generates in-world party photographs from her own camera position
 - recent images can appear during the night in Take A Break or on a club display
@@ -60,6 +66,7 @@ See the dedicated photography-system design for persistence/privacy rules.
 James should not be locked to one station. He is a roaming presence and can appear in several valid roles across the same world.
 
 Club roles:
+
 - host / organizer walking through the venue
 - hands out drink tickets or venue tokens at appropriate moments
 - checks in on the bar / booth / Take A Break
@@ -68,12 +75,14 @@ Club roles:
 - can act as a contextual guide to the event without becoming a tutorial character
 
 Possible gameplay hooks:
+
 - receive a small number of tickets from James on arrival or through an interaction
 - encounter James shooting a limited number of slower, deliberate "film" photos
 - special nights may schedule a James DJ set that changes PartyState / crowd affinity
 - James can comment on transitions, crowd energy or an installation when nearby
 
 Film-photo distinction:
+
 - lower frequency than Nora's club photography
 - deliberate pose/candid moments
 - optional visual treatment / frame / delayed reveal
@@ -84,11 +93,13 @@ Film-photo distinction:
 ### James — Producer
 
 Primary locations:
+
 - Live Room
 - Mixing Suite A / control room
 - circulation between studio spaces
 
 Gameplay role:
+
 - producer / collaborator rather than static instructor
 - can initiate or join recording tasks
 - can suggest instruments / arrangement changes
@@ -101,15 +112,18 @@ James should be representable either as an NPC or, for special events, as a live
 ### Jace — Studio guide
 
 Primary location:
+
 - upstairs studio floor
 
 Gameplay role:
+
 - orientation to the physical studio
 - explains rooms / signal flow / distinctive equipment when relevant
 - helps players discover less obvious spaces without resorting to floating wayfinding text
 - can unlock or introduce technical interactions progressively
 
 Behavior:
+
 - moves through the studio rather than remaining at one help desk
 - appears near equipment/rooms when contextual guidance is useful
 - should not constantly interrupt the player
@@ -117,17 +131,20 @@ Behavior:
 ### Zander — Studio tech
 
 Primary locations:
+
 - Mixing Suite A
 - patch / machine / setup areas
 - Live Room during setup
 
 Gameplay role:
+
 - technical support
 - helps with routing / patching / microphone or equipment setup
 - can repair or reset certain game-state issues diegetically
 - can introduce more technical studio mini-games later
 
 Example interactions:
+
 - patch a signal path
 - set up a mic / input chain
 - troubleshoot a missing signal
@@ -136,17 +153,20 @@ Example interactions:
 ### Boogaloo — Studio tech / artist-tech hybrid
 
 Primary locations:
+
 - Live Room
 - control room
 - studio circulation
 
 Gameplay role:
+
 - studio tech support with more artist-facing / creative interactions
 - helps prep instruments and session gear
 - can participate in music-making tasks
 - can introduce unusual gear / sounds / workflow options
 
 Possible longer-term role:
+
 - playable or collaborative artist character in selected BG20 studio scenarios
 - release/archive-related interactions tied to Breakglass Records material
 
@@ -171,6 +191,7 @@ CharacterState
 ```
 
 Examples:
+
 - James can be `clubHost`, `filmPhotographer`, `dj`, or `producer` depending on event/time/scene.
 - Nora can move from dance-floor photography to booth portrait to Take A Break.
 - Courtney and Simla remain bar-focused but react to queue length and crowd state.
@@ -181,6 +202,7 @@ Examples:
 Recurring characters should make Breakglass feel staffed and lived-in.
 
 They should:
+
 - move with purpose
 - react to the party/session state
 - help the player do things

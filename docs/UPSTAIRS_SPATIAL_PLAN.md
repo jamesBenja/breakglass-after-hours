@@ -22,14 +22,14 @@ Read the five requested support documents in order, then all six architectural i
 
 ## Implemented result and architectural fidelity
 
-| Relationship | Implementation |
-| --- | --- |
-| Main entry and east chain | Southeast spawn inside the main entry; east circulation runs past the separate Closed / Adjacent B / Closed / Adjacent A masses to the northeast bar/kitchen. |
-| Live Room / emergency hall | Large upper room with its angled southwest shoulder, south emergency-hall doorway and east circulation connection. |
-| Mixing Suite A / Dead Room | Mixing remains west of the central suite and south of the Dead Room. Each has a distinct, physically open gallery doorway. |
-| Central polygon | Narrow upper shoulder and broader lower mass remain the main landmark; a continuous widened gallery wraps it. Interior use stays unspecified and sealed. |
-| Storage / lower suite | Storage stays south of the polygon, with north/east access; the separate lower Closed Suite stays east of it. |
-| Clark access | West/southwest of Mixing Suite A, reached through its southern door. Physical steps descend to the existing Below transition; return arrives on the upper landing. |
+| Relationship               | Implementation                                                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Main entry and east chain  | Southeast spawn inside the main entry; east circulation runs past the separate Closed / Adjacent B / Closed / Adjacent A masses to the northeast bar/kitchen.      |
+| Live Room / emergency hall | Large upper room with its angled southwest shoulder, south emergency-hall doorway and east circulation connection.                                                 |
+| Mixing Suite A / Dead Room | Mixing remains west of the central suite and south of the Dead Room. Each has a distinct, physically open gallery doorway.                                         |
+| Central polygon            | Narrow upper shoulder and broader lower mass remain the main landmark; a continuous widened gallery wraps it. Interior use stays unspecified and sealed.           |
+| Storage / lower suite      | Storage stays south of the polygon, with north/east access; the separate lower Closed Suite stays east of it.                                                      |
+| Clark access               | West/southwest of Mixing Suite A, reached through its southern door. Physical steps descend to the existing Below transition; return arrives on the upper landing. |
 
 ### Intentional gameplay exaggerations
 

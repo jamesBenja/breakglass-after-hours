@@ -1,5 +1,6 @@
 import { BoxGeometry, Mesh, MeshStandardMaterial, SphereGeometry, Vector3 } from 'three';
 import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import { createWorldNameplate } from '../ui/WorldNameplate.js';
 import { dialogues } from './dialogues.js';
 
 export const CHARACTER_LOOKS = {
@@ -375,16 +376,20 @@ export class NpcSystem {
       if (Number.isFinite(npc.rotationY)) model.group.rotation.y = npc.rotationY;
       root.add(model.group);
       const route = (npc.route ?? []).map((point) => new Vector3().fromArray(point));
+      const interactive =
+        npc.interactive !== false &&
+        !npc.id.startsWith('line-') &&
+        !npc.id.startsWith('smoker-') &&
+        npc.id !== 'friend';
+      const nameplate = interactive && npc.name ? createWorldNameplate(npc.name) : null;
+      if (nameplate) model.group.add(nameplate.sprite);
       return {
         ...model,
         id: npc.id,
         name: npc.name ?? npc.id,
         role: npc.role ?? 'guest',
-        interactive:
-          npc.interactive !== false &&
-          !npc.id.startsWith('line-') &&
-          !npc.id.startsWith('smoker-') &&
-          npc.id !== 'friend',
+        interactive,
+        nameplate,
         radius: npc.radius ?? 1.25,
         route,
         routeIndex: 0,
@@ -536,7 +541,10 @@ export class NpcSystem {
   }
 
   dispose() {
-    for (const npc of this.npcs) npc.group.removeFromParent();
+    for (const npc of this.npcs) {
+      npc.nameplate?.dispose?.();
+      npc.group.removeFromParent();
+    }
     this.npcs = [];
   }
 }

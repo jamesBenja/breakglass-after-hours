@@ -24,9 +24,7 @@ test('Jace and Boogaloo progression gates protect the archive and Dead Room', ()
     upstairs.progressionGates.filter((gate) => gate.requires === 'tapeArchiveAccessGranted')
       .length >= 2,
   );
-  assert.ok(
-    upstairs.progressionGates.some((gate) => gate.requires === 'deadRoomAccessGranted'),
-  );
+  assert.ok(upstairs.progressionGates.some((gate) => gate.requires === 'deadRoomAccessGranted'));
 });
 
 test('David downstairs storage access does not bypass Jace tape archive access', () => {

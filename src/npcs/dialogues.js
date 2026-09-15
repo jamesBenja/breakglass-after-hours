@@ -37,6 +37,10 @@ export const dialogues = {
     title: 'DAVID · FURNITURE DEALER',
     text: '“Half the building is furniture if you know which wall to move.”',
   },
+  dave: {
+    title: 'DAVE · BREAKGLASS FOUNDER',
+    text: '“We spent a lot of time up here when the studio was young. The roof was part smoke break, part meeting room.”',
+  },
   beaver: {
     title: 'BEAVER · BACK ALLEY BBQ',
     text: '“Hot dogs, tacos, beer. Keep the alley chill and eat something.”',

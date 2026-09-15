@@ -102,7 +102,7 @@ export class Hud {
   ) {
     this.clearPanel(
       'SPECTRA CONSOLE',
-      `${session.name} · ${session.stems.length} stems. Fader, pan, shelves, mute and solo all feed the actual WebAudio channel strips.`,
+      `${session.name} · ${session.stems.length} stems. Fader, pan, shelves, FX send, mute and solo all feed the actual WebAudio channel strips.`,
     );
     const grid = this.document.createElement('div');
     grid.className = 'control-grid';
@@ -139,6 +139,10 @@ export class Hud {
       });
       this.addMixerRange(strip, 'High shelf', -1, 1, 0.01, stem.high ?? 0, (value) => {
         session.setEq(stem.id, 'high', value);
+        onMix();
+      });
+      this.addMixerRange(strip, 'FX send', 0, 1, 0.01, stem.fx ?? 0, (value) => {
+        session.setFx(stem.id, value);
         onMix();
       });
 
