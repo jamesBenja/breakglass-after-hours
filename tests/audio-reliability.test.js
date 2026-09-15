@@ -91,7 +91,10 @@ test('mobile unlock primes an output source during the gesture before resume set
 
   const unlocking = h.engine.unlock();
   assert.equal(h.resumeCalls(), 1);
-  assert.ok(h.sources.some((source) => source.started), 'silent unlock source starts immediately');
+  assert.ok(
+    h.sources.some((source) => source.started),
+    'silent unlock source starts immediately',
+  );
   assert.equal(h.engine._outputPrimed, true);
   assert.equal(h.context.state, 'suspended');
 
@@ -101,7 +104,11 @@ test('mobile unlock primes an output source during the gesture before resume set
   assert.equal(h.engine._audioReady, true);
 
   await h.engine.suspend();
-  assert.equal(h.engine._outputPrimed, false, 'background suspension re-arms gesture priming');
+  assert.equal(
+    h.engine._outputPrimed,
+    false,
+    'background suspension re-arms gesture priming',
+  );
   assert.equal(h.engine._audioReady, false);
 
   await game.dispose();
