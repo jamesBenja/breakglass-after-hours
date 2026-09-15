@@ -126,9 +126,9 @@ export const rooms = [
     ]),
   },
   {
-    id: 'entry',
-    name: '3rd-floor entry',
-    color: 0x668783,
+    id: 'below-stair',
+    name: 'Below stair landing',
+    color: 0x806d81,
     label: null,
     points: trace([
       [692, 980],
@@ -138,8 +138,8 @@ export const rooms = [
     ]),
   },
   {
-    id: 'clark-stair',
-    name: 'Clark stair landing',
+    id: 'clark-exit',
+    name: 'Clark exit landing',
     color: 0x806d81,
     label: null,
     points: trace([
@@ -205,12 +205,44 @@ const wall = (id, a, b, openings = [], height = 2.9) => ({
   height,
   thickness: 0.22,
 });
+
+// These three circulation points are now canonical, rather than decorative labels layered later.
+const exteriorOpenings = {
+  2: [
+    {
+      id: 'below-door',
+      name: '↓ Below Breakglass',
+      at: 0.81,
+      width: 2,
+      exterior: true,
+    },
+  ],
+  4: [
+    {
+      id: 'main-entry-door',
+      name: 'Main entry',
+      at: 0.43,
+      width: 2,
+      exterior: true,
+    },
+  ],
+  7: [
+    {
+      id: 'clark-exit-door',
+      name: 'Exit to Clark',
+      at: 0.5,
+      width: 1.8,
+      exterior: true,
+    },
+  ],
+};
+
 export const wallRuns = [
   ...footprint.map((p, i) => ({
     id: `outside-${i}`,
     a: p,
     b: footprint[(i + 1) % footprint.length],
-    openings: [],
+    openings: exteriorOpenings[i] ?? [],
     height: 2.9,
     thickness: 0.26,
   })),
@@ -234,7 +266,7 @@ export const wallRuns = [
     'mixing-clark',
     [172, 938],
     [286, 938],
-    [{ id: 'clark-door', name: 'Clark stair', at: 0.52, width: 1.9 }],
+    [{ id: 'clark-door', name: 'Clark landing', at: 0.52, width: 1.9 }],
   ),
   wall('live-gallery-north', [443, 692], [502, 692]),
   wall(
@@ -275,7 +307,10 @@ export const wallRuns = [
 ];
 
 export const waypoints = {
-  entry: at(720, 1012),
+  entry: at(544, 1086),
+  entryPassage: at(544, 1005),
+  belowStairsTop: at(720, 970),
+  belowStairsBottom: at(720, 1018, -0.84),
   eastHall: at(728, 809),
   eastHallNorth: at(727, 665),
   barDoor: at(727, 639),
@@ -309,7 +344,7 @@ export const waypoints = {
 // Route A is intentionally all on the ground: jumping is optional, never an access tax.
 export const mainRoute = [
   'entry',
-  'eastJunction',
+  'entryPassage',
   'gallerySE',
   'galleryS',
   'gallerySW',

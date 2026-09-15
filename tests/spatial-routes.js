@@ -11,6 +11,10 @@ export const overlookRoute = [
 ];
 export const secondaryRoute = [
   'entry',
+  'entryPassage',
+  'gallerySE',
+  'galleryE',
+  'southLiveDoor',
   'eastJunction',
   'eastHall',
   'eastHallNorth',
@@ -37,6 +41,6 @@ export const secondaryRoute = [
   'storageCenter',
   'storageEast',
   'gallerySE',
-  'eastJunction',
+  'entryPassage',
   'entry',
 ];

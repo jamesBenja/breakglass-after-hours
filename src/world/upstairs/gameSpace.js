@@ -48,7 +48,8 @@ export function createGameSpace() {
     prop('bar-counter', 809, 567, 1.15, 3.3, 1.1, 0xa88157, { kind: 'equipment' }),
     prop('dead-gobo', 294, 578, 2.8, 0.22, 1.65, 0x455655, { kind: 'equipment' }),
   ];
-  // Below now descends at the former southeast MAIN ENTRY position.
+
+  // The real Below stair occupies the former southeast entry pocket.
   const stairFloors = [0, 1, 2, 3].map((i) => {
     const z1 = 980 + i * 15,
       z2 = i === 3 ? 1040 : z1 + 15;
@@ -67,33 +68,48 @@ export function createGameSpace() {
       kind: 'stair',
     };
   });
-  // Keep the old west Clark landing flat, and notch only the southeast circulation floor
-  // so the new stair run has real descending collision surfaces.
+
+  // Remove every flat floor layer that previously covered the stair opening.
   const floorRooms = rooms
-    .filter((room) => room.id !== 'entry')
-    .map((room) =>
-      room.id === 'circulation'
-        ? {
-            ...room,
-            points: trace([
-              [172, 518],
-              [842, 518],
-              [842, 1040],
-              [736, 1040],
-              [736, 980],
-              [704, 980],
-              [704, 1040],
-              [692, 1040],
-              [692, 1116],
-              [345, 1116],
-              [345, 982],
-              [132, 982],
-              [132, 938],
-              [172, 938],
-            ]),
-          }
-        : room,
-    );
+    .filter((room) => room.id !== 'below-stair')
+    .map((room) => {
+      if (room.id === 'circulation') {
+        return {
+          ...room,
+          points: trace([
+            [172, 518],
+            [842, 518],
+            [842, 1040],
+            [736, 1040],
+            [736, 980],
+            [704, 980],
+            [704, 1040],
+            [692, 1040],
+            [692, 1116],
+            [345, 1116],
+            [345, 982],
+            [132, 982],
+            [132, 938],
+            [172, 938],
+          ]),
+        };
+      }
+      if (room.id === 'east-hall') {
+        return {
+          ...room,
+          points: trace([
+            [704, 639],
+            [752, 639],
+            [752, 1040],
+            [736, 1040],
+            [736, 980],
+            [704, 980],
+          ]),
+        };
+      }
+      return room;
+    });
+
   return {
     platforms,
     fixtures,
@@ -101,9 +117,9 @@ export function createGameSpace() {
     rooms: floorRooms,
     boundary: footprint,
     spawns: {
-      start: at(544, 1086),
-      stairs: at(720, 970),
+      start: waypoints.entry,
+      stairs: waypoints.belowStairsTop,
     },
-    stairAnchor: at(720, 1018, -0.84),
+    stairAnchor: waypoints.belowStairsBottom,
   };
 }
