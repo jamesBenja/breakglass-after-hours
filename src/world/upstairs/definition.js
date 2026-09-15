@@ -46,14 +46,14 @@ export function createUpstairsDefinition(pass = 'B') {
   ];
   return {
     id: 'upstairs',
-    layoutRevision: 'a103-spatial-2',
+    layoutRevision: 'a103-spatial-3',
     pass,
     title: 'UPSTAIRS — BREAKGLASS STUDIOS',
     model: 'upstairs-building',
     provenance: {
       status: 'A-103 topology / GAME circulation',
       reference: PLAN_SOURCE,
-      note: 'Traced room relationships; widened polygon gallery and Clark landing for traversal.',
+      note: 'Traced room relationships; corrected main entry, Clark exit and Below stair circulation.',
     },
     background: 0x171d24,
     fog: [45, 100],
@@ -62,10 +62,10 @@ export function createUpstairsDefinition(pass = 'B') {
       { color: 0xffd9ad, intensity: 8, distance: 30, position: at(575, 650, 7) },
       { color: 0xa2c8d6, intensity: 5, distance: 20, position: at(240, 770, 5) },
     ],
-    spawns: gameSpace?.spawns ?? { start: waypoints.entry, stairs: at(227, 958) },
+    spawns: gameSpace?.spawns ?? { start: at(544, 1086), stairs: at(720, 970) },
     intro: [
       'THIRD FLOOR',
-      'Circle the polygonal suite. The Live Room is beyond its angled shoulder; Mixing Suite A and the Clark stair are to the west.',
+      'The main entry is beside Storage. Below is at the southeast stair; the Clark exit is west by Mixing Suite A.',
     ],
     rooms: floorRooms,
     solids,
@@ -87,8 +87,8 @@ export function createUpstairsDefinition(pass = 'B') {
         action: 'console',
       },
       stairs: {
-        name: 'Clark stair → Below',
-        position: gameSpace?.stairAnchor ?? waypoints.clark,
+        name: 'Stairs → Below Breakglass',
+        position: gameSpace?.stairAnchor ?? at(720, 1018, -0.84),
         radius: 1.4,
         action: 'travel',
         target: 'downstairs',

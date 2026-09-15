@@ -26,7 +26,7 @@ export const levels = {
     spawns: { start: [-5.9, 0, -2.25], stairs: [-5.9, 0, -2.25] },
     intro: [
       'BELOW BREAKGLASS',
-      'Find the DJ booth or talk to people. The Clark-side stairs lead back to the studio.',
+      'Find the DJ booth or talk to people. The stairs lead back up to the studio.',
     ],
     navigation: {
       surfaces: [

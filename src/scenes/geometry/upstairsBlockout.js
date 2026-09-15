@@ -94,7 +94,6 @@ function buildLandmarks(root, definition) {
   }
   // Shallow floor marks indicate a continuous gallery, not painted false doors.
   for (const [px, pz] of [
-    [720, 986],
     [725, 947],
     [713, 898],
     [671, 898],
@@ -149,12 +148,21 @@ function buildLandmarks(root, definition) {
     box(root, 0.024, 1.9, 0.88, dark, x, 0.95, z);
     box(root, 0.03, 0.04, 0.64, trim, x - 0.008, 1.42, z);
   }
-  const [ex, , ez] = at(720, 1038);
+
+  // Corrected circulation: the studio entry is the exterior door beside Storage.
+  const [ex, , ez] = at(544, 1113);
   box(root, 1.9, 2.2, 0.06, dark, ex, 1.1, ez);
   box(root, 1.9, 0.11, 0.07, trim, ex, 2.15, ez - 0.02);
   label(root, 'MAIN ENTRY', ex, 2.75, ez, 0.5, '#d8f0df');
+
+  // The former west Below stair is actually the Clark exit.
   const [cx, , cz] = at(144, 958);
-  label(root, '↓ BELOW', cx, 2.1, cz, 0.65, '#ead1f0');
+  label(root, 'EXIT TO CLARK', cx, 2.1, cz, 0.5, '#d8f0df');
+
+  // Below Breakglass now descends from the former MAIN ENTRY corner.
+  const [bx, , bz] = at(720, 1002);
+  label(root, '↓ BELOW', bx, 2.35, bz, 0.65, '#ead1f0');
+
   for (const [px, pz, text] of [
     [713, 907, 'LIVE ROOM ←'],
     [531, 939, '↶ POLYGON LOOP'],
