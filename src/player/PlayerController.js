@@ -337,7 +337,8 @@ export class PlayerController {
     this.clothingDetailMaterial.color.setRGB(r / 255, g / 255, b / 255);
 
     const width = this.avatar.body === 'slim' ? 0.9 : this.avatar.body === 'broad' ? 1.12 : 1;
-    const shoulder = this.avatar.body === 'slim' ? 0.315 : this.avatar.body === 'broad' ? 0.37 : 0.335;
+    const shoulder =
+      this.avatar.body === 'slim' ? 0.315 : this.avatar.body === 'broad' ? 0.37 : 0.335;
     this.body.scale.set(width, 1, this.avatar.body === 'broad' ? 1.05 : 1);
     this.leftArm.position.x = -shoulder;
     this.rightArm.position.x = shoulder;

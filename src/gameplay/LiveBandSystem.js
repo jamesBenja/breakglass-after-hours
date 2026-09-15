@@ -1,4 +1,12 @@
-import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshStandardMaterial, SphereGeometry, Vector3 } from 'three';
+import {
+  BoxGeometry,
+  CylinderGeometry,
+  Group,
+  Mesh,
+  MeshStandardMaterial,
+  SphereGeometry,
+  Vector3,
+} from 'three';
 import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
 
 export const LIVE_BANDS = {

@@ -196,17 +196,17 @@ export function createLightweightHuman({
   };
 }
 
-export function poseLightweightHuman(model, {
-  time = 0,
-  phase = 0,
-  moving = false,
-  dancing = false,
-  energy = 0,
-  reach = 0,
-} = {}) {
+export function poseLightweightHuman(
+  model,
+  { time = 0, phase = 0, moving = false, dancing = false, energy = 0, reach = 0 } = {},
+) {
   const gait = Math.sin(time * (moving ? 7.3 : 2.4) + phase);
   const amount = moving ? 0.48 : dancing ? 0.14 + energy * 0.24 : 0;
-  const bob = moving ? Math.abs(gait) * 0.018 : dancing ? Math.abs(gait) * (0.012 + energy * 0.025) : 0;
+  const bob = moving
+    ? Math.abs(gait) * 0.018
+    : dancing
+      ? Math.abs(gait) * (0.012 + energy * 0.025)
+      : 0;
 
   model.body.position.y = 1.05 + bob;
   model.neck.position.y = 1.47 + bob;

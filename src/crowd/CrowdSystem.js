@@ -258,8 +258,7 @@ export class CrowdSystem {
       const side = Math.cos(this.elapsed * (speed * 0.72) + member.phase * 1.7);
       const cheer = wantsFloor && mixQuality > 0.82 ? beat : 0;
       const bob =
-        (wantsFloor ? 0.022 + localEnergy * 0.105 : 0.007 + localEnergy * 0.016) *
-          Math.abs(sway) +
+        (wantsFloor ? 0.022 + localEnergy * 0.105 : 0.007 + localEnergy * 0.016) * Math.abs(sway) +
         cheer * 0.07;
       const drift = wantsFloor ? 0.05 + bass * 0.04 : 0.018;
       const px = member.currentX + side * drift;

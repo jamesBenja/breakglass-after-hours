@@ -83,11 +83,7 @@ export class AlleyCrowdSystem {
       skinMaterial.clone(),
       max,
     );
-    this.leftLeg = new InstancedMesh(
-      new CapsuleGeometry(0.068, 0.33, 3, 5),
-      legMaterial,
-      max,
-    );
+    this.leftLeg = new InstancedMesh(new CapsuleGeometry(0.068, 0.33, 3, 5), legMaterial, max);
     this.rightLeg = new InstancedMesh(
       new CapsuleGeometry(0.068, 0.33, 3, 5),
       legMaterial.clone(),
