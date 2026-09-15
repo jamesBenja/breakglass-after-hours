@@ -1,4 +1,4 @@
-import { normalizeAvatar } from '../avatar/profile.js';
+import { multiplayerAvatar } from '../avatar/profile.js';
 import { RemotePlayer } from './RemotePlayer.js';
 
 const DEFAULT_ROOM = 'breakglass-main';

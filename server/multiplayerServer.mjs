@@ -34,6 +34,7 @@ function sanitizeText(value, max = 32) {
 
 function sanitizeAvatar(value = {}) {
   const faceTexture =
+    value.shareFaceMultiplayer === true &&
     typeof value.faceTexture === 'string' &&
     value.faceTexture.length <= 180_000 &&
     /^data:image\/(?:png|webp|jpeg);base64,/i.test(value.faceTexture)
@@ -53,6 +54,7 @@ function sanitizeAvatar(value = {}) {
       : 'warm',
     photoConsent: value.photoConsent !== false,
     faceTexture,
+    shareFaceMultiplayer: value.shareFaceMultiplayer === true && !!faceTexture,
   };
 }
 
