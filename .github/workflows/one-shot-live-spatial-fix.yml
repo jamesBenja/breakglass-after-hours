@@ -33,10 +33,10 @@ jobs:
           from pathlib import Path
           p = Path('scripts/one_shot_live_spatial_fix.py')
           s = p.read_text()
-          old = 'r"  // Replace just the west end of the floor with a real descending stair run\\\\..*?  return \\\\{"'
-          new = 'r"  // Replace just the west end of the floor with a real descending stair run\\\\..*?\\\\n  return \\\\{"'
-          if old not in s:
-              raise SystemExit('stair matcher source not found')
+          old = '.*?  return'
+          new = r'.*?\n  return'
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one stair matcher fragment, found {s.count(old)}')
           p.write_text(s.replace(old, new, 1))
           PY
           python scripts/one_shot_live_spatial_fix.py
