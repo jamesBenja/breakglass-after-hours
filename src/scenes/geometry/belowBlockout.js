@@ -69,10 +69,35 @@ export function buildBelowFixtures(downScene) {
   box(downScene, 3.5, 1.0, 0.9, MAT.wood, 7.25, 0.5, -1.45);
   box(downScene, 2.6, 0.62, 0.82, MAT.red, -8.1, 0.33, 1.55);
 
-  // stair landing on left, matching actual plan's stairway-to-Clark side
+  // Shared staircase at the Clark side. The upper run climbs to the studio.
   for (let i = 0; i < 6; i++)
     box(downScene, 2.3, 0.17, 0.45, MAT.wood, -6.8, 0.11 + i * 0.11, -1.1 - i * 0.36);
   label(downScene, 'STAIRS ↑ STUDIO', -6.6, 2.25, -3.0, 0.38, '#d8c1ff');
+
+  // At the bottom landing the stair twists 90° and continues DOWN toward the alleyway.
+  // Keep this visually tied to the passage interaction instead of reading as a dead end.
+  box(downScene, 2.45, 0.12, 0.78, MAT.dark, -6.8, -0.015, -0.62);
+  for (let i = 0; i < 6; i++) {
+    const x = -7.15 - i * 0.36;
+    const y = 0.015 - i * 0.105;
+    box(downScene, 0.45, 0.17, 1.72, MAT.wood, x, y, -0.62);
+  }
+  box(downScene, 1.05, 0.1, 1.82, MAT.dark, -9.25, -0.62, -0.62);
+
+  // Simple rails/posts make the change of direction legible from the club floor.
+  for (const [x, y] of [
+    [-7.15, 0.42],
+    [-7.9, 0.2],
+    [-8.65, -0.02],
+  ]) {
+    box(downScene, 0.06, 0.9, 0.06, MAT.metal, x, y, -1.48);
+    box(downScene, 0.06, 0.9, 0.06, MAT.metal, x, y, 0.24);
+  }
+  box(downScene, 2.05, 0.055, 0.055, MAT.metal, -7.9, 0.78, -1.48);
+  box(downScene, 2.05, 0.055, 0.055, MAT.metal, -7.9, 0.78, 0.24);
+
+  label(downScene, 'STAIRS ↓ ALLEYWAY', -8.0, 1.55, -0.58, 0.36, '#d8c1ff');
+  label(downScene, '↓ ALLEY', -9.05, 0.65, -0.58, 0.28, '#ead1f0');
 
   // club atmosphere, based on real red/purple photos
   label(downScene, 'BELOW BREAKGLASS', 0, 3.8, -3.1, 0.66);
