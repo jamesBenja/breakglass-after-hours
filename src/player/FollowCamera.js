@@ -10,7 +10,10 @@ const DEFAULTS = {
   targetHeight: 1.05,
 };
 
-/** Volume-tested camera boom with scene-specific close/POV modes. */
+const MODES = ['follow', 'close', 'first'];
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+/** Player-controlled camera with obstruction-aware third-person framing. */
 export class FollowCamera {
   constructor(aspect) {
     this.camera = new PerspectiveCamera(DEFAULTS.fov, aspect, 0.08, 160);
@@ -26,18 +29,17 @@ export class FollowCamera {
     this.initialized = false;
     this.config = { ...DEFAULTS };
     this.mode = this.preferredMode = 'follow';
+    this.cameraYawOffset = 0;
   }
 
   configure(offset, position, collision, options = {}) {
     this.config = { ...DEFAULTS, ...options };
-    this.preferredMode = this.config.mode ?? 'follow';
+    this.preferredMode = MODES.includes(this.config.mode) ? this.config.mode : 'follow';
     this.mode = this.preferredMode;
     this.homeYaw = Math.atan2(offset[0], offset[2]);
     this.yaw = this.yawTarget = this.homeYaw;
-    this.pitch = this.config.pitch;
-    this.distance = this.distanceTarget = this.config.distance;
-    this.camera.fov = this.config.fov;
-    this.camera.updateProjectionMatrix();
+    this.cameraYawOffset = 0;
+    this.applyMode(this.mode, { instant: true });
     this.target.copy(position).add(new Vector3(0, this.config.targetHeight, 0));
     this.initialized = false;
     this.update(1 / 60, position, collision);
@@ -47,32 +49,76 @@ export class FollowCamera {
     return this.mode === 'first';
   }
 
-  toggleMode() {
-    if (this.mode === 'first') {
-      this.mode = this.preferredMode;
-      this.distance = this.distanceTarget = this.config.distance;
-      this.pitch = this.config.pitch;
-      this.camera.fov = this.config.fov;
-    } else {
-      this.mode = 'first';
-      this.camera.fov = Math.max(68, this.config.fov);
+  modeSettings(mode = this.mode) {
+    if (mode === 'first') {
+      return {
+        fov: Math.max(70, this.config.fov),
+        distance: 0,
+        pitch: 0,
+      };
+    }
+    if (mode === 'close') {
+      return {
+        fov: Math.max(62, this.config.fov),
+        distance: clamp(
+          this.config.closeDistance ?? Math.min(4.4, this.config.distance * 0.58),
+          Math.min(1.35, this.config.minDistance),
+          this.config.maxDistance,
+        ),
+        pitch: this.config.closePitch ?? clamp(this.config.pitch * 0.72, 0.3, 0.72),
+      };
+    }
+    return {
+      fov: this.config.fov,
+      distance: this.config.distance,
+      pitch: this.config.pitch,
+    };
+  }
+
+  applyMode(mode, { instant = false } = {}) {
+    this.mode = MODES.includes(mode) ? mode : 'follow';
+    const settings = this.modeSettings(this.mode);
+    this.camera.fov = settings.fov;
+    if (!this.isFirstPerson) {
+      this.distanceTarget = clamp(
+        settings.distance,
+        Math.min(1.35, this.config.minDistance),
+        this.config.maxDistance,
+      );
+      if (instant) {
+        this.distance = this.distanceTarget;
+        this.pitch = settings.pitch;
+      }
     }
     this.camera.updateProjectionMatrix();
     this.initialized = false;
     return this.mode;
   }
 
+  setMode(mode) {
+    return this.applyMode(mode);
+  }
+
+  toggleMode() {
+    const index = Math.max(0, MODES.indexOf(this.mode));
+    return this.applyMode(MODES[(index + 1) % MODES.length]);
+  }
+
   orbit(amount) {
     this.yawTarget += amount;
   }
+
   recenter() {
     this.yawTarget = this.homeYaw;
+    this.cameraYawOffset = 0;
   }
+
   zoom(amount) {
     if (this.isFirstPerson) return;
-    this.distanceTarget = Math.max(
-      this.config.minDistance,
-      Math.min(this.config.maxDistance, this.distanceTarget + amount),
+    this.distanceTarget = clamp(
+      this.distanceTarget + amount,
+      Math.min(1.35, this.config.minDistance),
+      this.config.maxDistance,
     );
   }
 
@@ -83,13 +129,31 @@ export class FollowCamera {
     };
   }
 
-  boom(pitch, out) {
-    const horizontal = Math.cos(pitch) * this.distance;
+  boomAt(yaw, pitch, distance, out) {
+    const horizontal = Math.cos(pitch) * distance;
     return out.set(
-      this.target.x + Math.sin(this.yaw) * horizontal,
-      this.target.y + Math.sin(pitch) * this.distance,
-      this.target.z + Math.cos(this.yaw) * horizontal,
+      this.target.x + Math.sin(yaw) * horizontal,
+      this.target.y + Math.sin(pitch) * distance,
+      this.target.z + Math.cos(yaw) * horizontal,
     );
+  }
+
+  boom(pitch, out) {
+    return this.boomAt(this.yaw + this.cameraYawOffset, pitch, this.distance, out);
+  }
+
+  bestObstructionOffset(collision, pitch) {
+    if (!collision) return { offset: 0, hit: { fraction: 1, target: null } };
+    const offsets = this.mode === 'close' ? [0, 0.3, -0.3, 0.58, -0.58] : [0, 0.28, -0.28, 0.55, -0.55, 0.82, -0.82];
+    let best = null;
+    for (const offset of offsets) {
+      this.boomAt(this.yaw + offset, pitch, this.distance, this.candidate);
+      const hit = collision.cameraCast(this.target, this.candidate, 0.32);
+      // Prefer clear sightlines, but do not swing around a wall unless the improvement is real.
+      const score = hit.fraction - Math.abs(offset) * 0.055;
+      if (!best || score > best.score) best = { offset, hit, score };
+    }
+    return best;
   }
 
   update(dt, position, collision) {
@@ -111,53 +175,36 @@ export class FollowCamera {
       return;
     }
 
+    const settings = this.modeSettings();
     this.distance += (this.distanceTarget - this.distance) * damp(5);
+    this.pitch += (settings.pitch - this.pitch) * damp(7);
     this.target.x = position.x;
     this.target.z = position.z;
     this.target.y += (position.y + this.config.targetHeight - this.target.y) * damp(12);
     this.target.y = Math.max(position.y + 0.78, this.target.y);
 
-    const basePitch = this.config.pitch;
-    let wantedPitch = basePitch;
-    if (collision) {
-      const pitches =
-        this.mode === 'follow'
-          ? [0.8, 0.95, 1.1, 1.25, 1.4, 1.51, 1.565]
-          : [
-              basePitch,
-              Math.min(1.5, basePitch + 0.18),
-              Math.min(1.5, basePitch + 0.36),
-              Math.min(1.5, basePitch + 0.56),
-              Math.min(1.52, basePitch + 0.78),
-              1.565,
-            ];
-      for (const pitch of pitches) {
-        wantedPitch = pitch;
-        this.boom(pitch, this.candidate);
-        if (collision.cameraCast(this.target, this.candidate, 0.5).fraction > 0.94) break;
-      }
-    }
-    this.pitch = this.initialized
-      ? this.pitch + (wantedPitch - this.pitch) * damp(wantedPitch > this.pitch ? 10 : 2.2)
-      : wantedPitch;
+    const best = this.bestObstructionOffset(collision, this.pitch);
+    const targetOffset = best.hit.fraction > 0.9 ? best.offset : 0;
+    this.cameraYawOffset += (targetOffset - this.cameraYawOffset) * damp(targetOffset ? 8 : 4.5);
+
     this.boom(this.pitch, this.desired);
     if (this.initialized) this.desired.lerpVectors(this.camera.position, this.desired, damp(10));
-    const hit = collision?.cameraCast(this.target, this.desired, 0.28) ?? {
+    const hit = collision?.cameraCast(this.target, this.desired, 0.3) ?? {
       fraction: 1,
       target: null,
     };
     this.collisionTarget = hit.target;
     const distance = this.target.distanceTo(this.desired);
     const fraction =
-      hit.fraction < 1 ? Math.max(0, hit.fraction - 0.08 / Math.max(distance, 0.01)) : 1;
+      hit.fraction < 1 ? Math.max(0.05, hit.fraction - 0.12 / Math.max(distance, 0.01)) : 1;
     this.camera.position.lerpVectors(this.target, this.desired, fraction);
     this.clearance = this.camera.position.distanceTo(this.target);
 
     this.look.copy(this.target);
     const anticipation =
       this.mode === 'close'
-        ? Math.min(0.85, this.clearance * 0.12)
-        : Math.min(2.4, this.clearance * 0.18);
+        ? Math.min(0.7, this.clearance * 0.1)
+        : Math.min(1.9, this.clearance * 0.14);
     this.look.x -= Math.sin(this.yaw) * anticipation;
     this.look.z -= Math.cos(this.yaw) * anticipation;
     this.camera.lookAt(this.look);
