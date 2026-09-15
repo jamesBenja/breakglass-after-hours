@@ -104,11 +104,7 @@ test('mobile unlock primes an output source during the gesture before resume set
   assert.equal(h.engine._audioReady, true);
 
   await h.engine.suspend();
-  assert.equal(
-    h.engine._outputPrimed,
-    false,
-    'background suspension re-arms gesture priming',
-  );
+  assert.equal(h.engine._outputPrimed, false, 'background suspension re-arms gesture priming');
   assert.equal(h.engine._audioReady, false);
 
   await game.dispose();
