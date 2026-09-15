@@ -1,6 +1,12 @@
 import { levels } from '../world/levels.js';
 import { createLevel } from './createLevel.js';
 import { buildBelowBlockout, buildBelowFixtures } from './geometry/belowBlockout.js';
+import { buildTakeABreakFurniture } from './geometry/roomFurniture.js';
+
+const buildFurnishedBelowFixtures = (root, definition) => {
+  buildBelowFixtures(root, definition);
+  buildTakeABreakFurniture(root, definition);
+};
 
 const downstairsWithMaddox = {
   ...levels.downstairs,
@@ -26,6 +32,6 @@ const downstairsWithMaddox = {
 export const createBelowScene = (assets) =>
   createLevel(
     downstairsWithMaddox,
-    { architecture: buildBelowBlockout, fixtures: buildBelowFixtures },
+    { architecture: buildBelowBlockout, fixtures: buildFurnishedBelowFixtures },
     assets,
   );
