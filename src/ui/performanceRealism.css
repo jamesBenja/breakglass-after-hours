@@ -1,0 +1,141 @@
+.dj-phase-meter {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(4, 6, 9, 0.58);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+}
+
+.dj-phase-rail {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 95, 95, 0.42), rgba(255, 255, 255, 0.2) 50%, rgba(76, 209, 255, 0.42));
+}
+
+.dj-phase-rail::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 1px;
+  height: 13px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.dj-phase-rail i {
+  position: absolute;
+  top: -3px;
+  width: 6px;
+  height: 13px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: white;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.72);
+}
+
+.dj-realism-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(9, 10, 13, 0.5);
+}
+
+.dj-realism-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.dj-realism-header button {
+  min-height: 29px;
+}
+
+.dj-realism-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.dj-loop-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dj-realism-grid button,
+.led-wall-controls button,
+.studio-loop-grid button,
+.studio-loop-builder-button {
+  min-height: 31px;
+  padding: 4px 6px;
+  font-size: 8px;
+  line-height: 1.05;
+}
+
+.led-wall-controls,
+.studio-loop-grid {
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.led-wall-controls button,
+.studio-loop-grid button {
+  flex: 1 1 72px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .dj-phase-meter {
+    grid-template-columns: 68px 1fr;
+    padding: 4px 6px;
+    font-size: 8px;
+  }
+
+  .dj-realism-controls {
+    padding: 5px;
+    gap: 4px;
+  }
+
+  .dj-realism-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dj-loop-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dj-realism-grid button {
+    min-height: 34px;
+    padding: 3px;
+    font-size: 7.5px;
+  }
+
+  .led-wall-controls,
+  .studio-loop-grid {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .led-wall-controls::-webkit-scrollbar,
+  .studio-loop-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .led-wall-controls button,
+  .studio-loop-grid button {
+    flex: 0 0 auto;
+    min-height: 30px;
+    font-size: 8px;
+  }
+}
