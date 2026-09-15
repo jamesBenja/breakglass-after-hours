@@ -66,6 +66,7 @@ export class CollisionWorld {
     return (
       this.obstacles.find(
         (o) =>
+          o.player !== false &&
           y + height > o.y1 + EPSILON &&
           y < o.y2 - EPSILON &&
           circleOverlaps(o.points, x, z, radius),
@@ -129,6 +130,7 @@ export class CollisionWorld {
   ceiling(position, nextY, height = 1.95) {
     let limit = nextY;
     for (const obstacle of this.obstacles) {
+      if (obstacle.player === false) continue;
       if (obstacle.y1 < position.y + height - EPSILON || obstacle.y1 > nextY + height) continue;
       if (circleOverlaps(obstacle.points, position.x, position.z, 0.32)) {
         limit = Math.min(limit, obstacle.y1 - height);
