@@ -2,6 +2,7 @@ import { multiplayerAvatar } from '../avatar/profile.js';
 import { RemotePlayer } from './RemotePlayer.js';
 
 const DEFAULT_ROOM = 'breakglass-main';
+const DEFAULT_SERVER = 'https://multiplayer-production-8f39.up.railway.app';
 const SEND_INTERVAL_MS = 1000 / 15;
 const RECONNECT_MAX_MS = 10_000;
 
@@ -42,7 +43,7 @@ export function resolveMultiplayerConfig() {
     globalThis.BREAKGLASS_MULTIPLAYER_URL ||
     import.meta.env?.VITE_MULTIPLAYER_URL ||
     stored ||
-    null;
+    DEFAULT_SERVER;
   return { url: websocketUrl(configured), room };
 }
 
@@ -88,9 +89,9 @@ export class MultiplayerClient {
   }
 
   start(avatar) {
-    // The optional selfie texture was promised as local-only. Multiplayer therefore shares the
-    // chosen avatar shape/style/name but deliberately never uploads that processed face image.
-    this.avatar = { ...normalizeAvatar(avatar), faceTexture: null };
+    // Selfie sharing remains opt-in. multiplayerAvatar strips the processed texture unless
+    // shareFaceMultiplayer was explicitly enabled by the player.
+    this.avatar = multiplayerAvatar(avatar);
     if (!this.url) {
       this.updatePresence('SOLO · multiplayer server not configured');
       return false;
