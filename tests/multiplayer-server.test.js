@@ -197,6 +197,21 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   assert.equal(signal.fromId, welcomeB.id);
   assert.equal(signal.data.candidate.candidate, 'test');
 
+  const longSdp = `v=0\r\n${Array.from(
+    { length: 80 },
+    (_, index) => `a=x-breakglass-${index}:${'x'.repeat(48)}\r\n`,
+  ).join('')}`;
+  assert.ok(longSdp.length > 500);
+  b.send({
+    type: 'signal',
+    targetId: welcomeA.id,
+    data: { description: { type: 'offer', sdp: longSdp } },
+  });
+  const descriptionSignal = await a.next('signal');
+  assert.equal(descriptionSignal.fromId, welcomeB.id);
+  assert.equal(descriptionSignal.data.description.type, 'offer');
+  assert.equal(descriptionSignal.data.description.sdp, longSdp);
+
   const health = await fetch(`http://127.0.0.1:${port}/health`).then((response) => response.json());
   assert.deepEqual(health, { ok: true, rooms: 1, players: 2 });
 
