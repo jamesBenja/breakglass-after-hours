@@ -1,6 +1,7 @@
 import { CanvasTexture, Color, LinearFilter, SRGBColorSpace } from 'three';
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, Number(value) || 0));
+const modulo = (value, divisor) => ((value % divisor) + divisor) % divisor;
 const EFFECTS = ['static', 'crawl', 'pulse', 'wave', 'strobe'];
 const PALETTES = [
   { name: 'PINK / BLACK', foreground: '#ff4fb8', background: '#09030c' },
@@ -115,6 +116,10 @@ export class LedWallSystem {
     if (signature === this.lastBroadcastState) return;
     this.lastBroadcastState = signature;
     if (this.game.multiplayer?.joined) {
+      if (world && !world.owns?.('led-wall-controller')) {
+        this.ui.warning?.('Take control of the VISUALS desk before changing the shared LED wall.');
+        return;
+      }
       this.game.multiplayer.send({ type: 'object_update', objectId: 'dj-led-wall', data: snapshot });
     } else if (world?.objects) world.objects.set('dj-led-wall', snapshot);
   }
@@ -222,7 +227,18 @@ export class LedWallSystem {
     const file = input.files?.[0];
     input.remove();
     if (!file) return false;
-    const bitmap = await createImageBitmap(file);
+    let bitmap;
+    let objectUrl = null;
+    if (typeof createImageBitmap === 'function') bitmap = await createImageBitmap(file);
+    else {
+      objectUrl = URL.createObjectURL(file);
+      bitmap = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = objectUrl;
+      });
+    }
     const canvas = this.document.createElement('canvas');
     canvas.width = 320;
     canvas.height = 96;
@@ -232,6 +248,7 @@ export class LedWallSystem {
     const height = bitmap.height * scale;
     ctx.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
     bitmap.close?.();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
     const imageData = canvas.toDataURL('image/webp', 0.68);
     if (imageData.length > 120000) {
       this.ui.warning?.('That image is still too large for the shared LED wall. Try a simpler image.');
