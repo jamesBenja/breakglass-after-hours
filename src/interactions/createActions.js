@@ -594,7 +594,22 @@ export function createActions({
       vibe: 0.3,
       baseVolume: 0.82,
     });
-    if (played) return true;
+    if (played) {
+      if (typeof CustomEvent === 'function' && globalThis.dispatchEvent)
+        globalThis.dispatchEvent(
+          new CustomEvent('breakglass:archive-audio', {
+            detail: {
+              action: 'play',
+              assetId: tape.assetId,
+              label: `Tape · ${tape.label}`,
+              loop: true,
+              vibe: 0.3,
+              baseVolume: 0.82,
+            },
+          }),
+        );
+      return true;
+    }
 
     // Last-resort signal if the remote media host refuses browser playback. It is explicitly
     // labelled as a prototype rather than pretending to be the archived performance.
@@ -643,6 +658,10 @@ export function createActions({
                 () => {
                   audio.stopAsset?.('archive');
                   audio.clearExternalTransport?.('archive');
+                  if (typeof CustomEvent === 'function' && globalThis.dispatchEvent)
+                    globalThis.dispatchEvent(
+                      new CustomEvent('breakglass:archive-audio', { detail: { action: 'stop' } }),
+                    );
                 },
               ],
               [
@@ -651,6 +670,10 @@ export function createActions({
                   state.data.archiveTape = threaded.id;
                   state.data.threadedTape = null;
                   audio.stopAsset?.('archive');
+                  if (typeof CustomEvent === 'function' && globalThis.dispatchEvent)
+                    globalThis.dispatchEvent(
+                      new CustomEvent('breakglass:archive-audio', { detail: { action: 'stop' } }),
+                    );
                   saveState();
                   tapeMachinePanel();
                 },
@@ -868,7 +891,19 @@ export function createActions({
       if (id === 'nora' && photos) characterActions.push(['Pose for a photo', takeNoraPhoto]);
       if (id === 'jace' && sceneManager.current.definition.id === 'upstairs')
         characterActions.push(['Ask about the Neve room', neveConsolePanel]);
-      if (id === 'james' && sceneManager.current.definition.id === 'upstairs')
+      if (id === 'james' && sceneManager.current.definition.id === 'upstairs') {
+        characterActions.push([
+          'Show me the tape archive',
+          () =>
+            panel(
+              'JAMES · BREAKGLASS TAPES',
+              '“These reels are part of the building memory. Pick one from the archive, bring it into the historic Neve room, thread it on the machine and listen there.”',
+              [
+                ['Browse the tape archive', tapeArchivePanel],
+                ['Go to the tape machine', tapeMachinePanel],
+              ],
+            ),
+        ]);
         characterActions.push([
           state?.data?.houseDjDeskIntroduced
             ? 'Take me back to the downstairs DJ producer table'
@@ -891,6 +926,7 @@ export function createActions({
             );
           },
         ]);
+      }
       if (id === 'zander' && sceneManager.current.definition.id === 'upstairs')
         characterActions.push(['Check the tape machine', tapeMachinePanel]);
       if (id === 'boogaloo' && sceneManager.current.definition.id === 'upstairs')

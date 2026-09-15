@@ -330,8 +330,8 @@ export function installDjPerformanceRealism(game, ui) {
     return result;
   };
 
-  mixer.playDeck = async (deckId) => {
-    const result = await basePlayDeck(deckId);
+  mixer.playDeck = async (deckId, offset = 0) => {
+    const result = await basePlayDeck(deckId, offset);
     const deck = mixer.decks[deckId];
     if (result && deck) {
       ensureState(deck);

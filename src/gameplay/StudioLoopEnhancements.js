@@ -122,17 +122,12 @@ function enhancePlayback(playback, session) {
     loopSeconds(activeSession);
   playback.loopSteps = (activeSession = playback.session ?? session) =>
     Math.max(16, activeSession.loopBars * 16);
-  playback.transportPosition = () => {
-    if (!playback.audio.context || !playback.playing) return 0;
-    const activeSession = playback.session ?? session;
-    const elapsed = Math.max(0, playback.audio.context.currentTime - playback.transportStartedAt);
-    if (!activeSession.loopEnabled) return elapsed;
-    return elapsed % playback.loopDuration(activeSession);
-  };
+  playback.transportPosition = () => playback.position?.() ?? 0;
 
   const baseStartAlignedAssets = playback.startAlignedAssets.bind(playback);
-  playback.startAlignedAssets = (activeSession, buffers) => {
-    baseStartAlignedAssets(activeSession, buffers);
+  playback.startAlignedAssets = (activeSession, buffers, offset = 0) => {
+    baseStartAlignedAssets(activeSession, buffers, offset);
+    playback.transportOffset = Math.max(0, Number(offset) || 0);
     playback.transportStartedAt = playback.audio.context.currentTime + 0.06;
     if (!activeSession.loopEnabled) return;
     const end = loopSeconds(activeSession);
@@ -145,9 +140,10 @@ function enhancePlayback(playback, session) {
   };
 
   const baseStartNativeAssets = playback.startNativeAssets.bind(playback);
-  playback.startNativeAssets = async (activeSession) => {
-    const result = await baseStartNativeAssets(activeSession);
+  playback.startNativeAssets = async (activeSession, offset = 0) => {
+    const result = await baseStartNativeAssets(activeSession, offset);
     if (!result) return false;
+    playback.transportOffset = Math.max(0, Number(offset) || 0);
     playback.transportStartedAt = playback.audio.context?.currentTime ?? 0;
     if (playback.nativeSyncTimer) playback.timers.clearInterval(playback.nativeSyncTimer);
     playback.nativeSyncTimer = playback.timers.setInterval(() => {
@@ -167,9 +163,10 @@ function enhancePlayback(playback, session) {
   };
 
   const basePlay = playback.play.bind(playback);
-  playback.play = async (activeSession) => {
+  playback.play = async (activeSession, offset = 0) => {
     enhanceSession(activeSession);
-    const result = await basePlay(activeSession);
+    const result = await basePlay(activeSession, offset);
+    playback.transportOffset = Math.max(0, Number(offset) || 0);
     playback.transportStartedAt = playback.audio.context?.currentTime ?? 0;
     return result;
   };
@@ -196,6 +193,7 @@ function enhancePlayback(playback, session) {
   playback.stop = () => {
     if (playback.nativeSyncTimer) playback.timers.clearInterval(playback.nativeSyncTimer);
     playback.nativeSyncTimer = null;
+    playback.transportOffset = 0;
     playback.transportStartedAt = 0;
     return baseStop();
   };
