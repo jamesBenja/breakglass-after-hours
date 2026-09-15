@@ -1,0 +1,240 @@
+name: Apply Performance Realism Integration
+
+on:
+  push:
+    branches:
+      - feat/performance-realism-pass
+    paths:
+      - .github/workflows/apply-performance-realism-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/performance-realism-pass
+
+      - name: Integrate DJ, LED and studio systems
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # --- Studio loop persistence + console entry point ---
+          path = Path('src/gameplay/StudioLoopEnhancements.js')
+          text = path.read_text()
+          old = """export function installStudioLoopEnhancements(game, ui) {
+            enhanceSession(game.studio);
+            enhancePlayback(game.studioPlayback, game.studio);
+            game.showStudioLoopBuilder = () => buildLoopPanel(game, ui);
+            return game.studio;
+          }
+          """
+          new = """export function installStudioLoopEnhancements(game, ui) {
+            const saved = game.state?.data?.studio ?? {};
+            game.studio.loopEnabled = saved.loopEnabled === true;
+            game.studio.loopBars = LOOP_BARS.includes(Number(saved.loopBars)) ? Number(saved.loopBars) : 4;
+            game.studio.quantize = GRID_DIVISIONS[saved.quantize] ? saved.quantize : '1/16';
+            game.studio.swing = clamp(saved.swing, 0, 0.45);
+            enhanceSession(game.studio);
+            enhancePlayback(game.studioPlayback, game.studio);
+            game.showStudioLoopBuilder = () => buildLoopPanel(game, ui);
+
+            if (!ui._studioLoopBuilderPatched && typeof ui.studioMixer === 'function') {
+              const baseStudioMixer = ui.studioMixer.bind(ui);
+              ui.studioMixer = (session, options = {}) => {
+                const result = baseStudioMixer(session, options);
+                const button = ui.document.createElement('button');
+                button.type = 'button';
+                button.textContent = 'LOOP / SONG BUILDER';
+                button.className = 'studio-loop-builder-button';
+                button.onclick = () => buildLoopPanel(game, ui);
+                ui.buttons?.appendChild(button);
+                return result;
+              };
+              ui._studioLoopBuilderPatched = true;
+            }
+            return game.studio;
+          }
+          """
+          if old not in text:
+              raise SystemExit('StudioLoop install block not found')
+          path.write_text(text.replace(old, new))
+
+          # Keep the backing loop running while a new playable take is recorded.
+          path = Path('src/interactions/createActions.js')
+          text = path.read_text()
+          old = "    studioPlayback?.stop?.();\n    dj?.stop?.();"
+          new = "    if (!studio?.loopEnabled) studioPlayback?.stop?.();\n    dj?.stop?.();"
+          if old not in text:
+              raise SystemExit('startPerformance transport block not found')
+          path.write_text(text.replace(old, new, 1))
+
+          # --- Below booth collision/interaction layout ---
+          path = Path('src/world/levels.js')
+          text = path.read_text()
+          old = "        { x1: 0.0, x2: 3.15, z1: -3.15, z2: -1.55 },"
+          new = "        { x1: -0.95, x2: 5.15, z1: -3.25, z2: -1.2 },"
+          if old not in text:
+              raise SystemExit('crowd booth avoid region not found')
+          text = text.replace(old, new, 1)
+          old = """      dj: anchor('DJ booth', [1.5, 0, -2.15], 1.7, 'dj'),
+                lightingDesk: anchor('Lighting / laser controller', [3.45, 0, -2.15], 1.25, 'clubLighting'),
+          """
+          new = """      dj: anchor('DJ booth', [1.5, 0, -2.15], 2.05, 'dj'),
+                lightingDesk: anchor('Lighting / laser controller', [4.28, 0, -1.62], 1.15, 'clubLighting'),
+                ledWallDesk: anchor('DJ LED wall controller', [4.55, 0, -2.3], 1.15, 'ledWall'),
+          """
+          if old not in text:
+              raise SystemExit('DJ / lighting anchors not found')
+          path.write_text(text.replace(old, new, 1))
+
+          # --- Multiplayer: new physical deck controls + shared LED wall ---
+          path = Path('src/multiplayer/SharedWorld.js')
+          text = path.read_text()
+          text = text.replace("  'clubLighting',\n", "  'clubLighting',\n  'ledWall',\n", 1)
+          text = text.replace(
+              "    if (target.action === 'clubLighting') return 'lighting-desk';\n",
+              "    if (target.action === 'clubLighting') return 'lighting-desk';\n    if (target.action === 'ledWall') return 'led-wall-controller';\n",
+              1,
+          )
+          text = text.replace(
+              "    const installation = this.objects.get('take-a-break-installation');\n    if (installation) this.applyInstallation(installation);\n",
+              "    const installation = this.objects.get('take-a-break-installation');\n    if (installation) this.applyInstallation(installation);\n    const ledWall = this.objects.get('dj-led-wall');\n    if (ledWall) this.game.ledWall?.apply?.(ledWall, { remote: true });\n",
+              1,
+          )
+          old_methods = """      'setLoop',
+                'hotCue',
+          """
+          new_methods = """      'setLoop',
+                'setPreciseLoop',
+                'hotCue',
+                'setHotCue',
+                'triggerHotCue',
+                'beatJump',
+                'jog',
+                'setDeviceMode',
+                'setVinylRpm',
+                'toggleMotor',
+                'setPlatterHeld',
+          """
+          if old_methods not in text:
+              raise SystemExit('SharedWorld DJ method list not found')
+          text = text.replace(old_methods, new_methods, 1)
+          old_apply = """        dj.setEcho?.(deckId, target.echo);
+                  if (target.playing && !deck.playing) await dj.playDeck(deckId);
+          """
+          new_apply = """        dj.setEcho?.(deckId, target.echo);
+                  if (target.deviceMode) dj.setDeviceMode?.(deckId, target.deviceMode);
+                  if (target.deviceMode === 'vinyl' && target.vinylRpm) dj.setVinylRpm?.(deckId, target.vinylRpm);
+                  deck.motorOn = target.motorOn !== false;
+                  deck.platterHeld = target.platterHeld === true;
+                  if (Array.isArray(target.cuePoints)) deck.cuePoints = target.cuePoints.slice(0, 8);
+                  if (target.playing && !deck.playing) await dj.playDeck(deckId);
+          """
+          if old_apply not in text:
+              raise SystemExit('SharedWorld apply DJ insertion point not found')
+          text = text.replace(old_apply, new_apply, 1)
+          text = text.replace(
+              "if (Math.abs(current - expected) > 0.18) dj.restartDeckAt(deckId, expected);",
+              "if (Math.abs(current - expected) > 0.055) dj.restartDeckAt(deckId, expected);",
+              1,
+          )
+          text = text.replace(
+              "          if (target.loopBeats) dj.setLoop(deckId, target.loopBeats);\n",
+              "          if (target.loopBeats) (dj.setPreciseLoop ?? dj.setLoop).call(dj, deckId, target.loopBeats);\n",
+              1,
+          )
+          text = text.replace(
+              "    if (message.objectId === 'take-a-break-installation') this.applyInstallation(message.data);\n",
+              "    if (message.objectId === 'take-a-break-installation') this.applyInstallation(message.data);\n    if (message.objectId === 'dj-led-wall') this.game.ledWall?.apply?.(message.data, { remote: true });\n",
+              1,
+          )
+          path.write_text(text)
+
+          # --- Server: preserve detailed DJ state + allow the shared LED image payload ---
+          path = Path('server/multiplayerServer.mjs')
+          text = path.read_text()
+          insert_after = """function updateObject(socket, message) {
+          """
+          led_sanitizer = """function sanitizeLedWall(value = {}) {
+            const color = (input, fallback) =>
+              typeof input === 'string' && /^#[0-9a-f]{6}$/i.test(input) ? input : fallback;
+            const imageData =
+              typeof value.imageData === 'string' &&
+              value.imageData.length <= 140_000 &&
+              /^data:image\\/(?:png|jpeg|webp);base64,/i.test(value.imageData)
+                ? value.imageData
+                : null;
+            return {
+              text: sanitizeText(value.text || 'BREAKGLASS', 80) || 'BREAKGLASS',
+              foreground: color(value.foreground, '#ff4fb8'),
+              background: color(value.background, '#09030c'),
+              effect: ['static', 'crawl', 'pulse', 'wave', 'strobe'].includes(value.effect)
+                ? value.effect
+                : 'crawl',
+              speed: clamp(value.speed, 0.05, 2),
+              brightness: clamp(value.brightness, 0.1, 1),
+              graphic: ['text', 'bars', 'rings', 'checker', 'image'].includes(value.graphic)
+                ? value.graphic
+                : 'text',
+              imageData,
+            };
+          }
+
+          """
+          if 'function sanitizeLedWall' not in text:
+              if insert_after not in text:
+                  raise SystemExit('server updateObject insertion point not found')
+              text = text.replace(insert_after, led_sanitizer + insert_after, 1)
+          old_object = """  const room = roomFor(player.roomId);
+            const data = sanitizeJson(message.data);
+            const serialized = JSON.stringify(data);
+            if (serialized.length > 16_000) return;
+          """
+          new_object = """  const room = roomFor(player.roomId);
+            const data = objectId === 'dj-led-wall' ? sanitizeLedWall(message.data) : sanitizeJson(message.data);
+            const serialized = JSON.stringify(data);
+            const maxBytes = objectId === 'dj-led-wall' ? 150_000 : 16_000;
+            if (serialized.length > maxBytes) return;
+          """
+          if old_object not in text:
+              raise SystemExit('server object sanitizer block not found')
+          text = text.replace(old_object, new_object, 1)
+          text = text.replace(
+              "loopBeats: [0, 4, 8, 16].includes(Number(deck.loopBeats)) ? Number(deck.loopBeats) : 0,",
+              "loopBeats: [0, 1, 2, 4, 8, 16, 32].includes(Number(deck.loopBeats)) ? Number(deck.loopBeats) : 0,",
+              1,
+          )
+          old_position = """      position: clamp(deck.position, 0, 60 * 60 * 4),
+          """
+          new_position = """      position: clamp(deck.position, 0, 60 * 60 * 4),
+                deviceMode: ['cdj', 'vinyl'].includes(deck.deviceMode) ? deck.deviceMode : 'cdj',
+                vinylRpm: Math.abs(finite(deck.vinylRpm, 33.333) - 45) < 1 ? 45 : 33.333,
+                motorOn: deck.motorOn !== false,
+                platterHeld: deck.platterHeld === true,
+                cuePoints: Array.isArray(deck.cuePoints)
+                  ? deck.cuePoints.slice(0, 8).map((value) =>
+                      Number.isFinite(Number(value)) ? clamp(value, 0, 60 * 60 * 4) : null,
+                    )
+                  : [],
+                loopStart: clamp(deck.loopStart, 0, 60 * 60 * 4),
+                loopEnd: clamp(deck.loopEnd, 0, 60 * 60 * 4),
+          """
+          if old_position not in text:
+              raise SystemExit('server DJ position field not found')
+          text = text.replace(old_position, new_position, 1)
+          path.write_text(text)
+          PY
+
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/gameplay/StudioLoopEnhancements.js src/interactions/createActions.js src/world/levels.js src/multiplayer/SharedWorld.js server/multiplayerServer.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "Integrate performance realism systems"
+          git push origin HEAD:feat/performance-realism-pass
