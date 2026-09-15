@@ -20,7 +20,7 @@ export function createGameSpace() {
       name: 'Live Room · drum riser',
     }),
     prop('overlook-step', 557, 849, 0.8, 1.55, 0.3, 0xbba166, { name: 'Overlook step' }),
-    prop('live-overlook', 583, 849, 1.8, 1.55, 1.1, {
+    prop('live-overlook', 583, 849, 1.8, 1.55, 1.1, 0x98724f, {
       name: 'Live Room · polygon overlook',
     }),
     prop('overlook-upper-case', 568, 850, 0.8, 0.85, 2.1, 0x527075, {
@@ -63,7 +63,7 @@ export function createGameSpace() {
       kind: 'equipment',
       name: 'Spectra control-room couch',
     }),
-    prop('mix-sofa-side', 312, 770, 0.86, 2.15, 0.8, 0x60514b, {
+    prop('mix-sofa-side', 292, 770, 0.86, 2.15, 0.8, 0x60514b, {
       kind: 'equipment',
       name: 'Spectra control-room loveseat',
       rotationY: Math.PI / 2,
