@@ -112,11 +112,20 @@ export class RealtimeMedia {
       const stream = await navigator.mediaDevices.getUserMedia(
         kind === 'audio'
           ? { audio: { echoCancellation: true, noiseSuppression: true }, video: false }
-          : { audio: false, video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } },
+          : {
+              audio: false,
+              video: {
+                facingMode: 'user',
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+              },
+            },
       );
       return stream.getTracks().find((track) => track.kind === kind) ?? null;
     } catch (error) {
-      this.ui.warning?.(`${kind === 'audio' ? 'Microphone' : 'Camera'} permission: ${error.message}`);
+      this.ui.warning?.(
+        `${kind === 'audio' ? 'Microphone' : 'Camera'} permission: ${error.message}`,
+      );
       return null;
     }
   }
@@ -126,13 +135,13 @@ export class RealtimeMedia {
       this.audioEnabled = false;
       this.audioTrack?.stop();
       this.audioTrack = null;
-      await this.removeLocalKind('audio');
+      await this.setLocalKind('audio', null);
     } else {
       const track = await this.requestTrack('audio');
       if (!track) return;
       this.audioTrack = track;
       this.audioEnabled = true;
-      await this.addLocalTrack(track);
+      await this.setLocalKind('audio', track);
     }
     this.syncButtons();
     this.sendMediaStatus();
@@ -143,13 +152,13 @@ export class RealtimeMedia {
       this.videoEnabled = false;
       this.videoTrack?.stop();
       this.videoTrack = null;
-      await this.removeLocalKind('video');
+      await this.setLocalKind('video', null);
     } else {
       const track = await this.requestTrack('video');
       if (!track) return;
       this.videoTrack = track;
       this.videoEnabled = true;
-      await this.addLocalTrack(track);
+      await this.setLocalKind('video', track);
     }
     this.syncButtons();
     this.sendMediaStatus();
@@ -170,18 +179,10 @@ export class RealtimeMedia {
     });
   }
 
-  async addLocalTrack(track) {
+  async setLocalKind(kind, track) {
     for (const peer of this.peers.values()) {
-      if (peer.pc.getSenders().some((sender) => sender.track?.kind === track.kind)) continue;
-      peer.pc.addTrack(track, new MediaStream([track]));
-    }
-  }
-
-  async removeLocalKind(kind) {
-    for (const peer of this.peers.values()) {
-      for (const sender of peer.pc.getSenders()) {
-        if (sender.track?.kind === kind) peer.pc.removeTrack(sender);
-      }
+      const sender = peer.senders?.[kind];
+      if (sender) await sender.replaceTrack(track);
     }
   }
 
@@ -192,6 +193,8 @@ export class RealtimeMedia {
     if (this.peers.size >= MAX_RTC_PEERS) return null;
 
     const pc = new RTCPeerConnection(RTC_CONFIG);
+    const audioTransceiver = pc.addTransceiver('audio', { direction: 'sendrecv' });
+    const videoTransceiver = pc.addTransceiver('video', { direction: 'sendrecv' });
     peer = {
       id,
       pc,
@@ -200,10 +203,14 @@ export class RealtimeMedia {
       isSettingRemoteAnswerPending: false,
       polite: String(this.client.localId) > String(id),
       stream: new MediaStream(),
+      senders: {
+        audio: audioTransceiver.sender,
+        video: videoTransceiver.sender,
+      },
     };
     this.peers.set(id, peer);
-    if (this.audioTrack) pc.addTrack(this.audioTrack, new MediaStream([this.audioTrack]));
-    if (this.videoTrack) pc.addTrack(this.videoTrack, new MediaStream([this.videoTrack]));
+    if (this.audioTrack) void audioTransceiver.sender.replaceTrack(this.audioTrack);
+    if (this.videoTrack) void videoTransceiver.sender.replaceTrack(this.videoTrack);
 
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) this.client.send({ type: 'signal', targetId: id, data: { candidate } });
@@ -297,7 +304,7 @@ export class RealtimeMedia {
       const video = this.document.createElement('video');
       video.autoplay = true;
       video.playsInline = true;
-      video.muted = false;
+      video.muted = true;
       const audio = this.document.createElement('audio');
       audio.autoplay = true;
       const label = this.document.createElement('small');
