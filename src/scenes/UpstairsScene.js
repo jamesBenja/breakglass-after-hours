@@ -1,9 +1,11 @@
 import { createUpstairsDefinition } from '../world/upstairs/definition.js';
 import { createLevel } from './createLevel.js';
 import { buildUpstairsBlockout, buildUpstairsFixtures } from './geometry/upstairsBlockout.js';
+import { buildStudioFurniture } from './geometry/roomFurniture.js';
 
 const buildOrientedUpstairsFixtures = (root, definition) => {
   buildUpstairsFixtures(root, definition);
+  buildStudioFurniture(root, definition);
   // The storage archive fixture used to expose its labels/boxes toward the wall. Rotate only
   // the rendered rack, leaving its footprint/collision envelope unchanged.
   const tapeRack = root.getObjectByName('tape-archive-shelves');
