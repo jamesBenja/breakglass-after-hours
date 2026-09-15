@@ -90,7 +90,7 @@ const a = await openSocket();
 a.send(JSON.stringify(joinPayload('Smoke A', 0)));
 const welcomeA = await onceMessage(a, (message) => message.type === 'welcome');
 assert.ok(welcomeA.id);
-assert.ok(welcomeA.world?.party, 'Phase 2 welcome includes authoritative party state');
+assert.ok(welcomeA.world?.party);
 
 const joinedOnA = onceMessage(a, (message) => message.type === 'player_joined');
 const b = await openSocket();
@@ -121,6 +121,19 @@ b.send(
 const movement = await movementOnA;
 assert.deepEqual(movement.state.position, [4.25, 0, -1.5]);
 
+const emoteOnA = onceMessage(
+  a,
+  (message) =>
+    message.type === 'emote' && message.fromId === welcomeB.id && message.kind === 'highfive',
+);
+b.send(JSON.stringify({ type: 'emote', kind: 'highfive', targetId: welcomeA.id }));
+const emote = await emoteOnA;
+assert.equal(emote.targetId, welcomeA.id);
+
+const claimOnA = onceMessage(
+  a,
+  (message) => message.type === 'resource_result' && message.requestId === 'smoke-claim-a',
+);
 const resourceOnB = onceMessage(
   b,
   (message) => message.type === 'resource' && message.resource?.id === 'dj-booth',
@@ -128,62 +141,60 @@ const resourceOnB = onceMessage(
 a.send(
   JSON.stringify({
     type: 'resource_claim',
-    requestId: 'smoke-dj-a',
+    requestId: 'smoke-claim-a',
     resourceId: 'dj-booth',
     sceneId: 'downstairs',
   }),
 );
-const claimA = await onceMessage(
-  a,
-  (message) => message.type === 'resource_result' && message.requestId === 'smoke-dj-a',
-);
-assert.equal(claimA.ok, true);
-assert.equal(claimA.resource.ownerId, welcomeA.id);
+const claim = await claimOnA;
 await resourceOnB;
+assert.equal(claim.ok, true);
+assert.equal(claim.resource.ownerId, welcomeA.id);
 
+const deniedOnB = onceMessage(
+  b,
+  (message) => message.type === 'resource_result' && message.requestId === 'smoke-claim-b',
+);
 b.send(
   JSON.stringify({
     type: 'resource_claim',
-    requestId: 'smoke-dj-b',
+    requestId: 'smoke-claim-b',
     resourceId: 'dj-booth',
     sceneId: 'downstairs',
   }),
 );
-const claimB = await onceMessage(
-  b,
-  (message) => message.type === 'resource_result' && message.requestId === 'smoke-dj-b',
-);
-assert.equal(claimB.ok, false);
-assert.equal(claimB.resource.ownerId, welcomeA.id);
+const denied = await deniedOnB;
+assert.equal(denied.ok, false);
+assert.equal(denied.resource.ownerId, welcomeA.id);
 
 const djOnB = onceMessage(b, (message) => message.type === 'dj_state');
 a.send(
   JSON.stringify({
     type: 'dj_update',
     state: {
-      crossfader: 0.2,
-      metrics: { playing: true, vibe: 0.81, mixQuality: 0.92, energy: 0.73 },
+      crossfader: 0.15,
+      metrics: { playing: true, vibe: 0.86, mixQuality: 0.92, energy: 0.77 },
       decks: {
         A: {
           trackId: 'got-you-dancin',
           playing: true,
+          level: 0.92,
+          low: 0.04,
+          high: 0.08,
           bpm: 124,
-          level: 0.9,
-          low: 0,
-          high: 0,
-          filter: 0,
-          reverb: 0.1,
-          echo: 0,
+          filter: 0.1,
+          reverb: 0.12,
+          echo: 0.08,
           loopBeats: 0,
           position: 8.5,
         },
         B: {
           trackId: 'atrakar',
           playing: false,
-          bpm: 124,
-          level: 0.85,
+          level: 0.88,
           low: 0,
           high: 0,
+          bpm: 124,
           filter: 0,
           reverb: 0,
           echo: 0,
@@ -241,7 +252,10 @@ b.send(
 const signal = await signalOnA;
 assert.equal(signal.data.candidate.candidate, 'phase2-smoke-candidate');
 
-const partyOnA = onceMessage(a, (message) => message.type === 'party_state');
+const partyOnA = onceMessage(
+  a,
+  (message) => message.type === 'party_state' && Number(message.state?.rowdyLevel) > 0.08,
+);
 b.send(JSON.stringify({ type: 'party_action', action: 'rowdy' }));
 const partyState = await partyOnA;
 assert.ok(partyState.state.rowdyLevel > 0.08);
