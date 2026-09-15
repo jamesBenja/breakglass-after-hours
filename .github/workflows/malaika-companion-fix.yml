@@ -1,0 +1,57 @@
+name: Malaika companion fix
+
+on:
+  push:
+    branches:
+      - feat/sam-malaika-group-photo
+    paths:
+      - .github/workflows/malaika-companion-fix.yml
+      - scripts/malaika_companion_fix.py
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sam-malaika-group-photo
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+
+      - name: Install pnpm
+        run: npm install --global pnpm@11.19.0
+
+      - name: Apply companion patch
+        run: python scripts/malaika_companion_fix.py
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format changed files
+        run: pnpm exec prettier --write src/gameplay/partyLifeEnhancements.js src/npcs/NpcSystem.js tests/character-social-pass.test.js
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build
+
+      - name: Formatting check
+        run: pnpm exec prettier --check src tests server docs/CHARACTER_REFERENCES.md
+
+      - name: Commit verified companion behavior
+        shell: bash
+        run: |
+          rm scripts/malaika_companion_fix.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src tests scripts
+          git commit -m "Keep Malaika with Nora between photo moments"
+          git push origin HEAD:feat/sam-malaika-group-photo
