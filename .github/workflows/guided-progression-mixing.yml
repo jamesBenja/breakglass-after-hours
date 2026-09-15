@@ -33,13 +33,15 @@ jobs:
         run: npm install --global pnpm@11.19.0
 
       - name: Apply gameplay architecture patch
-        run: node scripts/apply-guided-progression-mixing.mjs
+        run: |
+          node scripts/apply-guided-progression-mixing.mjs
+          node scripts/fix-guided-progression-semantics.mjs
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Format changed files
-        run: pnpm exec prettier --write src tests docs server index.html vite.config.js
+        run: pnpm exec prettier --write src tests docs scripts server index.html vite.config.js
 
       - name: Unit tests
         run: pnpm test
@@ -65,12 +67,17 @@ jobs:
           grep -q "Spectra mix challenge" src/interactions/createActions.js
           grep -q "createWorldNameplate" src/npcs/NpcSystem.js
           grep -q "alleyShortcutUnlocked" src/world/alley.js
+          grep -q "tapeArchiveAccessGranted" src/world/upstairs/definition.js
+          grep -q "storageAccessGranted" src/gameplay/BelowAlleyWorldSystem.js
 
       - name: Commit verified architecture and remove temporary automation
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f .github/workflows/guided-progression-mixing.yml scripts/apply-guided-progression-mixing.mjs
+          git rm -f \
+            .github/workflows/guided-progression-mixing.yml \
+            scripts/apply-guided-progression-mixing.mjs \
+            scripts/fix-guided-progression-semantics.mjs
           git add -A
           git commit -m "Add guided studio progression and Spectra mixing game"
           git push origin HEAD:feat/guided-progression-mixing-game
