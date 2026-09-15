@@ -1,7 +1,8 @@
 import { WebSocket } from 'ws';
 import assert from 'node:assert/strict';
 
-const endpoint = process.env.MULTIPLAYER_URL || 'wss://multiplayer-live-production.up.railway.app';
+const endpoint =
+  process.env.MULTIPLAYER_URL || 'wss://multiplayer-live-production.up.railway.app';
 const healthUrl = endpoint.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:') + '/health';
 const room = `smoke-${Date.now().toString(36)}`;
 
@@ -119,7 +120,10 @@ b.send(
 const movement = await movementOnA;
 assert.deepEqual(movement.state.position, [4.25, 0, -1.5]);
 
-const leftOnA = onceMessage(a, (message) => message.type === 'player_left' && message.id === welcomeB.id);
+const leftOnA = onceMessage(
+  a,
+  (message) => message.type === 'player_left' && message.id === welcomeB.id,
+);
 b.close(1000, 'smoke done');
 await leftOnA;
 a.close(1000, 'smoke done');
