@@ -1,0 +1,93 @@
+name: Fix Performance Realism Runtime
+
+on:
+  push:
+    branches:
+      - feat/performance-realism-pass
+    paths:
+      - .github/workflows/fix-performance-realism-runtime.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/performance-realism-pass
+      - name: Fix LED wall runtime and ownership
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/gameplay/LedWallSystem.js')
+          text = path.read_text()
+          if 'const modulo =' not in text:
+              text = text.replace(
+                  "const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, Number(value) || 0));\n",
+                  "const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, Number(value) || 0));\nconst modulo = (value, divisor) => ((value % divisor) + divisor) % divisor;\n",
+                  1,
+              )
+          old = """    if (this.game.multiplayer?.joined) {
+                this.game.multiplayer.send({ type: 'object_update', objectId: 'dj-led-wall', data: snapshot });
+              } else if (world?.objects) world.objects.set('dj-led-wall', snapshot);
+          """
+          new = """    if (this.game.multiplayer?.joined) {
+                if (world && !world.owns?.('led-wall-controller')) {
+                  this.ui.warning?.('Take control of the VISUALS desk before changing the shared LED wall.');
+                  return;
+                }
+                this.game.multiplayer.send({ type: 'object_update', objectId: 'dj-led-wall', data: snapshot });
+              } else if (world?.objects) world.objects.set('dj-led-wall', snapshot);
+          """
+          if old not in text:
+              raise SystemExit('LED publish block not found')
+          text = text.replace(old, new, 1)
+
+          old = """    const bitmap = await createImageBitmap(file);
+              const canvas = this.document.createElement('canvas');
+              canvas.width = 320;
+              canvas.height = 96;
+              const ctx = canvas.getContext('2d');
+              const scale = Math.max(canvas.width / bitmap.width, canvas.height / bitmap.height);
+              const width = bitmap.width * scale;
+              const height = bitmap.height * scale;
+              ctx.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+              bitmap.close?.();
+          """
+          new = """    let bitmap;
+              let objectUrl = null;
+              if (typeof createImageBitmap === 'function') bitmap = await createImageBitmap(file);
+              else {
+                objectUrl = URL.createObjectURL(file);
+                bitmap = await new Promise((resolve, reject) => {
+                  const image = new Image();
+                  image.onload = () => resolve(image);
+                  image.onerror = reject;
+                  image.src = objectUrl;
+                });
+              }
+              const canvas = this.document.createElement('canvas');
+              canvas.width = 320;
+              canvas.height = 96;
+              const ctx = canvas.getContext('2d');
+              const scale = Math.max(canvas.width / bitmap.width, canvas.height / bitmap.height);
+              const width = bitmap.width * scale;
+              const height = bitmap.height * scale;
+              ctx.drawImage(bitmap, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+              bitmap.close?.();
+              if (objectUrl) URL.revokeObjectURL(objectUrl);
+          """
+          if old not in text:
+              raise SystemExit('LED image bitmap block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/gameplay/LedWallSystem.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Harden shared LED wall runtime"
+          git push origin HEAD:feat/performance-realism-pass
