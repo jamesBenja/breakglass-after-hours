@@ -16,6 +16,16 @@ const rampSurface = (id, name, x1, x2, z1, z2, from, to) => ({
   ramp: { axis: 'z', from, to },
 });
 const anchor = (name, position, radius, action) => ({ name, position, radius, action });
+const cameraWall = (id, x1, x2, z1, z2, y1 = 0, y2 = 3.3) => ({
+  id,
+  x1,
+  x2,
+  z1,
+  z2,
+  y1,
+  y2,
+  player: false,
+});
 
 export const levels = {
   upstairs: createUpstairsDefinition(),
@@ -161,7 +171,30 @@ export const levels = {
         ),
         surface('studio-stair-top', 'Clark stair top landing', -7.8, -5.3, -3.5, -3.2),
       ],
-      obstacles: [],
+      obstacles: [
+        // Camera-only volumes mirror the visible Below walls. The original player traversal is
+        // intentionally preserved while the third-person camera is no longer allowed to hide
+        // behind architecture that previously existed only as render geometry.
+        cameraWall('cam-club-north-west', -6.15, 3.6, -3.63, -3.37),
+        cameraWall('cam-club-north-east', 5.6, 6.15, -3.63, -3.37),
+        cameraWall('cam-club-west-north', -6.23, -5.97, -1.25, 0.14),
+        cameraWall('cam-club-west-south', -6.23, -5.97, 1.32, 3.62),
+        cameraWall('cam-club-east-north', 5.97, 6.23, -3.62, -2.1),
+        cameraWall('cam-club-east-south', 5.97, 6.23, -0.62, 3.62),
+        cameraWall('cam-club-south', -6.15, 6.15, 3.37, 3.63),
+        cameraWall('cam-lounge-west', -10.13, -9.87, -0.52, 3.92),
+        cameraWall('cam-lounge-north', -10.1, -6.15, -0.58, -0.32),
+        cameraWall('cam-lounge-south', -10.1, -6.15, 3.72, 3.98),
+        cameraWall('cam-lounge-east', -6.33, -6.07, 1.3, 3.92),
+        cameraWall('cam-storage-west', -5.23, -4.97, 3.7, 6.58),
+        cameraWall('cam-storage-east', 1.77, 2.03, 3.7, 6.58),
+        cameraWall('cam-storage-south', -5.2, 2.0, 6.32, 6.58),
+        cameraWall('cam-service-east', 8.92, 9.18, -3.05, 6.52),
+        cameraWall('cam-service-north', 6.15, 9.18, -3.03, -2.77),
+        cameraWall('cam-service-south', 6.15, 9.18, 6.27, 6.53),
+        cameraWall('cam-coat-west', 3.32, 3.58, -5.72, -3.68),
+        cameraWall('cam-coat-east', 5.62, 5.88, -5.72, -3.68),
+      ],
     },
     anchors: {
       dj: anchor('DJ booth', [1.5, 0, -2.15], 1.7, 'dj'),
