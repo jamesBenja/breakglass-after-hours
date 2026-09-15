@@ -72,11 +72,15 @@ export class RemotePlayer {
   }
 
   applyState(state = {}, { immediate = false } = {}) {
-    const sceneId = typeof state.sceneId === 'string' ? state.sceneId : this.sceneId ?? 'alley';
+    const sceneId = typeof state.sceneId === 'string' ? state.sceneId : (this.sceneId ?? 'alley');
     this.attach(sceneId);
     const position = Array.isArray(state.position) ? state.position : [0, 0, 0];
     this.lastTargetPosition.copy(this.targetPosition);
-    this.targetPosition.set(Number(position[0]) || 0, Number(position[1]) || 0, Number(position[2]) || 0);
+    this.targetPosition.set(
+      Number(position[0]) || 0,
+      Number(position[1]) || 0,
+      Number(position[2]) || 0,
+    );
     this.targetRotationY = Number(state.rotationY) || 0;
     this.moving = state.moving === true;
     this.dancing = state.dancing === true;
@@ -98,16 +102,22 @@ export class RemotePlayer {
   update(dt) {
     const positionBlend = 1 - Math.exp(-13 * dt);
     this.object.position.lerp(this.targetPosition, positionBlend);
-    this.object.rotation.y += shortestAngle(this.object.rotation.y, this.targetRotationY) * (1 - Math.exp(-16 * dt));
+    this.object.rotation.y +=
+      shortestAngle(this.object.rotation.y, this.targetRotationY) * (1 - Math.exp(-16 * dt));
 
     const remaining = this.object.position.distanceTo(this.targetPosition);
     const packetAge = Math.max(0.001, (performance.now() - this.lastPacketAt) / 1000);
     const estimatedSpeed = this.moving ? Math.min(5.8, remaining / Math.max(dt, 1 / 120) + 1.2) : 0;
-    this.controller.velocity.x = this.moving ? estimatedSpeed * Math.sin(this.object.rotation.y) : 0;
-    this.controller.velocity.z = this.moving ? estimatedSpeed * Math.cos(this.object.rotation.y) : 0;
+    this.controller.velocity.x = this.moving
+      ? estimatedSpeed * Math.sin(this.object.rotation.y)
+      : 0;
+    this.controller.velocity.z = this.moving
+      ? estimatedSpeed * Math.cos(this.object.rotation.y)
+      : 0;
     this.controller.grounded = this.grounded;
     this.controller.seated = this.seated;
-    if (this.dancing) this.controller.danceRemaining = Math.max(this.controller.danceRemaining, 0.18);
+    if (this.dancing)
+      this.controller.danceRemaining = Math.max(this.controller.danceRemaining, 0.18);
     this.controller.animate(dt);
 
     this.gestureRemaining = Math.max(0, this.gestureRemaining - dt);

@@ -21,7 +21,8 @@ function websocketUrl(value) {
 export function resolveMultiplayerConfig() {
   const params = new URLSearchParams(location.search);
   if (params.get('offline') === '1') return { url: null, room: DEFAULT_ROOM };
-  const room = (params.get('room') || DEFAULT_ROOM).replace(/[^a-z0-9-_]/gi, '').slice(0, 48) || DEFAULT_ROOM;
+  const room =
+    (params.get('room') || DEFAULT_ROOM).replace(/[^a-z0-9-_]/gi, '').slice(0, 48) || DEFAULT_ROOM;
   const queryServer = params.get('server');
   if (queryServer) {
     try {
@@ -98,7 +99,8 @@ export class MultiplayerClient {
 
   open() {
     if (this.disposed || !this.url || !this.avatar) return;
-    if (this.socket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(this.socket.readyState)) return;
+    if (this.socket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(this.socket.readyState))
+      return;
     this.clearReconnect();
     this.updatePresence('CONNECTING · Breakglass live');
     let socket;
@@ -173,7 +175,9 @@ export class MultiplayerClient {
       this.joined = true;
       for (const player of message.players ?? []) this.addRemote(player);
       this.updatePresence();
-      this.ui.warning?.(`LIVE ROOM · ${this.remotePlayers.size + 1} ${this.remotePlayers.size ? 'people' : 'person'} connected`);
+      this.ui.warning?.(
+        `LIVE ROOM · ${this.remotePlayers.size + 1} ${this.remotePlayers.size ? 'people' : 'person'} connected`,
+      );
       return;
     }
     if (message.type === 'player_joined') {
@@ -265,7 +269,8 @@ export class MultiplayerClient {
   }
 
   update(now = performance.now()) {
-    const dt = this.lastFrameAt == null ? 0 : Math.min(0.05, Math.max(0, (now - this.lastFrameAt) / 1000));
+    const dt =
+      this.lastFrameAt == null ? 0 : Math.min(0.05, Math.max(0, (now - this.lastFrameAt) / 1000));
     this.lastFrameAt = now;
     for (const remote of this.remotePlayers.values()) remote.update(dt);
     this.maybeSendState(now);
@@ -286,21 +291,17 @@ export class MultiplayerClient {
     if (!remote) return false;
     const name = remote.avatar.displayName;
     const role = remote.avatar.role;
-    this.ui.panel(
-      name,
-      `${role.toUpperCase()} · a real player in this Breakglass room.`,
+    this.ui.panel(name, `${role.toUpperCase()} · a real player in this Breakglass room.`, [
+      ['Wave', () => this.sendEmote('wave', remote.id)],
       [
-        ['Wave', () => this.sendEmote('wave', remote.id)],
-        [
-          'Dance together',
-          () => {
-            this.game.player.dance(1.8);
-            this.sendEmote('dance', remote.id);
-          },
-        ],
-        ['High five', () => this.sendEmote('highfive', remote.id)],
+        'Dance together',
+        () => {
+          this.game.player.dance(1.8);
+          this.sendEmote('dance', remote.id);
+        },
       ],
-    );
+      ['High five', () => this.sendEmote('highfive', remote.id)],
+    ]);
     return true;
   }
 
@@ -317,8 +318,14 @@ export class MultiplayerClient {
     if (!remote) return;
     remote.emote(message.kind);
     if (message.targetId === this.localId) {
-      const labels = { wave: 'waves at you', dance: 'starts dancing with you', highfive: 'offers you a high five' };
-      this.ui.warning?.(`${remote.avatar.displayName} ${labels[message.kind] ?? 'interacts with you'}.`);
+      const labels = {
+        wave: 'waves at you',
+        dance: 'starts dancing with you',
+        highfive: 'offers you a high five',
+      };
+      this.ui.warning?.(
+        `${remote.avatar.displayName} ${labels[message.kind] ?? 'interacts with you'}.`,
+      );
       if (message.kind === 'dance') this.game.player.dance(1.8);
     }
   }

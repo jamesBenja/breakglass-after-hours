@@ -26,7 +26,10 @@ const finite = (value, fallback = 0) => (Number.isFinite(Number(value)) ? Number
 
 function sanitizeText(value, max = 32) {
   if (typeof value !== 'string') return '';
-  return value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
+  return value
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim()
+    .slice(0, max);
 }
 
 function sanitizeAvatar(value = {}) {
@@ -170,9 +173,8 @@ function emote(socket, message) {
   const kind = ['wave', 'dance', 'highfive'].includes(message.kind) ? message.kind : null;
   if (!kind) return;
   const room = roomFor(player.roomId);
-  const targetId = typeof message.targetId === 'string' && room?.has(message.targetId)
-    ? message.targetId
-    : null;
+  const targetId =
+    typeof message.targetId === 'string' && room?.has(message.targetId) ? message.targetId : null;
   broadcast(player.roomId, {
     type: 'emote',
     fromId: player.id,
