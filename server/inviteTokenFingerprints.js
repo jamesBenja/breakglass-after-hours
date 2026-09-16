@@ -1,30 +1,30 @@
-export const INVITE_TOKEN_FINGERPRINTS = Object.freeze({
-  participant: 'dd14eb2812600449c9af5aba9d22f2c05db55235ad3edb67d426ba9821bb0b2b',
-  guestlist: 'c89d78c2364152d4e2e1a1c6539d807b68c7e16486d5b3589b2bf46c907791e9',
-  dj: '5b3dd5e4a14bf8547f017ef0d74bced16cf443a077aea6603df57fba9e57dc8b',
-  producer: 'bbb06406cb53c9839171a8a495e97eafa1f293a491a5319324281345ea316ef9',
-  promoter: '34e42b28ff168d316ed0ed53656533a27b2df6fcde2b02e02278de0446e7bc2c',
-});
+const INVITE_TYPES = new Set(['participant', 'guestlist', 'dj', 'producer', 'promoter']);
 
-export function fingerprintInviteToken(value, cryptoModule) {
-  const candidate = typeof value === 'string' ? value.trim() : '';
-  if (!candidate) return '';
-  return cryptoModule.createHash('sha256').update(candidate).digest('hex');
-}
+const INVITE_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAoknS2o0a2Hi9yOeZbSDboBnrYUN7L45QlWd1/jGOh/g=
+-----END PUBLIC KEY-----`;
 
+/**
+ * Verify a v1 invitation without storing any bearer credential on the server.
+ * The role claim is signed offline with Ed25519. Only the public key ships with the app.
+ *
+ * This function keeps its original export name so the multiplayer server can rotate from the
+ * short-lived fingerprint repair without changing its request routing.
+ */
 export function invitationTypeFromFingerprint(value, cryptoModule) {
-  const fingerprint = fingerprintInviteToken(value, cryptoModule);
-  if (!fingerprint) return null;
-  for (const [type, expected] of Object.entries(INVITE_TOKEN_FINGERPRINTS)) {
-    if (fingerprint.length !== expected.length) continue;
-    if (
-      cryptoModule.timingSafeEqual(
-        Buffer.from(fingerprint, 'utf8'),
-        Buffer.from(expected, 'utf8'),
-      )
-    ) {
-      return type;
-    }
+  const candidate = typeof value === 'string' ? value.trim() : '';
+  const match = /^v1\.([a-z]+)\.([A-Za-z0-9_-]+)$/.exec(candidate);
+  if (!match) return null;
+
+  const [, type, signatureText] = match;
+  if (!INVITE_TYPES.has(type)) return null;
+
+  try {
+    const signature = Buffer.from(signatureText, 'base64url');
+    const message = Buffer.from(`breakglass-invite-v1:${type}`, 'utf8');
+    const publicKey = cryptoModule.createPublicKey(INVITE_PUBLIC_KEY);
+    return cryptoModule.verify(null, message, publicKey, signature) ? type : null;
+  } catch {
+    return null;
   }
-  return null;
 }
