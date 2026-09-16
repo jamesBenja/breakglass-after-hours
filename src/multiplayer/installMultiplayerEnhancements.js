@@ -1,6 +1,7 @@
 import { installMultiplayerEmoteAnimations } from './emoteAnimations.js';
 import { InstrumentSync } from './InstrumentSync.js';
 import { MultiplayerClient, resolveMultiplayerConfig } from './MultiplayerClient.js';
+import { PartyPhone } from './PartyPhone.js';
 import { SharedMediaSync } from './SharedMediaSync.js';
 import { SpatialVoiceSystem } from './SpatialVoice.js';
 
@@ -40,6 +41,8 @@ export function installMultiplayerEnhancements(game, ui) {
   multiplayer.instrumentSync = instrumentSync;
   const sharedMedia = new SharedMediaSync(multiplayer);
   multiplayer.sharedMedia = sharedMedia;
+  const partyPhone = new PartyPhone(multiplayer);
+  multiplayer.phone = partyPhone;
   const spatialVoice = new SpatialVoiceSystem(multiplayer);
   multiplayer.spatialVoice = spatialVoice;
 
@@ -68,6 +71,7 @@ export function installMultiplayerEnhancements(game, ui) {
     instrumentSync.update();
     sharedMedia.update();
     multiplayer.update(now);
+    partyPhone.update(now);
     spatialVoice.update(now);
     return baseUpdate(now, movementOverride);
   };
@@ -76,6 +80,7 @@ export function installMultiplayerEnhancements(game, ui) {
   game.dispose = async () => {
     instrumentSync.dispose();
     sharedMedia.dispose();
+    partyPhone.dispose();
     spatialVoice.dispose();
     multiplayer.dispose();
     return baseDispose();
