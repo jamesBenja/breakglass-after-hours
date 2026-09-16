@@ -6,6 +6,12 @@ const PORT = Number(process.env.PORT || 8787);
 const MAX_PLAYERS_PER_ROOM = Number(process.env.MAX_PLAYERS_PER_ROOM || 24);
 const GOD_MODE_TOKEN = String(process.env.GOD_MODE_TOKEN || '');
 const INVITE_TYPES = new Set(['participant', 'guestlist', 'dj', 'producer', 'promoter']);
+const INVITE_TOKENS = Object.fromEntries(
+  [...INVITE_TYPES].map((type) => [
+    type,
+    String(process.env[`INVITE_${type.toUpperCase()}_TOKEN`] || '').trim(),
+  ]),
+);
 const MAX_MESSAGE_BYTES = 280_000;
 const HEARTBEAT_MS = 20_000;
 const WORLD_TICK_MS = 250;
@@ -647,9 +653,23 @@ function godModeCors(response) {
   response.setHeader('cache-control', 'no-store');
 }
 
+function secureTokenMatch(candidate, expectedText) {
+  if (!candidate || !expectedText) return false;
+  const expected = Buffer.from(expectedText);
+  const received = Buffer.from(candidate);
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
+
 function inviteTypeFromToken(value) {
   const candidate = typeof value === 'string' ? value.trim() : '';
-  if (!GOD_MODE_TOKEN || !candidate) return null;
+  if (!candidate) return null;
+
+  for (const type of INVITE_TYPES) {
+    if (secureTokenMatch(candidate, INVITE_TOKENS[type])) return type;
+  }
+
+  // Keep existing HMAC invitations valid for backwards compatibility.
+  if (!GOD_MODE_TOKEN) return null;
   const separator = candidate.indexOf('.');
   if (separator <= 0) return null;
   const type = candidate.slice(0, separator);
@@ -659,11 +679,7 @@ function inviteTypeFromToken(value) {
     .createHmac('sha256', GOD_MODE_TOKEN)
     .update(`breakglass-invite:${type}`)
     .digest('base64url');
-  const expected = Buffer.from(expectedText);
-  const received = Buffer.from(signature);
-  return expected.length === received.length && crypto.timingSafeEqual(expected, received)
-    ? type
-    : null;
+  return secureTokenMatch(signature, expectedText) ? type : null;
 }
 
 const server = http.createServer((request, response) => {
