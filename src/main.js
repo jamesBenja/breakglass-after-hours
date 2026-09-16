@@ -27,6 +27,10 @@ import { installBelowAlleyWorldSystem } from './gameplay/BelowAlleyWorldSystem.j
 import { installAudioReliabilityEnhancements } from './gameplay/audioReliabilityEnhancements.js';
 import { PlaytestTelemetry } from './gameplay/PlaytestTelemetry.js';
 import {
+  clearRememberedGodModeForInvitation,
+  installClubRegressionFixes,
+} from './gameplay/ClubRegressionFixes.js';
+import {
   applyGodMode,
   GOD_MODE_SAVE_KEY,
   mountGodModeControls,
@@ -45,6 +49,9 @@ import { Hud } from './ui/Hud.js';
 installFaceAvatarEnhancements();
 
 const invitation = await resolveInvitationAccess();
+// An explicit invitation link always means “test this invitation”, even on a browser that was
+// previously authorized for God Mode. The God link can be used again later to re-enable it.
+clearRememberedGodModeForInvitation(invitation);
 const godMode = await resolveGodModeAccess();
 const telemetry = new PlaytestTelemetry({ invitation, godMode: godMode.enabled });
 const ui = new Hud(document);
@@ -77,6 +84,7 @@ try {
   installAudioReliabilityEnhancements(game, ui);
   installMultiplayerEnhancements(game, ui);
   installInvitationAccess(game, ui, invitation);
+  installClubRegressionFixes(game, ui);
   telemetry.attach(game, ui);
   await game.initialize();
 } catch (error) {
