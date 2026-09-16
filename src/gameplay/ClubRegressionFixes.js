@@ -1,7 +1,10 @@
 // Temporary regression/geometry fixes isolated from the Night Director design work.
 // This module intentionally avoids changing shared DJ transport or multiplayer authority.
 
-import { DJ_PLATFORM, DJ_REFRESHMENTS_POSITION } from '../scenes/geometry/djBoothRealism.js';
+import {
+  DJ_PLATFORM,
+  DJ_REFRESHMENTS_POSITION,
+} from '../scenes/geometry/djBoothRealism.js';
 
 const GOD_TOKEN_STORAGE_KEY = 'breakglass.god.token';
 
@@ -85,7 +88,8 @@ function installDjPlatformInteraction(game, ui) {
           () => {
             if (state) {
               state.intoxication = Math.min(1, level + 0.17);
-              state.drinksServed = Math.max(0, Math.floor(Number(state.drinksServed) || 0)) + 1;
+              state.drinksServed =
+                Math.max(0, Math.floor(Number(state.drinksServed) || 0)) + 1;
             }
             game.barService?.syncPlayer?.();
             props?.selfServe?.('beer');
@@ -108,7 +112,10 @@ function installDjPlatformInteraction(game, ui) {
       target?.action === 'dj' &&
       (game.godMode || game.state?.data?.djAccessGranted === true)
     ) {
-      game.player?.spawn?.([DJ_PLATFORM.x, DJ_PLATFORM.y, DJ_PLATFORM.z], game.sceneManager.current.collision);
+      game.player?.spawn?.(
+        [DJ_PLATFORM.x, DJ_PLATFORM.y, DJ_PLATFORM.z],
+        game.sceneManager.current.collision,
+      );
     }
     return baseDispatch(target);
   };
