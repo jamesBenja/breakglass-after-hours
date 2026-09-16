@@ -1,6 +1,11 @@
 const CALL_TIMEOUT_MS = 25_000;
 
-export function trackForPeer({ peerId, activePeerId = null, privateTrack = null, partyTrack = null }) {
+export function trackForPeer({
+  peerId,
+  activePeerId = null,
+  privateTrack = null,
+  partyTrack = null,
+}) {
   if (!activePeerId) return partyTrack ?? null;
   return peerId === activePeerId ? (privateTrack ?? null) : null;
 }

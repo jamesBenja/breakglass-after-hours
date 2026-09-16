@@ -41,10 +41,7 @@ test('ending a private call restores the normal party track plan', () => {
 });
 
 test('private call audio ignores distance and mutes other player voices', () => {
-  assert.equal(
-    effectiveVoiceGain({ remoteId: 'nora', privatePeerId: 'nora', spatialGain: 0 }),
-    1,
-  );
+  assert.equal(effectiveVoiceGain({ remoteId: 'nora', privatePeerId: 'nora', spatialGain: 0 }), 1);
   assert.equal(
     effectiveVoiceGain({ remoteId: 'jashim', privatePeerId: 'nora', spatialGain: 1 }),
     0,
