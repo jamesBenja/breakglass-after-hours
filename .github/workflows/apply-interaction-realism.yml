@@ -1,0 +1,45 @@
+name: Apply interaction realism
+
+on:
+  push:
+    branches:
+      - feat/interaction-animation-realism
+    paths:
+      - .github/workflows/apply-interaction-realism.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/interaction-animation-realism
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - run: npm install --global pnpm@11.19.0
+      - name: Apply visual interaction patch
+        run: python scripts/apply_interaction_realism.py
+      - run: pnpm install --frozen-lockfile
+      - name: Format changed files
+        run: pnpm exec prettier --write src/gameplay/InteractionPropSystem.js src/gameplay/installPerformanceRealismSystems.js src/gameplay/BarServiceSystem.js src/gameplay/BelowAlleyWorldSystem.js src/npcs/dialogues.js src/core/Game.js src/npcs/NpcSystem.js src/avatar/LightweightHuman.js src/scenes/geometry/djBoothRealism.js tests/interaction-realism.test.js
+      - name: Unit tests
+        run: pnpm test
+      - name: Production build
+        run: pnpm build
+      - name: Formatting
+        run: pnpm run format:check
+      - name: Commit verified pass
+        run: |
+          rm .github/workflows/apply-interaction-realism.yml scripts/apply_interaction_realism.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add physical handoffs and interaction realism"
+          git push origin HEAD:feat/interaction-animation-realism
