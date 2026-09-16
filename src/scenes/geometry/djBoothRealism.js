@@ -2,18 +2,52 @@ import { Mesh, MeshStandardMaterial, TorusGeometry } from 'three';
 import { createPrimitives } from './primitives.js';
 
 const DEVICE_SCALE = 1.9;
-export const DJ_BOOTH_VISUAL_REVISION = '2026-09-16-realism-2';
+export const DJ_BOOTH_VISUAL_REVISION = '2026-09-16-realism-3-platform';
+export const DJ_PLATFORM = Object.freeze({
+  x: 1.5,
+  y: 0.18,
+  z: -2.96,
+  x1: -0.72,
+  x2: 3.72,
+  z1: -3.32,
+  z2: -2.6,
+});
+export const DJ_REFRESHMENTS_POSITION = Object.freeze([3.22, 0.18, -2.94]);
 
 export function buildRealisticDjBooth(root) {
   const { box, cyl, mat, MAT, label } = createPrimitives();
   const centerX = 1.5;
-  const deskZ = -2.48;
+  // The desk is pulled forward from the rear wall so the DJ has a real standing zone behind it.
+  const deskZ = -1.95;
   const topY = 1.2;
 
+  const platformMaterial = mat(0x252226, 0.8, 0.04);
+  const platformTrim = mat(0x5c4638, 0.66, 0.08);
+  box(
+    root,
+    DJ_PLATFORM.x2 - DJ_PLATFORM.x1,
+    DJ_PLATFORM.y,
+    DJ_PLATFORM.z2 - DJ_PLATFORM.z1,
+    platformMaterial,
+    DJ_PLATFORM.x,
+    DJ_PLATFORM.y / 2,
+    DJ_PLATFORM.z,
+  );
+  box(
+    root,
+    DJ_PLATFORM.x2 - DJ_PLATFORM.x1,
+    0.055,
+    0.06,
+    platformTrim,
+    DJ_PLATFORM.x,
+    DJ_PLATFORM.y + 0.025,
+    DJ_PLATFORM.z2,
+  );
+
   // Wider booth surface sized from real hardware proportions rather than generic rectangles.
-  box(root, 4.65, 0.16, 1.52, mat(0x2b211d, 0.82, 0.03), centerX, 0.08, deskZ);
-  box(root, 4.25, 1.0, 1.18, MAT.wood, centerX, 0.64, deskZ);
-  box(root, 4.42, 0.09, 1.32, mat(0x604734, 0.68, 0.04), centerX, 1.12, deskZ);
+  box(root, 4.65, 0.16, 1.34, mat(0x2b211d, 0.82, 0.03), centerX, 0.08, deskZ);
+  box(root, 4.25, 1.0, 1.06, MAT.wood, centerX, 0.64, deskZ);
+  box(root, 4.42, 0.09, 1.22, mat(0x604734, 0.68, 0.04), centerX, 1.12, deskZ);
 
   const black = mat(0x17191d, 0.55, 0.16);
   const dark = mat(0x25272b, 0.48, 0.22);
@@ -168,6 +202,21 @@ export function buildRealisticDjBooth(root) {
   }
   cyl(root, 0.11, 0.035, black, 1.93, 1.35, deskZ + 0.57).rotation.x = Math.PI / 2;
 
+  // Water and a few simple booth drinks live on a small shelf at the edge of the DJ platform.
+  const refreshX = DJ_REFRESHMENTS_POSITION[0];
+  const refreshZ = DJ_REFRESHMENTS_POSITION[2];
+  box(root, 0.62, 0.44, 0.34, mat(0x352b28, 0.76, 0.04), refreshX, 0.4, refreshZ);
+  box(root, 0.68, 0.05, 0.39, platformTrim, refreshX, 0.645, refreshZ);
+  for (const [dx, color, height] of [
+    [-0.19, 0x91c7d5, 0.28],
+    [-0.05, 0x91c7d5, 0.28],
+    [0.12, 0x8c5a2c, 0.27],
+    [0.25, 0x8c5a2c, 0.27],
+  ]) {
+    cyl(root, 0.045, height, mat(color, 0.34, 0.03), refreshX + dx, 0.67 + height / 2, refreshZ);
+  }
+  label(root, 'WATER + DRINKS', refreshX, 1.12, refreshZ, 0.14, '#d9f4ff');
+
   // Programmable LED wall. LedWallSystem replaces this material with a live CanvasTexture.
   const ledMaterial = new MeshStandardMaterial({
     color: 0x09030c,
@@ -176,10 +225,10 @@ export function buildRealisticDjBooth(root) {
     roughness: 0.42,
     metalness: 0.05,
   });
-  const led = box(root, 4.55, 1.25, 0.08, ledMaterial, centerX, 2.25, -3.23);
+  const led = box(root, 4.55, 1.25, 0.08, ledMaterial, centerX, 2.25, -3.37);
   led.name = 'dj-led-wall';
-  box(root, 4.75, 0.08, 0.14, dark, centerX, 2.91, -3.22);
-  box(root, 4.75, 0.08, 0.14, dark, centerX, 1.59, -3.22);
+  box(root, 4.75, 0.08, 0.14, dark, centerX, 2.91, -3.36);
+  box(root, 4.75, 0.08, 0.14, dark, centerX, 1.59, -3.36);
   label(root, 'DJ / HYBRID BOOTH', centerX, 3.05, deskZ, 0.24, '#f0d8be');
 
   // Dedicated lighting/VJ/LED controller off to the side of the booth.
