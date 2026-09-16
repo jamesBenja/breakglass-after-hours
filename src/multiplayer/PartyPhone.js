@@ -20,12 +20,14 @@ function callId(client) {
 }
 
 function floorLabel(sceneId) {
-  return {
-    alley: 'ALLEY',
-    downstairs: 'BELOW',
-    upstairs: 'STUDIO',
-    roof: 'ROOF',
-  }[sceneId] || String(sceneId || 'BREAKGLASS').toUpperCase();
+  return (
+    {
+      alley: 'ALLEY',
+      downstairs: 'BELOW',
+      upstairs: 'STUDIO',
+      roof: 'ROOF',
+    }[sceneId] || String(sceneId || 'BREAKGLASS').toUpperCase()
+  );
 }
 
 export class PartyPhone {
@@ -36,6 +38,7 @@ export class PartyPhone {
     this.ui = multiplayer.ui;
     this.state = { phase: 'idle', peerId: null, mode: null, callId: null };
     this.ownedTracks = { audio: null, video: null };
+    this.privateTracks = null;
     this.lastRosterSignature = '';
     this.lastRosterAt = 0;
     this.callTimer = null;
@@ -82,7 +85,12 @@ export class PartyPhone {
   }
 
   buildUi() {
-    const phoneToggle = makeButton(this.document, 'PHONE', () => this.togglePhone(), 'party-phone-toggle');
+    const phoneToggle = makeButton(
+      this.document,
+      'PHONE',
+      () => this.togglePhone(),
+      'party-phone-toggle',
+    );
     const socialDock = this.document.getElementById('liveSocialDock');
     if (socialDock) {
       let quickbar = socialDock.querySelector('.live-social-quickbar');
@@ -117,7 +125,14 @@ export class PartyPhone {
     this.document.body.appendChild(shell);
     this.shell = shell;
 
-    for (const eventName of ['keydown', 'keyup', 'pointerdown', 'pointerup', 'touchstart', 'touchend']) {
+    for (const eventName of [
+      'keydown',
+      'keyup',
+      'pointerdown',
+      'pointerup',
+      'touchstart',
+      'touchend',
+    ]) {
       shell.addEventListener(eventName, (event) => event.stopPropagation());
     }
     this.render();
@@ -207,17 +222,17 @@ export class PartyPhone {
 
   async answerCall() {
     if (this.state.phase !== 'incoming') return false;
-    const { peerId, callId } = this.state;
+    const { peerId, callId: id } = this.state;
     await this.activateCall();
     if (this.state.phase !== 'active') return false;
-    this.signal(peerId, { type: 'accept', callId });
+    this.signal(peerId, { type: 'accept', callId: id });
     return true;
   }
 
   declineCall() {
     if (this.state.phase !== 'incoming') return false;
-    const { peerId, callId } = this.state;
-    this.signal(peerId, { type: 'decline', callId });
+    const { peerId, callId: id } = this.state;
+    this.signal(peerId, { type: 'decline', callId: id });
     this.resetCall('Call declined.');
     return true;
   }
@@ -232,6 +247,11 @@ export class PartyPhone {
     return track;
   }
 
+  setRoomMediaControlsDisabled(disabled) {
+    if (this.media.voiceButton) this.media.voiceButton.disabled = disabled;
+    if (this.media.videoButton) this.media.videoButton.disabled = disabled;
+  }
+
   async activateCall() {
     const peerId = this.state.peerId;
     if (!peerId || !this.multiplayer.remotePlayers.has(peerId)) {
@@ -243,6 +263,7 @@ export class PartyPhone {
     this.privateTracks = { audio, video };
     this.media.ensurePeer(peerId);
     this.state = { ...this.state, phase: 'active' };
+    this.setRoomMediaControlsDisabled(true);
     await this.routePrivateTracks();
     this.openPhone();
     this.render();
@@ -280,22 +301,27 @@ export class PartyPhone {
     const tasks = [];
     for (const peer of this.media.peers.values()) {
       if (peer.senders?.audio)
-        tasks.push(peer.senders.audio.replaceTrack(this.media.audioEnabled ? this.media.audioTrack : null));
+        tasks.push(
+          peer.senders.audio.replaceTrack(this.media.audioEnabled ? this.media.audioTrack : null),
+        );
       if (peer.senders?.video)
-        tasks.push(peer.senders.video.replaceTrack(this.media.videoEnabled ? this.media.videoTrack : null));
+        tasks.push(
+          peer.senders.video.replaceTrack(this.media.videoEnabled ? this.media.videoTrack : null),
+        );
     }
     await Promise.allSettled(tasks);
   }
 
   endCall({ notify = true, message = 'Call ended.' } = {}) {
     if (this.state.phase === 'idle') return false;
-    const { peerId, callId } = this.state;
-    if (notify && peerId) this.signal(peerId, { type: 'hangup', callId });
+    const { peerId, callId: id } = this.state;
+    if (notify && peerId) this.signal(peerId, { type: 'hangup', callId: id });
     void this.restorePartyTracks();
     this.stopOwnedTracks();
     this.clearCallTimer();
     this.state = { phase: 'idle', peerId: null, mode: null, callId: null };
     this.privateTracks = null;
+    this.setRoomMediaControlsDisabled(false);
     this.render();
     if (message) this.ui.warning?.(message);
     return true;
@@ -306,6 +332,7 @@ export class PartyPhone {
     this.state = { phase: 'idle', peerId: null, mode: null, callId: null };
     this.privateTracks = null;
     this.stopOwnedTracks();
+    this.setRoomMediaControlsDisabled(false);
     this.render();
     if (message) this.ui.warning?.(message);
   }
@@ -370,7 +397,8 @@ export class PartyPhone {
     const heading = this.document.createElement('h3');
     heading.textContent = `${name} is calling…`;
     const sub = this.document.createElement('p');
-    sub.textContent = this.state.mode === 'video' ? 'Incoming FaceTime' : 'Incoming private voice call';
+    sub.textContent =
+      this.state.mode === 'video' ? 'Incoming FaceTime' : 'Incoming private voice call';
     const actions = this.document.createElement('div');
     actions.className = 'party-phone-call-actions';
     actions.append(
@@ -384,15 +412,21 @@ export class PartyPhone {
     const heading = this.document.createElement('h3');
     heading.textContent = `Calling ${this.remoteName(this.state.peerId)}…`;
     const sub = this.document.createElement('p');
-    sub.textContent = this.state.mode === 'video' ? 'FaceTime · ringing' : 'Private voice call · ringing';
+    sub.textContent =
+      this.state.mode === 'video' ? 'FaceTime · ringing' : 'Private voice call · ringing';
     this.screen.append(
       heading,
       sub,
-      makeButton(this.document, 'CANCEL', () => {
-        const { peerId, callId } = this.state;
-        this.signal(peerId, { type: 'cancel', callId });
-        this.resetCall('Call cancelled.');
-      }, 'decline'),
+      makeButton(
+        this.document,
+        'CANCEL',
+        () => {
+          const { peerId, callId: id } = this.state;
+          this.signal(peerId, { type: 'cancel', callId: id });
+          this.resetCall('Call cancelled.');
+        },
+        'decline',
+      ),
     );
   }
 
@@ -401,7 +435,8 @@ export class PartyPhone {
     const heading = this.document.createElement('h3');
     heading.textContent = this.remoteName(peerId);
     const status = this.document.createElement('p');
-    status.textContent = this.state.mode === 'video' ? 'FACETIME · PRIVATE' : 'VOICE CALL · PRIVATE';
+    status.textContent =
+      this.state.mode === 'video' ? 'FACETIME · PRIVATE' : 'VOICE CALL · PRIVATE';
     this.screen.append(heading, status);
 
     if (this.state.mode === 'video') {
@@ -445,7 +480,7 @@ export class PartyPhone {
       .join('|');
     if (signature !== this.lastRosterSignature) {
       this.lastRosterSignature = signature;
-      this.renderRoster();
+      this.render();
     }
   }
 
@@ -454,6 +489,7 @@ export class PartyPhone {
     this.restoreMediaPatches();
     this.clearCallTimer();
     this.stopOwnedTracks();
+    this.setRoomMediaControlsDisabled(false);
     this.shell?.remove();
     this.phoneToggle?.remove();
   }
