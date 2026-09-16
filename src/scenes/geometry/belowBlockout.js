@@ -1,6 +1,7 @@
 import { DoubleSide, Mesh, MeshStandardMaterial, RingGeometry } from 'three';
 import { createPrimitives } from './primitives.js';
 import { buildRealisticDjBooth } from './djBoothRealism.js';
+import { BELOW_SOUND_RIG, MORTAL_KOMBAT_CABINET } from '../../world/belowClubConfig.js';
 import {
   clubFloorMaterial,
   clubWallMaterial,
@@ -141,16 +142,16 @@ export function buildBelowFixtures(downScene) {
   ring.receiveShadow = true;
   downScene.add(ring);
 
-  for (const [x, z] of [
-    [-5.25, -2.8],
-    [-5.25, 2.8],
-    [5.25, -2.8],
-    [5.25, 2.8],
-  ]) {
-    box(downScene, 0.7, 1.48, 0.72, MAT.speaker, x, 0.74, z);
-    box(downScene, 0.54, 0.08, 0.54, mat(0x1f1f1f), x, 1.08, z - 0.37);
+  const suspension = mat(0x4c5055, 0.48, 0.3);
+  for (const [x, y, z] of BELOW_SOUND_RIG.quads) {
+    box(downScene, 0.7, 1.48, 0.72, MAT.speaker, x, y, z);
+    box(downScene, 0.54, 0.08, 0.54, mat(0x1f1f1f), x, y + 0.34, z - 0.37);
+    for (const dx of [-0.23, 0.23]) box(downScene, 0.025, 0.38, 0.025, suspension, x + dx, 3.0, z);
   }
-  cyl(downScene, 0.72, 0.62, MAT.speaker, -1.7, 0.31, -0.3);
+  const [subX, subY, subZ] = BELOW_SOUND_RIG.sub;
+  cyl(downScene, 0.72, 0.62, MAT.speaker, subX, subY, subZ);
+  for (const x of [-0.36, 0.36])
+    box(downScene, 0.025, 0.3, 0.025, suspension, subX + x, 3.02, subZ);
 
   const slat = mat(0x7a5539, 0.86, 0.01);
   for (let i = 0; i < 23; i++) {
@@ -244,8 +245,8 @@ export function buildBelowFixtures(downScene) {
   for (const z of [-2.1, -1.05, 0.0])
     box(downScene, 0.08, 0.22, 0.08, mat(0x262226), 8.86, 3.05, z);
 
-  // The studio's Mortal Kombat II cabinet. Geometry mirrors the real early-90s Midway silhouette
-  // and colour language without embedding copyrighted cabinet art or game assets.
+  // The real Mortal Kombat II cabinet now sits beside the Clark Street emergency stair.
+  // Its screen faces back into the club so it reads immediately from the dance floor.
   const cabinetDark = mat(0x191a1d, 0.72, 0.06);
   const cabinetRed = mat(0x7d1e25, 0.67, 0.04);
   const cabinetGold = mat(0xd1a448, 0.46, 0.08);
@@ -256,23 +257,24 @@ export function buildBelowFixtures(downScene) {
     roughness: 0.28,
     metalness: 0.02,
   });
-  box(downScene, 0.9, 1.72, 0.76, cabinetDark, -9.15, 0.86, -0.02);
-  box(downScene, 0.08, 1.64, 0.78, cabinetRed, -9.58, 0.86, -0.02);
-  box(downScene, 0.08, 1.64, 0.78, cabinetRed, -8.72, 0.86, -0.02);
-  box(downScene, 0.82, 0.28, 0.1, cabinetRed, -9.15, 1.72, -0.405);
-  box(downScene, 0.72, 0.54, 0.035, screenMaterial, -9.15, 1.31, -0.421);
-  // Tiny abstract fighters make the lit CRT read as an active fighting game from across the room.
-  box(downScene, 0.12, 0.3, 0.018, mat(0x2b75b6), -9.34, 1.29, -0.445);
-  box(downScene, 0.12, 0.3, 0.018, mat(0xc94e3c), -8.96, 1.29, -0.445);
-  box(downScene, 0.76, 0.12, 0.42, cabinetDark, -9.15, 0.92, -0.44).rotation.x = -0.16;
-  cyl(downScene, 0.035, 0.18, cabinetGold, -9.36, 1.03, -0.55);
-  cyl(downScene, 0.055, 0.035, mat(0xb52b2f), -9.03, 1.04, -0.57);
-  cyl(downScene, 0.055, 0.035, mat(0xe0b444), -8.88, 1.04, -0.57);
-  for (const x of [-9.34, -9.15, -8.96])
-    box(downScene, 0.085, 0.02, 0.025, cabinetGold, x, 1.57, -0.46);
-  box(downScene, 0.22, 0.07, 0.025, mat(0x642228), -9.15, 0.47, -0.41);
-  label(downScene, 'MORTAL KOMBAT II', -9.15, 1.76, -0.49, 0.14, '#ffd469');
-  label(downScene, 'MKII', -9.15, 2.02, -0.02, 0.2, '#d5b056');
+  const [cabinetX, , cabinetZ] = MORTAL_KOMBAT_CABINET;
+  const cabinetFrontZ = cabinetZ + 0.4;
+  box(downScene, 0.9, 1.72, 0.76, cabinetDark, cabinetX, 0.86, cabinetZ);
+  box(downScene, 0.08, 1.64, 0.78, cabinetRed, cabinetX - 0.43, 0.86, cabinetZ);
+  box(downScene, 0.08, 1.64, 0.78, cabinetRed, cabinetX + 0.43, 0.86, cabinetZ);
+  box(downScene, 0.82, 0.28, 0.1, cabinetRed, cabinetX, 1.72, cabinetFrontZ);
+  box(downScene, 0.72, 0.54, 0.035, screenMaterial, cabinetX, 1.31, cabinetFrontZ + 0.016);
+  box(downScene, 0.12, 0.3, 0.018, mat(0x2b75b6), cabinetX - 0.19, 1.29, cabinetFrontZ + 0.04);
+  box(downScene, 0.12, 0.3, 0.018, mat(0xc94e3c), cabinetX + 0.19, 1.29, cabinetFrontZ + 0.04);
+  box(downScene, 0.76, 0.12, 0.42, cabinetDark, cabinetX, 0.92, cabinetFrontZ).rotation.x = 0.16;
+  cyl(downScene, 0.035, 0.18, cabinetGold, cabinetX - 0.21, 1.03, cabinetFrontZ + 0.11);
+  cyl(downScene, 0.055, 0.035, mat(0xb52b2f), cabinetX + 0.12, 1.04, cabinetFrontZ + 0.13);
+  cyl(downScene, 0.055, 0.035, mat(0xe0b444), cabinetX + 0.27, 1.04, cabinetFrontZ + 0.13);
+  for (const x of [cabinetX - 0.19, cabinetX, cabinetX + 0.19])
+    box(downScene, 0.085, 0.02, 0.025, cabinetGold, x, 1.57, cabinetFrontZ + 0.055);
+  box(downScene, 0.22, 0.07, 0.025, mat(0x642228), cabinetX, 0.47, cabinetFrontZ + 0.02);
+  label(downScene, 'MORTAL KOMBAT II', cabinetX, 1.76, cabinetFrontZ + 0.09, 0.14, '#ffd469');
+  label(downScene, 'MKII', cabinetX, 2.02, cabinetZ, 0.2, '#d5b056');
 
   const counterZ = 2.55;
   box(downScene, 2.7, 1.0, 0.82, MAT.wood, -8.15, 0.5, counterZ);

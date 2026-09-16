@@ -27,7 +27,13 @@ export const dialogues = {
   simla: { title: 'SIMLA · BAR', text: '“Hydrate too. You have a whole night ahead of you.”' },
   devin: {
     title: 'DEVIN · SOUND SYSTEM TECH',
-    text: '“I’m listening. Something in this corner is bothering me. Also, do you have any candy?”',
+    text: '“Listen from the middle. The four hangs should image evenly, and the center sub should feel like it is coming from everywhere and nowhere. I keep walking the room until it locks in.”',
+    soundPrompt: 'What are you listening for?',
+    soundText:
+      '“Coverage first, then timing. If one corner pulls your ear, or the center gets lumpy, I want to know why before I touch anything. The room should feel powerful without one box announcing itself.”',
+    arcadePrompt: 'Do you like old arcade games?',
+    arcadeText:
+      '“Wait — yes. Old fighting cabinets especially. Come on, come on. Mortal Kombat is right by the Clark stairs. The sound can wait thirty seconds.”',
   },
   dave: {
     title: 'DAVE · FOUNDER',
