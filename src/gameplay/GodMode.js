@@ -10,13 +10,18 @@ function tokenFromLocation() {
   return hash.get('god') || search.get('god') || null;
 }
 
-function stripAccessTokenFromLocation() {
+function accessTokenFreeUrl() {
   const url = new URL(location.href);
   url.searchParams.delete('god');
   const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
   hash.delete('god');
   const nextHash = hash.toString();
   url.hash = nextHash ? `#${nextHash}` : '';
+  return url;
+}
+
+function stripAccessTokenFromLocation() {
+  const url = accessTokenFreeUrl();
   history.replaceState(history.state, document.title, url.href);
 }
 
@@ -93,6 +98,40 @@ export async function resolveGodModeAccess() {
     if (linkToken) stripAccessTokenFromLocation();
     return { enabled: false, reason: 'unavailable' };
   }
+}
+
+export function exitGodMode() {
+  forgetToken();
+  const url = accessTokenFreeUrl();
+  location.replace(url.href);
+}
+
+export function mountGodModeControls(documentRef = document) {
+  if (!documentRef?.body) return null;
+  const existing = documentRef.getElementById('godModeIndicator');
+  if (existing) return existing;
+
+  const container = documentRef.createElement('div');
+  container.id = 'godModeIndicator';
+  container.setAttribute('role', 'status');
+  container.setAttribute('aria-label', 'God Mode is active');
+
+  const label = documentRef.createElement('span');
+  label.className = 'god-mode-label';
+  label.textContent = 'GOD MODE';
+
+  const exit = documentRef.createElement('button');
+  exit.type = 'button';
+  exit.className = 'god-mode-exit';
+  exit.textContent = 'EXIT';
+  exit.title = 'Return to your normal save';
+  exit.setAttribute('aria-label', 'Exit God Mode and return to normal save');
+  exit.onclick = () => exitGodMode();
+
+  container.append(label, exit);
+  documentRef.body.appendChild(container);
+  documentRef.body.classList.add('god-mode-active');
+  return container;
 }
 
 export function applyGodMode(game, ui) {
