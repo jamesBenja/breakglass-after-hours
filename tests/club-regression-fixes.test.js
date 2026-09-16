@@ -3,8 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const main = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-const fixes = fs.readFileSync(new URL('../src/gameplay/ClubRegressionFixes.js', import.meta.url), 'utf8');
-const booth = fs.readFileSync(new URL('../src/scenes/geometry/djBoothRealism.js', import.meta.url), 'utf8');
+const fixes = fs.readFileSync(
+  new URL('../src/gameplay/ClubRegressionFixes.js', import.meta.url),
+  'utf8',
+);
+const booth = fs.readFileSync(
+  new URL('../src/scenes/geometry/djBoothRealism.js', import.meta.url),
+  'utf8',
+);
 
 test('explicit invitation links suppress remembered God Mode', () => {
   assert.match(fixes, /removeItem\(GOD_TOKEN_STORAGE_KEY\)/);
