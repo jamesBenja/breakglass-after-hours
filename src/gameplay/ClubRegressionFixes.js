@@ -1,10 +1,7 @@
 // Temporary regression/geometry fixes isolated from the Night Director design work.
 // This module intentionally avoids changing shared DJ transport or multiplayer authority.
 
-import {
-  DJ_PLATFORM,
-  DJ_REFRESHMENTS_POSITION,
-} from '../scenes/geometry/djBoothRealism.js';
+import { DJ_PLATFORM, DJ_REFRESHMENTS_POSITION } from '../scenes/geometry/djBoothRealism.js';
 
 const GOD_TOKEN_STORAGE_KEY = 'breakglass.god.token';
 
