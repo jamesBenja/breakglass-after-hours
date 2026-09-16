@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 
 const PORT = Number(process.env.PORT || 8787);
 const MAX_PLAYERS_PER_ROOM = Number(process.env.MAX_PLAYERS_PER_ROOM || 24);
+const GOD_MODE_TOKEN = String(process.env.GOD_MODE_TOKEN || '');
 const MAX_MESSAGE_BYTES = 280_000;
 const HEARTBEAT_MS = 20_000;
 const WORLD_TICK_MS = 250;
@@ -630,8 +631,37 @@ function tickParty(room, dt, now) {
   }
 }
 
+function validGodModeToken(value) {
+  const candidate = typeof value === 'string' ? value.trim() : '';
+  if (!GOD_MODE_TOKEN || !candidate) return false;
+  const expected = Buffer.from(GOD_MODE_TOKEN);
+  const received = Buffer.from(candidate);
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
+
+function godModeCors(response) {
+  response.setHeader('access-control-allow-origin', '*');
+  response.setHeader('access-control-allow-methods', 'GET, OPTIONS');
+  response.setHeader('access-control-allow-headers', 'authorization');
+  response.setHeader('cache-control', 'no-store');
+}
+
 const server = http.createServer((request, response) => {
   const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+  if (url.pathname === '/god-mode/verify') {
+    godModeCors(response);
+    if (request.method === 'OPTIONS') {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+    const authorization = String(request.headers.authorization || '');
+    const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    const ok = validGodModeToken(token);
+    response.writeHead(ok ? 200 : 401, { 'content-type': 'application/json; charset=utf-8' });
+    response.end(JSON.stringify({ ok }));
+    return;
+  }
   if (url.pathname === '/health') {
     const players = [...rooms.values()].reduce((total, room) => total + room.players.size, 0);
     response.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
