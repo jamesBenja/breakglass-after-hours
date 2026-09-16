@@ -246,13 +246,14 @@ export function validateSave(value) {
 }
 
 export class GameState {
-  constructor(storage, onWarning = () => {}) {
+  constructor(storage, onWarning = () => {}, saveKey = SAVE_KEY) {
     this.storage = storage;
+    this.saveKey = saveKey || SAVE_KEY;
     this.onWarning = onWarning;
     this.warningShown = false;
     this.data = defaults();
     try {
-      this.data = validateSave(JSON.parse(storage?.getItem(SAVE_KEY) ?? 'null'));
+      this.data = validateSave(JSON.parse(storage?.getItem(this.saveKey) ?? 'null'));
     } catch {
       this.warn('Saved progress could not be read. Starting a fresh visit.');
     }
@@ -281,7 +282,7 @@ export class GameState {
     }
     try {
       if (!this.storage) throw new Error('Storage unavailable');
-      this.storage.setItem(SAVE_KEY, JSON.stringify(this.data));
+      this.storage.setItem(this.saveKey, JSON.stringify(this.data));
       return true;
     } catch {
       this.warn('Saving is unavailable in this browser. This visit can continue.');

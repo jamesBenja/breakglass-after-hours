@@ -23,17 +23,21 @@ import { installRoomExperienceEnhancements } from './gameplay/roomExperienceEnha
 import { installGameStatsEnhancements } from './gameplay/GameStatsSystem.js';
 import { installBelowAlleyWorldSystem } from './gameplay/BelowAlleyWorldSystem.js';
 import { installAudioReliabilityEnhancements } from './gameplay/audioReliabilityEnhancements.js';
+import { applyGodMode, GOD_MODE_SAVE_KEY, resolveGodModeAccess } from './gameplay/GodMode.js';
 import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
 
 installFaceAvatarEnhancements();
 
+const godMode = await resolveGodModeAccess();
 const ui = new Hud(document);
 let game;
 try {
   game = new Game(ui, {
     spatialPass: new URLSearchParams(location.search).get('pass') ?? undefined,
+    saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : undefined,
   });
+  if (godMode.enabled) applyGodMode(game, ui);
   installMusicEnhancements(game, ui);
   installPartyPressureEnhancements(game, ui);
   installPartyLifeEnhancements(game, ui);
