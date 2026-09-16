@@ -1,6 +1,7 @@
 import { createUpstairsDefinition } from './upstairs/definition.js';
 import { alleyLevel } from './alley.js';
 import { roofLevel } from './roof.js';
+import { MORTAL_KOMBAT_CABINET } from './belowClubConfig.js';
 
 // Y up. Upstairs is assembled from A-103 tracing; Below retains V2.1 authoring units.
 // Neither coordinate system is surveyed metres. Reconcile meshes and navigation together.
@@ -137,6 +138,7 @@ export const levels = {
       ],
       avoid: [
         { x1: -0.95, x2: 5.15, z1: -3.25, z2: -1.2 },
+        { x1: 2.42, x2: 3.48, z1: -3.18, z2: -2.12 },
         { x1: -7.9, x2: -5.25, z1: -3.3, z2: -0.7 },
         { x1: -9.55, x2: -6.5, z1: -1.4, z2: -0.4 },
       ],
@@ -280,7 +282,7 @@ export const levels = {
         ...anchor('Take A Break · studio song playback', [8.45, 0, 5.72], 1.4, 'studioSongPlayer'),
         location: 'Take A Break',
       },
-      arcade: anchor('Mortal Kombat II cabinet', [-9.15, 0, -0.02], 1.45, 'arcade'),
+      arcade: anchor('Mortal Kombat II cabinet', MORTAL_KOMBAT_CABINET, 1.45, 'arcade'),
       photoWall: anchor('Nora photo wall', [8.35, 0, -1.05], 1.7, 'photoWall'),
       storagePassage: anchor(
         'Overstuffed furniture panel',

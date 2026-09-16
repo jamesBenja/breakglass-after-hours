@@ -26,6 +26,7 @@ import { KeyboardPerformance } from '../studio/KeyboardPerformance.js';
 import { PhotoSystem } from '../photos/PhotoSystem.js';
 import { InteractionSystem } from '../interactions/InteractionSystem.js';
 import { createActions } from '../interactions/createActions.js';
+import { DEVIN_ARCADE_GUIDE } from '../world/belowClubConfig.js';
 
 /** Composition root. Systems communicate via explicit references and callbacks. */
 export class Game {
@@ -194,6 +195,45 @@ export class Game {
       sceneManager: this.sceneManager,
     });
 
+    const openDevinDialogue = () => {
+      const level = this.sceneManager.current;
+      if (level?.definition?.id !== 'downstairs') return false;
+      const dialogue = level.npcs?.dialogue?.('devin');
+      if (!dialogue) return false;
+      this.state.meet('devin');
+      this.save();
+      ui.panel(dialogue.title, dialogue.text, [
+        [
+          dialogue.soundPrompt,
+          () => ui.panel('DEVIN · SYSTEM WALK', dialogue.soundText, []),
+        ],
+        [
+          dialogue.arcadePrompt,
+          () => {
+            this.player.spawn(DEVIN_ARCADE_GUIDE.player, level.collision);
+            const devin = level.npcs?.get?.('devin');
+            if (devin?.group) {
+              devin.group.position.fromArray(DEVIN_ARCADE_GUIDE.npc);
+              devin.group.rotation.y = Math.atan2(
+                this.player.position.x - devin.group.position.x,
+                this.player.position.z - devin.group.position.z,
+              );
+            }
+            ui.panel('DEVIN · OLD ARCADE GAMES', dialogue.arcadeText, [
+              [
+                'Play Mortal Kombat II',
+                () => {
+                  this.stopAll();
+                  this.arcade.start();
+                },
+              ],
+            ]);
+          },
+        ],
+      ]);
+      return true;
+    };
+
     const canAct = () => this.started && !this.sceneManager.changing && !document.hidden;
     const baseActions = createActions({
       audio: this.audio,
@@ -213,6 +253,12 @@ export class Game {
       canAct,
     });
     this.interactions = new InteractionSystem((target) => {
+      if (
+        target?.action === 'dialogue' &&
+        (target.npcId ?? target.id) === 'devin' &&
+        openDevinDialogue()
+      )
+        return;
       if (target?.action === 'arcade') {
         this.stopAll();
         this.arcade.start();
