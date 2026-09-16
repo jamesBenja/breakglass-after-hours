@@ -48,7 +48,7 @@ export class Game {
         /* Restricted browsers still play. */
       }
     }
-    this.state = new GameState(storage, (message) => ui.warning(message));
+    this.state = new GameState(storage, (message) => ui.warning(message), options.saveKey);
     ui.setAvatarProfile?.(this.state.data.avatar);
     this.assets = new AssetLoader(assetManifest, {
       baseUrl: new URL(import.meta.env.BASE_URL, document.baseURI).href,
