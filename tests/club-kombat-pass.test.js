@@ -21,6 +21,10 @@ test('Below uses four ceiling-hung corner quads and a suspended center sub', () 
     assert.ok(Math.abs(z) > 2.3, 'quad should live in a room corner');
     assert.ok(y > 2, 'quad should be suspended above head height');
   }
+  assert.ok(
+    BELOW_SOUND_RIG.quadSize[0] > BELOW_SOUND_RIG.quadSize[1] * 1.8,
+    'quad cabinets should be horizontally oriented',
+  );
   assert.equal(BELOW_SOUND_RIG.sub[0], 0);
   assert.equal(BELOW_SOUND_RIG.sub[2], 0);
   assert.ok(BELOW_SOUND_RIG.sub[1] > 2, 'sub should hang from the ceiling');
@@ -29,11 +33,11 @@ test('Below uses four ceiling-hung corner quads and a suspended center sub', () 
 test('Mortal Kombat cabinet sits beside the Clark emergency stair', () => {
   assert.deepEqual(levels.downstairs.anchors.arcade.position, MORTAL_KOMBAT_CABINET);
   const [x, , z] = MORTAL_KOMBAT_CABINET;
-  assert.ok(x > 2.4 && x < 3.5);
-  assert.ok(z < -2.1 && z > -3.2);
+  assert.ok(x > 5.0 && x < 5.8, 'cabinet should be tucked into the east Clark-stair corner');
+  assert.ok(z < -2.3 && z > -3.2);
   const clark = levels.downstairs.anchors.clarkEmergencyExit.position;
   const distance = Math.hypot(clark[0] - x, clark[2] - z);
-  assert.ok(distance < 3.2, 'cabinet should be immediately beside the Clark exit route');
+  assert.ok(distance < 2.5, 'cabinet should be immediately beside the Clark exit route');
 });
 
 test('Devin has a sound conversation and an old-arcade escort beat', () => {
@@ -41,8 +45,8 @@ test('Devin has a sound conversation and an old-arcade escort beat', () => {
   assert.match(dialogues.devin.soundPrompt, /listening/i);
   assert.match(dialogues.devin.arcadePrompt, /old arcade games/i);
   assert.match(dialogues.devin.arcadeText, /Mortal Kombat/i);
-  assert.ok(DEVIN_ARCADE_GUIDE.player[0] > 2.4);
-  assert.ok(DEVIN_ARCADE_GUIDE.npc[0] > 1.4);
+  assert.ok(DEVIN_ARCADE_GUIDE.player[0] > 4.5);
+  assert.ok(DEVIN_ARCADE_GUIDE.npc[0] > 3.5);
 });
 
 test('Underground Kombat exposes the requested ten-character scene roster', () => {

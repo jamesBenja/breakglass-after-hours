@@ -143,10 +143,21 @@ export function buildBelowFixtures(downScene) {
   downScene.add(ring);
 
   const suspension = mat(0x4c5055, 0.48, 0.3);
+  const grille = mat(0x3a3c42, 0.68, 0.08);
+  const driver = mat(0x111216, 0.58, 0.04);
+  const [speakerWidth, speakerHeight, speakerDepth] = BELOW_SOUND_RIG.quadSize;
   for (const [x, y, z] of BELOW_SOUND_RIG.quads) {
-    box(downScene, 0.7, 1.48, 0.72, MAT.speaker, x, y, z);
-    box(downScene, 0.54, 0.08, 0.54, mat(0x1f1f1f), x, y + 0.34, z - 0.37);
-    for (const dx of [-0.23, 0.23]) box(downScene, 0.025, 0.38, 0.025, suspension, x + dx, 3.0, z);
+    // The four Danley-style quad boxes hang horizontally, slightly below the truss line,
+    // with their faces turned inward so they read clearly from the dance floor.
+    box(downScene, speakerWidth, speakerHeight, speakerDepth, MAT.speaker, x, y, z);
+    const inward = Math.sign(z) || 1;
+    const faceZ = z - inward * (speakerDepth / 2 + 0.02);
+    box(downScene, speakerWidth * 0.84, speakerHeight * 0.66, 0.045, grille, x, y, faceZ);
+    for (const dx of [-0.38, 0.38]) {
+      const cone = cyl(downScene, 0.2, 0.035, driver, x + dx, y, faceZ - inward * 0.035);
+      cone.rotation.x = Math.PI / 2;
+    }
+    for (const dx of [-0.52, 0.52]) box(downScene, 0.025, 0.34, 0.025, suspension, x + dx, 3.0, z);
   }
   const [subX, subY, subZ] = BELOW_SOUND_RIG.sub;
   cyl(downScene, 0.72, 0.62, MAT.speaker, subX, subY, subZ);
