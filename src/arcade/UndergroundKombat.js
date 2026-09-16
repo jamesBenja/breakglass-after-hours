@@ -1,4 +1,10 @@
 import { commandFight, createFightState, stepFight } from './UndergroundFight.js';
+import {
+  KOMBAT_FIGHTERS,
+  chooseCpuFighter,
+  fighterById,
+  specialVisualForHit,
+} from './fighters.js';
 
 const KEYMAP = {
   KeyA: ['player', 'left'],
@@ -14,24 +20,19 @@ const KEYMAP = {
   ArrowDown: ['player', 'block'],
 };
 
-const ATTACK_NAMES = {
-  player: {
-    light: 'VINYL SLAP',
-    heavy: 'FADER SMASH',
-    special: 'BASS DROP',
-  },
-  opponent: {
-    light: 'MIC CHECK',
-    heavy: 'GUITAR SWING',
-    special: 'FEEDBACK BLAST',
-  },
-};
-
 function roundedRect(ctx, x, y, width, height, radius) {
   const r = Math.min(radius, width / 2, height / 2);
   ctx.beginPath();
   ctx.roundRect?.(x, y, width, height, r);
   if (!ctx.roundRect) ctx.rect(x, y, width, height);
+}
+
+function button(document, label, className = '') {
+  const element = document.createElement('button');
+  element.type = 'button';
+  element.textContent = label;
+  element.className = className;
+  return element;
 }
 
 export class UndergroundKombat {
@@ -42,6 +43,8 @@ export class UndergroundKombat {
     this.onWin = onWin;
     this.active = false;
     this.state = null;
+    this.playerFighter = null;
+    this.opponentFighter = null;
     this.lastTime = 0;
     this.raf = null;
     this.overlay = null;
@@ -49,6 +52,9 @@ export class UndergroundKombat {
     this.ctx = null;
     this.status = null;
     this.controls = [];
+    this.selection = null;
+    this.rosterButton = null;
+    this.vanish = null;
     this.onKeyDown = (event) => this.key(event, true);
     this.onKeyUp = (event) => this.key(event, false);
     this.resize = () => this.fitCanvas();
@@ -57,18 +63,77 @@ export class UndergroundKombat {
   start() {
     if (this.active) return;
     this.active = true;
-    this.state = createFightState({ mode: 'cpu', roundTime: 60 });
     this.onActive(true);
     this.mount();
     this.audio?.init?.().catch?.(() => {});
+    this.showRoster();
+  }
+
+  beginFight(playerId) {
+    this.playerFighter = fighterById(playerId);
+    this.opponentFighter = chooseCpuFighter(this.playerFighter.id);
+    this.state = createFightState({ mode: 'cpu', roundTime: 60 });
+    this.vanish = null;
+    this.selection.hidden = true;
+    this.canvas.hidden = false;
+    this.status.hidden = false;
+    this.controlsElement.hidden = false;
+    this.rosterButton.hidden = false;
+    this.updateControlLabels();
+    this.status.textContent = `${this.playerFighter.name} vs ${this.opponentFighter.name} · J / K / L attack · I block`;
     this.lastTime = performance.now();
+    if (this.raf) cancelAnimationFrame(this.raf);
     this.raf = requestAnimationFrame((now) => this.frame(now));
+    this.fitCanvas();
   }
 
   rematch() {
+    if (!this.playerFighter || !this.opponentFighter) return this.showRoster();
     this.state = createFightState({ mode: 'cpu', roundTime: 60 });
+    this.vanish = null;
     this.lastTime = performance.now();
+    this.status.textContent = `${this.playerFighter.name} vs ${this.opponentFighter.name} · FIGHT`;
     if (!this.raf) this.raf = requestAnimationFrame((now) => this.frame(now));
+  }
+
+  showRoster() {
+    if (!this.active) return;
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = null;
+    this.state = null;
+    this.vanish = null;
+    this.canvas.hidden = true;
+    this.status.hidden = true;
+    this.controlsElement.hidden = true;
+    this.rosterButton.hidden = true;
+    this.selection.hidden = false;
+    this.renderRoster();
+  }
+
+  renderRoster() {
+    this.selection.replaceChildren();
+    const intro = this.document.createElement('div');
+    intro.className = 'kombat-roster-intro';
+    intro.innerHTML =
+      '<strong>CHOOSE YOUR FIGHTER</strong><span>Breakglass scene archetypes · one round · sixty seconds</span>';
+    const roster = this.document.createElement('div');
+    roster.className = 'kombat-roster';
+    for (const fighter of KOMBAT_FIGHTERS) {
+      const card = button(this.document, '', 'kombat-fighter-card');
+      card.dataset.fighter = fighter.id;
+      const name = this.document.createElement('strong');
+      name.textContent = fighter.name;
+      const tagline = this.document.createElement('span');
+      tagline.textContent = fighter.tagline;
+      const moves = this.document.createElement('small');
+      moves.textContent = `${fighter.moves.light} · ${fighter.moves.heavy} · ${fighter.moves.special}`;
+      const swatch = this.document.createElement('i');
+      swatch.style.background = `linear-gradient(135deg, ${fighter.palette.join(', ')})`;
+      card.append(swatch, name, tagline, moves);
+      card.onclick = () => this.beginFight(fighter.id);
+      roster.appendChild(card);
+    }
+    this.selection.append(intro, roster);
   }
 
   mount() {
@@ -81,20 +146,27 @@ export class UndergroundKombat {
     top.className = 'kombat-topbar';
     const brand = this.document.createElement('div');
     brand.innerHTML =
-      '<strong>BREAKGLASS UNDERGROUND KOMBAT</strong><span>single player · cabinet prototype</span>';
-    const exit = this.document.createElement('button');
-    exit.className = 'kombat-exit';
-    exit.textContent = 'EXIT CABINET';
+      '<strong>BREAKGLASS UNDERGROUND KOMBAT</strong><span>scene wars · cabinet edition</span>';
+    const topActions = this.document.createElement('div');
+    topActions.className = 'kombat-top-actions';
+    const rosterButton = button(this.document, 'ROSTER', 'kombat-roster-button');
+    rosterButton.onclick = () => this.showRoster();
+    const exit = button(this.document, 'EXIT CABINET', 'kombat-exit');
     exit.onclick = () => this.stop();
-    top.append(brand, exit);
+    topActions.append(rosterButton, exit);
+    top.append(brand, topActions);
 
+    const stage = this.document.createElement('div');
+    stage.className = 'kombat-stage';
     const canvas = this.document.createElement('canvas');
     canvas.className = 'kombat-canvas';
     canvas.setAttribute('aria-label', 'Underground music scene fighting game');
+    const selection = this.document.createElement('div');
+    selection.className = 'kombat-selection';
+    stage.append(canvas, selection);
 
     const status = this.document.createElement('div');
     status.className = 'kombat-status';
-    status.textContent = 'A/D move · W jump · J vinyl slap · K fader smash · L bass drop · I block';
 
     const controls = this.document.createElement('div');
     controls.className = 'kombat-controls';
@@ -102,45 +174,60 @@ export class UndergroundKombat {
       ['◀', 'left', true],
       ['▶', 'right', true],
       ['JUMP', 'jump', false],
-      ['VINYL', 'light', false],
-      ['FADER', 'heavy', false],
-      ['BASS DROP', 'special', false],
+      ['LIGHT', 'light', false],
+      ['HEAVY', 'heavy', false],
+      ['SPECIAL', 'special', false],
       ['BLOCK', 'block', true],
     ]) {
-      const button = this.document.createElement('button');
-      button.textContent = label;
-      button.dataset.action = action;
+      const control = button(this.document, label);
+      control.dataset.action = action;
       const down = (event) => {
         event.preventDefault();
-        button.classList.add('pressed');
+        if (!this.state) return;
+        control.classList.add('pressed');
         commandFight(this.state, 'player', action, true);
         this.sfx('input', action);
       };
       const up = (event) => {
         event.preventDefault();
-        button.classList.remove('pressed');
-        if (hold) commandFight(this.state, 'player', action, false);
+        control.classList.remove('pressed');
+        if (hold && this.state) commandFight(this.state, 'player', action, false);
       };
-      button.addEventListener('pointerdown', down);
-      button.addEventListener('pointerup', up);
-      button.addEventListener('pointercancel', up);
-      button.addEventListener('pointerleave', (event) => {
-        if (hold && button.classList.contains('pressed')) up(event);
+      control.addEventListener('pointerdown', down);
+      control.addEventListener('pointerup', up);
+      control.addEventListener('pointercancel', up);
+      control.addEventListener('pointerleave', (event) => {
+        if (hold && control.classList.contains('pressed')) up(event);
       });
-      controls.appendChild(button);
-      this.controls.push({ button, down, up });
+      controls.appendChild(control);
+      this.controls.push({ button: control, down, up, action });
     }
 
-    overlay.append(top, canvas, status, controls);
+    overlay.append(top, stage, status, controls);
     this.document.body.appendChild(overlay);
     this.overlay = overlay;
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.status = status;
+    this.selection = selection;
+    this.controlsElement = controls;
+    this.rosterButton = rosterButton;
     window.addEventListener('keydown', this.onKeyDown, true);
     window.addEventListener('keyup', this.onKeyUp, true);
     window.addEventListener('resize', this.resize);
     this.fitCanvas();
+  }
+
+  updateControlLabels() {
+    if (!this.playerFighter) return;
+    for (const control of this.controls) {
+      if (control.action === 'light')
+        control.button.textContent = this.playerFighter.buttons.light;
+      else if (control.action === 'heavy')
+        control.button.textContent = this.playerFighter.buttons.heavy;
+      else if (control.action === 'special')
+        control.button.textContent = this.playerFighter.buttons.special;
+    }
   }
 
   key(event, pressed) {
@@ -151,7 +238,8 @@ export class UndergroundKombat {
       this.stop();
       return;
     }
-    if (event.code === 'Enter' && pressed && this.state?.status === 'finished') {
+    if (!this.state) return;
+    if (event.code === 'Enter' && pressed && this.state.status === 'finished') {
       event.preventDefault();
       event.stopImmediatePropagation();
       this.rematch();
@@ -166,7 +254,7 @@ export class UndergroundKombat {
   }
 
   fitCanvas() {
-    if (!this.canvas) return;
+    if (!this.canvas || this.canvas.hidden) return;
     const rect = this.canvas.getBoundingClientRect();
     const ratio = Math.min(globalThis.devicePixelRatio || 1, 2);
     const width = Math.max(320, Math.floor(rect.width * ratio));
@@ -178,32 +266,41 @@ export class UndergroundKombat {
   }
 
   frame(now) {
-    if (!this.active) return;
+    if (!this.active || !this.state) {
+      this.raf = null;
+      return;
+    }
     const dt = Math.min(0.05, Math.max(0, (now - this.lastTime) / 1000));
     this.lastTime = now;
     const events = stepFight(this.state, dt);
-    for (const event of events) this.handleEvent(event);
-    this.draw();
+    for (const event of events) this.handleEvent(event, now);
+    this.draw(now);
     this.raf = requestAnimationFrame((time) => this.frame(time));
   }
 
-  handleEvent(event) {
+  fighterForSide(side) {
+    return side === 'player' ? this.playerFighter : this.opponentFighter;
+  }
+
+  handleEvent(event, now = performance.now()) {
     if (event.type === 'hit') {
+      const attacker = this.fighterForSide(event.side);
       this.sfx('hit', event.attack, event.guarded);
-      const attacker = event.side === 'player' ? 'FADER FURY' : 'FEEDBACK FIEND';
-      const move = ATTACK_NAMES[event.side]?.[event.attack] ?? event.attack.toUpperCase();
-      this.status.textContent = `${attacker}: ${move}${event.guarded ? ' · BLOCKED' : ''}`;
+      const move = attacker?.moves?.[event.attack] ?? event.attack.toUpperCase();
+      this.status.textContent = `${attacker?.name ?? 'FIGHTER'}: ${move}${event.guarded ? ' · BLOCKED' : ''}`;
+      const special = specialVisualForHit(attacker, event, now);
+      if (special) this.vanish = special;
       return;
     }
     if (event.type === 'round-end') {
       this.sfx('finish', event.winner);
       if (event.winner === 'player') {
-        this.status.textContent = 'FADER FURY WINS · ENTER / REMATCH to run it back';
+        this.status.textContent = `${this.playerFighter.name} WINS · ENTER / REMATCH`;
         this.onWin();
       } else if (event.winner === 'draw') {
         this.status.textContent = 'DOUBLE BOOKING · DRAW · ENTER / REMATCH';
       } else {
-        this.status.textContent = 'FEEDBACK FIEND WINS · ENTER / REMATCH to run it back';
+        this.status.textContent = `${this.opponentFighter.name} WINS · ENTER / REMATCH`;
       }
     }
   }
@@ -256,73 +353,144 @@ export class UndergroundKombat {
     }
   }
 
-  drawFighter(ctx, actor, width, floorY, isPlayer) {
+  drawProp(ctx, fighter, reach, y, attacking) {
+    const style = fighter.style;
+    if (style === 'promoter') {
+      const count = attacking === 'special' ? 3 : 1;
+      for (let i = 0; i < count; i++) {
+        ctx.save();
+        ctx.translate(reach + 7 + i * 13, y - i * 8);
+        ctx.rotate(-0.18 + i * 0.13);
+        ctx.fillStyle = '#f1eee3';
+        ctx.fillRect(-2, -12, 24, 17);
+        ctx.strokeStyle = '#8f314b';
+        ctx.strokeRect(-2, -12, 24, 17);
+        ctx.fillStyle = '#242124';
+        ctx.font = '700 6px system-ui';
+        ctx.fillText('BOOKING', 1, -2);
+        ctx.restore();
+      }
+      return;
+    }
+    if (style === 'vinyl') {
+      ctx.beginPath();
+      ctx.arc(reach + 10, y, attacking === 'special' ? 23 : 15, 0, Math.PI * 2);
+      ctx.fillStyle = '#111216';
+      ctx.fill();
+      ctx.strokeStyle = fighter.palette[1];
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(reach + 10, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#eee';
+      ctx.fill();
+      return;
+    }
+    if (style === 'phone') {
+      ctx.fillStyle = '#11151b';
+      roundedRect(ctx, reach + 2, y - 17, 22, 34, 4);
+      ctx.fill();
+      ctx.fillStyle = attacking ? '#5ef2db' : '#ff5ca8';
+      ctx.fillRect(reach + 6, y - 12, 14, 23);
+      return;
+    }
+    if (style === 'producer') {
+      ctx.fillStyle = '#aeb6be';
+      ctx.fillRect(reach + 1, y - 14, 32, 20);
+      ctx.fillStyle = '#20242a';
+      ctx.fillRect(reach + 5, y - 10, 24, 12);
+      return;
+    }
+    if (style === 'lighting') {
+      ctx.strokeStyle = attacking ? '#f4e75f' : '#5df0ff';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(reach, y);
+      ctx.lineTo(reach + (attacking === 'special' ? 70 : 34), y - 24);
+      ctx.stroke();
+      return;
+    }
+    if (style === 'prism') {
+      ctx.fillStyle = fighter.palette[1];
+      ctx.beginPath();
+      ctx.moveTo(reach + 4, y + 13);
+      ctx.lineTo(reach + 18, y - 14);
+      ctx.lineTo(reach + 32, y + 13);
+      ctx.closePath();
+      ctx.fill();
+      return;
+    }
+    ctx.beginPath();
+    ctx.arc(reach + 10, y, attacking === 'special' ? 20 : 12, 0, Math.PI * 2);
+    ctx.fillStyle = fighter.palette[1];
+    ctx.fill();
+  }
+
+  drawFighter(ctx, actor, width, floorY, fighter) {
     const x = actor.x * width;
     const jump = actor.y * 180;
     const y = floorY - jump;
     const facing = actor.facing;
     const attacking = actor.attack;
+    const torsoWidth = fighter.style === 'muscle' ? 66 : fighter.style === 'heads' ? 48 : 54;
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(facing, 1);
 
-    if (actor.hitFlash > 0) {
-      ctx.globalAlpha = 0.65;
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(-31, -122, 62, 122);
+    if (fighter.style === 'duo') {
+      ctx.globalAlpha = 0.78;
+      ctx.fillStyle = fighter.palette[1];
+      roundedRect(ctx, -47, -79, 36, 58, 9);
+      ctx.fill();
+      ctx.fillStyle = '#c99578';
+      ctx.beginPath();
+      ctx.arc(-29, -97, 15, 0, Math.PI * 2);
+      ctx.fill();
       ctx.globalAlpha = 1;
     }
 
-    ctx.fillStyle = isPlayer ? '#492c71' : '#74303f';
-    roundedRect(ctx, -26, -86, 52, 68, 11);
+    if (actor.hitFlash > 0) {
+      ctx.globalAlpha = 0.65;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(-36, -126, 72, 126);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.fillStyle = fighter.palette[0];
+    roundedRect(ctx, -torsoWidth / 2, -88, torsoWidth, 70, fighter.style === 'muscle' ? 18 : 11);
     ctx.fill();
-    ctx.fillStyle = '#c89473';
+    ctx.fillStyle = fighter.palette[1];
     ctx.beginPath();
-    ctx.arc(0, -106, 19, 0, Math.PI * 2);
+    ctx.arc(0, -108, 19, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#17171c';
-    ctx.fillRect(-17, -123, 34, 10);
-    ctx.fillStyle = '#15161b';
+
+    if (fighter.style === 'heads') {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(-17, -113, 14, 6);
+      ctx.fillRect(3, -113, 14, 6);
+      ctx.fillStyle = '#8d8270';
+      ctx.fillRect(-29, -72, 58, 8);
+    } else if (fighter.style === 'veteran') {
+      ctx.fillStyle = '#d7c96a';
+      ctx.fillRect(-20, -119, 40, 4);
+    } else {
+      ctx.fillStyle = fighter.palette[2];
+      ctx.fillRect(-17, -125, 34, 10);
+    }
+
+    ctx.fillStyle = fighter.palette[2];
     ctx.fillRect(-23, -19, 17, 48);
     ctx.fillRect(6, -19, 17, 48);
 
     const reach = attacking ? (attacking === 'special' ? 68 : attacking === 'heavy' ? 55 : 43) : 30;
-    ctx.strokeStyle = '#c89473';
-    ctx.lineWidth = 10;
+    ctx.strokeStyle = fighter.palette[1];
+    ctx.lineWidth = fighter.style === 'muscle' ? 14 : 10;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(18, -70);
     ctx.lineTo(reach, attacking ? -57 : -48);
     ctx.stroke();
-
-    if (isPlayer) {
-      ctx.beginPath();
-      ctx.arc(reach + 10, attacking ? -57 : -48, attacking === 'special' ? 22 : 15, 0, Math.PI * 2);
-      ctx.fillStyle = attacking === 'special' ? '#ffcf55' : '#16171c';
-      ctx.fill();
-      ctx.strokeStyle = '#f05ab4';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(reach + 10, attacking ? -57 : -48, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#eee';
-      ctx.fill();
-    } else {
-      ctx.save();
-      ctx.translate(reach + 6, attacking ? -57 : -48);
-      ctx.rotate(attacking ? -0.65 : -0.2);
-      ctx.fillStyle = '#2a2325';
-      ctx.fillRect(-4, -4, 45, 8);
-      ctx.fillStyle = '#d04e74';
-      ctx.beginPath();
-      ctx.moveTo(-12, -17);
-      ctx.lineTo(18, -11);
-      ctx.lineTo(22, 12);
-      ctx.lineTo(-13, 18);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
+    this.drawProp(ctx, fighter, reach, attacking ? -57 : -48, attacking);
 
     if (actor.blocking) {
       ctx.strokeStyle = '#79e4ff';
@@ -349,12 +517,12 @@ export class UndergroundKombat {
     ctx.fillText(label, reverse ? x + width : x, y - 8);
   }
 
-  draw() {
+  draw(now = performance.now()) {
     const ctx = this.ctx;
     const canvas = this.canvas;
-    if (!ctx || !canvas || !this.state) return;
+    if (!ctx || !canvas || !this.state || !this.playerFighter || !this.opponentFighter) return;
+    if (this.vanish && now >= this.vanish.until) this.vanish = null;
     const width = canvas.width;
-    const height = canvas.height;
     const ratio = width / Math.max(1, canvas.clientWidth);
     ctx.save();
     ctx.scale(ratio, ratio);
@@ -367,7 +535,6 @@ export class UndergroundKombat {
     gradient.addColorStop(1, '#030305');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, w, h);
-
     ctx.fillStyle = 'rgba(221, 65, 178, .12)';
     ctx.fillRect(0, h * 0.31, w, 3);
     ctx.fillStyle = 'rgba(75, 220, 255, .09)';
@@ -388,7 +555,7 @@ export class UndergroundKombat {
     }
 
     const barWidth = Math.max(110, Math.min(240, w * 0.34));
-    this.drawHealth(ctx, 20, 34, barWidth, this.state.player.hp, false, 'FADER FURY');
+    this.drawHealth(ctx, 20, 34, barWidth, this.state.player.hp, false, this.playerFighter.name);
     this.drawHealth(
       ctx,
       w - 20 - barWidth,
@@ -396,28 +563,37 @@ export class UndergroundKombat {
       barWidth,
       this.state.opponent.hp,
       true,
-      'FEEDBACK FIEND',
+      this.opponentFighter.name,
     );
     ctx.fillStyle = '#fff';
     ctx.font = '800 23px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText(String(Math.ceil(this.state.time)).padStart(2, '0'), w / 2, 51);
 
-    this.drawFighter(ctx, this.state.player, w, floorY, true);
-    this.drawFighter(ctx, this.state.opponent, w, floorY, false);
+    if (this.vanish?.side !== 'player')
+      this.drawFighter(ctx, this.state.player, w, floorY, this.playerFighter);
+    if (this.vanish?.side !== 'opponent')
+      this.drawFighter(ctx, this.state.opponent, w, floorY, this.opponentFighter);
+
+    if (this.vanish) {
+      ctx.textAlign = 'center';
+      ctx.font = `900 ${Math.max(18, Math.min(36, w * 0.052))}px system-ui`;
+      ctx.fillStyle = '#ffd469';
+      ctx.fillText(this.vanish.label, w / 2, h * 0.25);
+    }
 
     if (this.state.status === 'finished') {
       ctx.fillStyle = 'rgba(0,0,0,.72)';
       ctx.fillRect(0, 0, w, h);
       ctx.textAlign = 'center';
       ctx.fillStyle = '#fff';
-      ctx.font = `900 ${Math.max(25, Math.min(46, w * 0.07))}px system-ui`;
+      ctx.font = `900 ${Math.max(23, Math.min(44, w * 0.062))}px system-ui`;
       const headline =
         this.state.winner === 'player'
-          ? 'FADER FURY WINS'
+          ? `${this.playerFighter.name} WINS`
           : this.state.winner === 'draw'
             ? 'DOUBLE BOOKING'
-            : 'FEEDBACK FIEND WINS';
+            : `${this.opponentFighter.name} WINS`;
       ctx.fillText(headline, w / 2, h * 0.46);
       ctx.font = '700 15px system-ui';
       ctx.fillStyle = '#f4b1db';
@@ -456,10 +632,10 @@ export class UndergroundKombat {
     window.removeEventListener('keydown', this.onKeyDown, true);
     window.removeEventListener('keyup', this.onKeyUp, true);
     window.removeEventListener('resize', this.resize);
-    for (const { button, down, up } of this.controls) {
-      button.removeEventListener('pointerdown', down);
-      button.removeEventListener('pointerup', up);
-      button.removeEventListener('pointercancel', up);
+    for (const { button: control, down, up } of this.controls) {
+      control.removeEventListener('pointerdown', down);
+      control.removeEventListener('pointerup', up);
+      control.removeEventListener('pointercancel', up);
     }
     this.controls = [];
     this.overlay?.remove();
@@ -467,7 +643,13 @@ export class UndergroundKombat {
     this.canvas = null;
     this.ctx = null;
     this.status = null;
+    this.selection = null;
+    this.controlsElement = null;
+    this.rosterButton = null;
     this.state = null;
+    this.playerFighter = null;
+    this.opponentFighter = null;
+    this.vanish = null;
     this.onActive(false);
   }
 
