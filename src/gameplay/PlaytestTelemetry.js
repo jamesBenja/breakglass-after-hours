@@ -19,7 +19,12 @@ const PROGRESSION_FLAGS = [
 ];
 
 const clean = (value, max = 64) =>
-  typeof value === 'string' ? value.replace(/[^a-zA-Z0-9 _./:-]/g, '').trim().slice(0, max) : '';
+  typeof value === 'string'
+    ? value
+        .replace(/[^a-zA-Z0-9 _./:-]/g, '')
+        .trim()
+        .slice(0, max)
+    : '';
 
 function randomId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -186,7 +191,8 @@ export class PlaytestTelemetry {
     this.ui = ui;
     game.telemetry = this;
 
-    for (const flag of PROGRESSION_FLAGS) this.progression.set(flag, game.state?.data?.[flag] === true);
+    for (const flag of PROGRESSION_FLAGS)
+      this.progression.set(flag, game.state?.data?.[flag] === true);
 
     const baseReady = ui.ready.bind(ui);
     ui.ready = (start) =>
@@ -388,9 +394,10 @@ export class PlaytestTelemetry {
     if (force || elapsed - this.lastHeartbeatAt >= HEARTBEAT_MS) {
       this.lastHeartbeatAt = elapsed;
       this.event('session_heartbeat', {
-        count: this.game.multiplayer?.remotePlayers?.size != null
-          ? this.game.multiplayer.remotePlayers.size + 1
-          : 1,
+        count:
+          this.game.multiplayer?.remotePlayers?.size != null
+            ? this.game.multiplayer.remotePlayers.size + 1
+            : 1,
       });
     }
   }
