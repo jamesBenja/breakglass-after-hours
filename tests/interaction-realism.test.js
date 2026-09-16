@@ -78,6 +78,6 @@ test('lightweight people now include more facial anatomy without changing their 
     assert.ok(names.has(name), `missing ${name}`);
 });
 
-test('DJ booth visual model has the second realism revision', () => {
-  assert.equal(DJ_BOOTH_VISUAL_REVISION, '2026-09-16-realism-2');
+test('DJ booth visual model includes the raised platform revision', () => {
+  assert.equal(DJ_BOOTH_VISUAL_REVISION, '2026-09-16-realism-3-platform');
 });
