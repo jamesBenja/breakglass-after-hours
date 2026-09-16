@@ -401,6 +401,8 @@ export class NpcSystem {
         phase: index * 2.1,
         photoPulse: 0,
         servePulse: 0,
+        handoffPulse: 0,
+        handoffKind: null,
         moving: false,
       };
     });
@@ -446,6 +448,14 @@ export class NpcSystem {
     return true;
   }
 
+  triggerHandoff(id, kind = 'item') {
+    const npc = this.get(id);
+    if (!npc) return false;
+    npc.handoffPulse = 1.15;
+    npc.handoffKind = kind;
+    return true;
+  }
+
   dialogue(id) {
     return dialogues[id] ?? null;
   }
@@ -462,9 +472,11 @@ export class NpcSystem {
     for (const npc of this.npcs) {
       npc.photoPulse = Math.max(0, npc.photoPulse - dt);
       npc.servePulse = Math.max(0, npc.servePulse - dt);
+      npc.handoffPulse = Math.max(0, npc.handoffPulse - dt);
+      if (npc.handoffPulse <= 0) npc.handoffKind = null;
       npc.moving = false;
       const companion = npc.companionId ? this.get(npc.companionId) : null;
-      if (companion && npc.photoPulse <= 0 && npc.servePulse <= 0) {
+      if (companion && npc.photoPulse <= 0 && npc.servePulse <= 0 && npc.handoffPulse <= 0) {
         const target = companion.group.position.clone().add(npc.companionOffset);
         const dx = target.x - npc.group.position.x;
         const dz = target.z - npc.group.position.z;
@@ -479,7 +491,12 @@ export class NpcSystem {
         } else {
           npc.group.rotation.y = companion.group.rotation.y;
         }
-      } else if (npc.route.length > 1 && npc.photoPulse <= 0 && npc.servePulse <= 0) {
+      } else if (
+        npc.route.length > 1 &&
+        npc.photoPulse <= 0 &&
+        npc.servePulse <= 0 &&
+        npc.handoffPulse <= 0
+      ) {
         const target = npc.route[npc.routeIndex % npc.route.length];
         const dx = target.x - npc.group.position.x;
         const dz = target.z - npc.group.position.z;
@@ -506,7 +523,13 @@ export class NpcSystem {
       });
 
       // Named characters subtly look around when idle instead of staring straight ahead.
-      if (!npc.moving && !clubDance && npc.photoPulse <= 0 && npc.servePulse <= 0) {
+      if (
+        !npc.moving &&
+        !clubDance &&
+        npc.photoPulse <= 0 &&
+        npc.servePulse <= 0 &&
+        npc.handoffPulse <= 0
+      ) {
         npc.head.rotation.y += Math.sin(this.elapsed * 0.45 + npc.phase) * 0.035;
         npc.head.rotation.x += Math.sin(this.elapsed * 0.31 + npc.phase * 0.7) * 0.012;
       }
@@ -520,6 +543,22 @@ export class NpcSystem {
         npc.leftForearm.rotation.x = -0.82 * lift;
         npc.head.rotation.x = -0.035 * lift;
       } else if (npc.prop && ['nora', 'james'].includes(npc.id)) {
+        npc.prop.position.set(0.31, 1.2, 0.2);
+      }
+
+      if (npc.handoffPulse > 0 && npc.role !== 'bartender') {
+        const phase = 1 - clamp(npc.handoffPulse / 1.15);
+        const reach = Math.sin(Math.min(1, phase * 1.32) * Math.PI) * 0.52;
+        npc.rightArm.rotation.x = -0.18 - reach * 1.05;
+        npc.rightArm.rotation.z = 0.06 + reach * 0.14;
+        npc.rightForearm.rotation.x = -0.28 - reach * 1.18;
+        npc.leftArm.rotation.x = -0.08 - reach * 0.16;
+        npc.body.rotation.x = -reach * 0.045;
+        npc.head.rotation.x = -reach * 0.035;
+        if (npc.prop && npc.propKind === 'candy') {
+          npc.prop.position.set(0.3, 1.17 + reach * 0.08, 0.2 + reach * 0.55);
+        }
+      } else if (npc.prop && npc.propKind === 'candy') {
         npc.prop.position.set(0.31, 1.2, 0.2);
       }
 

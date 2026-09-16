@@ -103,7 +103,8 @@ export function createLightweightHuman({
   const hairMaterial = material(hair, { roughness: 0.9 });
   const accentMaterial = material(accent, { roughness: 0.58 });
   const eyeWhite = material(0xf2efe8, { roughness: 0.5 });
-  const pupilMaterial = material(0x171419, { roughness: 0.45 });
+  const irisMaterial = material(0x5b4338, { roughness: 0.42 });
+  const pupilMaterial = material(0x171419, { roughness: 0.4 });
 
   const body = new Group();
   body.position.y = 1.05;
@@ -122,32 +123,55 @@ export function createLightweightHuman({
   neck.position.y = 1.47;
   const head = new Group();
   head.position.y = 1.69;
-  const cranium = sphere(0.225, skinMaterial, 14, 10);
+  const cranium = sphere(0.225, skinMaterial, 16, 12);
+  cranium.name = 'cranium';
   cranium.scale.set(0.93, 1.04, 0.92);
-  const jaw = sphere(0.175, skinMaterial, 12, 9);
+  const jaw = sphere(0.175, skinMaterial, 14, 10);
+  jaw.name = 'jaw';
   jaw.position.y = -0.13;
   jaw.scale.set(0.9, 0.7, 0.84);
   head.add(cranium, jaw);
+  for (const [side, x] of [
+    ['left', -0.218],
+    ['right', 0.218],
+  ]) {
+    const ear = sphere(0.043, skinMaterial, 8, 6);
+    ear.name = `ear-${side}`;
+    ear.scale.set(0.48, 1, 0.42);
+    ear.position.set(x, -0.01, -0.002);
+    head.add(ear);
+  }
 
   for (const x of [-0.072, 0.072]) {
     const white = sphere(0.031, eyeWhite, 8, 6);
     white.scale.set(1.12, 0.62, 0.36);
     white.position.set(x, 0.03, 0.201);
-    const pupil = sphere(0.011, pupilMaterial, 7, 5);
-    pupil.scale.z = 0.45;
-    pupil.position.set(x, 0.03, 0.225);
-    head.add(white, pupil);
+    const iris = sphere(0.017, irisMaterial, 8, 6);
+    iris.name = x < 0 ? 'iris-left' : 'iris-right';
+    iris.scale.set(1, 0.78, 0.42);
+    iris.position.set(x, 0.03, 0.222);
+    const pupil = sphere(0.008, pupilMaterial, 7, 5);
+    pupil.name = x < 0 ? 'pupil-left' : 'pupil-right';
+    pupil.scale.z = 0.4;
+    pupil.position.set(x, 0.03, 0.232);
+    head.add(white, iris, pupil);
     const brow = box(0.071, 0.012, 0.014, hairMaterial);
     brow.position.set(x, 0.087, 0.207);
     brow.rotation.z = x < 0 ? -0.08 : 0.08;
     head.add(brow);
   }
+  const noseBridge = capsule(0.021, 0.055, skinMaterial, 6);
+  noseBridge.name = 'nose-bridge';
+  noseBridge.position.set(0, -0.008, 0.211);
+  noseBridge.rotation.x = Math.PI / 2;
   const nose = sphere(0.031, skinMaterial, 8, 6);
-  nose.scale.set(0.75, 0.75, 0.9);
-  nose.position.set(0, -0.044, 0.226);
-  const mouth = box(0.077, 0.011, 0.014, accentMaterial);
-  mouth.position.set(0, -0.116, 0.188);
-  head.add(nose, mouth);
+  nose.name = 'nose-tip';
+  nose.scale.set(0.75, 0.72, 0.9);
+  nose.position.set(0, -0.047, 0.23);
+  const mouth = box(0.082, 0.012, 0.014, accentMaterial);
+  mouth.name = 'mouth';
+  mouth.position.set(0, -0.116, 0.192);
+  head.add(noseBridge, nose, mouth);
   const hairModel = hairRig(hairMaterial, hairStyle);
   head.add(hairModel);
 

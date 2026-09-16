@@ -34,6 +34,12 @@ export const dialogues = {
     arcadePrompt: 'Do you like old arcade games?',
     arcadeText:
       '“Wait — yes. Old fighting cabinets especially. Come on, come on. Mortal Kombat is right by the Clark stairs. The sound can wait thirty seconds.”',
+    takeCandyPrompt: 'Take a candy from Devin',
+    takeCandyText:
+      '“Yeah, obviously. Take one. Sound-system sugar is part of the tuning protocol.”',
+    giveCandyPrompt: 'Give Devin a candy',
+    giveCandyText:
+      '“For me? Perfect. This buys at least another ten minutes of obsessive system tuning.”',
   },
   dave: {
     title: 'DAVE · FOUNDER',

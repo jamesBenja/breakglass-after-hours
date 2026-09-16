@@ -227,6 +227,48 @@ export class Game {
             ]);
           },
         ],
+        [
+          dialogue.takeCandyPrompt,
+          () => {
+            const candy = Math.max(0, Math.floor(Number(this.state.data.candy) || 0));
+            if (candy >= 9) {
+              ui.panel('DEVIN · CANDY', 'Your pockets are already full of candy.', [
+                ['Back', openDevinDialogue],
+              ]);
+              return;
+            }
+            this.state.data.candy = candy + 1;
+            this.state.data.devinFavor = Math.min(99, (this.state.data.devinFavor || 0) + 1);
+            this.interactionProps?.receiveFromNpc?.('devin', 'candy', { consume: false });
+            this.save();
+            ui.panel(
+              'DEVIN · CANDY',
+              `${dialogue.takeCandyText} Candy in pocket: ${this.state.data.candy}.`,
+              [['Back', openDevinDialogue]],
+            );
+          },
+        ],
+        [
+          dialogue.giveCandyPrompt,
+          () => {
+            const candy = Math.max(0, Math.floor(Number(this.state.data.candy) || 0));
+            if (candy <= 0) {
+              ui.panel('DEVIN · CANDY', 'You check your pockets. No candy to give him yet.', [
+                ['Back', openDevinDialogue],
+              ]);
+              return;
+            }
+            this.state.data.candy = candy - 1;
+            this.state.data.devinFavor = Math.min(99, (this.state.data.devinFavor || 0) + 2);
+            this.interactionProps?.giveToNpc?.('devin', 'candy');
+            this.save();
+            ui.panel(
+              'DEVIN · CANDY',
+              `${dialogue.giveCandyText} Candy in pocket: ${this.state.data.candy}.`,
+              [['Back', openDevinDialogue]],
+            );
+          },
+        ],
       ]);
       return true;
     };

@@ -62,7 +62,12 @@ export function createInteractionItem(kind) {
     const coffee = material(0x3a2419, { roughness: 0.52 });
     add(group, new CylinderGeometry(0.072, 0.058, 0.12, 12), cup);
     add(group, new CylinderGeometry(0.057, 0.057, 0.008, 12), coffee, [0, 0.061, 0]);
-    const handle = add(group, new TorusGeometry(0.047, 0.012, 6, 12, Math.PI * 1.55), cup, [0.075, 0.005, 0]);
+    const handle = add(
+      group,
+      new TorusGeometry(0.047, 0.012, 6, 12, Math.PI * 1.55),
+      cup,
+      [0.075, 0.005, 0],
+    );
     handle.rotation.y = Math.PI / 2;
   } else if (kind === 'hotdog') {
     const bun = material(0xd79c5e, { roughness: 0.82 });
@@ -71,7 +76,8 @@ export function createInteractionItem(kind) {
     add(group, new CapsuleGeometry(0.075, 0.25, 5, 10), bun, [-0.065, 0, 0], [0, 0, Math.PI / 2]);
     add(group, new CapsuleGeometry(0.075, 0.25, 5, 10), bun, [0.065, 0, 0], [0, 0, Math.PI / 2]);
     add(group, new CapsuleGeometry(0.047, 0.3, 5, 10), sausage, [0, 0.035, 0], [0, 0, Math.PI / 2]);
-    for (const x of [-0.1, 0, 0.1]) add(group, new BoxGeometry(0.08, 0.014, 0.016), mustard, [x, 0.094, 0], [0, 0, x * 4]);
+    for (const x of [-0.1, 0, 0.1])
+      add(group, new BoxGeometry(0.08, 0.014, 0.016), mustard, [x, 0.094, 0], [0, 0, x * 4]);
     group.scale.setScalar(0.82);
   } else if (kind === 'taco') {
     const shell = material(0xd9aa55, { roughness: 0.86 });
@@ -152,8 +158,8 @@ export class InteractionPropSystem {
       direction,
       consume: consume ?? (fromNpc && INTERACTION_ITEM_PROFILES[kind].consume),
       item,
-      start: start.clone(),
-      end: end.clone(),
+      from: start.clone(),
+      to: end.clone(),
       phase: 'handoff',
       time: 0,
       duration: 0.62,
@@ -197,9 +203,7 @@ export class InteractionPropSystem {
     active.item.position.copy(local);
     active.phase = active.consume ? 'consume' : 'pocket';
     active.time = 0;
-    active.duration = active.consume
-      ? INTERACTION_ITEM_PROFILES[active.kind].consumeSeconds
-      : 0.5;
+    active.duration = active.consume ? INTERACTION_ITEM_PROFILES[active.kind].consumeSeconds : 0.5;
   }
 
   update(dt) {
@@ -210,8 +214,7 @@ export class InteractionPropSystem {
 
     if (active.phase === 'handoff') {
       const t = smooth(active.time / active.duration);
-      active.start.lerp(active.end, t);
-      active.item.position.copy(active.start);
+      active.item.position.lerpVectors(active.from, active.to, t);
       active.item.rotation.y += dt * 2.1;
       if (active.time >= active.duration) {
         if (active.direction === 'give') {

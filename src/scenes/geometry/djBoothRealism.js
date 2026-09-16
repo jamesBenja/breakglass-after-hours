@@ -1,7 +1,8 @@
-import { MeshStandardMaterial } from 'three';
+import { Mesh, MeshStandardMaterial, TorusGeometry } from 'three';
 import { createPrimitives } from './primitives.js';
 
 const DEVICE_SCALE = 1.9;
+export const DJ_BOOTH_VISUAL_REVISION = '2026-09-16-realism-2';
 
 export function buildRealisticDjBooth(root) {
   const { box, cyl, mat, MAT, label } = createPrimitives();
@@ -30,6 +31,17 @@ export function buildRealisticDjBooth(root) {
     roughness: 0.22,
     metalness: 0.08,
   });
+  const addJogRing = (x, y, z, radius, color = 0xb5bac0) => {
+    const ring = new Mesh(
+      new TorusGeometry(radius, 0.018, 8, 28),
+      new MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.76 }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(x, y, z);
+    ring.castShadow = true;
+    root.add(ring);
+    return ring;
+  };
 
   const turntable = (x, side) => {
     // SL-1200 family proportions: 453 × 353 mm footprint, 332 mm platter.
@@ -38,7 +50,10 @@ export function buildRealisticDjBooth(root) {
     const height = 0.12;
     box(root, width, height, depth, silver, x, topY + height / 2, deskZ);
     cyl(root, 0.332 * DEVICE_SCALE * 0.5, 0.055, platter, x - 0.06 * side, topY + 0.14, deskZ);
-    cyl(root, 0.053, 0.065, dark, x - 0.06 * side, topY + 0.17, deskZ);
+    cyl(root, 0.28, 0.022, black, x - 0.06 * side, topY + 0.178, deskZ);
+    cyl(root, 0.055, 0.026, side < 0 ? blue : red, x - 0.06 * side, topY + 0.196, deskZ);
+    addJogRing(x - 0.06 * side, topY + 0.205, deskZ, 0.292, 0xb8bdc1);
+    cyl(root, 0.019, 0.045, silver, x - 0.06 * side, topY + 0.218, deskZ);
     // Tonearm base + angled arm and headshell.
     cyl(root, 0.065, 0.075, dark, x + 0.31 * side, topY + 0.14, deskZ + 0.19);
     const arm = box(root, 0.035, 0.035, 0.48, silver, x + 0.22 * side, topY + 0.19, deskZ + 0.03);
@@ -60,7 +75,21 @@ export function buildRealisticDjBooth(root) {
     box(root, width * 0.82, 0.045, depth * 0.3, screen, x, topY + 0.17, deskZ - depth * 0.26);
     const jog = cyl(root, 0.21, 0.055, platter, x, topY + 0.18, deskZ + 0.08);
     jog.name = side < 0 ? 'cdj-left-jog' : 'cdj-right-jog';
+    addJogRing(x, topY + 0.218, deskZ + 0.08, 0.215);
     cyl(root, 0.155, 0.02, dark, x, topY + 0.215, deskZ + 0.08);
+    cyl(root, 0.048, 0.018, silver, x, topY + 0.232, deskZ + 0.08);
+    // A few small waveform/transport details make the decks read as actual media players.
+    for (let i = 0; i < 6; i += 1)
+      box(
+        root,
+        0.055,
+        0.012,
+        0.018,
+        i % 2 ? blue : green,
+        x - 0.16 + i * 0.064,
+        topY + 0.199,
+        deskZ - depth * 0.27,
+      );
     for (let i = 0; i < 4; i += 1) {
       box(
         root,
@@ -87,13 +116,27 @@ export function buildRealisticDjBooth(root) {
     const channelX = [-0.24, -0.08, 0.08, 0.24];
     for (let channel = 0; channel < 4; channel += 1) {
       const cx = x + channelX[channel];
+      // Gain, 3-band EQ and filter stack for each mixer channel.
       for (const [z, color] of [
-        [-0.28, amber],
+        [-0.34, white],
+        [-0.26, amber],
         [-0.18, white],
-        [-0.08, blue],
+        [-0.1, blue],
+        [-0.02, green],
       ]) {
-        cyl(root, 0.025, 0.027, color, cx, topY + 0.2, deskZ + z);
+        cyl(root, 0.024, 0.027, color, cx, topY + 0.2, deskZ + z);
       }
+      for (let meter = 0; meter < 5; meter += 1)
+        box(
+          root,
+          0.012,
+          0.012,
+          0.025,
+          meter > 3 ? red : green,
+          cx + 0.035,
+          topY + 0.202,
+          deskZ + 0.04 + meter * 0.035,
+        );
       box(root, 0.026, 0.018, 0.25, dark, cx, topY + 0.205, deskZ + 0.19);
       box(root, 0.06, 0.028, 0.045, silver, cx, topY + 0.22, deskZ + 0.21);
     }

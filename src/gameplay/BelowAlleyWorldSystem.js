@@ -66,6 +66,7 @@ export class BelowAlleyWorldSystem {
           'Buy a hot dog',
           () => {
             state.hotDogsEaten = Math.min(999, (state.hotDogsEaten || 0) + 1);
+            this.game.interactionProps?.receiveFromNpc?.('beaver', 'hotdog');
             this.save();
             this.ui.warning?.('Beaver hands you a hot dog straight off the grill.');
             this.beaverPanel();
@@ -75,6 +76,7 @@ export class BelowAlleyWorldSystem {
           'Buy a taco',
           () => {
             state.tacosEaten = Math.min(999, (state.tacosEaten || 0) + 1);
+            this.game.interactionProps?.receiveFromNpc?.('beaver', 'taco');
             this.save();
             this.ui.warning?.('Beaver passes you a taco from the alley prep table.');
             this.beaverPanel();
@@ -85,6 +87,7 @@ export class BelowAlleyWorldSystem {
           () => {
             state.drinksServed = Math.min(999, (state.drinksServed || 0) + 1);
             state.intoxication = clamp01((state.intoxication || 0) + 0.08);
+            this.game.interactionProps?.receiveFromNpc?.('beaver', 'beer');
             this.save();
             this.ui.warning?.('Beaver pulls a cold beer from the cooler.');
             this.beaverPanel();
