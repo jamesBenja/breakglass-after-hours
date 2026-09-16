@@ -146,8 +146,7 @@ export function buildBelowFixtures(downScene) {
   for (const [x, y, z] of BELOW_SOUND_RIG.quads) {
     box(downScene, 0.7, 1.48, 0.72, MAT.speaker, x, y, z);
     box(downScene, 0.54, 0.08, 0.54, mat(0x1f1f1f), x, y + 0.34, z - 0.37);
-    for (const dx of [-0.23, 0.23])
-      box(downScene, 0.025, 0.38, 0.025, suspension, x + dx, 3.0, z);
+    for (const dx of [-0.23, 0.23]) box(downScene, 0.025, 0.38, 0.025, suspension, x + dx, 3.0, z);
   }
   const [subX, subY, subZ] = BELOW_SOUND_RIG.sub;
   cyl(downScene, 0.72, 0.62, MAT.speaker, subX, subY, subZ);

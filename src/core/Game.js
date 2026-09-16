@@ -203,10 +203,7 @@ export class Game {
       this.state.meet('devin');
       this.save();
       ui.panel(dialogue.title, dialogue.text, [
-        [
-          dialogue.soundPrompt,
-          () => ui.panel('DEVIN · SYSTEM WALK', dialogue.soundText, []),
-        ],
+        [dialogue.soundPrompt, () => ui.panel('DEVIN · SYSTEM WALK', dialogue.soundText, [])],
         [
           dialogue.arcadePrompt,
           () => {

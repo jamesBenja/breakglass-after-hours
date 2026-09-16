@@ -1,10 +1,5 @@
 import { commandFight, createFightState, stepFight } from './UndergroundFight.js';
-import {
-  KOMBAT_FIGHTERS,
-  chooseCpuFighter,
-  fighterById,
-  specialVisualForHit,
-} from './fighters.js';
+import { KOMBAT_FIGHTERS, chooseCpuFighter, fighterById, specialVisualForHit } from './fighters.js';
 
 const KEYMAP = {
   KeyA: ['player', 'left'],
@@ -221,8 +216,7 @@ export class UndergroundKombat {
   updateControlLabels() {
     if (!this.playerFighter) return;
     for (const control of this.controls) {
-      if (control.action === 'light')
-        control.button.textContent = this.playerFighter.buttons.light;
+      if (control.action === 'light') control.button.textContent = this.playerFighter.buttons.light;
       else if (control.action === 'heavy')
         control.button.textContent = this.playerFighter.buttons.heavy;
       else if (control.action === 'special')
