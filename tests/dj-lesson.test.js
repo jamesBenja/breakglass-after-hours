@@ -2,13 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeDjMix, DJ_LESSON_STAGES } from '../src/gameplay/DjLessonSystem.js';
 
-function mixerFixture({
-  crossfader = 0,
-  phaseA = 0,
-  phaseB = 0,
-  a = {},
-  b = {},
-} = {}) {
+function mixerFixture({ crossfader = 0, phaseA = 0, phaseB = 0, a = {}, b = {} } = {}) {
   const decks = {
     A: {
       id: 'A',

@@ -96,12 +96,7 @@ export function analyzeDjMix(mixer, baseMetrics = {}) {
   const energy = clamp(baseMetrics.energy ?? 0);
   const vibe = deadAir
     ? 0.02
-    : clamp(
-        energy *
-          (0.3 + mixQuality * 0.76) *
-          (1 - trainwreck * 0.78) *
-          (1 - bassClash * 0.14),
-      );
+    : clamp(energy * (0.3 + mixQuality * 0.76) * (1 - trainwreck * 0.78) * (1 - bassClash * 0.14));
 
   let floorState = 'quiet';
   if (deadAir || trainwreck >= 0.72) floorState = 'trainwreck';
@@ -302,8 +297,10 @@ class DjLessonController {
     let pass = false;
 
     if (stage === 'one-deck') pass = !!a?.playing && !b?.playing;
-    else if (stage === 'second-deck') pass = !!a?.playing && !!b?.playing && this.mixer.crossfader < -0.45;
-    else if (stage === 'tempo') pass = !!a?.playing && !!b?.playing && (metrics.bpmDistance ?? 99) <= 0.3;
+    else if (stage === 'second-deck')
+      pass = !!a?.playing && !!b?.playing && this.mixer.crossfader < -0.45;
+    else if (stage === 'tempo')
+      pass = !!a?.playing && !!b?.playing && (metrics.bpmDistance ?? 99) <= 0.3;
     else if (stage === 'phase') pass = (metrics.beatAlignment ?? 0) >= 0.9;
     else if (stage === 'bass') {
       pass =
@@ -320,9 +317,11 @@ class DjLessonController {
           this.feedback = `Good choice: ${trackById(changedDeck.trackId).label} changes the room without jumping straight to peak.`;
           pass = true;
         } else if (energy > 0.8) {
-          this.feedback = 'That is a big peak-energy jump. It can be right later, but for this warm floor choose something a little less aggressive.';
+          this.feedback =
+            'That is a big peak-energy jump. It can be right later, but for this warm floor choose something a little less aggressive.';
         } else {
-          this.feedback = 'That drops the energy sharply. Try something that holds the groove or nudges it upward.';
+          this.feedback =
+            'That drops the energy sharply. Try something that holds the groove or nudges it upward.';
         }
       }
     }
@@ -374,7 +373,8 @@ class DjLessonController {
       this.completeLesson('proficiency');
       return true;
     }
-    this.feedback = 'Not quite. Make one clean two-deck transition: match tempo, line up the phase, manage the low end and keep the floor above 62%.';
+    this.feedback =
+      'Not quite. Make one clean two-deck transition: match tempo, line up the phase, manage the low end and keep the floor above 62%.';
     this.decorate();
     return false;
   }
@@ -403,7 +403,8 @@ class DjLessonController {
       const title = this.ui.document.createElement('strong');
       title.textContent = 'EXPERIENCED DJ · PROFICIENCY CHECK';
       const copy = this.ui.document.createElement('p');
-      copy.textContent = 'Make one clean transition using the real booth. Two decks, matched tempo, phase under control, sensible low end and a floor that stays alive.';
+      copy.textContent =
+        'Make one clean transition using the real booth. Two decks, matched tempo, phase under control, sensible low end and a floor that stays alive.';
       const readout = this.ui.document.createElement('small');
       readout.innerHTML = `<span class="dj-floor-state ${floorClass}">${floorClass}</span> · floor ${Math.round((metrics.vibe ?? 0) * 100)}% · mix ${Math.round((metrics.mixQuality ?? 0) * 100)}% · wreck ${Math.round((metrics.trainwreck ?? 0) * 100)}%`;
       host.append(title, copy, readout);
