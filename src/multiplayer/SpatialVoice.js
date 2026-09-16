@@ -37,6 +37,11 @@ export function spatialVoiceGain({
   return clamp01(gain);
 }
 
+export function effectiveVoiceGain({ remoteId, privatePeerId = null, spatialGain = 0 }) {
+  if (!privatePeerId) return clamp01(spatialGain);
+  return remoteId === privatePeerId ? 1 : 0;
+}
+
 export function voiceOccluded(level, localPosition, remotePosition) {
   const collision = level?.collision;
   if (!collision?.cameraCast || !localPosition || !remotePosition) return false;
@@ -53,7 +58,6 @@ export function voiceOccluded(level, localPosition, remotePosition) {
   const hit = collision.cameraCast(from, to, 0.04);
   if (!hit || hit.fraction >= 0.985) return false;
   const id = String(hit.target ?? '');
-  // Furniture should not abruptly mute a conversation. Structural blockers should.
   return /wall|outside|closed|suite|partition|door|storage|room/i.test(id);
 }
 
@@ -73,6 +77,7 @@ export class SpatialVoiceSystem {
     const dt =
       this.lastNow == null ? 1 / 60 : Math.min(0.1, Math.max(1 / 240, (now - this.lastNow) / 1000));
     this.lastNow = now;
+    const privatePeerId = this.multiplayer.phone?.activePeerId ?? null;
 
     for (const [id, entry] of this.multiplayer.media?.remoteMedia ?? []) {
       const remote = this.multiplayer.remotePlayers.get(id);
@@ -80,17 +85,24 @@ export class SpatialVoiceSystem {
       const sameScene = remote.sceneId === sceneId;
       const distance = sameScene ? local.distanceTo(remote.object.position) : Infinity;
       const occluded = sameScene && voiceOccluded(level, local, remote.object.position);
-      const target = spatialVoiceGain({ sameScene, distance, occluded });
+      const spatialGain = spatialVoiceGain({ sameScene, distance, occluded });
+      const target = effectiveVoiceGain({ remoteId: id, privatePeerId, spatialGain });
       const current = this.gains.get(id) ?? target;
       const speed = target > current ? SPATIAL_VOICE.attack : SPATIAL_VOICE.release;
       const gain = current + (target - current) * (1 - Math.exp(-speed * dt));
       this.gains.set(id, gain);
       entry.audio.volume = clamp01(gain);
-      entry.tile?.classList?.toggle('voice-nearby', target > 0.15);
-      entry.tile?.classList?.toggle('voice-distant', target <= 0.15);
+      entry.tile?.classList?.toggle('voice-nearby', !privatePeerId && target > 0.15);
+      entry.tile?.classList?.toggle('voice-distant', !privatePeerId && target <= 0.15);
+      entry.tile?.classList?.toggle('voice-private', privatePeerId === id);
       if (entry.status && remote) {
         const media = [];
-        if (remote.media?.audio) media.push(target > 0.15 ? 'nearby voice' : 'voice out of range');
+        if (privatePeerId) {
+          if (id === privatePeerId) media.push('private call');
+          else media.push('muted during private call');
+        } else if (remote.media?.audio) {
+          media.push(target > 0.15 ? 'nearby voice' : 'voice out of range');
+        }
         if (remote.media?.video) media.push('camera');
         if (media.length) entry.status.textContent = media.join(' + ');
       }
