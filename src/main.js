@@ -25,6 +25,7 @@ import { installRoomExperienceEnhancements } from './gameplay/roomExperienceEnha
 import { installGameStatsEnhancements } from './gameplay/GameStatsSystem.js';
 import { installBelowAlleyWorldSystem } from './gameplay/BelowAlleyWorldSystem.js';
 import { installAudioReliabilityEnhancements } from './gameplay/audioReliabilityEnhancements.js';
+import { PlaytestTelemetry } from './gameplay/PlaytestTelemetry.js';
 import {
   applyGodMode,
   GOD_MODE_SAVE_KEY,
@@ -45,8 +46,10 @@ installFaceAvatarEnhancements();
 
 const invitation = await resolveInvitationAccess();
 const godMode = await resolveGodModeAccess();
+const telemetry = new PlaytestTelemetry({ invitation, godMode: godMode.enabled });
 const ui = new Hud(document);
 mountInvitationLetter(document, invitation);
+telemetry.mountNotice(document);
 let game;
 try {
   game = new Game(ui, {
@@ -74,6 +77,7 @@ try {
   installAudioReliabilityEnhancements(game, ui);
   installMultiplayerEnhancements(game, ui);
   installInvitationAccess(game, ui, invitation);
+  telemetry.attach(game, ui);
   await game.initialize();
 } catch (error) {
   console.error('Breakglass startup failed', error);
