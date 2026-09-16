@@ -6,6 +6,7 @@ import './ui/performanceRealism.css';
 import './ui/avatarFace.css';
 import './ui/multiplayer.css';
 import './ui/arcade.css';
+import './ui/godMode.css';
 import './ui/mobileMixerEnhancements.js';
 import { Game } from './core/Game.js';
 import { installFaceAvatarEnhancements } from './avatar/faceAvatarEnhancements.js';
@@ -23,7 +24,12 @@ import { installRoomExperienceEnhancements } from './gameplay/roomExperienceEnha
 import { installGameStatsEnhancements } from './gameplay/GameStatsSystem.js';
 import { installBelowAlleyWorldSystem } from './gameplay/BelowAlleyWorldSystem.js';
 import { installAudioReliabilityEnhancements } from './gameplay/audioReliabilityEnhancements.js';
-import { applyGodMode, GOD_MODE_SAVE_KEY, resolveGodModeAccess } from './gameplay/GodMode.js';
+import {
+  applyGodMode,
+  GOD_MODE_SAVE_KEY,
+  mountGodModeControls,
+  resolveGodModeAccess,
+} from './gameplay/GodMode.js';
 import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
 
@@ -37,7 +43,10 @@ try {
     spatialPass: new URLSearchParams(location.search).get('pass') ?? undefined,
     saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : undefined,
   });
-  if (godMode.enabled) applyGodMode(game, ui);
+  if (godMode.enabled) {
+    applyGodMode(game, ui);
+    mountGodModeControls(document);
+  }
   installMusicEnhancements(game, ui);
   installPartyPressureEnhancements(game, ui);
   installPartyLifeEnhancements(game, ui);
