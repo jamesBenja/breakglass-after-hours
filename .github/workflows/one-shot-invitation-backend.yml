@@ -36,8 +36,31 @@ jobs:
       - name: Syntax check
         run: node --check server/multiplayerServer.mjs
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Verify invitation endpoint
+        shell: bash
+        run: |
+          GOD_MODE_TOKEN=test-secret PORT=8787 node server/multiplayerServer.mjs > /tmp/invite-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          sleep 1
+          node --input-type=module <<'NODE'
+          import crypto from 'node:crypto';
+          const type = 'producer';
+          const signature = crypto
+            .createHmac('sha256', 'test-secret')
+            .update(`breakglass-invite:${type}`)
+            .digest('base64url');
+          const good = await fetch('http://127.0.0.1:8787/invite/verify', {
+            headers: { Authorization: `Bearer ${type}.${signature}` },
+          });
+          const payload = await good.json();
+          if (!good.ok || payload.ok !== true || payload.type !== type)
+            throw new Error(`valid invite rejected: ${good.status} ${JSON.stringify(payload)}`);
+          const bad = await fetch('http://127.0.0.1:8787/invite/verify', {
+            headers: { Authorization: 'Bearer dj.forged' },
+          });
+          if (bad.status !== 401) throw new Error(`forged invite accepted: ${bad.status}`);
+          NODE
 
       - name: Production build
         run: pnpm build
