@@ -1,11 +1,11 @@
 #gate .invitation-card {
   width: min(660px, 90vw);
   color: #1e1b17;
-  background:
-    linear-gradient(rgba(250, 245, 232, 0.96), rgba(239, 231, 211, 0.98)),
-    #f4ecd9;
+  background: linear-gradient(rgba(250, 245, 232, 0.96), rgba(239, 231, 211, 0.98)), #f4ecd9;
   border: 1px solid rgba(75, 59, 38, 0.55);
-  box-shadow: 0 30px 100px #000, inset 0 0 70px rgba(100, 72, 38, 0.08);
+  box-shadow:
+    0 30px 100px #000,
+    inset 0 0 70px rgba(100, 72, 38, 0.08);
 }
 
 #gate .invitation-card:not(.invitation-open) > :not(.invite-envelope) {
@@ -22,7 +22,9 @@
   border: 1px solid rgba(81, 59, 36, 0.45);
   border-radius: 7px;
   background: linear-gradient(145deg, #e4d7b9 0%, #f1e7cf 53%, #d7c7a4 100%);
-  box-shadow: inset 0 0 45px rgba(83, 59, 31, 0.12), 0 12px 32px rgba(0, 0, 0, 0.22);
+  box-shadow:
+    inset 0 0 45px rgba(83, 59, 31, 0.12),
+    0 12px 32px rgba(0, 0, 0, 0.22);
   text-align: center;
 }
 
@@ -96,9 +98,13 @@
   place-items: center;
   border-radius: 50%;
   background: #371212;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.32), inset 0 0 0 4px #5a1b1b;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.32),
+    inset 0 0 0 4px #5a1b1b;
   color: #d9c7a2;
-  font: 700 17px/1 Georgia, serif;
+  font:
+    700 17px/1 Georgia,
+    serif;
   letter-spacing: 0.05em;
 }
 

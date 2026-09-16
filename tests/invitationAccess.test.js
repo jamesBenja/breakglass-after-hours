@@ -109,7 +109,11 @@ function fixture(profileId = 'participant') {
     scenes: new Map([['alley', { alley }]]),
     sceneManager: {
       current: {
-        definition: { get id() { return sceneId; } },
+        definition: {
+          get id() {
+            return sceneId;
+          },
+        },
         progressionGates: { sync() {} },
       },
     },

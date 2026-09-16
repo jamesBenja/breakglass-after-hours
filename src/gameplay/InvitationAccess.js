@@ -145,7 +145,11 @@ export async function resolveInvitationAccess({ fetchRef = globalThis.fetch } = 
     }
     remember(token, payload.type);
     if (linkToken) stripInvitationToken();
-    return { ...invitationProfile(payload.type), verified: true, source: linkToken ? 'link' : 'stored' };
+    return {
+      ...invitationProfile(payload.type),
+      verified: true,
+      source: linkToken ? 'link' : 'stored',
+    };
   } catch {
     if (linkToken) stripInvitationToken();
     return { ...invitationProfile('participant'), verified: false, source: 'unavailable' };
@@ -299,7 +303,8 @@ export function installInvitationAccess(game, ui, profileInput) {
     bouncer.handle = (target) => {
       const id = targetId(target);
       const isSam = target?.action === 'dialogue' && (id === 'sam' || id === 'bouncer');
-      if (!isSam || game.sceneManager.current?.definition?.id !== 'alley') return baseHandle(target);
+      if (!isSam || game.sceneManager.current?.definition?.id !== 'alley')
+        return baseHandle(target);
       if (bouncer.admitted) return baseHandle(target);
       if (Number(bouncer.waitUntil || 0) > Number(bouncer.elapsed || 0)) {
         bouncer.waitingPanel?.();
@@ -423,7 +428,9 @@ export function installInvitationAccess(game, ui, profileInput) {
             () => {
               state.policePlan = 'self';
               save();
-              ui.warning?.('Head to the alley and talk to the officers before the warning expires.');
+              ui.warning?.(
+                'Head to the alley and talk to the officers before the warning expires.',
+              );
             },
           ],
         ],
