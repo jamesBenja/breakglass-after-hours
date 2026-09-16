@@ -16,6 +16,7 @@ import { installPartyPressureEnhancements } from './gameplay/partyPressureEnhanc
 import { installPartyLifeEnhancements } from './gameplay/partyLifeEnhancements.js';
 import { installDjSyncEnhancements } from './gameplay/djSyncEnhancements.js';
 import { installDjPerformanceRealism } from './gameplay/DjPerformanceRealismSystem.js';
+import { installDjLessonSystem } from './gameplay/DjLessonSystem.js';
 import { installStudioLoopEnhancements } from './gameplay/StudioLoopEnhancements.js';
 import { installPerformanceRealismSystems } from './gameplay/installPerformanceRealismSystems.js';
 import { installCrowdDoorEnhancements } from './gameplay/crowdDoorEnhancements.js';
@@ -75,6 +76,7 @@ try {
   installDjPerformanceRealism(game, ui);
   installStudioLoopEnhancements(game, ui);
   installPerformanceRealismSystems(game, ui);
+  installDjLessonSystem(game, ui);
   installCrowdDoorEnhancements(game, ui);
   installEntryEnhancements(game, ui);
   installGuestlistDoorEnhancements(game, ui);
