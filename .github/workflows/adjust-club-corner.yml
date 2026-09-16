@@ -1,0 +1,137 @@
+name: Adjust club corner
+
+on:
+  push:
+    branches:
+      - feat/multiplayer-phase-2-shared-world
+
+permissions:
+  contents: write
+
+jobs:
+  adjust:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/multiplayer-phase-2-shared-world
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm install --frozen-lockfile
+      - name: Move cabinet and rehang speakers horizontally
+        shell: python
+        run: |
+          from pathlib import Path
+
+          config = Path('src/world/belowClubConfig.js')
+          text = config.read_text()
+          old = """export const BELOW_SOUND_RIG = {
+            quads: [
+              [-5.25, 2.26, -2.8],
+              [-5.25, 2.26, 2.8],
+              [5.25, 2.26, -2.8],
+              [5.25, 2.26, 2.8],
+            ],
+            sub: [0, 2.55, 0],
+          };
+
+          export const MORTAL_KOMBAT_CABINET = [2.95, 0, -2.75];
+
+          export const DEVIN_ARCADE_GUIDE = {
+            player: [2.95, 0, -1.55],
+            npc: [1.95, 0, -2.15],
+          };
+          """
+          new = """export const BELOW_SOUND_RIG = {
+            quads: [
+              [-4.85, 2.5, -2.5],
+              [-4.85, 2.5, 2.5],
+              [4.85, 2.5, -2.5],
+              [4.85, 2.5, 2.5],
+            ],
+            quadSize: [1.5, 0.68, 0.78],
+            sub: [0, 2.55, 0],
+          };
+
+          // Tucked into the small club-side corner immediately east of the Clark emergency stair.
+          export const MORTAL_KOMBAT_CABINET = [5.3, 0, -2.74];
+
+          export const DEVIN_ARCADE_GUIDE = {
+            player: [5.05, 0, -1.55],
+            npc: [4.15, 0, -2.05],
+          };
+          """
+          if old not in text:
+              raise SystemExit('config target block not found')
+          config.write_text(text.replace(old, new))
+
+          geo = Path('src/scenes/geometry/belowBlockout.js')
+          text = geo.read_text()
+          old = """  const suspension = mat(0x4c5055, 0.48, 0.3);
+            for (const [x, y, z] of BELOW_SOUND_RIG.quads) {
+              box(downScene, 0.7, 1.48, 0.72, MAT.speaker, x, y, z);
+              box(downScene, 0.54, 0.08, 0.54, mat(0x1f1f1f), x, y + 0.34, z - 0.37);
+              for (const dx of [-0.23, 0.23]) box(downScene, 0.025, 0.38, 0.025, suspension, x + dx, 3.0, z);
+            }
+          """
+          new = """  const suspension = mat(0x4c5055, 0.48, 0.3);
+            const grille = mat(0x3a3c42, 0.68, 0.08);
+            const driver = mat(0x111216, 0.58, 0.04);
+            const [speakerWidth, speakerHeight, speakerDepth] = BELOW_SOUND_RIG.quadSize;
+            for (const [x, y, z] of BELOW_SOUND_RIG.quads) {
+              // The four Danley-style quad boxes hang horizontally, slightly below the truss line,
+              // with their faces turned inward so they read clearly from the dance floor.
+              box(downScene, speakerWidth, speakerHeight, speakerDepth, MAT.speaker, x, y, z);
+              const inward = Math.sign(z) || 1;
+              const faceZ = z - inward * (speakerDepth / 2 + 0.02);
+              box(downScene, speakerWidth * 0.84, speakerHeight * 0.66, 0.045, grille, x, y, faceZ);
+              for (const dx of [-0.38, 0.38]) {
+                const cone = cyl(downScene, 0.2, 0.035, driver, x + dx, y, faceZ - inward * 0.035);
+                cone.rotation.x = Math.PI / 2;
+              }
+              for (const dx of [-0.52, 0.52])
+                box(downScene, 0.025, 0.34, 0.025, suspension, x + dx, 3.0, z);
+            }
+          """
+          if old not in text:
+              raise SystemExit('speaker geometry target block not found')
+          geo.write_text(text.replace(old, new))
+
+          test = Path('tests/club-kombat-pass.test.js')
+          text = test.read_text()
+          text = text.replace(
+          """  assert.equal(BELOW_SOUND_RIG.sub[0], 0);
+            assert.equal(BELOW_SOUND_RIG.sub[2], 0);
+          """,
+          """  assert.ok(
+              BELOW_SOUND_RIG.quadSize[0] > BELOW_SOUND_RIG.quadSize[1] * 1.8,
+              'quad cabinets should be horizontally oriented',
+            );
+            assert.equal(BELOW_SOUND_RIG.sub[0], 0);
+            assert.equal(BELOW_SOUND_RIG.sub[2], 0);
+          """)
+          text = text.replace(
+          """  assert.ok(x > 2.4 && x < 3.5);
+            assert.ok(z < -2.1 && z > -3.2);
+          """,
+          """  assert.ok(x > 5.0 && x < 5.8, 'cabinet should be tucked into the east Clark-stair corner');
+            assert.ok(z < -2.3 && z > -3.2);
+          """)
+          text = text.replace("assert.ok(distance < 3.2, 'cabinet should be immediately beside the Clark exit route');", "assert.ok(distance < 2.5, 'cabinet should be immediately beside the Clark exit route');")
+          text = text.replace("assert.ok(DEVIN_ARCADE_GUIDE.player[0] > 2.4);", "assert.ok(DEVIN_ARCADE_GUIDE.player[0] > 4.5);")
+          text = text.replace("assert.ok(DEVIN_ARCADE_GUIDE.npc[0] > 1.4);", "assert.ok(DEVIN_ARCADE_GUIDE.npc[0] > 3.5);")
+          test.write_text(text)
+      - run: pnpm exec prettier --write src/world/belowClubConfig.js src/scenes/geometry/belowBlockout.js tests/club-kombat-pass.test.js
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm run format:check
+      - name: Commit adjustment
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/world/belowClubConfig.js src/scenes/geometry/belowBlockout.js tests/club-kombat-pass.test.js
+          git commit -m "Tuck arcade cabinet into Clark corner and rotate club quads"
+          git push origin HEAD:feat/multiplayer-phase-2-shared-world
