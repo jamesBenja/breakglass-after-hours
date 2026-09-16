@@ -85,8 +85,7 @@ function installDjPlatformInteraction(game, ui) {
           () => {
             if (state) {
               state.intoxication = Math.min(1, level + 0.17);
-              state.drinksServed =
-                Math.max(0, Math.floor(Number(state.drinksServed) || 0)) + 1;
+              state.drinksServed = Math.max(0, Math.floor(Number(state.drinksServed) || 0)) + 1;
             }
             game.barService?.syncPlayer?.();
             props?.selfServe?.('beer');
