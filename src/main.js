@@ -7,6 +7,7 @@ import './ui/avatarFace.css';
 import './ui/multiplayer.css';
 import './ui/arcade.css';
 import './ui/godMode.css';
+import './ui/invitation.css';
 import './ui/mobileMixerEnhancements.js';
 import { Game } from './core/Game.js';
 import { installFaceAvatarEnhancements } from './avatar/faceAvatarEnhancements.js';
@@ -30,19 +31,29 @@ import {
   mountGodModeControls,
   resolveGodModeAccess,
 } from './gameplay/GodMode.js';
+import {
+  applyInvitationAccess,
+  installInvitationAccess,
+  invitationSaveKey,
+  mountInvitationLetter,
+  resolveInvitationAccess,
+} from './gameplay/InvitationAccess.js';
 import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
 
 installFaceAvatarEnhancements();
 
+const invitation = await resolveInvitationAccess();
 const godMode = await resolveGodModeAccess();
 const ui = new Hud(document);
+mountInvitationLetter(document, invitation);
 let game;
 try {
   game = new Game(ui, {
     spatialPass: new URLSearchParams(location.search).get('pass') ?? undefined,
-    saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : undefined,
+    saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : invitationSaveKey(invitation),
   });
+  applyInvitationAccess(game, invitation);
   if (godMode.enabled) {
     applyGodMode(game, ui);
     mountGodModeControls(document);
@@ -62,6 +73,7 @@ try {
   installBelowAlleyWorldSystem(game, ui);
   installAudioReliabilityEnhancements(game, ui);
   installMultiplayerEnhancements(game, ui);
+  installInvitationAccess(game, ui, invitation);
   await game.initialize();
 } catch (error) {
   console.error('Breakglass startup failed', error);
