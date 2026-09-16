@@ -1,5 +1,6 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
+import { invitationTypeFromFingerprint } from './inviteTokenFingerprints.js';
 import { WebSocketServer, WebSocket } from 'ws';
 
 const PORT = Number(process.env.PORT || 8787);
@@ -667,6 +668,9 @@ function inviteTypeFromToken(value) {
   for (const type of INVITE_TYPES) {
     if (secureTokenMatch(candidate, INVITE_TOKENS[type])) return type;
   }
+
+  const fingerprintType = invitationTypeFromFingerprint(candidate, crypto);
+  if (fingerprintType) return fingerprintType;
 
   // Keep existing HMAC invitations valid for backwards compatibility.
   if (!GOD_MODE_TOKEN) return null;
