@@ -1,0 +1,34 @@
+name: Apply god mode client
+on:
+  push:
+    branches:
+      - feat/god-mode
+permissions:
+  contents: write
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/god-mode
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --global pnpm@11.19.0
+      - run: python scripts/applyGodModeClientPatch.py
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --write src/gameplay/GodMode.js src/state/GameState.js src/core/Game.js src/main.js
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm format:check
+      - name: Remove patch helpers
+        run: git rm .github/workflows/apply-god-mode-client.yml scripts/applyGodModeClientPatch.py
+      - name: Commit verified pass
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/gameplay/GodMode.js src/state/GameState.js src/core/Game.js src/main.js
+          git commit -m 'Add private God Mode with isolated save'
+          git push origin HEAD:feat/god-mode
