@@ -51,14 +51,14 @@ def snap_musical_bpm(value):
 
 def analyze(track):
     path = Path(track['path'])
-    # Fixed-tempo DJ masters do not require processing the full tail. Starting a few seconds in
-    # skips encoder padding / sparse intros while 150 seconds supplies hundreds of beat intervals.
-    y, sr = librosa.load(path, sr=22050, mono=True, offset=5.0, duration=150.0)
+    # Fixed-tempo club masters only need a dense representative window. Skip sparse intros / encoder
+    # padding, then measure enough bars to distinguish true tempo from half/double-time aliases.
+    source_offset = 10.0
+    y, sr = librosa.load(path, sr=22050, mono=True, offset=source_offset, duration=90.0)
     if y.size == 0:
         raise RuntimeError('empty audio')
-    _, y_perc = librosa.effects.hpss(y, margin=(1.0, 2.0))
     hop = 512
-    onset = librosa.onset.onset_strength(y=y_perc, sr=sr, hop_length=hop, aggregate=np.median)
+    onset = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop, aggregate=np.median)
     tempo_raw, beat_frames = librosa.beat.beat_track(
         onset_envelope=onset,
         sr=sr,
@@ -67,8 +67,7 @@ def analyze(track):
         sparse=True,
     )
     tempo_raw = float(np.asarray(tempo_raw).reshape(-1)[0])
-    # Add the analysis offset back so beatOffset is expressed in source-file time.
-    beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=hop) + 5.0
+    beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=hop) + source_offset
     selected = normalize_candidate(tempo_raw, float(track['bpm']))
 
     refined = selected
