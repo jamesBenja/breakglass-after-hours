@@ -1,0 +1,119 @@
+name: Ingest Approved Audio Temp
+
+on:
+  push:
+    branches: [feat/audio-binary-ingest]
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install audio tools
+        run: python -m pip install --disable-pip-version-check gdown==5.2.0 librosa==0.11.0
+      - name: Ensure ffmpeg
+        run: ffmpeg -version >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Download and optimize approved audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp-audio \
+            public/assets/audio/catalog/dance-beyond-genre \
+            public/assets/audio/catalog/james-benjamin \
+            public/assets/audio/catalog/boogieman/rotations \
+            public/assets/audio/ambient/mfteot/nature \
+            public/assets/audio/ambient/mfteot/man
+          ingest() {
+            id="$1"
+            out="$2"
+            src=".tmp-audio/$(basename "$out").source"
+            echo "Downloading $out"
+            python -m gdown --id "$id" -O "$src"
+            ffmpeg -hide_banner -loglevel error -y -i "$src" -map_metadata -1 -vn -codec:a libmp3lame -b:a 128k -ar 44100 "$out"
+            rm -f "$src"
+          }
+
+          # Dance Beyond Genre Vol. 1 originals
+          ingest 1zw8G0p9Du0djrEwTZjNlrznQK8L6fjb7 public/assets/audio/catalog/dance-beyond-genre/ancillary-things.mp3
+          ingest 1sRiNUgWj8i9HZslUYOAZFTOFQi9cr8bp public/assets/audio/catalog/dance-beyond-genre/team-break.mp3
+
+          # James Benjamin / collaborator masters approved in review
+          ingest 1gcQ_3LY1Mn1BwlOuuErTzyYA6V0oD055 public/assets/audio/catalog/james-benjamin/gairage.mp3
+          ingest 1EJTRt4L2JFb2wr7UmYnK5pkWjlQZgyGK public/assets/audio/catalog/james-benjamin/hit-the-floor.mp3
+          ingest 1o5Y8SCWoz033_msrDV5uZ3SZsBHwGQhJ public/assets/audio/catalog/james-benjamin/chi-town-drop.mp3
+          ingest 1MoFNBdvzgs9TE6_4fY8PxP-HwMM3mkWu public/assets/audio/catalog/james-benjamin/guestlist-andy-s.mp3
+
+          # Boogieman - Rotations
+          ingest 1HURyJ-uWslD9fb-5kc_8jFZDY069OD_n public/assets/audio/catalog/boogieman/rotations/the-roll.mp3
+          ingest 1rKbQSp4-Lr43I1TqhUcAX3k265E5bkNM public/assets/audio/catalog/boogieman/rotations/den-naben.mp3
+          ingest 1jGYCtVC383L3byTkBmRtxTLDP88f5iou public/assets/audio/catalog/boogieman/rotations/water-is-boiling.mp3
+          ingest 1bHFhBRDqYJCY-dqQMg3UVgWjiPc9gkhs public/assets/audio/catalog/boogieman/rotations/adjust.mp3
+          ingest 1ezFrMML2n0cUFdgV5quzuWOHwAu28_f9 public/assets/audio/catalog/boogieman/rotations/she.mp3
+          ingest 10QSn6U0AVkzeiISEmI8s-KLBWHfBvVMi public/assets/audio/catalog/boogieman/rotations/devils-mountain.mp3
+          ingest 1havExctTBPxKpDxUiCFOCkUo5GyzDJ1r public/assets/audio/catalog/boogieman/rotations/fences.mp3
+          ingest 1zJnb7aXbPmU0uPztP_CJTdQ5nuXHAH__ public/assets/audio/catalog/boogieman/rotations/water-is-boiling-outro.mp3
+
+          # Music for the End of the World - NATURE
+          ingest 1uj4DY50-ug7RKaznLOzhgKqJEBgXrklB public/assets/audio/ambient/mfteot/nature/waterfall-rebirth.mp3
+          ingest 1dKhqGoDQvsoXhSkUXJ5ce9Mk7CRtR6Qe public/assets/audio/ambient/mfteot/nature/birds-at-the-sinks.mp3
+          ingest 1dRxL6GkknUveNYD03EeqhnL6VFaxyywv public/assets/audio/ambient/mfteot/nature/zona.mp3
+          ingest 1lh3EiZ00JICFJUBHgikJyjBXgCrc4hYa public/assets/audio/ambient/mfteot/nature/cellular-imaginings.mp3
+          ingest 1dHrz7pLZnN0n2qD14BMF9KPh0P2lPDo6 public/assets/audio/ambient/mfteot/nature/to-philly.mp3
+
+          # Music for the End of the World - MAN
+          ingest 1LVVgkHY30tNcKtYqCvRURScYUWujF6T- public/assets/audio/ambient/mfteot/man/to-dream.mp3
+          ingest 1YIFKedOkXLtO52pt27ptSutlc3684KPr public/assets/audio/ambient/mfteot/man/phaser.mp3
+          ingest 1yRe2P9_hLBYdHd8AuT0Q08PjRyA3EWMy public/assets/audio/ambient/mfteot/man/dead-mans.mp3
+          ingest 1yE0LY4-pw3D0urIU_EsLle8eS9WGB3zy public/assets/audio/ambient/mfteot/man/decisions.mp3
+          ingest 1IIAtettJG1-XyuuPOnYVwNHS67wXPkbf public/assets/audio/ambient/mfteot/man/deeper-b.mp3
+          ingest 1IwwJLrJnEcQwlEAJxFisnhIbJFVQhbdk public/assets/audio/ambient/mfteot/man/nick-cave-esque.mp3
+
+          rm -rf .tmp-audio
+      - name: Analyze DJ tempo candidates
+        shell: bash
+        run: |
+          python - <<'PY'
+          import glob, json, os
+          import librosa
+
+          paths = []
+          paths += glob.glob('public/assets/audio/catalog/got-you-dancin/*.mp3')
+          paths += glob.glob('public/assets/audio/catalog/dance-beyond-genre/*.mp3')
+          paths += glob.glob('public/assets/audio/catalog/james-benjamin/*.mp3')
+          paths += glob.glob('public/assets/audio/catalog/boogieman/rotations/*.mp3')
+          rows = []
+          for path in sorted(paths):
+              try:
+                  y, sr = librosa.load(path, sr=22050, mono=True, duration=150)
+                  tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+                  value = float(tempo.item() if hasattr(tempo, 'item') else tempo)
+                  if value < 85:
+                      value *= 2
+                  elif value > 180:
+                      value /= 2
+                  duration = float(librosa.get_duration(path=path))
+                  rows.append({'path': path, 'tempo': round(value, 2), 'duration': round(duration, 3)})
+              except Exception as exc:
+                  rows.append({'path': path, 'tempo': None, 'duration': None, 'error': str(exc)})
+          os.makedirs('docs', exist_ok=True)
+          with open('docs/audio-ingest-dj-tempo.json', 'w') as fh:
+              json.dump(rows, fh, indent=2)
+          PY
+      - name: Commit optimized audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/ingest-approved-audio-temp.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/assets/audio docs/audio-ingest-dj-tempo.json .github/workflows/ingest-approved-audio-temp.yml
+          git commit -m 'Ingest approved James and Boogieman game audio'
+          git push origin HEAD:feat/audio-binary-ingest
