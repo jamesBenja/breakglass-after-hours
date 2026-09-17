@@ -158,6 +158,12 @@ export function createUpstairsDefinition(pass = 'B') {
         radius: 1.8,
         action: 'console',
       },
+      modularSynth: {
+        name: 'Patchable modular synth + sequencer',
+        position: at(195, 777),
+        radius: 1.75,
+        action: 'modularSynth',
+      },
       tapeArchive: {
         name: 'Breakglass tape archive',
         position: at(383, 1027),

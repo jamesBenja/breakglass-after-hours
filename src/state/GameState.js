@@ -2,6 +2,7 @@ import { ARCHIVE_TAPE_IDS } from '../archive/tapeArchive.js';
 import { LIVE_ARCHIVE_IDS } from '../archive/liveArchive.js';
 import { normalizeAvatar } from '../avatar/profile.js';
 import { normalizeDifficulty } from '../gameplay/guidance.js';
+import { normalizeModularPatchState } from '../gameplay/ModularSynthSystem.js';
 import { MIXING_CHALLENGE_IDS } from '../studio/MixingChallenge.js';
 import { normalizeStudioSession } from '../studio/StudioSession.js';
 import { LEVEL_IDS } from '../world/levels.js';
@@ -154,6 +155,8 @@ const defaults = () => ({
   coffeesMade: 0,
   maddoxAffection: 0,
   maddoxPets: 0,
+  maddoxBellyUnlocked: false,
+  maddoxBellyRubs: 0,
   roofSecretUnlocked: false,
   studioAccessGranted: false,
   houseDjDeskIntroduced: false,
@@ -173,6 +176,13 @@ const defaults = () => ({
   liveRoomArchive: null,
   houseDjId: null,
   smokesShared: 0,
+  bathroomClogCleared: false,
+  bathroomFlooded: false,
+  bathroomPlungeWins: 0,
+  bathroomFloods: 0,
+  bathroomUses: 0,
+  handsWashed: 0,
+  modularSynth: normalizeModularPatchState(),
   photos: [],
 });
 
@@ -215,6 +225,11 @@ export function validateSave(value) {
   state.coffeesMade = Math.max(0, Math.min(999, Math.floor(Number(value.coffeesMade) || 0)));
   state.maddoxAffection = Math.max(0, Math.min(9, Math.floor(Number(value.maddoxAffection) || 0)));
   state.maddoxPets = Math.max(0, Math.min(999, Math.floor(Number(value.maddoxPets) || 0)));
+  state.maddoxBellyUnlocked = value.maddoxBellyUnlocked === true;
+  state.maddoxBellyRubs = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(value.maddoxBellyRubs) || 0)),
+  );
   state.roofSecretUnlocked = value.roofSecretUnlocked === true;
   state.studioAccessGranted = value.studioAccessGranted === true;
   state.houseDjDeskIntroduced = value.houseDjDeskIntroduced === true;
@@ -239,6 +254,16 @@ export function validateSave(value) {
     state.liveRoomArchive = value.liveRoomArchive;
   if (HOUSE_DJ_IDS.includes(value.houseDjId)) state.houseDjId = value.houseDjId;
   state.smokesShared = Math.max(0, Math.min(999, Math.floor(Number(value.smokesShared) || 0)));
+  state.bathroomClogCleared = value.bathroomClogCleared === true;
+  state.bathroomFlooded = value.bathroomFlooded === true;
+  state.bathroomPlungeWins = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(value.bathroomPlungeWins) || 0)),
+  );
+  state.bathroomFloods = Math.max(0, Math.min(999, Math.floor(Number(value.bathroomFloods) || 0)));
+  state.bathroomUses = Math.max(0, Math.min(999, Math.floor(Number(value.bathroomUses) || 0)));
+  state.handsWashed = Math.max(0, Math.min(999, Math.floor(Number(value.handsWashed) || 0)));
+  state.modularSynth = normalizeModularPatchState(value.modularSynth);
   if (Array.isArray(value.photos)) {
     state.photos = value.photos.map(normalizePhoto).filter(Boolean).slice(-18);
   }

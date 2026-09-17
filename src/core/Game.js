@@ -187,6 +187,7 @@ export class Game {
       state: this.state,
       ui,
       sceneManager: this.sceneManager,
+      audio: this.audio,
       saveState: () => this.save(),
     });
 

@@ -93,6 +93,7 @@ export function buildStudioEquipment(root, definition) {
           ),
         );
       }
+      label(root, 'MODULAR', group.position.x, 2.28, group.position.z, 0.26, '#f2d5aa');
     } else if (fixture.id === 'side-rack') {
       box(group, w, 1.7, d, wood, 0, 0.85, 0);
       for (let i = 0; i < 7; i++) {

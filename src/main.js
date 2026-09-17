@@ -19,6 +19,8 @@ import { installDjPerformanceRealism } from './gameplay/DjPerformanceRealismSyst
 import { installDjAccuracyEnhancements } from './gameplay/DjAccuracyEnhancements.js';
 import { installDjLessonSystem } from './gameplay/DjLessonSystem.js';
 import { installStudioLoopEnhancements } from './gameplay/StudioLoopEnhancements.js';
+import { installClubBathroomSystem } from './gameplay/ClubBathroomSystem.js';
+import { installModularSynthSystem } from './gameplay/ModularSynthSystem.js';
 import { installPerformanceRealismSystems } from './gameplay/installPerformanceRealismSystems.js';
 import { installCrowdDoorEnhancements } from './gameplay/crowdDoorEnhancements.js';
 import { installEntryEnhancements } from './gameplay/entryEnhancements.js';
@@ -77,6 +79,8 @@ try {
   installDjPerformanceRealism(game, ui);
   installDjAccuracyEnhancements(game, ui);
   installStudioLoopEnhancements(game, ui);
+  installClubBathroomSystem(game, ui);
+  installModularSynthSystem(game, ui);
   installPerformanceRealismSystems(game, ui);
   installDjLessonSystem(game, ui);
   installCrowdDoorEnhancements(game, ui);

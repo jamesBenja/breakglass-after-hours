@@ -174,6 +174,7 @@ export class MaddoxSystem {
     this.state = 'roam';
     this.stateTime = 0;
     this.petPulse = 0;
+    this.bellyRubPulse = 0;
     this.currentTarget = null;
     this.pendingNap = false;
     this.leadRoute = [];
@@ -204,6 +205,25 @@ export class MaddoxSystem {
     this.stateTime = 0;
     this.currentTarget = null;
     this.pendingNap = false;
+  }
+
+  rollForBellyRub() {
+    this.petPulse = 2;
+    this.bellyRubPulse = 1.6;
+    this.state = 'belly';
+    this.stateTime = 0;
+    this.currentTarget = null;
+    this.pendingNap = false;
+    this.leadRoute = [];
+    this.leadIndex = 0;
+    this.arrivedAtLeadTarget = false;
+  }
+
+  bellyRub() {
+    if (this.state !== 'belly') this.rollForBellyRub();
+    this.bellyRubPulse = 1.6;
+    this.petPulse = Math.max(this.petPulse, 1.2);
+    this.stateTime = Math.min(this.stateTime, 2.5);
   }
 
   startLead(route = this.roofLeadRoute) {
@@ -251,6 +271,7 @@ export class MaddoxSystem {
     this.elapsed += dt;
     this.stateTime += dt;
     this.petPulse = Math.max(0, this.petPulse - dt);
+    this.bellyRubPulse = Math.max(0, this.bellyRubPulse - dt);
 
     let moving = false;
     if (this.state === 'lead') {
@@ -267,6 +288,11 @@ export class MaddoxSystem {
       }
     } else if (this.state === 'pet') {
       if (this.stateTime > 1.6) {
+        this.state = 'sit';
+        this.stateTime = 0;
+      }
+    } else if (this.state === 'belly') {
+      if (this.stateTime > 9.5) {
         this.state = 'sit';
         this.stateTime = 0;
       }
@@ -304,22 +330,34 @@ export class MaddoxSystem {
       }
     }
 
+    const belly = this.state === 'belly';
     const gait = Math.sin(this.elapsed * 9.2);
     for (let i = 0; i < this.legPivots.length; i++) {
       const phase = i % 2 === 0 ? gait : -gait;
-      this.legPivots[i].rotation.x = moving ? phase * 0.28 : 0;
+      this.legPivots[i].rotation.x = belly ? (i < 2 ? 0.58 : -0.34) : moving ? phase * 0.28 : 0;
     }
 
-    const wagStrength = this.petPulse > 0 ? 0.72 : this.state === 'lead' ? 0.34 : 0.12;
+    const wagStrength =
+      this.bellyRubPulse > 0
+        ? 0.82
+        : this.petPulse > 0
+          ? 0.72
+          : this.state === 'lead'
+            ? 0.34
+            : 0.12;
     this.tailPivot.rotation.y =
-      Math.sin(this.elapsed * (this.petPulse > 0 ? 13 : 5.5)) * wagStrength;
+      Math.sin(this.elapsed * (this.bellyRubPulse > 0 ? 15 : this.petPulse > 0 ? 13 : 5.5)) *
+      wagStrength;
     this.headPivot.rotation.y = this.petPulse > 0 ? Math.sin(this.elapsed * 3.4) * 0.12 : 0;
+    this.headPivot.rotation.z +=
+      ((belly ? -0.28 : 0) - this.headPivot.rotation.z) * (1 - Math.exp(-7 * dt));
 
     const nap = this.state === 'nap';
     const sit = this.state === 'sit' || this.state === 'pet';
-    const targetBodyY = nap ? 0.42 : sit ? 0.7 : 0.82;
+    const targetBodyY = belly ? 0.31 : nap ? 0.42 : sit ? 0.7 : 0.82;
     this.body.position.y += (targetBodyY - this.body.position.y) * (1 - Math.exp(-8 * dt));
-    this.root.rotation.z += ((nap ? -0.3 : 0) - this.root.rotation.z) * (1 - Math.exp(-6 * dt));
+    const targetRoll = belly ? -1.18 : nap ? -0.3 : 0;
+    this.root.rotation.z += (targetRoll - this.root.rotation.z) * (1 - Math.exp(-6 * dt));
   }
 
   snapshot() {
@@ -330,6 +368,7 @@ export class MaddoxSystem {
       arrivedAtLeadTarget: this.arrivedAtLeadTarget,
       leadIndex: this.leadIndex,
       petPulse: clamp(this.petPulse / 1.6),
+      bellyRubPulse: clamp(this.bellyRubPulse / 1.6),
     };
   }
 
