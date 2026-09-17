@@ -1,0 +1,142 @@
+[
+  {
+    "id": "gairage",
+    "label": "Gairage \u00b7 James Benjamin \u00d7 Jamvvis",
+    "bpm": null,
+    "stems": [
+      {
+        "id": "gairage-stem-synth-pad-pitch-main",
+        "label": "SYNTH PAD PITCH MAIN",
+        "kind": "synth",
+        "url": "assets/audio/stems/gairage/synth-pad-pitch-main.mp3"
+      },
+      {
+        "id": "gairage-stem-serum-dial-tone-line",
+        "label": "Serum dial tone line",
+        "kind": "synth",
+        "url": "assets/audio/stems/gairage/serum-dial-tone-line.mp3"
+      },
+      {
+        "id": "gairage-stem-vocal-chop-main",
+        "label": "VOCAL CHOP MAIN",
+        "kind": "vocal",
+        "url": "assets/audio/stems/gairage/vocal-chop-main.mp3"
+      },
+      {
+        "id": "gairage-stem-bass-basic-shape",
+        "label": "bass basic shape",
+        "kind": "bass",
+        "url": "assets/audio/stems/gairage/bass-basic-shape.mp3"
+      },
+      {
+        "id": "gairage-stem-bass-wubby",
+        "label": "bass wubby",
+        "kind": "bass",
+        "url": "assets/audio/stems/gairage/bass-wubby.mp3"
+      },
+      {
+        "id": "gairage-stem-drum-break-1",
+        "label": "drum break 1",
+        "kind": "drums",
+        "url": "assets/audio/stems/gairage/drum-break-1.mp3"
+      },
+      {
+        "id": "gairage-stem-drum-break-2",
+        "label": "drum break 2",
+        "kind": "drums",
+        "url": "assets/audio/stems/gairage/drum-break-2.mp3"
+      },
+      {
+        "id": "gairage-stem-fx-1-dialtones-pitched",
+        "label": "fx 1 dialtones pitched",
+        "kind": "fx",
+        "url": "assets/audio/stems/gairage/fx-1-dialtones-pitched.mp3"
+      },
+      {
+        "id": "gairage-stem-fx-2-pretty-bell",
+        "label": "fx 2 pretty bell",
+        "kind": "fx",
+        "url": "assets/audio/stems/gairage/fx-2-pretty-bell.mp3"
+      },
+      {
+        "id": "gairage-stem-hihat",
+        "label": "hihat",
+        "kind": "drums",
+        "url": "assets/audio/stems/gairage/hihat.mp3"
+      },
+      {
+        "id": "gairage-stem-kick",
+        "label": "kick",
+        "kind": "drums",
+        "url": "assets/audio/stems/gairage/kick.mp3"
+      },
+      {
+        "id": "gairage-stem-snare",
+        "label": "snare",
+        "kind": "drums",
+        "url": "assets/audio/stems/gairage/snare.mp3"
+      },
+      {
+        "id": "gairage-stem-synth-stabs",
+        "label": "synth stabs",
+        "kind": "synth",
+        "url": "assets/audio/stems/gairage/synth-stabs.mp3"
+      }
+    ]
+  },
+  {
+    "id": "in-an-instant",
+    "label": "In an Instant \u00b7 James Benjamin",
+    "bpm": 129,
+    "stems": [
+      {
+        "id": "in-an-instant-stem-asr-88-keys",
+        "label": "in an instant 129bpm ASR 88 keys",
+        "kind": "synth",
+        "url": "assets/audio/stems/in-an-instant/asr-88-keys.mp3"
+      },
+      {
+        "id": "in-an-instant-stem-kick-modular",
+        "label": "in an instant 129bpm KICK modular",
+        "kind": "drums",
+        "url": "assets/audio/stems/in-an-instant/kick-modular.mp3"
+      },
+      {
+        "id": "in-an-instant-stem-low-pulse-modular",
+        "label": "in an instant 129bpm LOW PULSE modular",
+        "kind": "bass",
+        "url": "assets/audio/stems/in-an-instant/low-pulse-modular.mp3"
+      },
+      {
+        "id": "in-an-instant-stem-snare-modular",
+        "label": "in an instant 129bpm SNARE modular",
+        "kind": "drums",
+        "url": "assets/audio/stems/in-an-instant/snare-modular.mp3"
+      },
+      {
+        "id": "in-an-instant-stem-jx3p-loop-a",
+        "label": "in an instant 129bpm jx3p loop A",
+        "kind": "synth",
+        "url": "assets/audio/stems/in-an-instant/jx3p-loop-a.mp3"
+      },
+      {
+        "id": "in-an-instant-stem-jx3p-loop-end",
+        "label": "in an instant 129bpm jx3p loop end",
+        "kind": "synth",
+        "url": "assets/audio/stems/in-an-instant/jx3p-loop-end.mp3"
+      },
+      {
+        "id": "in-an-instant-stem-syncussion-end",
+        "label": "in an instant 129bpm syncussion END",
+        "kind": "synth",
+        "url": "assets/audio/stems/in-an-instant/syncussion-end.mp3"
+      },
+      {
+        "id": "in-an-instant-stem-syncussion-line-1",
+        "label": "in an instant 129bpm syncussion line 1",
+        "kind": "synth",
+        "url": "assets/audio/stems/in-an-instant/syncussion-line-1.mp3"
+      }
+    ]
+  }
+]
