@@ -1,0 +1,126 @@
+name: Ingest Studio Stems Temp
+
+on:
+  push:
+    branches: [feat/audio-binary-ingest]
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install download tool
+        run: python -m pip install --disable-pip-version-check gdown==5.2.0
+      - name: Ensure ffmpeg
+        run: ffmpeg -version >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Download and build aligned studio buses
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp-stems public/assets/audio/studio/gairage public/assets/audio/studio/in-an-instant
+
+          get() {
+            id="$1"
+            out="$2"
+            python -m gdown --id "$id" -O "$out"
+          }
+          encode() {
+            src="$1"
+            out="$2"
+            ffmpeg -hide_banner -loglevel error -y -i "$src" -map_metadata -1 -vn -codec:a libmp3lame -b:a 112k -ar 44100 "$out"
+          }
+          mix() {
+            out="$1"
+            shift
+            args=()
+            count=0
+            for src in "$@"; do
+              args+=( -i "$src" )
+              count=$((count + 1))
+            done
+            ffmpeg -hide_banner -loglevel error -y "${args[@]}" -filter_complex "amix=inputs=${count}:duration=longest:normalize=1" -map_metadata -1 -vn -codec:a libmp3lame -b:a 112k -ar 44100 "$out"
+          }
+
+          # Gairage: five aligned console buses from the approved 13-stem archive.
+          get 1zvxthuFzSKiPvnYd6V3cvlHV1WWRGq6I .tmp-stems/g-kick.wav
+          get 1LwJ5tk6ei-FA1ptnIlKx6zmhd92FjQpF .tmp-stems/g-snare.wav
+          get 1YnM69nQrCkwh8R25WDKaMdBzqR1MRyCe .tmp-stems/g-hihat.wav
+          get 1ijsm7d5mejOUltrTn59GH111IStr5nWF .tmp-stems/g-break1.wav
+          get 1326n58_l3xWwGOplGfKyRfQ7f8rCG_Mx .tmp-stems/g-break2.wav
+          mix public/assets/audio/studio/gairage/drums.mp3 .tmp-stems/g-kick.wav .tmp-stems/g-snare.wav .tmp-stems/g-hihat.wav .tmp-stems/g-break1.wav .tmp-stems/g-break2.wav
+          rm -f .tmp-stems/g-kick.wav .tmp-stems/g-snare.wav .tmp-stems/g-hihat.wav .tmp-stems/g-break1.wav .tmp-stems/g-break2.wav
+
+          get 1iQo56_8MP84v6Tae5nDKfkCOa9Q4kV_k .tmp-stems/g-bass1.wav
+          get 10udATODiwVZ4KHammcIN_AN1uq2I2dpq .tmp-stems/g-bass2.wav
+          mix public/assets/audio/studio/gairage/bass.mp3 .tmp-stems/g-bass1.wav .tmp-stems/g-bass2.wav
+          rm -f .tmp-stems/g-bass1.wav .tmp-stems/g-bass2.wav
+
+          get 1h7QnQcoh4EhAgzTw5V-RqT3Ecq84CQ8p .tmp-stems/g-synth-stabs.wav
+          get 1zpxAv83KjKhcUsTKebYhLPHQc1-4kx5G .tmp-stems/g-synth-pad.wav
+          get 1smAcY65A1ok69B-Eu5YnD-MfXywsXR_n .tmp-stems/g-serum.wav
+          mix public/assets/audio/studio/gairage/synths.mp3 .tmp-stems/g-synth-stabs.wav .tmp-stems/g-synth-pad.wav .tmp-stems/g-serum.wav
+          rm -f .tmp-stems/g-synth-stabs.wav .tmp-stems/g-synth-pad.wav .tmp-stems/g-serum.wav
+
+          get 11ciAEO0w6sFd9oOEQPnAFLhmzUefB2fl .tmp-stems/g-fx1.wav
+          get 1aVPq8TteC2zOljQ4W4fuO_qSmUtVqAuy .tmp-stems/g-fx2.wav
+          mix public/assets/audio/studio/gairage/fx.mp3 .tmp-stems/g-fx1.wav .tmp-stems/g-fx2.wav
+          rm -f .tmp-stems/g-fx1.wav .tmp-stems/g-fx2.wav
+
+          get 1MIuK9okKmFmhGzfP2NuDB93wiD_r_n5m .tmp-stems/g-vocal.wav
+          encode .tmp-stems/g-vocal.wav public/assets/audio/studio/gairage/vocal-chop.mp3
+          rm -f .tmp-stems/g-vocal.wav
+
+          # In an Instant: five aligned buses from the approved 129 BPM modular/synth session.
+          get 18Ktodwnz47Oy-jzgsdujYQkdFSTdj5wd .tmp-stems/i-keys.wav
+          encode .tmp-stems/i-keys.wav public/assets/audio/studio/in-an-instant/keys.mp3
+          rm -f .tmp-stems/i-keys.wav
+
+          get 1qRV017LxshnRrYUOgXg7tPIgufsvyeB1 .tmp-stems/i-jx3p-a.wav
+          get 1THTEJoTdVTbD75_7kT8WXvq3ApN6yNmT .tmp-stems/i-jx3p-end.wav
+          mix public/assets/audio/studio/in-an-instant/jx3p.mp3 .tmp-stems/i-jx3p-a.wav .tmp-stems/i-jx3p-end.wav
+          rm -f .tmp-stems/i-jx3p-a.wav .tmp-stems/i-jx3p-end.wav
+
+          get 1pzo5TEGayf2-f5HzLvwPEMFpQMMbojeZ .tmp-stems/i-sync-line.wav
+          get 1aOC9lVWAArfGKNPlo-VB8Ljr2VsoSe-l .tmp-stems/i-sync-end.wav
+          mix public/assets/audio/studio/in-an-instant/syncussion.mp3 .tmp-stems/i-sync-line.wav .tmp-stems/i-sync-end.wav
+          rm -f .tmp-stems/i-sync-line.wav .tmp-stems/i-sync-end.wav
+
+          get 1Tgvl_U1R2bgIJWl2IqaOtdrp6hD3-doP .tmp-stems/i-kick.wav
+          get 1tXsQn_7tSB4I-aYdY571o7wc-cw7Mulg .tmp-stems/i-snare.wav
+          mix public/assets/audio/studio/in-an-instant/modular-drums.mp3 .tmp-stems/i-kick.wav .tmp-stems/i-snare.wav
+          rm -f .tmp-stems/i-kick.wav .tmp-stems/i-snare.wav
+
+          get 1sDd1mJ40WabqN3aMzbcFdai0PCXSy_Ev .tmp-stems/i-low-pulse.wav
+          encode .tmp-stems/i-low-pulse.wav public/assets/audio/studio/in-an-instant/low-pulse.mp3
+          rm -f .tmp-stems/i-low-pulse.wav
+
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          rows = []
+          for path in sorted(Path('public/assets/audio/studio').glob('*/*.mp3')):
+              result = subprocess.check_output([
+                  'ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',str(path)
+              ], text=True).strip()
+              rows.append({'path': str(path), 'duration': round(float(result), 3)})
+          Path('docs/audio-ingest-studio.json').write_text(json.dumps(rows, indent=2) + '\n')
+          PY
+          rm -rf .tmp-stems
+      - name: Commit grouped studio audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/ingest-studio-stems-temp.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/assets/audio/studio docs/audio-ingest-studio.json .github/workflows/ingest-studio-stems-temp.yml
+          git commit -m 'Ingest Gairage and In an Instant multitracks'
+          git push origin HEAD:feat/audio-binary-ingest
