@@ -150,11 +150,12 @@ export const levels = {
     },
     intro: [
       'BELOW BREAKGLASS',
-      'The club is alive now. Take A Break is east with the Nora photo room beside it; the kitchen bar is west. The shared west stair goes up to the studio and turns down to the alley at its bottom landing.',
+      'The club is alive now. Take A Break is east with the Nora photo room beside it; the kitchen bar is west. The bathroom is through the north-wall door between the studio stair and DJ booth. The shared west stair goes up to the studio and turns down to the alley at its bottom landing.',
     ],
     navigation: {
       surfaces: [
         surface('club', 'Below Breakglass', -5.85, 5.85, -3.25, 3.25),
+        surface('bathroom', 'Below bathroom', -5.0, -1.7, -6.45, -3.2),
         surface('service', 'Kitchen + Bar', -9.75, -6.25, -0.25, 3.6),
         surface('bar-door', 'Bar Doorway', -6.5, -5.65, 0.45, 1.4),
         surface('storage', 'Storage', -5, 1.8, 3.35, 6.2),
@@ -209,8 +210,28 @@ export const levels = {
         // Camera-only volumes mirror the visible Below walls. The original player traversal is
         // intentionally preserved while the third-person camera is no longer allowed to hide
         // behind architecture that previously existed only as render geometry.
-        cameraWall('cam-club-north-west', -6.15, 3.6, -3.63, -3.37),
+        cameraWall('cam-club-north-west-a', -6.15, -4.05, -3.63, -3.37),
+        cameraWall('cam-club-north-west-b', -2.65, 3.6, -3.63, -3.37),
         cameraWall('cam-club-north-east', 5.6, 6.15, -3.63, -3.37),
+        { ...cameraWall('bathroom-west-wall', -5.22, -4.98, -6.72, -3.5), player: true },
+        { ...cameraWall('bathroom-east-wall', -1.72, -1.48, -6.72, -3.5), player: true },
+        { ...cameraWall('bathroom-north-wall', -5.2, -1.5, -6.72, -6.48), player: true },
+        {
+          ...cameraWall('bathroom-south-west', -5.2, -4.05, -3.63, -3.37),
+          player: true,
+        },
+        {
+          ...cameraWall('bathroom-south-east', -2.65, -1.5, -3.63, -3.37),
+          player: true,
+        },
+        {
+          ...cameraWall('bathroom-stall-divider-a', -4.1, -4.0, -6.25, -4.92, 0, 2.15),
+          player: true,
+        },
+        {
+          ...cameraWall('bathroom-stall-divider-b', -2.73, -2.63, -6.25, -4.92, 0, 2.15),
+          player: true,
+        },
         cameraWall('cam-club-west-north', -6.23, -5.97, -3.62, -2.08),
         cameraWall('cam-club-west-mid', -6.23, -5.97, -0.58, 0.45),
         cameraWall('cam-club-west-south', -6.23, -5.97, 1.4, 3.62),
@@ -253,6 +274,31 @@ export const levels = {
     },
     anchors: {
       dj: anchor('DJ booth', [1.5, 0, -2.15], 2.05, 'dj'),
+      bathroomStall1: {
+        ...anchor('Stall 1 toilet', [-4.52, 0, -5.35], 1.0, 'bathroomFixture'),
+        fixtureKind: 'toilet',
+        fixtureId: 'stall-1',
+      },
+      bathroomStall2: {
+        ...anchor('Stall 2 toilet', [-3.16, 0, -5.35], 1.0, 'bathroomFixture'),
+        fixtureKind: 'toilet',
+        fixtureId: 'stall-2',
+        clogged: true,
+      },
+      bathroomUrinal: {
+        ...anchor('Urinal', [-1.95, 0, -5.38], 0.95, 'bathroomFixture'),
+        fixtureKind: 'urinal',
+        fixtureId: 'urinal',
+      },
+      bathroomSink: {
+        ...anchor('Bathroom sink', [-4.45, 0, -4.08], 1.0, 'bathroomFixture'),
+        fixtureKind: 'sink',
+        fixtureId: 'sink',
+      },
+      bathroomPlunger: {
+        ...anchor('Plunger', [-2.82, 0, -5.05], 0.95, 'bathroomPlunge'),
+        fixtureId: 'plunger',
+      },
       lightingDesk: anchor('Lighting / laser controller', [4.28, 0, -1.62], 1.15, 'clubLighting'),
       ledWallDesk: anchor('DJ LED wall controller', [4.55, 0, -2.3], 1.15, 'ledWall'),
       stairs: {
