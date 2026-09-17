@@ -52,7 +52,14 @@ test('direct-entry invitation starts at its authored studio position', async () 
   };
   const game = {
     invitation: { entry: { sceneId: 'upstairs', position: [4.85, 0, -2.3] } },
-    crowdDoor: { bouncer: { reset() {}, handle() { return false; } } },
+    crowdDoor: {
+      bouncer: {
+        reset() {},
+        handle() {
+          return false;
+        },
+      },
+    },
     sceneManager,
     async initialize() {
       sceneManager.start('alley', null);
