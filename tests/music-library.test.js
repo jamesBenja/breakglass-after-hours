@@ -26,7 +26,10 @@ test('completed review is represented by explicit approved ingest queues', () =>
 });
 
 test('excluded Dance Shoes session is not selectable while approved stem sources remain queued', () => {
-  assert.equal(STUDIO_SESSION_TEMPLATES.some((session) => session.id === 'dance-shoes'), false);
+  assert.equal(
+    STUDIO_SESSION_TEMPLATES.some((session) => session.id === 'dance-shoes'),
+    false,
+  );
   assert.equal(PENDING_STUDIO_SESSION_SOURCES, APPROVED_STUDIO_SOURCES);
   assert.ok(PENDING_STUDIO_SESSION_SOURCES.some((source) => source.id === 'atrakar-full-stems'));
   assert.ok(PENDING_STUDIO_SESSION_SOURCES.some((source) => source.id === 'planet-pillow-stems'));
