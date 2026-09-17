@@ -1,0 +1,45 @@
+name: Finalize Take A Break program gallery
+
+on:
+  push:
+    branches: [feat/take-a-break-program-gallery]
+    paths:
+      - .github/workflows/finalize-installation-programs.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/take-a-break-program-gallery
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - name: Install pnpm
+        run: npm install --global pnpm@11.19.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Add in-room program selector
+        run: python scripts/update_installation_program_panel.py
+      - name: Format changed files
+        run: pnpm exec prettier --write src/audio/InstallationPrograms.js src/audio/SpatialAudioSystem.js src/interactions/createActions.js tests/installation-programs.test.js
+      - name: Unit tests
+        run: pnpm test
+      - name: Production build
+        run: pnpm build
+      - name: Formatting check
+        run: pnpm format:check
+      - name: Remove temporary finalizer
+        run: rm .github/workflows/finalize-installation-programs.yml scripts/update_installation_program_panel.py
+      - name: Commit finalized gallery
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add switchable Take A Break spatial programs"
+          git push origin HEAD:feat/take-a-break-program-gallery
