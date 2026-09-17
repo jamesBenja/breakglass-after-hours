@@ -121,3 +121,52 @@ test('Sam performs security clearance and the club door opens only after that', 
   assert.equal(bouncer.handle({ id: 'clubDoor', target: 'downstairs@alley' }), true);
   assert.deepEqual(transitions, ['downstairs@alley']);
 });
+
+test('God Mode opens the club door immediately and never routes Sam through security', () => {
+  const transitions = [];
+  let securityHandles = 0;
+  const bouncer = {
+    admitted: false,
+    waitUntil: 9999999999999,
+    reset() {},
+    remainingWait() {
+      return 999;
+    },
+    enter() {
+      this.admitted = true;
+    },
+    handle() {
+      securityHandles += 1;
+      return true;
+    },
+  };
+  const game = {
+    godMode: true,
+    crowdDoor: { bouncer },
+    sceneManager: {
+      current: { definition: { id: ENTRY_SCENE_ID } },
+      request(destination) {
+        transitions.push(destination);
+      },
+      start() {},
+    },
+    async initialize() {},
+  };
+  const panels = [];
+  installEntryEnhancements(game, {
+    panel(title) {
+      panels.push(title);
+    },
+    warning() {},
+  });
+
+  assert.equal(bouncer.handle({ id: 'clubDoor', target: 'downstairs@alley' }), true);
+  assert.deepEqual(transitions, ['downstairs@alley']);
+  assert.equal(bouncer.admitted, true);
+  assert.equal(bouncer.waitUntil, 0);
+  assert.equal(securityHandles, 0);
+  assert.deepEqual(panels, []);
+
+  assert.equal(bouncer.handle({ id: 'sam', npcId: 'sam', action: 'dialogue' }), false);
+  assert.equal(securityHandles, 0);
+});
