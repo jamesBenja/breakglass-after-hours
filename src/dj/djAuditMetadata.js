@@ -1,3 +1,41 @@
-// Populated from the full master-audio audit. Kept separate from DJ behavior so the beat-grid
-// truth can be reviewed or regenerated without rewriting the deck engine.
-export const AUDITED_DJ_METADATA = Object.freeze({});
+// Deterministic DJ tempo / beat-grid metadata audited against the deployed masters on 2026-09-17.
+// BPM values use high-resolution rhythmic-grid fitting; ATRAKAR is additionally confirmed by its
+// 128 BPM Ableton/source-stem project. A free-time piece is marked explicitly rather than assigned
+// a fake sync grid.
+export const AUDITED_DJ_METADATA = Object.freeze({
+  'got-you-dancin': { bpm: 135, beatOffset: 0.356367, confidence: 0.99, source: 'master-grid-fit' },
+  'in-flux-just-be': { bpm: 145, beatOffset: 0.040578, confidence: 0.99, source: 'master-grid-fit' },
+  'in-flux-breath': { bpm: 158, beatOffset: 0.048831, confidence: 0.98, source: 'master-grid-fit' },
+  'in-flux-break': { bpm: 135, beatOffset: 0.038991, confidence: 0.99, source: 'master-grid-fit' },
+  'in-flux-gingele': { bpm: 120, beatOffset: 0.020884, confidence: 0.99, source: 'master-grid-fit' },
+  atrakar: { bpm: 128, beatOffset: 0.215945, confidence: 1, source: 'source-session-128bpm' },
+  dubki: { bpm: 95, beatOffset: 0.601116, confidence: 0.98, source: 'master-grid-fit' },
+  paharpur: { bpm: 111, beatOffset: 0.103371, confidence: 0.97, source: 'master-grid-fit' },
+  fakir: { bpm: 130, beatOffset: 0.402553, confidence: 0.96, source: 'master-grid-fit' },
+  bhab: { bpm: 166.667, beatOffset: 0.09464, confidence: 0.96, source: 'master-grid-fit' },
+  'team-break': { bpm: 145, beatOffset: 0.029138, confidence: 0.99, source: 'master-grid-fit' },
+  'ancillary-things': { bpm: 140, beatOffset: 0.061092, confidence: 0.99, source: 'master-grid-fit' },
+  gairage: { bpm: 155, beatOffset: 0.03624, confidence: 0.99, source: 'master-grid-fit' },
+  'hit-the-floor': { bpm: 128, beatOffset: 0.025316, confidence: 0.99, source: 'master-grid-fit' },
+  'chi-town-drop': { bpm: 135, beatOffset: 0.010754, confidence: 0.99, source: 'master-grid-fit' },
+  'guestlist-andy-s': { bpm: 142, beatOffset: 0.024967, confidence: 0.98, source: 'master-grid-fit' },
+  'drop-in': { bpm: 140, beatOffset: 0.418163, confidence: 0.99, source: 'master-grid-fit' },
+  'body-check': { bpm: 130, beatOffset: 0.426361, confidence: 0.99, source: 'master-grid-fit' },
+  'play-ball-people': { bpm: 140, beatOffset: 0.415686, confidence: 0.99, source: 'master-grid-fit' },
+  etcetera: { bpm: 140, beatOffset: 0.41812, confidence: 0.98, source: 'master-grid-fit' },
+  'airtime-express': { bpm: 150, beatOffset: 0.014295, confidence: 0.99, source: 'master-grid-fit' },
+  'rotations-the-roll': { bpm: 120, beatOffset: 0.090686, confidence: 0.99, source: 'master-grid-fit' },
+  'rotations-den-naben': { bpm: 110, beatOffset: 0.296919, confidence: 0.96, source: 'master-grid-fit' },
+  'rotations-water-is-boiling': { bpm: 100, beatOffset: 0.594066, confidence: 0.99, source: 'master-grid-fit' },
+  'rotations-adjust': { bpm: 135, beatOffset: 0.106325, confidence: 0.99, source: 'master-grid-fit' },
+  'rotations-she': { bpm: 130, beatOffset: 0.293795, confidence: 0.99, source: 'master-grid-fit' },
+  'rotations-devils-mountain': { bpm: 90, beatOffset: 0.360581, confidence: 0.99, source: 'master-grid-fit' },
+  'rotations-fences': { bpm: 120, beatOffset: 0.488872, confidence: 0.99, source: 'master-grid-fit' },
+  'rotations-water-is-boiling-outro': {
+    bpm: 120,
+    beatOffset: 0,
+    confidence: 1,
+    source: 'master-free-time-audit',
+    freeTime: true,
+  },
+});
