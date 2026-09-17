@@ -26,14 +26,28 @@ export function installEntryEnhancements(game, ui) {
     bouncer.handle = (target) => {
       if (game.sceneManager.current?.definition?.id !== ENTRY_SCENE_ID) return false;
 
+      const isSam = target?.npcId === 'sam' || target?.id === 'sam';
+      const isDoor = target?.id === 'clubDoor' || target?.target === 'downstairs@alley';
+
+      // God Mode is an unconditional access override. The club entrance must behave like every
+      // other unlocked door: using the door goes straight inside, with no Sam/guestlist/security
+      // prerequisite. Talking to Sam remains optional and falls through to his normal dialogue.
+      if (game.godMode === true) {
+        if (isDoor) {
+          bouncer.admitted = true;
+          bouncer.waitUntil = 0;
+          game.sceneManager.request('downstairs@alley');
+          return true;
+        }
+        if (isSam) return false;
+      }
+
       // Sam is the named security character at the alley entrance. The lower-level door system
       // historically looked for an anonymous `bouncer` target, while the world exposes `sam`.
       // Normalize Sam to that legacy target so talking to him actually performs the clearance
       // flow instead of falling through to his generic dialogue.
-      const isSam = target?.npcId === 'sam' || target?.id === 'sam';
       if (isSam) return baseHandle({ ...target, id: 'bouncer', npcId: 'bouncer' });
 
-      const isDoor = target?.id === 'clubDoor' || target?.target === 'downstairs@alley';
       if (!isDoor) return baseHandle(target);
 
       if (!bouncer.admitted) {
