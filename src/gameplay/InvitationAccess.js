@@ -43,6 +43,17 @@ export const INVITATION_PROFILES = {
     accessNote:
       'Tell Sam you are on the guestlist. Talk to Zander when you want to go upstairs and he will recognize this invitation. DJing still requires asking James on the club floor.',
   },
+  residentproducer: {
+    id: 'residentproducer',
+    label: 'RESIDENT PRODUCER',
+    defaultRole: 'producer',
+    access: { guestlist: true, dj: false, studioFastTrack: true },
+    entry: { sceneId: 'upstairs', position: [4.85, 0, -2.3] },
+    intro:
+      'You have been invited to Breakglass Studios as a resident producer. Your studio access is already active, so this invitation takes you directly into the upstairs recording studio.',
+    accessNote:
+      'You begin inside the Live Room with studio access already cleared. No front-door check-in or Zander handoff is required. DJing still requires asking James on the club floor.',
+  },
   promoter: {
     id: 'promoter',
     label: 'PROMOTER',
@@ -171,28 +182,36 @@ export function applyInvitationAccess(game, profile) {
   if (resolved.access.guestlist) state.guestlistApproved = true;
   if (resolved.access.dj) state.djAccessGranted = true;
   if (resolved.access.studioFastTrack) state.studioInviteAccess = true;
+  if (resolved.entry?.sceneId === 'upstairs') state.studioAccessGranted = true;
   game.invitation = resolved;
   game.save?.();
   return true;
 }
 
 function letterHints(profile) {
+  const residentProducer = profile.id === 'residentproducer';
   const roleHint =
     profile.id === 'dj'
       ? 'At the door, tell Sam you are the DJ. Once inside, the booth is already cleared for you.'
-      : profile.id === 'producer'
-        ? 'Zander can take you upstairs immediately when you show up with this producer / musician invitation.'
-        : profile.access.guestlist
-          ? 'At the door, tell Sam you are on the guestlist.'
-          : 'Sam runs the door. There are several ways to earn your way inside if your name is not on the guestlist.';
+      : residentProducer
+        ? 'Your resident producer invitation starts inside the upstairs Live Room with studio access already cleared.'
+        : profile.id === 'producer'
+          ? 'Zander can take you upstairs immediately when you show up with this producer / musician invitation.'
+          : profile.access.guestlist
+            ? 'At the door, tell Sam you are on the guestlist.'
+            : 'Sam runs the door. There are several ways to earn your way inside if your name is not on the guestlist.';
   return [
-    'You begin outside in the alley. Explore rather than rushing: conversations change what you can access.',
+    residentProducer
+      ? 'You begin upstairs in the recording studio rather than outside in the alley.'
+      : 'You begin outside in the alley. Explore rather than rushing: conversations change what you can access.',
     'Green names identify people worth talking to. Some conversations unlock rooms, shortcuts, activities and secrets.',
     roleHint,
     profile.access.dj
       ? 'You can take over the DJ booth without finding James first.'
       : 'Want to DJ? Find James on the club floor and tell him you would like to DJ tonight.',
-    'Keep the alley reasonably quiet. If police arrive, either find James and tell him, or go to the alley and deal with them yourself.',
+    residentProducer
+      ? 'You can head downstairs whenever you want to join the party; your guestlist access remains active.'
+      : 'Keep the alley reasonably quiet. If police arrive, either find James and tell him, or go to the alley and deal with them yourself.',
     'The game rewards curiosity. Not every useful interaction looks like a mission marker.',
   ];
 }
