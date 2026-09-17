@@ -52,13 +52,53 @@ export class TakeABreakInteractionSystem {
     this.controls();
   }
 
+  adjustLevel(amount) {
+    this.game.spatialAudio?.adjustInstallationLevel?.(amount);
+    this.show();
+  }
+
+  chooseProgram(id) {
+    const selected = this.game.spatialAudio?.setInstallationProgram?.(id);
+    if (selected) this.ui.warning?.(`TAKE A BREAK · ${selected.label}`);
+    this.programs();
+  }
+
+  programs() {
+    const spatial = this.game.spatialAudio;
+    const snapshot = spatial?.snapshot?.() ?? {};
+    const current = snapshot.program;
+    const playable = snapshot.programs ?? [];
+    const catalogSlots = snapshot.catalogSlots ?? [];
+
+    this.ui.panel(
+      'TAKE A BREAK · CHOOSE SPATIAL EXPERIENCE',
+      `${current?.label ?? 'Abstract Drift'} is currently playing. Every work uses the same eight-speaker virtual array, but each has its own sound material, spectral shape and spatial movement.`,
+      [
+        ...playable.map((program) => [
+          `${program.id === current?.id ? '✓ ' : ''}${program.label}${program.artist ? ` · ${program.artist}` : ''}`,
+          () => this.chooseProgram(program.id),
+        ]),
+        ...catalogSlots.map((slot) => [
+          `${slot.label} · program bank`,
+          () =>
+            this.ui.panel(
+              `TAKE A BREAK · ${slot.label.toUpperCase()}`,
+              `${slot.description} The playback architecture is ready for these works; the actual pieces still need to be attached.`,
+              [['Back to spatial experiences', () => this.programs()]],
+            ),
+        ]),
+        ['Back to installation', () => this.show()],
+      ],
+    );
+  }
+
   controls() {
     const spatial = this.game.spatialAudio;
     const snapshot = spatial?.snapshot?.() ?? {};
     const mix = snapshot.mix ?? {};
     this.ui.panel(
-      'TAKE A BREAK · INSTALLATION CONTROLS',
-      `Low ${percent(mix.low)} · texture ${percent(mix.texture)} · air ${percent(mix.air)} · motion ${percent(mix.motion)} · space ${percent(mix.space)}. These controls change the actual four-emitter WebAudio piece.`,
+      'TAKE A BREAK · SHAPE CURRENT EXPERIENCE',
+      `Low ${percent(mix.low)} · texture ${percent(mix.texture)} · air ${percent(mix.air)} · motion ${percent(mix.motion)} · space ${percent(mix.space)}. These controls reshape the currently selected eight-speaker experience.`,
       [
         ['Low layer +', () => this.adjust('low', 0.12)],
         ['Low layer −', () => this.adjust('low', -0.12)],
@@ -71,7 +111,7 @@ export class TakeABreakInteractionSystem {
         ['Space / delay +', () => this.adjust('space', 0.12)],
         ['Space / delay −', () => this.adjust('space', -0.12)],
         [
-          'Reset installation mix',
+          'Reset current mix',
           () => {
             spatial?.resetInstallationMix?.();
             this.controls();
@@ -87,19 +127,31 @@ export class TakeABreakInteractionSystem {
     const snapshot = spatial?.snapshot?.() ?? {};
     const focused = snapshot.focus === true;
     const seated = this.game.player?.seated === true;
+    const current = snapshot.program;
+    const level = Math.round((snapshot.level ?? 1) * 100);
+    const count = snapshot.programs?.length ?? 0;
+
     this.ui.panel(
       'TAKE A BREAK · IMMERSIVE INSTALLATION',
-      focused
-        ? 'You are seated inside the four-emitter piece. The Below DJ system is now only a quiet, heavily filtered bleed through the wall, while the installation sits in the centre of the listening field.'
-        : 'Four HRTF emitters occupy the room. Sit on one of the floor cushions to enter a focused listening mode, or walk around the piece and hear the image change with your position and view.',
       [
+        `Now playing: ${current?.label ?? 'Abstract Drift'}${current?.artist ? ` · ${current.artist}` : ''}.`,
+        `${count} spatial experiences are currently available across eight HRTF virtual speakers.`,
+        `Installation level: ${level}%${snapshot.enabled === false ? ' · MUTED' : ''}.`,
+        focused
+          ? 'You are in focused listening mode. The club is reduced to distant filtered wall bleed.'
+          : 'Walk around the room to hear the image move, or sit on a cushion for focused listening.',
+      ].join(' '),
+      [
+        [`Choose spatial experience · ${count} available`, () => this.programs()],
+        ['Installation louder', () => this.adjustLevel(0.12)],
+        ['Installation quieter', () => this.adjustLevel(-0.12)],
         ...(!seated
           ? TAKE_A_BREAK_SEATS.map((_, index) => [
               `Sit on cushion ${index + 1}`,
               () => this.sit(index),
             ])
           : [['Stand up', () => this.stand()]]),
-        ['Shape the installation', () => this.controls()],
+        ['Shape current experience', () => this.controls()],
         [
           snapshot.enabled === false ? 'Activate installation' : 'Mute installation',
           () => {
