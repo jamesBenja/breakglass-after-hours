@@ -7,6 +7,49 @@ import {
   isTakeABreakPosition,
 } from '../src/gameplay/TakeABreakImmersiveSystem.js';
 
+const param = (value = 0) => ({
+  value,
+  setTargetAtTime(next) {
+    this.value = next;
+  },
+});
+
+const node = () => ({
+  connect() {},
+  disconnect() {},
+});
+
+function fakeAudioContext() {
+  return {
+    currentTime: 0,
+    destination: node(),
+    createGain() {
+      return { ...node(), gain: param(1) };
+    },
+    createDelay() {
+      return { ...node(), delayTime: param(0) };
+    },
+    createOscillator() {
+      return {
+        ...node(),
+        type: 'sine',
+        frequency: param(220),
+        detune: param(0),
+        start() {},
+        stop() {},
+      };
+    },
+    createPanner() {
+      return {
+        ...node(),
+        positionX: param(0),
+        positionY: param(0),
+        positionZ: param(0),
+      };
+    },
+  };
+}
+
 test('Take A Break installation uses eight virtual speaker positions', () => {
   assert.equal(TAKE_A_BREAK_SPEAKERS.length, 8);
   assert.ok(TAKE_A_BREAK_SPEAKERS.every((position) => position.length === 3));
@@ -24,7 +67,7 @@ test('installation turns club audio into quiet filtered bleed inside the room', 
   const system = new TakeABreakImmersiveSystem(root);
   const environments = [];
   const audio = {
-    context: null,
+    context: fakeAudioContext(),
     setEnvironment(environment) {
       environments.push(environment);
     },
@@ -34,6 +77,7 @@ test('installation turns club audio into quiet filtered bleed inside the room', 
   assert.ok(environments[0].gain <= 0.1);
   assert.ok(environments[0].lowpassHz <= 1000);
   assert.match(environments[0].label, /immersive installation/i);
+  assert.equal(system.snapshot().speakers, 8);
   assert.ok(system.snapshot().cosmicObjects > 8);
   system.dispose();
 });
