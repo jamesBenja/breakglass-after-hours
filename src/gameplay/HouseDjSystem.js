@@ -84,7 +84,8 @@ export class HouseDjSystem {
     const model = person(this.selected);
     model.group.name = 'house-dj';
     model.group.position.set(booth[0], booth[1], booth[2] - 0.38);
-    model.group.rotation.y = Math.PI;
+    // The performer stands north of the controls and faces +Z into the booth and dance floor.
+    model.group.rotation.y = 0;
     downstairs.gameplay.add(model.group);
     this.performer = model;
 
