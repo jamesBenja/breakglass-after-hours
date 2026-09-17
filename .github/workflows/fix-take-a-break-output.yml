@@ -1,0 +1,45 @@
+name: Fix Take A Break independent output
+
+on:
+  push:
+    branches: [fix/take-a-break-independent-output-final]
+    paths:
+      - .github/workflows/fix-take-a-break-output.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/take-a-break-independent-output-final
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - name: Install pnpm
+        run: npm install --global pnpm@11.19.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Patch installation routing and controls
+        run: python scripts/patch_take_a_break_output.py
+      - name: Format changed files
+        run: pnpm exec prettier --write src/audio/SpatialAudioSystem.js src/world/levels.js tests/installation-programs.test.js
+      - name: Unit tests
+        run: pnpm test
+      - name: Production build
+        run: pnpm build
+      - name: Formatting check
+        run: pnpm exec prettier --check src/audio/SpatialAudioSystem.js src/world/levels.js tests/installation-programs.test.js
+      - name: Remove temporary repair helpers
+        run: rm .github/workflows/fix-take-a-break-output.yml scripts/patch_take_a_break_output.py
+      - name: Commit repaired installation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix Take A Break installation output and selector"
+          git push origin HEAD:fix/take-a-break-independent-output-final
