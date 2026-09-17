@@ -17,7 +17,10 @@ test('Take A Break exposes four playable installation programs plus future catal
 });
 
 test('installation program can switch without changing the eight-speaker room architecture', () => {
-  const spatial = new SpatialAudioSystem({ environment: {}, activeExternalTransport: { owner: 'dj' } });
+  const spatial = new SpatialAudioSystem({
+    environment: {},
+    activeExternalTransport: { owner: 'dj' },
+  });
   assert.equal(spatial.snapshot().emitters, 8);
   assert.equal(spatial.snapshot().program.id, 'abstract-drift');
 
@@ -38,7 +41,10 @@ test('installation level is substantially raised and remains user-adjustable wit
 });
 
 test('club becomes extremely quiet filtered bleed in Take A Break', () => {
-  const spatial = new SpatialAudioSystem({ environment: {}, activeExternalTransport: { owner: 'dj' } });
+  const spatial = new SpatialAudioSystem({
+    environment: {},
+    activeExternalTransport: { owner: 'dj' },
+  });
   const level = { definition: { id: 'downstairs' } };
   const room = spatial.environmentFor(level, 'lounge');
   assert.ok(room.gain <= 0.05);

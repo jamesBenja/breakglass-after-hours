@@ -36,7 +36,8 @@ const DEFAULT_INSTALLATION_MIX = Object.freeze({
 });
 
 function createNoiseBuffer(context, seconds = 4) {
-  if (typeof context.createBuffer !== 'function' || !Number.isFinite(context.sampleRate)) return null;
+  if (typeof context.createBuffer !== 'function' || !Number.isFinite(context.sampleRate))
+    return null;
   const length = Math.max(1, Math.floor(context.sampleRate * seconds));
   const buffer = context.createBuffer(1, length, context.sampleRate);
   const channel = buffer.getChannelData(0);
