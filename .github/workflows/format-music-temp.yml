@@ -1,0 +1,30 @@
+name: Format Music Temp
+
+on:
+  push:
+    branches: [feat/expanded-music-library]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --write src/audio/musicLibrary.js tests/music-library.test.js
+      - name: Print formatted music library
+        run: |
+          echo '===MUSIC_LIBRARY_BASE64_BEGIN==='
+          base64 -w 0 src/audio/musicLibrary.js
+          echo
+          echo '===MUSIC_LIBRARY_BASE64_END==='
+      - name: Print formatted tests
+        run: |
+          echo '===MUSIC_TEST_BASE64_BEGIN==='
+          base64 -w 0 tests/music-library.test.js
+          echo
+          echo '===MUSIC_TEST_BASE64_END==='
