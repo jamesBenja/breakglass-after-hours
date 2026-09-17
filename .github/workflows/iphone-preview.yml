@@ -40,6 +40,26 @@ jobs:
       - name: Production build
         run: pnpm build
 
+      - name: Add cache-proof preview entrypoint
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, os
+
+          sha = os.environ['GITHUB_SHA']
+          index = Path('dist/index.html')
+          html = index.read_text()
+          stamp = (
+              '<div id="buildStamp" style="position:fixed;right:8px;bottom:8px;z-index:99999;'
+              'font:10px/1.2 monospace;color:#aaa;background:rgba(0,0,0,.68);padding:4px 6px;'
+              'border-radius:4px;pointer-events:none">BUILD ' + sha[:8] + '</div>'
+          )
+          html = html.replace('</body>', stamp + '</body>')
+          index.write_text(html)
+          Path('dist/latest.html').write_text(html)
+          Path('dist/version.json').write_text(json.dumps({'sha': sha}))
+          PY
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
