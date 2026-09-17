@@ -1,5 +1,6 @@
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial } from 'three';
 import { poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import { NPC_DJ_PROGRAMS } from '../audio/musicLibrary.js';
 import { createNpcCharacter } from '../npcs/NpcSystem.js';
 
 export const HOUSE_DJS = [
@@ -10,6 +11,7 @@ export const HOUSE_DJS = [
     characterId: 'james',
     name: 'James Benjamin',
     trackId: 'in-flux-break',
+    programId: 'james-benjamin',
     accent: 0xff5e91,
   },
   {
@@ -69,10 +71,37 @@ export class HouseDjSystem {
     this.rotationTimer = 160 + Math.random() * 100;
     this.starting = false;
     this.elapsed = 0;
+    this.programIndex = 0;
+    this.programRunning = false;
   }
 
   get selected() {
     return HOUSE_DJS.find((dj) => dj.id === this.selectedId) ?? HOUSE_DJS[0];
+  }
+
+  get programDefinition() {
+    return NPC_DJ_PROGRAMS[this.selected.programId ?? this.selected.id] ?? null;
+  }
+
+  get fallbackProgram() {
+    const configured = this.programDefinition?.fallback;
+    if (Array.isArray(configured) && configured.length) return configured;
+    return [{ id: this.selected.trackId, label: 'Breakglass selection' }];
+  }
+
+  get currentProgramItem() {
+    const program = this.fallbackProgram;
+    return program[this.programIndex % program.length] ?? program[0];
+  }
+
+  availableLongformId() {
+    const ids = this.programDefinition?.preferredLongformIds ?? [];
+    return (
+      ids.find((id) => {
+        const entry = this.game.audio.assets?.entry?.(id);
+        return Boolean(entry?.url);
+      }) ?? null
+    );
   }
 
   attach() {
@@ -127,19 +156,26 @@ export class HouseDjSystem {
     this.starting = true;
     try {
       const dj = this.selected;
-      await this.game.audio.playAsset(dj.trackId, {
+      const longformId = this.availableLongformId();
+      const item = longformId
+        ? { id: longformId, label: 'continuous archived set', continuous: true }
+        : this.currentProgramItem;
+      const sequential = !item.continuous && this.fallbackProgram.length > 1;
+      const started = await this.game.audio.playAsset(item.id, {
         owner: 'house-dj',
-        label: `House DJ · ${dj.name} · Breakglass selections`,
-        loop: true,
+        label: `House DJ · ${dj.name} · ${item.label}`,
+        loop: !sequential,
         vibe: 0.78,
         baseVolume: 0.88,
       });
+      this.programRunning = Boolean(started && sequential);
     } finally {
       this.starting = false;
     }
   }
 
   stopHouseAudio() {
+    this.programRunning = false;
     if (this.isHouseAudio()) this.game.audio.stop();
     else this.game.audio.stopAsset?.('house-dj');
   }
@@ -154,6 +190,8 @@ export class HouseDjSystem {
     const wasPlaying = this.isHouseAudio();
     this.selectedId = id;
     this.game.state.data.houseDjId = id;
+    this.programIndex = 0;
+    this.programRunning = false;
     this.game.dj.stop();
     if (wasPlaying) this.stopHouseAudio();
     this.rotationTimer = 160 + Math.random() * 100;
@@ -180,6 +218,15 @@ export class HouseDjSystem {
   next() {
     const index = HOUSE_DJS.findIndex((dj) => dj.id === this.selectedId);
     return HOUSE_DJS[(index + 1) % HOUSE_DJS.length].id;
+  }
+
+  advanceProgram() {
+    const program = this.fallbackProgram;
+    if (!this.programRunning || this.starting || program.length < 2) return false;
+    this.programIndex = (this.programIndex + 1) % program.length;
+    this.programRunning = false;
+    void this.start();
+    return true;
   }
 
   panel() {
@@ -232,7 +279,16 @@ export class HouseDjSystem {
       return;
     }
     this.playerHold = Math.max(0, this.playerHold - dt);
-    if (!downstairs || this.playerHold > 0) return;
+    if (this.playerHold > 0) return;
+
+    // A programmed NPC set is building-wide transport: leaving Below must not reset it or create
+    // silence when a song ends. Advance even while the player is elsewhere in the building.
+    if (this.programRunning && !this.isHouseAudio() && !this.game.audio.playing) {
+      this.advanceProgram();
+      return;
+    }
+
+    if (!downstairs) return;
     this.rotationTimer -= dt;
     if (this.rotationTimer <= 0 && this.isHouseAudio()) {
       void this.select(this.next());
