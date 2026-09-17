@@ -1,4 +1,11 @@
-const INVITE_TYPES = new Set(['participant', 'guestlist', 'dj', 'producer', 'promoter']);
+const INVITE_TYPES = new Set([
+  'participant',
+  'guestlist',
+  'dj',
+  'producer',
+  'residentproducer',
+  'promoter',
+]);
 
 const INVITE_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAB0to465S4Aa52dYKg8xd0o7pV8TgBPokSwhNWUSFVJQ=
