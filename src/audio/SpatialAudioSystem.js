@@ -72,6 +72,7 @@ export class SpatialAudioSystem {
     this.installationFeedback = null;
     this.installationWet = null;
     this.installationLimiter = null;
+    this.installationOutput = null;
     this.emitters = [];
     this.noiseBuffer = null;
     this.lastEnvironmentKey = '';
@@ -99,14 +100,17 @@ export class SpatialAudioSystem {
     this.installationFilter = context.createBiquadFilter?.() ?? null;
     this.installationDry = context.createGain();
     this.installationLimiter = context.createDynamicsCompressor?.() ?? null;
-    const output = this.installationLimiter ?? this.audio.master;
+    this.installationOutput = context.createGain();
+    this.installationOutput.gain.value = 0.78;
+    this.installationOutput.connect(context.destination);
+    const output = this.installationLimiter ?? this.installationOutput;
     if (this.installationLimiter) {
       this.installationLimiter.threshold.value = -8;
       this.installationLimiter.knee.value = 10;
       this.installationLimiter.ratio.value = 6;
       this.installationLimiter.attack.value = 0.005;
       this.installationLimiter.release.value = 0.24;
-      this.installationLimiter.connect(this.audio.master);
+      this.installationLimiter.connect(this.installationOutput);
     }
 
     if (this.installationFilter) {
@@ -487,6 +491,7 @@ export class SpatialAudioSystem {
     this.installationFilter?.disconnect();
     this.installationBus?.disconnect();
     this.installationLimiter?.disconnect();
+    this.installationOutput?.disconnect();
     this.installationFeedback = null;
     this.installationWet = null;
     this.installationDelay = null;
@@ -494,6 +499,7 @@ export class SpatialAudioSystem {
     this.installationFilter = null;
     this.installationBus = null;
     this.installationLimiter = null;
+    this.installationOutput = null;
     this.noiseBuffer = null;
   }
 }
