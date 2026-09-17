@@ -1,14 +1,32 @@
 import { DJ_TRACKS } from '../dj/DjMixer.js';
+import { AUDITED_DJ_METADATA } from '../dj/djAuditMetadata.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
 const trackById = (id) => DJ_TRACKS.find((track) => track.id === id) ?? DJ_TRACKS[0];
 
-// DJM-style EQ behavior: approximately +6 dB boost and deep cut rather than the previous
-// symmetric +/-15 dB shelves. This is deliberately musically useful, not a mastering EQ.
 const eqDb = (value) => {
   const safe = clamp(value, -1, 1);
   return safe >= 0 ? safe * 6 : safe * 26;
 };
+
+function applyAuditedMetadata(mixer) {
+  for (const track of DJ_TRACKS) {
+    const audited = AUDITED_DJ_METADATA[track.id];
+    if (!audited) continue;
+    track.bpm = audited.bpm;
+    track.beatOffset = audited.beatOffset;
+    track.bpmAuditConfidence = audited.confidence;
+    track.bpmAudited = true;
+  }
+  for (const deck of Object.values(mixer.decks ?? {})) {
+    const track = trackById(deck.trackId);
+    if (!track?.bpmAudited || deck.playing) continue;
+    deck.bpm = track.bpm;
+    deck.baseBpm = track.bpm;
+    deck.beatOffset = track.beatOffset;
+  }
+  mixer._beatOffsetCache?.clear?.();
+}
 
 function directPlaybackRate(deck) {
   const track = trackById(deck.trackId);
@@ -67,7 +85,7 @@ function configureRealTrackEnd(mixer, deck) {
   }
 }
 
-function addMidEqUi(ui, mixer) {
+function addDesktopMidEq(ui, mixer) {
   const hosts = [...(ui.buttons?.querySelectorAll?.('.dj-deck') ?? [])];
   hosts.forEach((host, index) => {
     if (host.querySelector('input[aria-label="Mid EQ"]')) return;
@@ -95,13 +113,67 @@ function addMidEqUi(ui, mixer) {
   });
 }
 
+function addMobileAccuracyUi(ui, mixer) {
+  const eq = ui.buttons?.querySelector?.('.mobile-dj-eq');
+  if (eq && !eq.querySelector('input[aria-label="MID"]')) {
+    const deckId = mixer._mobileFocusDeck ?? 'A';
+    const state = mixer.snapshot?.().decks?.[deckId];
+    const label = ui.document.createElement('label');
+    label.className = 'mobile-mixer-range';
+    const caption = ui.document.createElement('span');
+    const range = ui.document.createElement('input');
+    range.type = 'range';
+    range.min = '-1';
+    range.max = '1';
+    range.step = '0.01';
+    range.value = String(state?.mid ?? 0);
+    range.setAttribute('aria-label', 'MID');
+    const refresh = () => {
+      caption.textContent = `MID ${Number(range.value).toFixed(2)}`;
+    };
+    range.oninput = () => {
+      refresh();
+      mixer.setEq(deckId, 'mid', Number(range.value));
+    };
+    refresh();
+    label.append(caption, range);
+    eq.insertBefore(label, eq.children[1] ?? null);
+  }
+
+  // The original touch NUDGE controls changed the permanent tempo fader while held. Replace their
+  // listeners with true momentary jog-wheel pitch bends, matching the desktop JOG controls.
+  const pads = ui.buttons?.querySelector?.('.mobile-dj-performance-pads');
+  for (const original of [...(pads?.querySelectorAll?.('button') ?? [])]) {
+    if (!/^NUDGE [−+]$/.test(original.textContent ?? '')) continue;
+    if (original.dataset.accurateJog === '1') continue;
+    const button = original.cloneNode(true);
+    button.dataset.accurateJog = '1';
+    const direction = button.textContent.includes('+') ? 1 : -1;
+    const press = (event) => {
+      event.preventDefault();
+      button.classList.add('active');
+      mixer.jog(mixer._mobileFocusDeck ?? 'A', direction * 0.125);
+      globalThis.navigator?.vibrate?.(6);
+    };
+    const release = () => button.classList.remove('active');
+    button.addEventListener('pointerdown', press, { passive: false });
+    button.addEventListener('pointerup', release, { passive: false });
+    button.addEventListener('pointercancel', release, { passive: false });
+    original.replaceWith(button);
+  }
+}
+
+function patchUi(ui, mixer) {
+  addDesktopMidEq(ui, mixer);
+  addMobileAccuracyUi(ui, mixer);
+}
+
 export function installDjAccuracyEnhancements(game, ui) {
   const mixer = game?.dj;
   if (!mixer || mixer._djAccuracyInstalled) return mixer;
   mixer._djAccuracyInstalled = true;
+  applyAuditedMetadata(mixer);
 
-  // Replace the pre-audio deck graph before any AudioContext nodes are created. The frequencies
-  // and cut/boost behavior approximate a club DJ mixer much more closely than the old two-shelf EQ.
   mixer.ensureDeckNodes = (deck) => {
     if (deck.nodes || !mixer.context) return deck.nodes;
     const input = mixer.context.createGain();
@@ -153,8 +225,6 @@ export function installDjAccuracyEnhancements(game, ui) {
 
   for (const deck of Object.values(mixer.decks)) deck.mid ??= 0;
 
-  // Preserve source position when the pitch fader changes. The previous enhanced setter changed
-  // playbackRate without rebasing the transport clock, which made the computed playhead jump.
   const baseSetBpm = mixer.setBpm.bind(mixer);
   mixer.setBpm = (deckId, bpm) => {
     const deck = mixer.decks[deckId];
@@ -169,8 +239,6 @@ export function installDjAccuracyEnhancements(game, ui) {
     return result;
   };
 
-  // A jog-wheel nudge is a momentary pitch bend, not a seek. This lets the player genuinely pull
-  // an incoming beat into phase by ear without producing the hard edit/glitch of restartDeckAt().
   mixer.jog = (deckId, beats = 0) => {
     const deck = mixer.decks[deckId];
     if (!deck?.playing) return false;
@@ -212,6 +280,12 @@ export function installDjAccuracyEnhancements(game, ui) {
     if (deck) {
       deck.mid = 0;
       deck._jogBend = 0;
+      const track = trackById(deck.trackId);
+      if (track?.bpmAudited) {
+        deck.bpm = track.bpm;
+        deck.baseBpm = track.bpm;
+        deck.beatOffset = track.beatOffset;
+      }
     }
     return result;
   };
@@ -221,6 +295,10 @@ export function installDjAccuracyEnhancements(game, ui) {
     const snapshot = baseSnapshot();
     for (const [deckId, state] of Object.entries(snapshot.decks ?? {})) {
       state.mid = mixer.decks[deckId]?.mid ?? 0;
+      const track = trackById(state.trackId);
+      state.baseBpm = track.bpm;
+      state.bpmAudited = track.bpmAudited === true;
+      state.bpmAuditConfidence = track.bpmAuditConfidence ?? null;
     }
     return snapshot;
   };
@@ -229,7 +307,7 @@ export function installDjAccuracyEnhancements(game, ui) {
     const baseDjMixer = ui.djMixer.bind(ui);
     ui.djMixer = (activeMixer, tracks, options = {}) => {
       const result = baseDjMixer(activeMixer, tracks, options);
-      addMidEqUi(ui, activeMixer);
+      patchUi(ui, activeMixer);
       return result;
     };
     ui._djAccuracyUiInstalled = true;
