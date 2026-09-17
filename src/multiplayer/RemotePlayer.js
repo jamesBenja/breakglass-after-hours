@@ -41,6 +41,8 @@ export class RemotePlayer {
     this.object.name = `remote-player:${id}`;
     this.targetPosition = new Vector3();
     this.lastTargetPosition = new Vector3();
+    this.interpolatedPosition = new Vector3();
+    this.collisionProbe = new Vector3();
     this.targetRotationY = 0;
     this.sceneId = null;
     this.moving = false;
@@ -71,6 +73,7 @@ export class RemotePlayer {
 
   applyState(state = {}, { immediate = false } = {}) {
     const sceneId = typeof state.sceneId === 'string' ? state.sceneId : (this.sceneId ?? 'alley');
+    const changedScene = this.sceneId !== null && sceneId !== this.sceneId;
     this.attach(sceneId);
     const position = Array.isArray(state.position) ? state.position : [0, 0, 0];
     this.lastTargetPosition.copy(this.targetPosition);
@@ -85,7 +88,9 @@ export class RemotePlayer {
     this.seated = state.seated === true;
     this.grounded = state.grounded !== false;
     this.lastPacketAt = performance.now();
-    if (immediate) {
+    if (immediate || changedScene) {
+      // Scene transitions are intentional teleports between different coordinate systems. Snap
+      // them instead of interpolating a remote avatar through every wall between the two rooms.
       this.object.position.copy(this.targetPosition);
       this.object.rotation.y = this.targetRotationY;
     }
@@ -112,7 +117,20 @@ export class RemotePlayer {
 
   update(dt) {
     const positionBlend = 1 - Math.exp(-13 * dt);
-    this.object.position.lerp(this.targetPosition, positionBlend);
+    this.interpolatedPosition.copy(this.object.position).lerp(this.targetPosition, positionBlend);
+    const level = this.scenes.get(this.sceneId);
+    const collision = level?.collision;
+    if (collision) {
+      const dx = this.interpolatedPosition.x - this.object.position.x;
+      const dz = this.interpolatedPosition.z - this.object.position.z;
+      this.collisionProbe.copy(this.object.position);
+      this.collisionProbe.y = this.interpolatedPosition.y;
+      collision.move(this.collisionProbe, dx, dz, { grounded: this.grounded });
+      if (!this.grounded) this.collisionProbe.y = this.interpolatedPosition.y;
+      this.object.position.copy(this.collisionProbe);
+    } else {
+      this.object.position.copy(this.interpolatedPosition);
+    }
     this.object.rotation.y +=
       shortestAngle(this.object.rotation.y, this.targetRotationY) * (1 - Math.exp(-16 * dt));
 
