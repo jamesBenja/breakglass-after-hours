@@ -80,12 +80,14 @@ export function buildTakeABreakFurniture(root) {
   const primitives = createPrimitives();
   const { box, cyl, mat } = primitives;
 
+  // All three couches face toward the middle of Take A Break.
   couch(root, primitives, {
     x: 7.65,
     z: 1.55,
     width: 2.18,
     depth: 0.78,
     color: 0x713e45,
+    rotation: Math.PI,
   }).name = 'take-a-break-front-couch';
 
   couch(root, primitives, {
@@ -94,7 +96,7 @@ export function buildTakeABreakFurniture(root) {
     width: 2.18,
     depth: 0.72,
     color: 0x504452,
-    rotation: Math.PI,
+    rotation: 0,
   }).name = 'take-a-break-back-couch';
 
   couch(root, primitives, {
@@ -103,7 +105,7 @@ export function buildTakeABreakFurniture(root) {
     width: 2.2,
     depth: 0.68,
     color: 0x5a4e45,
-    rotation: -Math.PI / 2,
+    rotation: Math.PI / 2,
   }).name = 'take-a-break-side-couch';
 
   const cushionData = [
