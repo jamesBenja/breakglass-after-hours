@@ -277,7 +277,12 @@ export const levels = {
       coffeeMachine: anchor('Kitchen coffee machine', [-9.18, 0, 2.55], 1.35, 'coffee'),
       scoreboard: anchor('Breakglass scoreboard', [-9.45, 0, 0.9], 1.35, 'scoreboard'),
       devin: anchor('Devin', [-4.95, 0, 2.7], 1.2, 'dialogue'),
-      installation: anchor('Take A Break installation', [7.65, 0, 4.8], 1.5, 'installation'),
+      installation: anchor(
+        'Spatial experiences / installation controls',
+        [7.5, 0, 3.5],
+        3.2,
+        'installation',
+      ),
       studioSongPlayer: {
         ...anchor('Take A Break · studio song playback', [8.45, 0, 5.72], 1.4, 'studioSongPlayer'),
         location: 'Take A Break',

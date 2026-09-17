@@ -55,3 +55,73 @@ test('club becomes extremely quiet filtered bleed in Take A Break', () => {
   assert.ok(focus.gain < room.gain);
   assert.ok(focus.lowpassHz < room.lowpassHz);
 });
+
+function audioParam(value = 0) {
+  return {
+    value,
+    setTargetAtTime(next) {
+      this.value = next;
+    },
+  };
+}
+
+function audioNode(extra = {}) {
+  return {
+    connections: [],
+    connect(target) {
+      this.connections.push(target);
+      return target;
+    },
+    disconnect() {},
+    ...extra,
+  };
+}
+
+test('installation output bypasses the room attenuation bus', () => {
+  const destination = audioNode();
+  const master = audioNode({ gain: audioParam(0.48) });
+  const context = {
+    currentTime: 0,
+    sampleRate: 48000,
+    destination,
+    createGain: () => audioNode({ gain: audioParam(1) }),
+    createDynamicsCompressor: () =>
+      audioNode({
+        threshold: audioParam(),
+        knee: audioParam(),
+        ratio: audioParam(),
+        attack: audioParam(),
+        release: audioParam(),
+      }),
+    createBiquadFilter: () =>
+      audioNode({ frequency: audioParam(4000), Q: audioParam(0.7), type: 'lowpass' }),
+    createDelay: () => audioNode({ delayTime: audioParam() }),
+    createOscillator: () =>
+      audioNode({
+        frequency: audioParam(110),
+        detune: audioParam(),
+        type: 'sine',
+        start() {},
+        stop() {},
+      }),
+    createBuffer: () => ({ getChannelData: () => new Float32Array(64) }),
+    createBufferSource: () => audioNode({ start() {}, stop() {}, buffer: null, loop: false }),
+    createPanner: () =>
+      audioNode({
+        positionX: audioParam(),
+        positionY: audioParam(),
+        positionZ: audioParam(),
+      }),
+  };
+  const spatial = new SpatialAudioSystem({
+    context,
+    master,
+    environment: {},
+    activeExternalTransport: { owner: 'dj' },
+  });
+  spatial.ensureInstallation();
+
+  assert.ok(spatial.installationOutput.connections.includes(destination));
+  assert.ok(spatial.installationLimiter.connections.includes(spatial.installationOutput));
+  assert.equal(spatial.installationLimiter.connections.includes(master), false);
+});
