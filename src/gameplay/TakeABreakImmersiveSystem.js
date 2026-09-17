@@ -125,10 +125,7 @@ export class TakeABreakImmersiveSystem {
       [5.18, 1.18, 4.05, 0xff52bc, 0.24, 0.01],
     ];
     for (const [x, y, z, color, radius, tube] of ringData) {
-      const ring = new Mesh(
-        new TorusGeometry(radius, tube, 8, 48),
-        glowMaterial(color, 0.55),
-      );
+      const ring = new Mesh(new TorusGeometry(radius, tube, 8, 48), glowMaterial(color, 0.55));
       ring.position.set(x, y, z);
       ring.rotation.y = Math.PI / 2;
       this.root.add(ring);
@@ -156,13 +153,11 @@ export class TakeABreakImmersiveSystem {
     this.starLayers.forEach((stars, index) => {
       stars.rotation.x = Math.sin(this.elapsed * (0.035 + index * 0.008)) * 0.025;
       stars.rotation.y += dt * (index ? -0.014 : 0.009);
-      stars.material.opacity =
-        (index ? 0.9 : 0.78) + Math.sin(this.elapsed * 0.7 + index) * 0.06;
+      stars.material.opacity = (index ? 0.9 : 0.78) + Math.sin(this.elapsed * 0.7 + index) * 0.06;
     });
     this.nebulae.forEach((cloud, index) => {
       cloud.rotation.y += dt * (0.045 + index * 0.012) * (index % 2 ? -1 : 1);
-      cloud.material.opacity =
-        0.045 + (Math.sin(this.elapsed * 0.36 + index * 1.7) + 1) * 0.022;
+      cloud.material.opacity = 0.045 + (Math.sin(this.elapsed * 0.36 + index * 1.7) + 1) * 0.022;
     });
     this.rings.forEach((ring, index) => {
       ring.rotation.x += dt * (0.08 + index * 0.035);

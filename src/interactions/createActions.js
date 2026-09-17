@@ -1002,7 +1002,7 @@ export function createActions({
     const enabled = spatial?.enabled !== false;
     panel(
       'TAKE A BREAK · IMMERSIVE INSTALLATION',
-      `Four HRTF sound emitters occupy the room. Walk around them and the image changes with your position and camera orientation${enabled ? '.' : ' — the installation is currently muted.'} Headphones make the placement clearest, while phone/laptop speakers still reproduce the room-to-room level and filtering changes.`,
+      `Eight HRTF virtual speakers occupy the room. The installation takes over the sound field here, with energy moving continuously around the eight positions as you walk and turn${enabled ? '.' : ' — the installation is currently muted.'} Headphones make the placement clearest, while phone/laptop speakers still reproduce the room-to-room level and filtering changes.`,
       [
         [
           enabled ? 'Mute installation' : 'Activate installation',
