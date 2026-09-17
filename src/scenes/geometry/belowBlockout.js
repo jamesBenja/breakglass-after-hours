@@ -17,9 +17,20 @@ export function buildBelowBlockout(downScene) {
   const wall = (x, z, w, d, h = 3.2) => box(downScene, w, h, d, wallMaterial, x, h / 2, z);
 
   floor(downScene, 0, 0, 12.2, 7.0, mainFloor);
-  wall(-1.275, -3.5, 9.65, 0.24);
+
+  // Club-facing bathroom: the door sits between the studio stair and DJ booth, tucked beneath
+  // the north speaker line. Split the old continuous wall so the room is physically enterable.
+  wall(-5.075, -3.5, 2.05, 0.24);
+  wall(0.45, -3.5, 6.2, 0.24);
+  doorwayFrame(downScene, -3.35, -3.38, 'horizontal', 'BATHROOM');
   wall(5.875, -3.5, 0.45, 0.24);
   doorwayFrame(downScene, 4.6, -3.38, 'horizontal', 'CLARK EMERGENCY');
+
+  floor(downScene, -3.35, -5.05, 3.5, 3.1, serviceFloor);
+  wall(-5.1, -5.05, 0.24, 3.1);
+  wall(-1.6, -5.05, 0.24, 3.1);
+  wall(-3.35, -6.6, 3.5, 0.24);
+  label(downScene, 'BATHROOM', -3.35, 2.72, -6.42, 0.32, '#d7e7e4');
 
   // The Clark stair used to be hidden behind a continuous west wall. Split the wall around a
   // generous opening so the relationship between club and studio reads immediately.
@@ -126,6 +137,44 @@ export function buildBelowFixtures(downScene) {
   const { mat, MAT, box, cyl, label } = createPrimitives();
 
   buildRealisticDjBooth(downScene);
+
+  // Two stalls, one urinal and a working sink. The interaction anchors live in levels.js;
+  // these fixtures make the room legible at game-camera distance.
+  const bathroomTile = mat(0x727b78, 0.72, 0.06);
+  const porcelain = mat(0xd7d8d1, 0.42, 0.04);
+  const porcelainDark = mat(0xaeb7b4, 0.48, 0.04);
+  const bathroomMetal = mat(0x8f999b, 0.34, 0.5);
+  const stallMaterial = mat(0x344448, 0.7, 0.12);
+
+  for (const x of [-4.05, -2.68]) {
+    box(downScene, 0.08, 2.05, 1.45, stallMaterial, x, 1.03, -5.55);
+  }
+  for (const x of [-4.52, -3.16]) {
+    const door = box(downScene, 1.05, 1.85, 0.055, stallMaterial, x, 0.93, -4.77);
+    door.rotation.y = x < -4 ? 0.18 : -0.22;
+    cyl(downScene, 0.025, 0.04, bathroomMetal, x + 0.34, 0.98, -4.73).rotation.x =
+      Math.PI / 2;
+
+    cyl(downScene, 0.24, 0.3, porcelain, x, 0.25, -5.72);
+    box(downScene, 0.46, 0.48, 0.18, porcelain, x, 0.58, -5.96);
+    cyl(downScene, 0.12, 0.055, porcelainDark, x, 0.43, -5.68);
+  }
+
+  // Wall-mounted urinal on the east side.
+  box(downScene, 0.09, 0.72, 0.54, porcelain, -1.74, 0.73, -5.38);
+  cyl(downScene, 0.18, 0.23, porcelain, -1.82, 0.48, -5.38).rotation.z = Math.PI / 2;
+  box(downScene, 0.04, 0.22, 0.04, bathroomMetal, -1.83, 1.12, -5.38);
+
+  // Sink/counter along the west wall, reachable immediately after leaving either stall.
+  box(downScene, 0.72, 0.12, 0.52, bathroomTile, -4.63, 0.84, -4.08);
+  cyl(downScene, 0.22, 0.1, porcelain, -4.63, 0.9, -4.08);
+  box(downScene, 0.04, 0.28, 0.04, bathroomMetal, -4.63, 1.1, -4.23);
+  box(downScene, 0.32, 0.42, 0.035, bathroomMetal, -4.63, 1.55, -3.77);
+  label(downScene, 'WC', -3.35, 2.5, -3.68, 0.22, '#e5f1ef');
+
+  const floodWater = box(downScene, 3.0, 0.025, 2.5, mat(0x416f7f, 0.34, 0.06), -3.35, 0.03, -5.05);
+  floodWater.name = 'bathroom-flood-water';
+  floodWater.visible = false;
 
   const ring = new Mesh(
     new RingGeometry(1.8, 2.35, 64),
