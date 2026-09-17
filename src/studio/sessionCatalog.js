@@ -17,7 +17,30 @@ const stem = (id, label, kind, assetId, level = 0.72, pan = 0, source = 'Breakgl
 // giving the ingest pass one authoritative queue to work through.
 export const PENDING_STUDIO_SESSION_SOURCES = APPROVED_STUDIO_SOURCES;
 
-export const STUDIO_SESSION_TEMPLATES = [
+const ALL_STUDIO_SESSION_TEMPLATES = [
+  // Dance Shoes remains internally addressable because older save/session code imports its stem
+  // layout. The completed music review excluded it from selectable studio options, so the public
+  // STUDIO_SESSION_TEMPLATES export filters it out below.
+  {
+    id: 'dance-shoes',
+    label: 'Dance Shoes · BG Mix · 4 stems',
+    name: 'Dance Shoes · BG Mix',
+    bpm: 118,
+    reviewExcluded: true,
+    stems: [
+      stem('dance-shoes-drums', 'Dance Shoes · Drums', 'drums', 'dance-shoes-drums', 0.78),
+      stem('dance-shoes-bass', 'Dance Shoes · Bass', 'bass', 'dance-shoes-bass', 0.74),
+      stem(
+        'dance-shoes-synths-fx',
+        'Dance Shoes · Synths + FX',
+        'synth',
+        'dance-shoes-synths-fx',
+        0.66,
+        0.08,
+      ),
+      stem('dance-shoes-vox', 'Dance Shoes · Vocals', 'vocal', 'dance-shoes-vox', 0.7),
+    ],
+  },
   {
     id: 'atrakar-two-stem',
     label: 'Jashim · ATRAKAR · instrumental + vocal',
@@ -95,5 +118,9 @@ export const STUDIO_SESSION_TEMPLATES = [
   },
 ];
 
+export const STUDIO_SESSION_TEMPLATES = ALL_STUDIO_SESSION_TEMPLATES.filter(
+  (session) => !session.reviewExcluded,
+);
+
 export const studioSessionById = (id) =>
-  STUDIO_SESSION_TEMPLATES.find((session) => session.id === id) ?? null;
+  ALL_STUDIO_SESSION_TEMPLATES.find((session) => session.id === id) ?? null;
