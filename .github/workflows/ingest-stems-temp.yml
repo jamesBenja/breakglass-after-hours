@@ -1,0 +1,91 @@
+name: Ingest Studio Stems Temp
+
+on:
+  push:
+    branches: [feat/audio-stems-batch1]
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install downloader
+        run: python -m pip install --disable-pip-version-check gdown==5.2.0
+      - name: Ensure ffmpeg
+        run: ffmpeg -version >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Download source stem folders
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp-stems/gairage .tmp-stems/in-an-instant
+          python -m gdown --folder 'https://drive.google.com/drive/folders/1vXVACUbvCyUprUTgFi8DD7hytA2F-eCX' -O .tmp-stems/gairage --remaining-ok
+          python -m gdown --folder 'https://drive.google.com/drive/folders/11GCLjknD-ry17iV4bNcg-WeueAezAPRZ' -O .tmp-stems/in-an-instant --remaining-ok
+      - name: Optimize stems and write ingest metadata
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, re, subprocess
+
+          sessions = [
+              ('gairage', 'Gairage · James Benjamin × Jamvvis', None, Path('.tmp-stems/gairage')),
+              ('in-an-instant', 'In an Instant · James Benjamin', 129, Path('.tmp-stems/in-an-instant')),
+          ]
+
+          def slug(name):
+              value = re.sub(r'\.wav$', '', name, flags=re.I).lower()
+              value = re.sub(r'^in an instant 129bpm\s*', '', value)
+              value = re.sub(r'[^a-z0-9]+', '-', value).strip('-')
+              return value
+
+          def kind(name):
+              n = name.lower()
+              if any(x in n for x in ('kick', 'snare', 'hihat', 'hat', 'drum', 'perc')): return 'drums'
+              if 'bass' in n or 'low pulse' in n: return 'bass'
+              if any(x in n for x in ('vocal', 'vox', 'voice')): return 'vocal'
+              if any(x in n for x in ('synth', 'jx3p', 'asr', 'syncussion', 'pad', 'serum')): return 'synth'
+              if any(x in n for x in ('fx', 'bell', 'dial')): return 'fx'
+              return 'audio'
+
+          manifest = []
+          for sid, label, bpm, root in sessions:
+              outdir = Path('public/assets/audio/stems') / sid
+              outdir.mkdir(parents=True, exist_ok=True)
+              entries = []
+              wavs = sorted(p for p in root.rglob('*') if p.is_file() and p.suffix.lower() == '.wav')
+              for src in wavs:
+                  s = slug(src.name)
+                  out = outdir / f'{s}.mp3'
+                  subprocess.run([
+                      'ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(src),
+                      '-map_metadata','-1','-vn','-codec:a','libmp3lame','-b:a','128k','-ar','44100',str(out)
+                  ], check=True)
+                  entries.append({
+                      'id': f'{sid}-stem-{s}',
+                      'label': re.sub(r'\.wav$', '', src.name, flags=re.I),
+                      'kind': kind(src.name),
+                      'url': f'assets/audio/stems/{sid}/{s}.mp3',
+                  })
+              manifest.append({'id': sid, 'label': label, 'bpm': bpm, 'stems': entries})
+
+          Path('docs/studio-stem-ingest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+          rm -rf .tmp-stems
+      - name: Commit optimized stems
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/ingest-stems-temp.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/assets/audio/stems docs/studio-stem-ingest.json .github/workflows/ingest-stems-temp.yml
+          git commit -m 'Ingest Gairage and In an Instant studio stems'
+          git push origin HEAD:feat/audio-stems-batch1
