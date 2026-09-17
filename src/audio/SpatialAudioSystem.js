@@ -1,38 +1,32 @@
 import { Vector3 } from 'three';
+import { TAKE_A_BREAK_SPEAKERS } from '../gameplay/TakeABreakImmersiveSystem.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-const INSTALLATION_EMITTERS = [
-  { position: [6.55, 1.25, 3.65], frequency: 110, wave: 'sine', lfo: 0.071, layer: 'low' },
-  {
-    position: [8.55, 1.45, 3.75],
-    frequency: 164.81,
-    wave: 'triangle',
-    lfo: 0.053,
-    layer: 'texture',
-  },
-  {
-    position: [6.55, 1.6, 5.9],
-    frequency: 246.94,
-    wave: 'sine',
-    lfo: 0.043,
-    layer: 'texture',
-  },
-  {
-    position: [8.55, 1.25, 6.0],
-    frequency: 329.63,
-    wave: 'triangle',
-    lfo: 0.061,
-    layer: 'air',
-  },
-];
+const INSTALLATION_VOICES = Object.freeze([
+  { frequency: 82.41, wave: 'sine', lfo: 0.071, layer: 'low' },
+  { frequency: 110, wave: 'triangle', lfo: 0.053, layer: 'low' },
+  { frequency: 146.83, wave: 'sine', lfo: 0.043, layer: 'texture' },
+  { frequency: 164.81, wave: 'triangle', lfo: 0.061, layer: 'texture' },
+  { frequency: 220, wave: 'sine', lfo: 0.037, layer: 'texture' },
+  { frequency: 293.66, wave: 'triangle', lfo: 0.047, layer: 'air' },
+  { frequency: 329.63, wave: 'sine', lfo: 0.059, layer: 'air' },
+  { frequency: 440, wave: 'triangle', lfo: 0.041, layer: 'air' },
+]);
+
+const INSTALLATION_EMITTERS = Object.freeze(
+  TAKE_A_BREAK_SPEAKERS.map((position, index) => ({
+    position,
+    ...INSTALLATION_VOICES[index],
+  })),
+);
 
 const DEFAULT_INSTALLATION_MIX = Object.freeze({
   low: 0.72,
   texture: 0.72,
   air: 0.62,
-  motion: 0.48,
-  space: 0.38,
+  motion: 0.68,
+  space: 0.5,
 });
 
 /**
@@ -40,9 +34,9 @@ const DEFAULT_INSTALLATION_MIX = Object.freeze({
  *
  * - updates the WebAudio listener from the player/camera
  * - applies room-to-room gain + low-pass transitions to the shared music bus
- * - creates a quiet four-emitter HRTF sound installation in Take A Break
- * - supports a seated focus mode where the club becomes filtered bleed and the installation
- *   becomes an adjustable listening piece
+ * - creates an eight-position HRTF sound installation in Take A Break
+ * - makes the club become quiet filtered wall bleed while the installation dominates the room
+ * - keeps the existing installation mix/focus controls attached to the real eight-speaker field
  */
 export class SpatialAudioSystem {
   constructor(audio) {
@@ -59,6 +53,7 @@ export class SpatialAudioSystem {
     this.emitters = [];
     this.lastEnvironmentKey = '';
     this.forward = new Vector3();
+    this.elapsed = 0;
   }
 
   setParam(parameter, value, timeConstant = 0.08) {
@@ -104,18 +99,18 @@ export class SpatialAudioSystem {
       const panner = typeof context.createPanner === 'function' ? context.createPanner() : null;
       source.type = config.wave;
       source.frequency.value = config.frequency;
-      gain.gain.value = 0.012;
+      gain.gain.value = 0.0001;
       lfo.frequency.value = config.lfo;
-      depth.gain.value = 0.006;
+      depth.gain.value = 0.004;
       lfo.connect(depth);
       depth.connect(gain.gain);
       source.connect(gain);
       if (panner) {
         panner.panningModel = 'HRTF';
         panner.distanceModel = 'inverse';
-        panner.refDistance = 0.8;
-        panner.maxDistance = 11;
-        panner.rolloffFactor = 1.35;
+        panner.refDistance = 0.65;
+        panner.maxDistance = 9;
+        panner.rolloffFactor = 0.82;
         const [x, y, z] = config.position;
         if (panner.positionX) {
           panner.positionX.value = x;
@@ -136,9 +131,7 @@ export class SpatialAudioSystem {
     if (!this.audio.context) return;
     const motion = this.installationMix.motion;
     for (const emitter of this.emitters) {
-      const level = this.installationMix[emitter.config.layer] ?? 0.7;
-      this.setParam(emitter.gain.gain, 0.004 + level * 0.017, 0.09);
-      this.setParam(emitter.depth.gain, 0.0015 + motion * 0.009, 0.12);
+      this.setParam(emitter.depth.gain, 0.0015 + motion * 0.0065, 0.12);
       this.setParam(emitter.lfo.frequency, emitter.config.lfo * (0.55 + motion * 1.55), 0.12);
     }
     if (this.installationDelay) {
@@ -157,6 +150,26 @@ export class SpatialAudioSystem {
         8500 + this.installationMix.air * 10000,
         0.12,
       );
+  }
+
+  updateInstallationField(active) {
+    const motion = this.installationMix.motion;
+    for (let index = 0; index < this.emitters.length; index++) {
+      const emitter = this.emitters[index];
+      const layer = this.installationMix[emitter.config.layer] ?? 0.7;
+      const a = (Math.sin(this.elapsed * (0.34 + motion * 0.22) - index * 0.82) + 1) * 0.5;
+      const b = (Math.sin(this.elapsed * 0.19 + index * 1.91) + 1) * 0.5;
+      const c = (Math.sin(this.elapsed * (0.57 + motion * 0.2) - index * 0.37) + 1) * 0.5;
+      const circulation = 0.18 + a * 0.48 + b * 0.2 + c * 0.14;
+      const focus = this.installationFocus ? 1.12 : 1;
+      const target = active ? (0.0025 + layer * 0.0125) * circulation * focus : 0.0001;
+      this.setParam(emitter.gain.gain, target, 0.11);
+      this.setParam(
+        emitter.source.detune,
+        active ? Math.sin(this.elapsed * 0.13 + index) * (4 + motion * 8) : 0,
+        0.18,
+      );
+    }
   }
 
   setInstallationFocus(active) {
@@ -212,11 +225,15 @@ export class SpatialAudioSystem {
       if (surfaceId === 'lounge' || surfaceId === 'lounge-door') {
         if (this.installationFocus)
           return {
-            gain: 0.075,
-            lowpassHz: 760,
+            gain: 0.055,
+            lowpassHz: 650,
             label: 'Take A Break · installation focus · club through wall',
           };
-        return { gain: 0.82, lowpassHz: 12500, label: 'Take A Break' };
+        return {
+          gain: 0.095,
+          lowpassHz: 920,
+          label: 'Take A Break · immersive installation · club through wall',
+        };
       }
       if (surfaceId === 'service' || surfaceId === 'bar-door')
         return { gain: 0.72, lowpassHz: 6200, label: 'bar / service room' };
@@ -257,6 +274,7 @@ export class SpatialAudioSystem {
 
   update(level, player, camera) {
     if (!this.audio.context || !level) return;
+    this.elapsed += 1 / 60;
     this.ensureInstallation();
     this.updateListener(player, camera);
     const ground = level.collision.surfaceAt(
@@ -275,11 +293,12 @@ export class SpatialAudioSystem {
       this.audio.setEnvironment(environment);
       this.lastEnvironmentKey = key;
     }
+    const installationActive = inLounge && this.installationEnabled;
+    this.updateInstallationField(installationActive);
     if (this.installationBus) {
-      const active = level.definition.id === 'downstairs' && this.installationEnabled;
       this.setParam(
         this.installationBus.gain,
-        active ? (this.installationFocus ? 1.08 : 0.78) : 0,
+        installationActive ? (this.installationFocus ? 1.18 : 1.04) : 0,
         0.18,
       );
     }
