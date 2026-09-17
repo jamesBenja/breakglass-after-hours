@@ -26,17 +26,6 @@ export const TAKE_A_BREAK_SPEAKERS = Object.freeze([
   [6.35, 2.28, 3.72],
 ]);
 
-const SPEAKER_VOICES = Object.freeze([
-  [82.41, 'sine', 0.071],
-  [110, 'triangle', 0.053],
-  [146.83, 'sine', 0.043],
-  [164.81, 'triangle', 0.061],
-  [220, 'sine', 0.037],
-  [293.66, 'triangle', 0.047],
-  [329.63, 'sine', 0.059],
-  [440, 'triangle', 0.041],
-]);
-
 export function isTakeABreakPosition(position) {
   if (!position) return false;
   return position.x >= 6.15 && position.x <= 9.1 && position.z >= 0.75 && position.z <= 6.48;
@@ -93,12 +82,6 @@ export class TakeABreakImmersiveSystem {
     this.root.name = 'take-a-break-cosmic-breach';
     root.add(this.root);
     this.elapsed = 0;
-    this.audioContext = null;
-    this.audioBus = null;
-    this.delay = null;
-    this.delayFeedback = null;
-    this.delayWet = null;
-    this.emitters = [];
     this.nebulae = [];
     this.rings = [];
     this.starLayers = [];
@@ -166,84 +149,20 @@ export class TakeABreakImmersiveSystem {
     this.root.add(topEdge);
   }
 
-  ensureAudio(audio) {
-    const context = audio?.context;
-    if (!context || this.audioContext === context) return;
-    this.disposeAudio();
-    this.audioContext = context;
-    this.audioBus = context.createGain();
-    this.audioBus.gain.value = 0;
-    this.audioBus.connect(context.destination);
-
-    if (typeof context.createDelay === 'function') {
-      this.delay = context.createDelay(1.4);
-      this.delayFeedback = context.createGain();
-      this.delayWet = context.createGain();
-      this.delay.delayTime.value = 0.34;
-      this.delayFeedback.gain.value = 0.24;
-      this.delayWet.gain.value = 0.18;
-      this.audioBus.connect(this.delay);
-      this.delay.connect(this.delayWet);
-      this.delayWet.connect(context.destination);
-      this.delay.connect(this.delayFeedback);
-      this.delayFeedback.connect(this.delay);
-    }
-
-    TAKE_A_BREAK_SPEAKERS.forEach((position, index) => {
-      const [frequency, wave, lfoRate] = SPEAKER_VOICES[index];
-      const source = context.createOscillator();
-      const gain = context.createGain();
-      const lfo = context.createOscillator();
-      const depth = context.createGain();
-      const panner = typeof context.createPanner === 'function' ? context.createPanner() : null;
-      source.type = wave;
-      source.frequency.value = frequency;
-      gain.gain.value = 0.0001;
-      lfo.frequency.value = lfoRate;
-      depth.gain.value = 0.0022;
-      lfo.connect(depth);
-      depth.connect(source.detune);
-      source.connect(gain);
-      if (panner) {
-        panner.panningModel = 'HRTF';
-        panner.distanceModel = 'inverse';
-        panner.refDistance = 0.65;
-        panner.maxDistance = 9;
-        panner.rolloffFactor = 0.82;
-        const [x, y, z] = position;
-        if (panner.positionX) {
-          panner.positionX.value = x;
-          panner.positionY.value = y;
-          panner.positionZ.value = z;
-        } else panner.setPosition?.(x, y, z);
-        gain.connect(panner);
-        panner.connect(this.audioBus);
-      } else gain.connect(this.audioBus);
-      source.start();
-      lfo.start();
-      this.emitters.push({ source, gain, lfo, depth, panner, index });
-    });
-  }
-
-  setParam(parameter, value, timeConstant = 0.08) {
-    if (!parameter || !this.audioContext) return;
-    if (typeof parameter.setTargetAtTime === 'function')
-      parameter.setTargetAtTime(value, this.audioContext.currentTime, timeConstant);
-    else parameter.value = value;
-  }
-
-  update(dt, audio, playerPosition) {
+  update(dt) {
     this.elapsed += dt;
     const breath = 1 + Math.sin(this.elapsed * 0.42) * 0.035;
     this.root.scale.setScalar(breath);
     this.starLayers.forEach((stars, index) => {
       stars.rotation.x = Math.sin(this.elapsed * (0.035 + index * 0.008)) * 0.025;
       stars.rotation.y += dt * (index ? -0.014 : 0.009);
-      stars.material.opacity = (index ? 0.9 : 0.78) + Math.sin(this.elapsed * 0.7 + index) * 0.06;
+      stars.material.opacity =
+        (index ? 0.9 : 0.78) + Math.sin(this.elapsed * 0.7 + index) * 0.06;
     });
     this.nebulae.forEach((cloud, index) => {
       cloud.rotation.y += dt * (0.045 + index * 0.012) * (index % 2 ? -1 : 1);
-      cloud.material.opacity = 0.045 + (Math.sin(this.elapsed * 0.36 + index * 1.7) + 1) * 0.022;
+      cloud.material.opacity =
+        0.045 + (Math.sin(this.elapsed * 0.36 + index * 1.7) + 1) * 0.022;
     });
     this.rings.forEach((ring, index) => {
       ring.rotation.x += dt * (0.08 + index * 0.035);
@@ -251,73 +170,20 @@ export class TakeABreakImmersiveSystem {
       const pulse = 1 + Math.sin(this.elapsed * (0.55 + index * 0.09) + index) * 0.12;
       ring.scale.setScalar(pulse);
     });
-
-    this.ensureAudio(audio);
-    if (!this.audioContext || !this.audioBus) return;
-    const active = isTakeABreakPosition(playerPosition);
-    if (active) {
-      // Club sound becomes distant wall bleed. The installation bypasses AudioEngine's room gain,
-      // so reducing the club does not also collapse the immersive sound field.
-      audio?.setEnvironment?.({
-        gain: 0.095,
-        lowpassHz: 920,
-        label: 'Take A Break · immersive installation · club through wall',
-      });
-    }
-    this.setParam(this.audioBus.gain, active ? 0.68 : 0, 0.16);
-    if (!active) return;
-
-    // Energy continuously circulates around the eight fixed virtual speakers. Three overlapping
-    // phase rates keep the movement from feeling like a simple clockwise pan.
-    this.emitters.forEach((emitter, index) => {
-      const a = (Math.sin(this.elapsed * 0.44 - index * 0.82) + 1) * 0.5;
-      const b = (Math.sin(this.elapsed * 0.19 + index * 1.91) + 1) * 0.5;
-      const c = (Math.sin(this.elapsed * 0.73 - index * 0.37) + 1) * 0.5;
-      const movement = 0.2 + a * 0.48 + b * 0.2 + c * 0.12;
-      this.setParam(emitter.gain.gain, 0.0028 + movement * 0.0075, 0.11);
-      this.setParam(emitter.source.detune, Math.sin(this.elapsed * 0.13 + index) * 9, 0.18);
-    });
   }
 
   snapshot() {
     return {
       speakers: TAKE_A_BREAK_SPEAKERS.length,
-      active: this.audioBus?.gain?.value > 0.02,
       cosmicObjects: this.root.children.length,
     };
   }
 
-  disposeAudio() {
-    for (const emitter of this.emitters) {
-      try {
-        emitter.source.stop();
-        emitter.lfo.stop();
-      } catch {
-        // Already stopped.
-      }
-      emitter.source.disconnect();
-      emitter.gain.disconnect();
-      emitter.lfo.disconnect();
-      emitter.depth.disconnect();
-      emitter.panner?.disconnect();
-    }
-    this.emitters = [];
-    this.delayFeedback?.disconnect();
-    this.delayWet?.disconnect();
-    this.delay?.disconnect();
-    this.audioBus?.disconnect();
-    this.delayFeedback = null;
-    this.delayWet = null;
-    this.delay = null;
-    this.audioBus = null;
-    this.audioContext = null;
-  }
-
   dispose() {
-    this.disposeAudio();
     this.root.traverse((object) => {
       object.geometry?.dispose?.();
-      if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose?.());
+      if (Array.isArray(object.material))
+        object.material.forEach((material) => material.dispose?.());
       else object.material?.dispose?.();
     });
     this.root.removeFromParent();
