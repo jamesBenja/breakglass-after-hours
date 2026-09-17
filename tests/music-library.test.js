@@ -7,7 +7,9 @@ import {
   APPROVED_LONGFORM_SOURCES,
   APPROVED_STUDIO_SOURCES,
   NPC_DJ_PROGRAMS,
+  RUNTIME_DJ_LIBRARY,
 } from '../src/audio/musicLibrary.js';
+import { DJ_TRACKS } from '../src/dj/DjMixer.js';
 import { HouseDjSystem } from '../src/gameplay/HouseDjSystem.js';
 import {
   PENDING_STUDIO_SESSION_SOURCES,
@@ -30,9 +32,19 @@ test('excluded Dance Shoes session is not selectable while approved stem sources
     STUDIO_SESSION_TEMPLATES.some((session) => session.id === 'dance-shoes'),
     false,
   );
-  assert.equal(PENDING_STUDIO_SESSION_SOURCES, APPROVED_STUDIO_SOURCES);
+  assert.notEqual(PENDING_STUDIO_SESSION_SOURCES, APPROVED_STUDIO_SOURCES);
   assert.ok(PENDING_STUDIO_SESSION_SOURCES.some((source) => source.id === 'atrakar-full-stems'));
   assert.ok(PENDING_STUDIO_SESSION_SOURCES.some((source) => source.id === 'planet-pillow-stems'));
+  assert.equal(
+    PENDING_STUDIO_SESSION_SOURCES.some((source) => source.id === 'gairage-stems'),
+    false,
+  );
+  assert.equal(
+    PENDING_STUDIO_SESSION_SOURCES.some((source) => source.id === 'in-an-instant-stems'),
+    false,
+  );
+  assert.ok(STUDIO_SESSION_TEMPLATES.some((session) => session.id === 'gairage-multitrack'));
+  assert.ok(STUDIO_SESSION_TEMPLATES.some((session) => session.id === 'in-an-instant-multitrack'));
 });
 
 test('James house-DJ fallback is a multi-track programme, not a one-song loop', () => {
@@ -95,4 +107,20 @@ test('James NPC programme advances outside Below when a track naturally ends', a
   assert.equal(calls[1].id, 'in-flux-just-be');
   assert.equal(system.programIndex, 1);
   assert.equal(system.programRunning, true);
+});
+
+test('runtime DJ catalogue exposes the newly ingested James and Boogieman masters', () => {
+  for (const id of ['team-break', 'gairage', 'drop-in', 'rotations-fences']) {
+    assert.ok(RUNTIME_DJ_LIBRARY.some((track) => track.id === id));
+    assert.ok(DJ_TRACKS.some((track) => track.id === id && track.real));
+  }
+  assert.ok(APPROVED_DJ_INGEST.every((track) => track.runtimeReady));
+  assert.ok(APPROVED_AMBIENT_INGEST.every((track) => track.runtimeReady));
+});
+
+test('James house-DJ fallback expands beyond the original five-track loop', () => {
+  const programme = NPC_DJ_PROGRAMS['james-benjamin'];
+  assert.ok(programme.fallback.length >= 20);
+  assert.ok(programme.fallback.some((track) => track.id === 'rotations-the-roll'));
+  assert.ok(programme.fallback.some((track) => track.id === 'guestlist-andy-s'));
 });
