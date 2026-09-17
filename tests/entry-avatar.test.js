@@ -11,7 +11,7 @@ test('avatar profile keeps only small local data-image face textures', () => {
   assert.equal(normalizeFaceTexture(`data:image/png;base64,${'A'.repeat(180001)}`), null);
 });
 
-test('every game boot is forced to the alley start instead of a saved interior position', async () => {
+test('normal game boot is forced to the alley start instead of a saved interior position', async () => {
   const starts = [];
   const bouncer = {
     admitted: false,
@@ -39,6 +39,28 @@ test('every game boot is forced to the alley start instead of a saved interior p
   installEntryEnhancements(game, { panel() {}, warning() {} });
   await game.initialize();
   assert.deepEqual(starts, [[ENTRY_SCENE_ID, null]]);
+});
+
+test('direct-entry invitation starts at its authored studio position', async () => {
+  const starts = [];
+  const sceneManager = {
+    current: { definition: { id: 'alley' } },
+    start(id, position) {
+      starts.push([id, position]);
+    },
+    request() {},
+  };
+  const game = {
+    invitation: { entry: { sceneId: 'upstairs', position: [4.85, 0, -2.3] } },
+    crowdDoor: { bouncer: { reset() {}, handle() { return false; } } },
+    sceneManager,
+    async initialize() {
+      sceneManager.start('alley', null);
+    },
+  };
+  installEntryEnhancements(game, { panel() {}, warning() {} });
+  await game.initialize();
+  assert.deepEqual(starts, [['upstairs', [4.85, 0, -2.3]]]);
 });
 
 test('Sam performs security clearance and the club door opens only after that', () => {
