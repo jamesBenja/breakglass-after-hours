@@ -1,0 +1,140 @@
+name: DJ Accuracy Finalize Temp
+
+on:
+  push:
+    branches: [feat/dj-accuracy-audit-current]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/dj-accuracy-audit-current
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm install --frozen-lockfile
+      - name: Apply final DJ-accuracy patches
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/gameplay/DjAccuracyEnhancements.js')
+          s = p.read_text()
+          s = s.replace(
+              "    track.bpmAudited = true;\n",
+              "    track.bpmAudited = true;\n    track.freeTime = audited.freeTime === true;\n",
+          )
+          s = s.replace(
+              "function patchUi(ui, mixer) {\n  addDesktopMidEq(ui, mixer);\n  addMobileAccuracyUi(ui, mixer);\n}\n",
+              """function markFreeTimeControls(ui, mixer) {
+            const hosts = [...(ui.buttons?.querySelectorAll?.('.dj-deck') ?? [])];
+            hosts.forEach((host, index) => {
+              const deckId = index === 0 ? 'A' : 'B';
+              const state = mixer.snapshot?.().decks?.[deckId];
+              const track = trackById(state?.trackId);
+              for (const option of host.querySelectorAll?.('select option') ?? []) {
+                const optionTrack = trackById(option.value);
+                if (optionTrack?.freeTime) option.textContent = `${optionTrack.label} · FREE`;
+              }
+              if (!track?.freeTime) return;
+              const tempoLabel = [...host.querySelectorAll('label')].find((candidate) =>
+                candidate.textContent.trim().startsWith('Tempo'),
+              );
+              const tempo = tempoLabel?.querySelector('input[type="range"]');
+              if (tempo) tempo.disabled = true;
+              const caption = tempoLabel?.querySelector('span');
+              if (caption) caption.textContent = 'Tempo: FREE · no fixed beat grid';
+              const sync = [...host.querySelectorAll('button')].find(
+                (button) => button.textContent.trim().toLowerCase() === 'sync',
+              );
+              if (sync) {
+                sync.disabled = true;
+                sync.title = 'Free-time recording: beat sync is intentionally unavailable.';
+              }
+            });
+
+            const focusId = mixer._mobileFocusDeck ?? 'A';
+            const focusTrack = trackById(mixer.snapshot?.().decks?.[focusId]?.trackId);
+            for (const option of ui.buttons?.querySelectorAll?.('select option') ?? []) {
+              const optionTrack = trackById(option.value);
+              if (optionTrack?.freeTime) option.textContent = `${optionTrack.label} · FREE`;
+            }
+            if (focusTrack?.freeTime) {
+              const tempo = ui.buttons?.querySelector?.('input[aria-label="TEMPO"]');
+              if (tempo) {
+                tempo.disabled = true;
+                const caption = tempo.closest('label')?.querySelector('span');
+                if (caption) caption.textContent = 'TEMPO FREE · NO FIXED GRID';
+              }
+              for (const button of ui.buttons?.querySelectorAll?.('button') ?? []) {
+                if (button.textContent.trim().toLowerCase() !== 'sync') continue;
+                button.disabled = true;
+                button.title = 'Free-time recording: beat sync is intentionally unavailable.';
+              }
+            }
+          }
+
+          function patchUi(ui, mixer) {
+            addDesktopMidEq(ui, mixer);
+            addMobileAccuracyUi(ui, mixer);
+            markFreeTimeControls(ui, mixer);
+          }
+""",
+          )
+          s = s.replace(
+              "      state.bpmAuditConfidence = track.bpmAuditConfidence ?? null;\n",
+              "      state.bpmAuditConfidence = track.bpmAuditConfidence ?? null;\n      state.freeTime = track.freeTime === true;\n",
+          )
+          p.write_text(s)
+
+          p = Path('src/gameplay/djSyncEnhancements.js')
+          s = p.read_text()
+          s = s.replace(
+              "  const track = trackById(deck.trackId);\n  const beat = 60 / Math.max(1, track.bpm);\n",
+              "  const track = trackById(deck.trackId);\n  if (track.freeTime) return 0;\n  const beat = 60 / Math.max(1, track.bpm);\n",
+              1,
+          )
+          needle = """    const slaveTrack = trackById(slave.trackId);
+    const min = slaveTrack.bpm * (1 - TEMPO_RANGE);
+"""
+          replacement = """    const slaveTrack = trackById(slave.trackId);
+    const masterTrack = trackById(master.trackId);
+    if (slaveTrack.freeTime || masterTrack.freeTime) {
+      ui?.warning?.('Free-time recordings do not have a fixed beat grid. Mix this one manually.');
+      return false;
+    }
+    const min = slaveTrack.bpm * (1 - TEMPO_RANGE);
+"""
+          s = s.replace(needle, replacement)
+          s = s.replace(
+              "      const masterTrack = trackById(master.trackId);\n      sharedTempo = clamp(\n",
+              "      sharedTempo = clamp(\n",
+          )
+          p.write_text(s)
+
+          p = Path('server/multiplayerServer.mjs')
+          s = p.read_text()
+          s = s.replace(
+              "      low: clamp(deck.low, -1, 1),\n      high: clamp(deck.high, -1, 1),\n",
+              "      low: clamp(deck.low, -1, 1),\n      mid: clamp(deck.mid, -1, 1),\n      high: clamp(deck.high, -1, 1),\n",
+          )
+          p.write_text(s)
+          PY
+          pnpm exec prettier --write src/gameplay/DjAccuracyEnhancements.js src/gameplay/djSyncEnhancements.js server/multiplayerServer.mjs
+      - name: Self-clean and commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/dj-accuracy-finalize-temp.yml
+          git add src/gameplay/DjAccuracyEnhancements.js src/gameplay/djSyncEnhancements.js server/multiplayerServer.mjs
+          git commit -m "Finalize accurate DJ grids, free-time handling and multiplayer EQ"
+          git push origin HEAD:feat/dj-accuracy-audit-current
