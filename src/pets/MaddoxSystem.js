@@ -338,7 +338,13 @@ export class MaddoxSystem {
     }
 
     const wagStrength =
-      this.bellyRubPulse > 0 ? 0.82 : this.petPulse > 0 ? 0.72 : this.state === 'lead' ? 0.34 : 0.12;
+      this.bellyRubPulse > 0
+        ? 0.82
+        : this.petPulse > 0
+          ? 0.72
+          : this.state === 'lead'
+            ? 0.34
+            : 0.12;
     this.tailPivot.rotation.y =
       Math.sin(this.elapsed * (this.bellyRubPulse > 0 ? 15 : this.petPulse > 0 ? 13 : 5.5)) *
       wagStrength;

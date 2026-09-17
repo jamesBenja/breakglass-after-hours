@@ -226,7 +226,10 @@ export function validateSave(value) {
   state.maddoxAffection = Math.max(0, Math.min(9, Math.floor(Number(value.maddoxAffection) || 0)));
   state.maddoxPets = Math.max(0, Math.min(999, Math.floor(Number(value.maddoxPets) || 0)));
   state.maddoxBellyUnlocked = value.maddoxBellyUnlocked === true;
-  state.maddoxBellyRubs = Math.max(0, Math.min(999, Math.floor(Number(value.maddoxBellyRubs) || 0)));
+  state.maddoxBellyRubs = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(value.maddoxBellyRubs) || 0)),
+  );
   state.roofSecretUnlocked = value.roofSecretUnlocked === true;
   state.studioAccessGranted = value.studioAccessGranted === true;
   state.houseDjDeskIntroduced = value.houseDjDeskIntroduced === true;

@@ -164,17 +164,17 @@ export class ClubBathroomSystem {
     if (this.challenge?.status === 'cleared') {
       this.data().bathroomClogCleared = true;
       this.data().bathroomFlooded = false;
-      this.data().bathroomPlungeWins = Math.min(
-        999,
-        (this.data().bathroomPlungeWins ?? 0) + 1,
-      );
+      this.data().bathroomPlungeWins = Math.min(999, (this.data().bathroomPlungeWins ?? 0) + 1);
       this.save();
       this.syncFloodVisual();
       this.ui.panel(
         'DRAIN CLEARED',
         `Four solid plunges with a proper seal. The water drops from ${percent(this.challenge.water)} and the toilet drains cleanly.`,
         [
-          ['Use the toilet', () => this.useFixture({ name: 'Stall 2 toilet', fixtureKind: 'toilet' })],
+          [
+            'Use the toilet',
+            () => this.useFixture({ name: 'Stall 2 toilet', fixtureKind: 'toilet' }),
+          ],
           ['Practice the plunger again', () => this.startChallenge()],
         ],
       );

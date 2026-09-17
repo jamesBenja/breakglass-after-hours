@@ -72,7 +72,6 @@ test('petting Maddox enough unlocks the roof secret and starts guide behavior', 
   maddox.dispose();
 });
 
-
 test('continued petting unlocks Maddox howl, side flop and repeatable belly rubs', () => {
   const root = new Group();
   const maddox = new MaddoxSystem(root, { start: [0, 0, 0] });

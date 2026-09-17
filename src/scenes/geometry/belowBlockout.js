@@ -152,8 +152,7 @@ export function buildBelowFixtures(downScene) {
   for (const x of [-4.52, -3.16]) {
     const door = box(downScene, 1.05, 1.85, 0.055, stallMaterial, x, 0.93, -4.77);
     door.rotation.y = x < -4 ? 0.18 : -0.22;
-    cyl(downScene, 0.025, 0.04, bathroomMetal, x + 0.34, 0.98, -4.73).rotation.x =
-      Math.PI / 2;
+    cyl(downScene, 0.025, 0.04, bathroomMetal, x + 0.34, 0.98, -4.73).rotation.x = Math.PI / 2;
 
     cyl(downScene, 0.24, 0.3, porcelain, x, 0.25, -5.72);
     box(downScene, 0.46, 0.48, 0.18, porcelain, x, 0.58, -5.96);

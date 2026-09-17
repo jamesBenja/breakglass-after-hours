@@ -27,7 +27,11 @@ export function normalizeModularPatchState(value = {}) {
     envToVca: value.envToVca !== false,
     lfoToVco: value.lfoToVco === true,
     steps: steps.map((step) =>
-      STEP_VALUES.includes(step == null ? null : Number(step)) ? (step == null ? null : Number(step)) : null,
+      STEP_VALUES.includes(step == null ? null : Number(step))
+        ? step == null
+          ? null
+          : Number(step)
+        : null,
     ),
   };
 }
@@ -202,8 +206,7 @@ export class ModularSynthSystem {
   performance(bars = null) {
     const session = this.game.studio;
     const length =
-      bars ??
-      (session?.loopEnabled === true ? Math.max(1, Number(session.loopBars) || 1) : 1);
+      bars ?? (session?.loopEnabled === true ? Math.max(1, Number(session.loopBars) || 1) : 1);
     return createModularPerformance(this.patch, session?.bpm ?? 118, length);
   }
 
