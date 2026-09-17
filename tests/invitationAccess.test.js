@@ -71,7 +71,10 @@ test('applying invitation grants only its explicit access', () => {
     assert.deepEqual(game.state.data.invitationAccess, access);
     assert.equal(game.state.data.guestlistApproved === true, access.guestlist);
     assert.equal(game.state.data.djAccessGranted === true, access.dj);
-    assert.equal(game.state.data.studioInviteAccess === true, access.studioFastTrack);
+    assert.equal(
+      game.state.data.studioInviteAccess === true,
+      access.studioFastTrack,
+    );
     assert.equal(
       game.state.data.studioAccessGranted === true,
       id === 'residentproducer',
