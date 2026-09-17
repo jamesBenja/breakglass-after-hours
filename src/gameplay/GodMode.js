@@ -148,6 +148,11 @@ export function applyGodMode(game, ui) {
   state.mixingRewardKey = true;
   state.alleyShortcutUnlocked = true;
 
+  // Door/security progression is bypassed in God Mode. Keep the state aligned with that
+  // behavior as well so no guestlist-specific wrapper can resurrect a stale pending referral.
+  state.guestlistApproved = true;
+  state.guestlistReferralPending = false;
+
   // Maddox starts as a fully unlocked companion and the existing presence system makes him
   // follow between rooms without changing any of the normal pathing/interaction architecture.
   state.roofSecretUnlocked = true;
