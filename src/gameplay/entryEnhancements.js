@@ -58,7 +58,11 @@ export function installEntryEnhancements(game, ui) {
     bouncer?.reset?.();
     const sceneManager = game.sceneManager;
     const originalStart = sceneManager.start.bind(sceneManager);
-    sceneManager.start = () => originalStart(ENTRY_SCENE_ID, null);
+    const invitationEntry = game.invitation?.entry;
+    sceneManager.start = () =>
+      invitationEntry?.sceneId
+        ? originalStart(invitationEntry.sceneId, invitationEntry.position ?? null)
+        : originalStart(ENTRY_SCENE_ID, null);
     try {
       return await baseInitialize(...args);
     } finally {
