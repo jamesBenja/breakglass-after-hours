@@ -50,10 +50,11 @@ test('tempo changes preserve the exact source playhead instead of jumping transp
 
 test('pitch range reaches the CDJ-style +/-16 percent range with fine BPM resolution', () => {
   const { mixer } = harness();
-  const base = 130;
+  const base = mixer.snapshot().decks.A.baseBpm;
+  assert.equal(base, 135);
   assert.equal(mixer.setBpm('A', 200), base * 1.16);
   assert.equal(mixer.setBpm('A', 20), base * 0.84);
-  assert.equal(mixer.setBpm('A', 131.37), 131.37);
+  assert.equal(mixer.setBpm('A', base + 1.37), base + 1.37);
 });
 
 test('jog nudges bend playback rate momentarily without seeking the deck', () => {
