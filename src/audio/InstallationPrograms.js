@@ -78,6 +78,40 @@ export const INSTALLATION_PROGRAMS = Object.freeze([
     space: 0.8,
     lowpassHz: 17800,
   },
+
+  {
+    id: 'mfteot-nature',
+    label: 'Music for the End of the World · NATURE',
+    artist: 'James Benjamin',
+    available: true,
+    kind: 'recorded-playlist',
+    description:
+      'Five full-length NATURE works presented as a continuous listening program inside Take A Break.',
+    assetIds: [
+      'mfteot-nature-waterfall-rebirth',
+      'mfteot-nature-birds-at-the-sinks',
+      'mfteot-nature-zona',
+      'mfteot-nature-cellular-imaginings',
+      'mfteot-nature-to-philly',
+    ],
+  },
+  {
+    id: 'mfteot-man',
+    label: 'Music for the End of the World · MAN',
+    artist: 'James Benjamin',
+    available: true,
+    kind: 'recorded-playlist',
+    description:
+      'Six full-length MAN works presented as a continuous listening program inside Take A Break.',
+    assetIds: [
+      'mfteot-man-to-dream',
+      'mfteot-man-phaser',
+      'mfteot-man-dead-mans',
+      'mfteot-man-decisions',
+      'mfteot-man-deeper-b',
+      'mfteot-man-nick-cave-esque',
+    ],
+  },
   {
     id: 'breakglass-compositions',
     label: 'Breakglass Compositions',

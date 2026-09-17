@@ -36,6 +36,62 @@ export const RUNTIME_DJ_LIBRARY = [
   { id: 'paharpur', label: 'Boogaloo Jones · Paharpur', collection: 'Dubki' },
   { id: 'fakir', label: 'Boogaloo Jones · Fakir', collection: 'Dubki' },
   { id: 'bhab', label: 'Boogaloo Jones · Bhab', collection: 'Dubki' },
+
+  {
+    id: 'team-break',
+    label: 'James Benjamin · Team Break',
+    collection: 'Dance Beyond Genre Vol. 1',
+  },
+  {
+    id: 'ancillary-things',
+    label: 'James Benjamin · Ancillary Things',
+    collection: 'Dance Beyond Genre Vol. 1',
+  },
+  { id: 'gairage', label: 'James Benjamin × Jamvvis · Gairage', collection: 'Gairage' },
+  {
+    id: 'hit-the-floor',
+    label: 'James Benjamin ft Star Amerasu + Kizaba · Hit the Floor',
+    collection: 'Singles',
+  },
+  {
+    id: 'chi-town-drop',
+    label: 'James Benjamin ft AmirSaysNothing · Chi Town Drop',
+    collection: 'Singles',
+  },
+  { id: 'guestlist-andy-s', label: 'James Benjamin ft Andy S · Guestlist', collection: 'Singles' },
+  { id: 'drop-in', label: 'James Benjamin · Drop In', collection: 'Got You Dancin' },
+  { id: 'body-check', label: 'James Benjamin · Body Check', collection: 'Got You Dancin' },
+  {
+    id: 'play-ball-people',
+    label: 'James Benjamin · Play Ball (People)',
+    collection: 'Got You Dancin',
+  },
+  { id: 'etcetera', label: 'James Benjamin · Etcetera', collection: 'Got You Dancin' },
+  {
+    id: 'airtime-express',
+    label: 'James Benjamin · Airtime Express',
+    collection: 'Got You Dancin',
+  },
+  { id: 'rotations-the-roll', label: 'Boogieman · The Roll', collection: 'Rotations' },
+  { id: 'rotations-den-naben', label: 'Boogieman · Den Naben', collection: 'Rotations' },
+  {
+    id: 'rotations-water-is-boiling',
+    label: 'Boogieman · Water Is Boiling',
+    collection: 'Rotations',
+  },
+  { id: 'rotations-adjust', label: 'Boogieman · Adjust', collection: 'Rotations' },
+  { id: 'rotations-she', label: 'Boogieman · She', collection: 'Rotations' },
+  {
+    id: 'rotations-devils-mountain',
+    label: 'Boogieman · Devils Mountain and Ngorongoro Crater',
+    collection: 'Rotations',
+  },
+  { id: 'rotations-fences', label: 'Boogieman · Fences', collection: 'Rotations' },
+  {
+    id: 'rotations-water-is-boiling-outro',
+    label: 'Boogieman · Water Is Boiling (Outro)',
+    collection: 'Rotations',
+  },
 ];
 
 export const APPROVED_DJ_INGEST = [
@@ -124,7 +180,7 @@ export const APPROVED_DJ_INGEST = [
   collection,
   sourceFolderId,
   approved: true,
-  runtimeReady: false,
+  runtimeReady: true,
 }));
 
 // These were explicitly included for the game review, but they contain third-party source works.
@@ -183,7 +239,7 @@ export const APPROVED_AMBIENT_INGEST = [
   collection: `Music for the End of the World · ${volume}`,
   sourceFolderId,
   approved: true,
-  runtimeReady: false,
+  runtimeReady: true,
 }));
 
 export const APPROVED_STUDIO_SOURCES = [
@@ -242,7 +298,7 @@ export const APPROVED_STUDIO_SOURCES = [
   bpm,
   sourceFolderId,
   approved: true,
-  runtimeReady: false,
+  runtimeReady: ['gairage-stems', 'in-an-instant-stems'].includes(id),
 }));
 
 export const RIGHTS_GATED_STUDIO_SOURCES = [
@@ -341,6 +397,26 @@ export const NPC_DJ_PROGRAMS = {
       { id: 'in-flux-breath', label: 'Breath' },
       { id: 'in-flux-break', label: 'Break' },
       { id: 'in-flux-gingele', label: 'Gingele' },
+
+      { id: 'team-break', label: 'Team Break' },
+      { id: 'ancillary-things', label: 'Ancillary Things' },
+      { id: 'gairage', label: 'Gairage' },
+      { id: 'hit-the-floor', label: 'Hit the Floor' },
+      { id: 'chi-town-drop', label: 'Chi Town Drop' },
+      { id: 'guestlist-andy-s', label: 'Guestlist' },
+      { id: 'drop-in', label: 'Drop In' },
+      { id: 'body-check', label: 'Body Check' },
+      { id: 'play-ball-people', label: 'Play Ball (People)' },
+      { id: 'etcetera', label: 'Etcetera' },
+      { id: 'airtime-express', label: 'Airtime Express' },
+      { id: 'rotations-the-roll', label: 'The Roll' },
+      { id: 'rotations-den-naben', label: 'Den Naben' },
+      { id: 'rotations-water-is-boiling', label: 'Water Is Boiling' },
+      { id: 'rotations-adjust', label: 'Adjust' },
+      { id: 'rotations-she', label: 'She' },
+      { id: 'rotations-devils-mountain', label: 'Devils Mountain and Ngorongoro Crater' },
+      { id: 'rotations-fences', label: 'Fences' },
+      { id: 'rotations-water-is-boiling-outro', label: 'Water Is Boiling (Outro)' },
     ],
   },
 };

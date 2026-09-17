@@ -15,7 +15,9 @@ const stem = (id, label, kind, assetId, level = 0.72, pan = 0, source = 'Breakgl
 // Sources approved in the music review but not yet optimized into same-origin runtime stems.
 // Keeping these separate from STUDIO_SESSION_TEMPLATES prevents broken console choices while
 // giving the ingest pass one authoritative queue to work through.
-export const PENDING_STUDIO_SESSION_SOURCES = APPROVED_STUDIO_SOURCES;
+export const PENDING_STUDIO_SESSION_SOURCES = APPROVED_STUDIO_SOURCES.filter(
+  (source) => !source.runtimeReady,
+);
 
 const ALL_STUDIO_SESSION_TEMPLATES = [
   // Dance Shoes remains internally addressable because older save/session code imports its stem
@@ -49,6 +51,59 @@ const ALL_STUDIO_SESSION_TEMPLATES = [
     stems: [
       stem('atrakar-instrumental', 'ATRAKAR · Instrumental', 'audio', 'atrakar-instrumental', 0.78),
       stem('atrakar-vocal', 'ATRAKAR · Vocal', 'vocal', 'atrakar-vocal', 0.72),
+    ],
+  },
+
+  {
+    id: 'gairage-multitrack',
+    label: 'James Benjamin × Jamvvis · Gairage · 5 buses',
+    name: 'Gairage · real multitrack',
+    bpm: 152,
+    stems: [
+      stem('gairage-drums', 'Gairage · Drums', 'drums', 'gairage-drums', 0.78),
+      stem('gairage-bass', 'Gairage · Bass', 'bass', 'gairage-bass', 0.74),
+      stem('gairage-synths', 'Gairage · Synths', 'synth', 'gairage-synths', 0.66, 0.08),
+      stem('gairage-fx', 'Gairage · FX', 'audio', 'gairage-fx', 0.58, -0.08),
+      stem('gairage-vocal-chop', 'Gairage · Vocal Chop', 'vocal', 'gairage-vocal-chop', 0.62),
+    ],
+  },
+  {
+    id: 'in-an-instant-multitrack',
+    label: 'James Benjamin · In an Instant · 5 buses',
+    name: 'In an Instant · real multitrack',
+    bpm: 129,
+    stems: [
+      stem(
+        'in-an-instant-modular-drums',
+        'In an Instant · Modular Drums',
+        'drums',
+        'in-an-instant-modular-drums',
+        0.76,
+      ),
+      stem(
+        'in-an-instant-low-pulse',
+        'In an Instant · Low Pulse',
+        'bass',
+        'in-an-instant-low-pulse',
+        0.7,
+      ),
+      stem(
+        'in-an-instant-jx3p',
+        'In an Instant · JX-3P',
+        'synth',
+        'in-an-instant-jx3p',
+        0.68,
+        -0.1,
+      ),
+      stem(
+        'in-an-instant-syncussion',
+        'In an Instant · Syncussion',
+        'drums',
+        'in-an-instant-syncussion',
+        0.62,
+        0.12,
+      ),
+      stem('in-an-instant-keys', 'In an Instant · ASR-88 Keys', 'keys', 'in-an-instant-keys', 0.64),
     ],
   },
   {

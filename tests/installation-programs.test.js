@@ -6,11 +6,18 @@ import {
 } from '../src/audio/InstallationPrograms.js';
 import { SpatialAudioSystem } from '../src/audio/SpatialAudioSystem.js';
 
-test('Take A Break exposes four playable installation programs plus future catalog slots', () => {
+test('Take A Break exposes procedural studies plus the two real MFEOT listening banks', () => {
   const available = availableInstallationPrograms();
   assert.deepEqual(
     available.map((program) => program.id),
-    ['abstract-drift', 'rainforest-study', 'beach-field', 'mountain-snowstorm'],
+    [
+      'abstract-drift',
+      'rainforest-study',
+      'beach-field',
+      'mountain-snowstorm',
+      'mfteot-nature',
+      'mfteot-man',
+    ],
   );
   assert.ok(INSTALLATION_PROGRAMS.some((program) => program.id === 'breakglass-compositions'));
   assert.ok(INSTALLATION_PROGRAMS.some((program) => program.id === 'guest-pieces'));
@@ -124,4 +131,13 @@ test('installation output bypasses the room attenuation bus', () => {
   assert.ok(spatial.installationOutput.connections.includes(destination));
   assert.ok(spatial.installationLimiter.connections.includes(spatial.installationOutput));
   assert.equal(spatial.installationLimiter.connections.includes(master), false);
+});
+
+test('recorded MFEOT programs keep the same eight-speaker room and expose playlist assets', () => {
+  const spatial = new SpatialAudioSystem({ environment: {} });
+  const selected = spatial.setInstallationProgram('mfteot-nature');
+  assert.equal(selected.kind, 'recorded-playlist');
+  assert.equal(selected.assetIds.length, 5);
+  assert.equal(spatial.snapshot().emitters, 8);
+  assert.equal(spatial.snapshot().program.id, 'mfteot-nature');
 });

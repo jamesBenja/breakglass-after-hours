@@ -69,12 +69,17 @@ export class SpatialAudioSystem {
     this.installationFilter = null;
     this.installationDry = null;
     this.installationDelay = null;
+    this.recordedGain = null;
     this.installationFeedback = null;
     this.installationWet = null;
     this.installationLimiter = null;
     this.installationOutput = null;
     this.emitters = [];
     this.noiseBuffer = null;
+    this.recordedSource = null;
+    this.recordedGain = null;
+    this.recordedProgramIndex = 0;
+    this.recordedGeneration = 0;
     this.lastEnvironmentKey = '';
     this.forward = new Vector3();
     this.elapsed = 0;
@@ -96,6 +101,9 @@ export class SpatialAudioSystem {
     if (!context || this.installationBus) return;
     this.installationBus = context.createGain();
     this.installationBus.gain.value = 0;
+    this.recordedGain = context.createGain();
+    this.recordedGain.gain.value = 0.0001;
+    this.recordedGain.connect(this.installationBus);
 
     this.installationFilter = context.createBiquadFilter?.() ?? null;
     this.installationDry = context.createGain();
@@ -209,9 +217,69 @@ export class SpatialAudioSystem {
     this.applyInstallationMix();
   }
 
+  stopRecordedProgram({ resetIndex = false } = {}) {
+    this.recordedGeneration++;
+    if (this.recordedSource) {
+      this.recordedSource.onended = null;
+      try {
+        this.recordedSource.stop();
+      } catch {
+        // Already ended.
+      }
+      this.recordedSource.disconnect();
+      this.recordedSource = null;
+    }
+    if (resetIndex) this.recordedProgramIndex = 0;
+  }
+
+  async startRecordedProgram({ resetIndex = false } = {}) {
+    const context = this.audio.context;
+    const program = this.installationProgram();
+    if (!context || program.kind !== 'recorded-playlist' || !program.assetIds?.length) return false;
+    if (!this.audio.assets?.audio) return false;
+    if (resetIndex) this.recordedProgramIndex = 0;
+    if (!this.installationBus) this.ensureInstallation();
+
+    this.stopRecordedProgram();
+    const generation = this.recordedGeneration;
+    const index = this.recordedProgramIndex % program.assetIds.length;
+    const assetId = program.assetIds[index];
+    const buffer = await this.audio.assets.audio(assetId, context);
+    if (
+      !buffer ||
+      generation !== this.recordedGeneration ||
+      this.installationProgramId !== program.id
+    )
+      return false;
+
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.recordedGain);
+    this.recordedSource = source;
+    source.onended = () => {
+      if (this.recordedSource !== source) return;
+      source.disconnect();
+      this.recordedSource = null;
+      this.recordedProgramIndex = (index + 1) % program.assetIds.length;
+      void this.startRecordedProgram();
+    };
+    source.start();
+    return true;
+  }
+
   applyInstallationProgram() {
     if (!this.audio.context) return;
     const program = this.installationProgram();
+    if (program.kind === 'recorded-playlist') {
+      for (const emitter of this.emitters) {
+        this.setParam(emitter.toneGain.gain, 0, 0.18);
+        if (emitter.noiseGain) this.setParam(emitter.noiseGain.gain, 0, 0.18);
+      }
+      if (!this.recordedSource) void this.startRecordedProgram();
+      this.applyInstallationMix();
+      return;
+    }
+    this.stopRecordedProgram({ resetIndex: true });
     for (const emitter of this.emitters) {
       const index = emitter.index;
       const frequency = program.toneFrequencies?.[index] ?? 110;
@@ -285,6 +353,8 @@ export class SpatialAudioSystem {
   setInstallationProgram(id) {
     const program = INSTALLATION_PROGRAMS.find((candidate) => candidate.id === id);
     if (!program?.available) return null;
+    const changed = this.installationProgramId !== program.id;
+    if (changed) this.stopRecordedProgram({ resetIndex: true });
     this.installationProgramId = program.id;
     this.applyInstallationProgram();
     return program;
@@ -420,7 +490,14 @@ export class SpatialAudioSystem {
       this.lastEnvironmentKey = key;
     }
     const installationActive = inLounge && this.installationEnabled;
-    this.updateInstallationField(installationActive);
+    const recordedProgram = this.installationProgram().kind === 'recorded-playlist';
+    this.updateInstallationField(installationActive && !recordedProgram);
+    if (this.recordedGain)
+      this.setParam(
+        this.recordedGain.gain,
+        installationActive && recordedProgram ? 0.82 : 0.0001,
+        0.18,
+      );
     if (this.installationBus) {
       const roomLevel = this.installationFocus ? 1.48 : 1.3;
       this.setParam(
@@ -484,6 +561,8 @@ export class SpatialAudioSystem {
       emitter.panner?.disconnect();
     }
     this.emitters = [];
+    this.stopRecordedProgram({ resetIndex: true });
+    this.recordedGain?.disconnect();
     this.installationFeedback?.disconnect();
     this.installationWet?.disconnect();
     this.installationDelay?.disconnect();
