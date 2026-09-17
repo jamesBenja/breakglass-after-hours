@@ -1,0 +1,51 @@
+name: Ingest Got You Dancin Temp
+
+on:
+  push:
+    branches: [feat/audio-binary-ingest-batch1]
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install downloader
+        run: python -m pip install --disable-pip-version-check gdown==5.2.0
+      - name: Ensure ffmpeg
+        run: ffmpeg -version >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Download and optimize approved tracks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public/assets/audio/catalog/got-you-dancin .tmp-audio
+          ingest() {
+            id="$1"
+            out="$2"
+            src=".tmp-audio/${out##*/}.source"
+            python -m gdown --id "$id" -O "$src"
+            ffmpeg -hide_banner -loglevel error -y -i "$src" -map_metadata -1 -vn -codec:a libmp3lame -b:a 128k -ar 44100 "$out"
+          }
+          ingest 1Yh9JvLHhv8gankLSGN_mqxT4oTcYQtjJ public/assets/audio/catalog/got-you-dancin/drop-in.mp3
+          ingest 1l06u85wPmJxa63XOmtO9uN0dyuB5QIyE public/assets/audio/catalog/got-you-dancin/body-check.mp3
+          ingest 1tyBvABqgM49mI0jG1aD17P6b9du7h9Lg public/assets/audio/catalog/got-you-dancin/play-ball-people.mp3
+          ingest 100ZHznf1ex-frpF7C-huWwHcOQf0GIBs public/assets/audio/catalog/got-you-dancin/etcetera.mp3
+          ingest 1JRX7WyCLfYlZKOvAFcfYHmNDQ4xJ2i02 public/assets/audio/catalog/got-you-dancin/airtime-express.mp3
+          rm -rf .tmp-audio
+          rm .github/workflows/ingest-gyd-temp.yml
+      - name: Commit optimized audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/assets/audio/catalog/got-you-dancin .github/workflows/ingest-gyd-temp.yml
+          git commit -m 'Ingest Got You Dancin game audio'
+          git push origin HEAD:feat/audio-binary-ingest-batch1
