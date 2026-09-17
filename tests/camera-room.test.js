@@ -72,15 +72,18 @@ test('the furnished studio and Take A Break expose real seating', () => {
   );
 });
 
-test('seated installation focus heavily attenuates the club and exposes adjustable layers', () => {
+test('installation focus further attenuates the already-quiet club and exposes adjustable layers', () => {
   const spatial = new SpatialAudioSystem({ activeExternalTransport: { owner: 'dj' } });
   const level = { definition: { id: 'downstairs' } };
   const normal = spatial.environmentFor(level, 'lounge');
 
+  assert.ok(normal.gain <= 0.1);
+  assert.ok(normal.lowpassHz <= 1000);
+
   spatial.setInstallationFocus(true);
   const focused = spatial.environmentFor(level, 'lounge');
-  assert.ok(focused.gain < normal.gain * 0.2);
-  assert.ok(focused.lowpassHz < normal.lowpassHz * 0.2);
+  assert.ok(focused.gain < normal.gain);
+  assert.ok(focused.lowpassHz < normal.lowpassHz);
 
   const before = spatial.snapshot().mix.space;
   const after = spatial.adjustInstallation('space', 0.12);
