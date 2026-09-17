@@ -7,6 +7,7 @@ const expected = {
   guestlist: ['GUESTLIST', 'explorer'],
   dj: ['DJ', 'dj'],
   producer: ['PRODUCER / MUSICIAN', 'producer'],
+  residentproducer: ['RESIDENT PRODUCER', 'producer'],
   promoter: ['PROMOTER', 'promoter'],
 };
 
