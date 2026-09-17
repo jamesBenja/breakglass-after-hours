@@ -129,6 +129,7 @@ function deckPosition(mixer, deckId) {
   if (!deck) return 0;
   if (deck.media) return Math.max(0, Number(deck.media.currentTime) || 0);
   const track = trackById(deck.trackId);
+  if (track.freeTime) return 0;
   const beat = 60 / Math.max(1, track.bpm);
   return Math.max(0, (deck.step || 0) * beat * 0.25);
 }
@@ -264,12 +265,16 @@ export function installDjSyncEnhancements(game, ui) {
     if (!slave || !master) return false;
 
     const slaveTrack = trackById(slave.trackId);
+    const masterTrack = trackById(master.trackId);
+    if (slaveTrack.freeTime || masterTrack.freeTime) {
+      ui?.warning?.('Free-time recordings do not have a fixed beat grid. Mix this one manually.');
+      return false;
+    }
     const min = slaveTrack.bpm * (1 - TEMPO_RANGE);
     const max = slaveTrack.bpm * (1 + TEMPO_RANGE);
     let sharedTempo = clamp(master.bpm, min, max);
 
     if (Math.abs(sharedTempo - master.bpm) > 0.001) {
-      const masterTrack = trackById(master.trackId);
       sharedTempo = clamp(
         sharedTempo,
         masterTrack.bpm * (1 - TEMPO_RANGE),

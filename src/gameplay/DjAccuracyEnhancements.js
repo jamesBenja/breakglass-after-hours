@@ -17,6 +17,7 @@ function applyAuditedMetadata(mixer) {
     track.beatOffset = audited.beatOffset;
     track.bpmAuditConfidence = audited.confidence;
     track.bpmAudited = true;
+    track.freeTime = audited.freeTime === true;
   }
   for (const deck of Object.values(mixer.decks ?? {})) {
     const track = trackById(deck.trackId);
@@ -163,9 +164,58 @@ function addMobileAccuracyUi(ui, mixer) {
   }
 }
 
+function markFreeTimeControls(ui, mixer) {
+  const hosts = [...(ui.buttons?.querySelectorAll?.('.dj-deck') ?? [])];
+  hosts.forEach((host, index) => {
+    const deckId = index === 0 ? 'A' : 'B';
+    const state = mixer.snapshot?.().decks?.[deckId];
+    const track = trackById(state?.trackId);
+    for (const option of host.querySelectorAll?.('select option') ?? []) {
+      const optionTrack = trackById(option.value);
+      if (optionTrack?.freeTime) option.textContent = `${optionTrack.label} · FREE`;
+    }
+    if (!track?.freeTime) return;
+    const tempoLabel = [...host.querySelectorAll('label')].find((candidate) =>
+      candidate.textContent.trim().startsWith('Tempo'),
+    );
+    const tempo = tempoLabel?.querySelector('input[type="range"]');
+    if (tempo) tempo.disabled = true;
+    const caption = tempoLabel?.querySelector('span');
+    if (caption) caption.textContent = 'Tempo: FREE · no fixed beat grid';
+    const sync = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent.trim().toLowerCase() === 'sync',
+    );
+    if (sync) {
+      sync.disabled = true;
+      sync.title = 'Free-time recording: beat sync is intentionally unavailable.';
+    }
+  });
+
+  const focusId = mixer._mobileFocusDeck ?? 'A';
+  const focusTrack = trackById(mixer.snapshot?.().decks?.[focusId]?.trackId);
+  for (const option of ui.buttons?.querySelectorAll?.('select option') ?? []) {
+    const optionTrack = trackById(option.value);
+    if (optionTrack?.freeTime) option.textContent = `${optionTrack.label} · FREE`;
+  }
+  if (focusTrack?.freeTime) {
+    const tempo = ui.buttons?.querySelector?.('input[aria-label="TEMPO"]');
+    if (tempo) {
+      tempo.disabled = true;
+      const caption = tempo.closest('label')?.querySelector('span');
+      if (caption) caption.textContent = 'TEMPO FREE · NO FIXED GRID';
+    }
+    for (const button of ui.buttons?.querySelectorAll?.('button') ?? []) {
+      if (button.textContent.trim().toLowerCase() !== 'sync') continue;
+      button.disabled = true;
+      button.title = 'Free-time recording: beat sync is intentionally unavailable.';
+    }
+  }
+}
+
 function patchUi(ui, mixer) {
   addDesktopMidEq(ui, mixer);
   addMobileAccuracyUi(ui, mixer);
+  markFreeTimeControls(ui, mixer);
 }
 
 export function installDjAccuracyEnhancements(game, ui) {
@@ -299,6 +349,7 @@ export function installDjAccuracyEnhancements(game, ui) {
       state.baseBpm = track.bpm;
       state.bpmAudited = track.bpmAudited === true;
       state.bpmAuditConfidence = track.bpmAuditConfidence ?? null;
+      state.freeTime = track.freeTime === true;
     }
     return snapshot;
   };

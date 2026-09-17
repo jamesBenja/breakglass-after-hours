@@ -408,6 +408,7 @@ function sanitizeDjState(value = {}) {
       playing: deck.playing === true,
       level: clamp(deck.level),
       low: clamp(deck.low, -1, 1),
+      mid: clamp(deck.mid, -1, 1),
       high: clamp(deck.high, -1, 1),
       bpm: clamp(deck.bpm, 60, 200),
       filter: clamp(deck.filter, -1, 1),
