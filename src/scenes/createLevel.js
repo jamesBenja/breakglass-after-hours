@@ -1,5 +1,11 @@
 import { Scene, Group, Color, Fog, HemisphereLight, DirectionalLight, PointLight } from 'three';
 import { CollisionWorld } from '../collision/CollisionWorld.js';
+import {
+  constrainCrowdPositions,
+  constrainNpcPositions,
+  snapshotCrowdPositions,
+  snapshotNpcPositions,
+} from '../collision/CharacterCollisionGuard.js';
 import { NpcSystem } from '../npcs/NpcSystem.js';
 import { CrowdSystem } from '../crowd/CrowdSystem.js';
 import { LightingRig } from '../lighting/LightingRig.js';
@@ -53,6 +59,11 @@ export async function createLevel(definition, builders, assets) {
   const alley = definition.alleySystem ? new AlleySystem(gameplay, definition.alleySystem) : null;
   const roof = definition.roofSystem ? new RoofSystem(gameplay, definition.roofSystem) : null;
   const maddox = definition.maddox ? new CompanionMaddoxSystem(gameplay, definition.maddox) : null;
+  const tapeReels = [];
+  fixtures.traverse((object) => {
+    if (object.userData?.tapeReel === true) tapeReels.push(object);
+  });
+
   return {
     scene,
     definition,
@@ -78,12 +89,30 @@ export async function createLevel(definition, builders, assets) {
               bass: audio?.playing ? 0.5 : 0,
               beat: 0,
             };
+
+      const npcPositions = snapshotNpcPositions(npcs);
+      const crowdPositions = crowd ? snapshotCrowdPositions(crowd) : null;
       npcs.update(dt, metrics);
+      constrainNpcPositions(collision, npcs, npcPositions);
       crowd?.update(dt, metrics);
+      if (crowd && constrainCrowdPositions(collision, crowd, crowdPositions)) {
+        // Rebuild the instanced silhouettes at their resolved positions without advancing the
+        // simulation a second time. This prevents even a one-frame visual poke through a wall.
+        crowd.update(0, metrics);
+      }
       lighting?.update(dt, metrics);
       alley?.update(dt, metrics);
       roof?.update(dt, metrics);
       maddox?.update(dt, metrics, playerPosition);
+
+      const tapePlaying = audio?.externalTransports?.has?.('archive') === true;
+      if (tapePlaying) {
+        for (const reel of tapeReels) {
+          const direction = Number(reel.userData.tapeDirection) || 1;
+          const speed = Number(reel.userData.tapeSpeed) || 6.4;
+          reel.rotation.z += dt * speed * direction;
+        }
+      }
     },
     dispose() {
       maddox?.dispose();
