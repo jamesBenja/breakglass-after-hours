@@ -8,12 +8,13 @@ import {
   invitationSaveKey,
 } from '../src/gameplay/InvitationAccess.js';
 
-test('invitation profiles expose the five requested access classes', () => {
+test('invitation profiles expose the requested access classes including Resident Producer', () => {
   assert.deepEqual(Object.keys(INVITATION_PROFILES), [
     'participant',
     'guestlist',
     'dj',
     'producer',
+    'residentproducer',
     'promoter',
   ]);
   assert.deepEqual(invitationProfile('participant').access, {
@@ -36,6 +37,15 @@ test('invitation profiles expose the five requested access classes', () => {
     dj: false,
     studioFastTrack: true,
   });
+  assert.deepEqual(invitationProfile('residentproducer').access, {
+    guestlist: true,
+    dj: false,
+    studioFastTrack: true,
+  });
+  assert.deepEqual(invitationProfile('residentproducer').entry, {
+    sceneId: 'upstairs',
+    position: [4.85, 0, -2.3],
+  });
   assert.deepEqual(invitationProfile('promoter').access, {
     guestlist: true,
     dj: false,
@@ -45,8 +55,10 @@ test('invitation profiles expose the five requested access classes', () => {
 
 test('privileged invitation types use isolated saves while participant uses the regular save', () => {
   assert.equal(invitationSaveKey('participant'), undefined);
-  const keys = ['guestlist', 'dj', 'producer', 'promoter'].map(invitationSaveKey);
-  assert.equal(new Set(keys).size, 4);
+  const keys = ['guestlist', 'dj', 'producer', 'residentproducer', 'promoter'].map(
+    invitationSaveKey,
+  );
+  assert.equal(new Set(keys).size, 5);
   for (const key of keys) assert.match(key, /^breakglass\.after-hours\.invite\./);
 });
 
@@ -60,6 +72,7 @@ test('applying invitation grants only its explicit access', () => {
     assert.equal(game.state.data.guestlistApproved === true, access.guestlist);
     assert.equal(game.state.data.djAccessGranted === true, access.dj);
     assert.equal(game.state.data.studioInviteAccess === true, access.studioFastTrack);
+    assert.equal(game.state.data.studioAccessGranted === true, id === 'residentproducer');
   }
 });
 
@@ -182,6 +195,13 @@ test('producer invitation lets Zander grant studio access immediately', () => {
   assert.equal(f.game.state.data.studioAccessGranted, true);
   assert.equal(f.panels.at(-1).title, 'ZANDER · STUDIO ACCESS');
   assert.equal(f.counts().baseDispatches, 0);
+});
+
+test('Resident Producer already has studio access without a Zander handoff', () => {
+  const f = fixture('residentproducer');
+  assert.equal(f.game.state.data.studioAccessGranted, true);
+  f.game.interactions.dispatch({ id: 'zander', action: 'dialogue' });
+  assert.equal(f.counts().baseDispatches, 1);
 });
 
 test('police arrival offers James or self response and James can resolve shared police state', () => {
