@@ -29,11 +29,13 @@ def normalize_candidate(raw_bpm, nominal):
             candidates.append(bpm)
     if not candidates:
         return raw_bpm
+
     def score(bpm):
         nominal_penalty = abs(math.log(max(bpm, 1e-6) / max(nominal, 1e-6), 2)) * 3.5
         integer_penalty = min(abs(bpm - round(bpm)), abs(bpm * 2 - round(bpm * 2)) / 2) * 0.8
         club_penalty = 0 if 85 <= bpm <= 165 else 0.35
         return nominal_penalty + integer_penalty + club_penalty
+
     return min(candidates, key=score)
 
 
@@ -49,10 +51,11 @@ def snap_musical_bpm(value):
 
 def analyze(track):
     path = Path(track['path'])
-    y, sr = librosa.load(path, sr=22050, mono=True)
+    # Fixed-tempo DJ masters do not require processing the full tail. Starting a few seconds in
+    # skips encoder padding / sparse intros while 150 seconds supplies hundreds of beat intervals.
+    y, sr = librosa.load(path, sr=22050, mono=True, offset=5.0, duration=150.0)
     if y.size == 0:
         raise RuntimeError('empty audio')
-    # Percussive emphasis makes this much less likely to lock to pads, vocals or bass notes.
     _, y_perc = librosa.effects.hpss(y, margin=(1.0, 2.0))
     hop = 512
     onset = librosa.onset.onset_strength(y=y_perc, sr=sr, hop_length=hop, aggregate=np.median)
@@ -64,11 +67,10 @@ def analyze(track):
         sparse=True,
     )
     tempo_raw = float(np.asarray(tempo_raw).reshape(-1)[0])
-    beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=hop)
+    # Add the analysis offset back so beatOffset is expressed in source-file time.
+    beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=hop) + 5.0
     selected = normalize_candidate(tempo_raw, float(track['bpm']))
 
-    # Refine BPM from the slope of many detected beat times. This removes the coarse tempo-bin
-    # quantization that produced values such as 143.55 for music actually running at 144 BPM.
     refined = selected
     stability = 0.0
     if len(beat_times) >= 16:
@@ -103,7 +105,15 @@ def analyze(track):
     local = local[np.isfinite(local) & (local > 0)]
     spread = float(np.std(local) / np.mean(local)) if local.size else 1.0
     agreement = abs(bpm - float(track['bpm'])) / max(bpm, 1.0)
-    confidence = max(0.0, min(1.0, 0.55 * stability + 0.3 * (1 - min(1, spread * 5)) + 0.15 * (1 - min(1, agreement * 8))))
+    confidence = max(
+        0.0,
+        min(
+            1.0,
+            0.55 * stability
+            + 0.3 * (1 - min(1, spread * 5))
+            + 0.15 * (1 - min(1, agreement * 8)),
+        ),
+    )
 
     return {
         'id': track['id'],
@@ -135,7 +145,9 @@ def main():
                 f"confidence={result['confidence']:.3f} beats={result['detectedBeats']}"
             )
         except Exception as exc:
-            results.append({'id': track['id'], 'label': track['label'], 'path': track['path'], 'error': str(exc)})
+            results.append(
+                {'id': track['id'], 'label': track['label'], 'path': track['path'], 'error': str(exc)}
+            )
             print(f"{track['id']:34} ERROR {exc}")
     Path('dj-bpm-audit.json').write_text(json.dumps(results, indent=2) + '\n')
     changed = [r for r in results if r.get('changed')]
