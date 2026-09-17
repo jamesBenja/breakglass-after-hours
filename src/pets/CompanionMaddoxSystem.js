@@ -46,6 +46,10 @@ export class CompanionMaddoxSystem extends MaddoxSystem {
 
   update(dt, metrics, playerPosition = null) {
     if (!this.root.visible) return;
+    if (this.state === 'belly' || this.state === 'pet') {
+      super.update(dt, metrics);
+      return;
+    }
     if (!this.following || !playerPosition) {
       super.update(dt, metrics);
       return;
