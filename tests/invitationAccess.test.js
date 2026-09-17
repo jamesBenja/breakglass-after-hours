@@ -55,7 +55,9 @@ test('invitation profiles expose the requested access classes including Resident
 
 test('privileged invitation types use isolated saves while participant uses the regular save', () => {
   assert.equal(invitationSaveKey('participant'), undefined);
-  const keys = ['guestlist', 'dj', 'producer', 'residentproducer', 'promoter'].map(invitationSaveKey);
+  const keys = ['guestlist', 'dj', 'producer', 'residentproducer', 'promoter'].map(
+    invitationSaveKey,
+  );
   assert.equal(new Set(keys).size, 5);
   for (const key of keys) assert.match(key, /^breakglass\.after-hours\.invite\./);
 });
@@ -70,7 +72,10 @@ test('applying invitation grants only its explicit access', () => {
     assert.equal(game.state.data.guestlistApproved === true, access.guestlist);
     assert.equal(game.state.data.djAccessGranted === true, access.dj);
     assert.equal(game.state.data.studioInviteAccess === true, access.studioFastTrack);
-    assert.equal(game.state.data.studioAccessGranted === true, id === 'residentproducer');
+    assert.equal(
+      game.state.data.studioAccessGranted === true,
+      id === 'residentproducer',
+    );
   }
 });
 
