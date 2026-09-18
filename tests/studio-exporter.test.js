@@ -1,10 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  createStoredZip,
-  encodeWav,
-  studioExportDuration,
-} from '../src/studio/StudioExporter.js';
+import { createStoredZip, encodeWav, studioExportDuration } from '../src/studio/StudioExporter.js';
 
 function fakeBuffer(channels, sampleRate = 44_100) {
   const length = channels[0].length;
@@ -26,8 +22,7 @@ test('encodeWav writes a valid stereo 16-bit PCM WAV', () => {
   ]);
   const wav = encodeWav(audio);
   const view = new DataView(wav.buffer, wav.byteOffset, wav.byteLength);
-  const ascii = (start, length) =>
-    String.fromCharCode(...wav.slice(start, start + length));
+  const ascii = (start, length) => String.fromCharCode(...wav.slice(start, start + length));
 
   assert.equal(ascii(0, 4), 'RIFF');
   assert.equal(ascii(8, 4), 'WAVE');
