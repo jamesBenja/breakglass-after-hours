@@ -5,6 +5,7 @@ const INSTRUMENT_ACTIONS = new Set([
   'instruments',
   'amps',
   'modularSynth',
+  'drumMachine',
 ]);
 const midiToFrequency = (midi) => 440 * Math.pow(2, (Number(midi) - 69) / 12);
 
