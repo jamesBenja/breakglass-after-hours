@@ -40,6 +40,8 @@ jobs:
         run: pnpm run format:check
 
       - name: Production build
+        env:
+          VITE_BUILD_SHA: ${{ github.sha }}
         run: pnpm build
 
       - name: Stamp canonical live build
