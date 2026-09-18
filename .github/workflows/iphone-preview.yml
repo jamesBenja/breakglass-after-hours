@@ -1,0 +1,94 @@
+name: Live Game Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/multiplayer-phase-2-shared-world
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: breakglass-live-game
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/feat/multiplayer-phase-2-shared-world'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout canonical live branch
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+
+      - name: Install pnpm
+        run: npm install --global pnpm@11.19.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Formatting
+        run: pnpm run format:check
+
+      - name: Production build
+        env:
+          VITE_BUILD_SHA: ${{ github.sha }}
+        run: pnpm build
+
+      - name: Stamp canonical live build
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, os
+
+          sha = os.environ['GITHUB_SHA']
+          branch = os.environ['GITHUB_REF_NAME']
+          index = Path('dist/index.html')
+          html = index.read_text()
+          stamp = (
+              '<div id="buildStamp" style="position:fixed;right:8px;bottom:8px;z-index:99999;'
+              'font:10px/1.2 monospace;color:#aaa;background:rgba(0,0,0,.68);padding:4px 6px;'
+              'border-radius:4px;pointer-events:none">LIVE ' + sha[:8] + '</div>'
+          )
+          html = html.replace('</body>', stamp + '</body>')
+          index.write_text(html)
+          Path('dist/latest.html').write_text(html)
+          Path('dist/version.json').write_text(json.dumps({
+              'sha': sha,
+              'branch': branch,
+              'channel': 'canonical-live',
+          }))
+          PY
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload canonical live game
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    if: github.ref == 'refs/heads/feat/multiplayer-phase-2-shared-world'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    steps:
+      - name: Deploy canonical live game
+        id: deployment
+        uses: actions/deploy-pages@v4
