@@ -119,8 +119,10 @@ export function installAudioReliabilityEnhancements(game, ui) {
 
   const audio = game.audio;
   const arm = () => {
-    if (audio._audioReady && audio.context?.state === 'running') return;
-    void audio.unlock().catch((error) => ui?.warning?.(`Audio: ${error.message}`));
+    const nativeResumePending = audio._nativeMediaResumePending === true;
+    if (audio._audioReady && audio.context?.state === 'running' && !nativeResumePending) return;
+    const request = nativeResumePending ? audio.resume() : audio.unlock();
+    void Promise.resolve(request).catch((error) => ui?.warning?.(`Audio: ${error.message}`));
   };
 
   // touchstart matters on iPhone: it occurs earlier in the gesture than click/touchend and gives
