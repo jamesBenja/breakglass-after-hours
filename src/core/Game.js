@@ -506,6 +506,7 @@ export class Game {
     this.input.dispose();
     this.modularSynth?.dispose?.();
     this.freightElevator?.dispose?.();
+    this.roofEndgame?.dispose?.();
     this.keyboardPerformance.dispose();
     this.micRecorder.dispose();
     this.studioPlayback.dispose();
