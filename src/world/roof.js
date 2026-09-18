@@ -62,6 +62,32 @@ export const roofLevel = {
     hatch: anchor('Hidden hatch back to the studio', HATCH_APPROACH, 1.55, 'travel', {
       target: 'upstairs@roofReturn',
     }),
+    throwChair: anchor('Folding chair · throw off roof', [4.2, 0, 3.05], 1.25, 'roofThrow', {
+      throwId: 'chair',
+      throwKind: 'chair',
+      objectName: 'roof-throw-chair',
+      throwSource: [4.2, 1.0, 3.05],
+    }),
+    throwBox: anchor('Cardboard box · throw off roof', [5.55, 0, 3.35], 1.25, 'roofThrow', {
+      throwId: 'box',
+      throwKind: 'box',
+      objectName: 'roof-throw-box',
+      throwSource: [5.55, 0.8, 3.35],
+    }),
+    throwLumber: anchor('Building material · throw off roof', [6.55, 0, 2.55], 1.35, 'roofThrow', {
+      throwId: 'lumber',
+      throwKind: 'lumber',
+      objectName: 'roof-throw-lumber',
+      throwSource: [6.55, 0.65, 2.55],
+    }),
+    roofAc: anchor('Rattling roof air conditioner', [5.35, 0, -2.55], 1.65, 'roofAc'),
+    gentrificationTrigger: anchor(
+      'Gold skyline lock',
+      [7.15, 0, 1.05],
+      1.4,
+      'gentrificationTrigger',
+    ),
+    escapeHatch: anchor('Sealed escape hatch', [-6.45, 0, 3.75], 1.45, 'roofEscape'),
   },
   maddox: {
     name: 'Maddox',
