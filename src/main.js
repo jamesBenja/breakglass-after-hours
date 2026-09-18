@@ -21,6 +21,7 @@ import { installDjLessonSystem } from './gameplay/DjLessonSystem.js';
 import { installStudioLoopEnhancements } from './gameplay/StudioLoopEnhancements.js';
 import { installClubBathroomSystem } from './gameplay/ClubBathroomSystem.js';
 import { installModularSynthSystem } from './gameplay/ModularSynthSystem.js';
+import { installRoofEndgameSystem } from './gameplay/RoofEndgameSystem.js';
 import { installPerformanceRealismSystems } from './gameplay/installPerformanceRealismSystems.js';
 import { installCrowdDoorEnhancements } from './gameplay/crowdDoorEnhancements.js';
 import { installEntryEnhancements } from './gameplay/entryEnhancements.js';
@@ -81,6 +82,7 @@ try {
   installStudioLoopEnhancements(game, ui);
   installClubBathroomSystem(game, ui);
   installModularSynthSystem(game, ui);
+  installRoofEndgameSystem(game, ui);
   installPerformanceRealismSystems(game, ui);
   installDjLessonSystem(game, ui);
   installCrowdDoorEnhancements(game, ui);
