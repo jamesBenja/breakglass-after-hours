@@ -127,6 +127,8 @@ function patchAlleySystem() {
     ensureState(this);
     this.elapsed += dt;
     this.policeCooldown = Math.max(0, this.policeCooldown - dt);
+    this.policeBustTime =
+      this.evacuationRequired || this.evacuationStarted ? (this.policeBustTime || 0) + dt : 0;
     this.updatePoliceLights();
 
     if (this.evacuationStarted) {
