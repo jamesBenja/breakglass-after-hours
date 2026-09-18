@@ -119,6 +119,11 @@ export class AlleySystem {
       this.setPoliceVisible(false);
       return 'They leave unconvinced. The next complaint will bring them back quickly, and a return visit means the party is over.';
     }
+    if (response === 'ticket') {
+      this.lastPoliceOutcome = 'ticket';
+      this.evacuationRequired = true;
+      return 'The officers say this is the repeat complaint. The party is shut down and a noise complaint ticket has been issued.';
+    }
     this.lastPoliceOutcome = 'argued';
     this.evacuationRequired = true;
     return 'The conversation goes badly. Police tell you the event is being shut down and everyone has to leave.';
