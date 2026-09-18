@@ -53,6 +53,7 @@ import {
 } from './gameplay/InvitationAccess.js';
 import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
+import { resolveEntrySpatialPass } from './runtime/LiveEntryPolicy.js';
 
 installFaceAvatarEnhancements();
 
@@ -68,7 +69,10 @@ telemetry.mountNotice(document);
 let game;
 try {
   game = new Game(ui, {
-    spatialPass: new URLSearchParams(location.search).get('pass') ?? undefined,
+    spatialPass: resolveEntrySpatialPass({
+      search: location.search,
+      production: import.meta.env.PROD,
+    }),
     saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : invitationSaveKey(invitation),
   });
   applyInvitationAccess(game, invitation);
