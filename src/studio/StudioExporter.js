@@ -549,7 +549,9 @@ function schedulePrototype(context, session, stem, destination, duration) {
   }
 }
 
-function scheduleBuffer(context, buffer, destination, duration, loop) {
+function scheduleBuffer(context, buffer, destination, duration, loop, startTime = 0) {
+  const start = Math.max(0, Number(startTime) || 0);
+  if (start >= duration) return;
   const source = context.createBufferSource();
   source.buffer = buffer;
   source.connect(destination);
@@ -558,7 +560,7 @@ function scheduleBuffer(context, buffer, destination, duration, loop) {
     source.loopStart = 0;
     source.loopEnd = Math.max(0.01, Math.min(buffer.duration, duration));
   }
-  source.start(0);
+  source.start(start);
   if (loop) source.stop(duration);
 }
 
@@ -646,8 +648,16 @@ export class StudioExporter {
       const input = createChannel(context, stem, master);
       const recording = session.recordings?.get?.(stem.id);
       const buffer = recording ?? buffers.get(stem.id);
-      if (buffer) scheduleBuffer(context, buffer, input, duration, session.loopEnabled === true);
-      else if (!schedulePerformance(context, stem, input, duration)) {
+      if (buffer) {
+        scheduleBuffer(
+          context,
+          buffer,
+          input,
+          duration,
+          !recording && session.loopEnabled === true,
+          recording ? stem.clipStart : 0,
+        );
+      } else if (!schedulePerformance(context, stem, input, duration)) {
         schedulePrototype(context, session, stem, input, duration);
       }
       rendered += 1;
