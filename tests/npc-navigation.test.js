@@ -90,7 +90,6 @@ test('locked or impossible destinations can fail cleanly without returning a wal
   assert.deepEqual(path, []);
 });
 
-
 test('NPC route failures back off instead of rerunning A* every frame behind locked gates', () => {
   const world = new CollisionWorld({
     surfaces: [{ id: 'floor', x1: -4, x2: 4, z1: -4, z2: 4, y: 0 }],
