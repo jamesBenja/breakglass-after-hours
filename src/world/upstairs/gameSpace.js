@@ -58,7 +58,7 @@ export function createGameSpace() {
     prop('monitor-right', 289, 852, 0.65, 0.6, 2.1, 0x1f292b, { kind: 'equipment' }),
     prop('tape-bank', 189, 830, 1, 2.2, 1.8, 0x78604b, { kind: 'equipment' }),
     prop('patch-rack', 185, 777, 0.5, 2.2, 2, 0x534c43, { kind: 'equipment' }),
-    prop('side-rack', 208, 836, 0.85, 1.3, 1.7, 0x414f57, {
+    prop('side-rack', 208, 777, 0.85, 1.3, 1.7, 0x414f57, {
       kind: 'equipment',
       name: 'Spectra outboard rack',
       rotationY: 0,

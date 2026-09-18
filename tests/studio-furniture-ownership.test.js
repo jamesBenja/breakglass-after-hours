@@ -51,27 +51,36 @@ test('Spectra suite furniture is rendered once, not duplicated by the equipment 
   globalThis.document = previousDocument;
 });
 
-test('Spectra outboard rack sits beside and faces with the console', () => {
+test('Spectra outboard rack sits beside the modular synth without blocking tape machines', () => {
   const definition = createUpstairsDefinition('B');
-  const consoleFixture = definition.fixtures.find((fixture) => fixture.id === 'spectra-console');
+  const modularFixture = definition.fixtures.find((fixture) => fixture.id === 'patch-rack');
   const rackFixture = definition.fixtures.find((fixture) => fixture.id === 'side-rack');
-
-  assert.ok(consoleFixture, 'expected Spectra console fixture');
-  assert.ok(rackFixture, 'expected Spectra outboard rack fixture');
-
-  const consoleCenterX = (consoleFixture.x1 + consoleFixture.x2) / 2;
-  const consoleCenterZ = (consoleFixture.z1 + consoleFixture.z2) / 2;
-  const rackCenterX = (rackFixture.x1 + rackFixture.x2) / 2;
-  const rackCenterZ = (rackFixture.z1 + rackFixture.z2) / 2;
-  const consoleLeftEdge = consoleFixture.x1;
-  const rackRightEdge = rackFixture.x2;
   const tapeBank = definition.fixtures.find((fixture) => fixture.id === 'tape-bank');
 
-  assert.ok(rackCenterX < consoleCenterX, 'rack should sit to the left of the console');
-  assert.ok(consoleLeftEdge - rackRightEdge < 0.8, 'rack should be directly beside the console');
-  assert.ok(Math.abs(rackCenterZ - consoleCenterZ) < 0.05, 'rack should share the console axis');
-  assert.equal(rackFixture.rotationY ?? 0, consoleFixture.rotationY ?? 0);
-  assert.ok(!tapeBank || tapeBank.x2 <= rackFixture.x1, 'rack should not overlap the tape bank');
+  assert.ok(modularFixture, 'expected modular synth fixture');
+  assert.ok(rackFixture, 'expected Spectra outboard rack fixture');
+  assert.ok(tapeBank, 'expected tape machine bank fixture');
+
+  const modularCenterX = (modularFixture.x1 + modularFixture.x2) / 2;
+  const modularCenterZ = (modularFixture.z1 + modularFixture.z2) / 2;
+  const rackCenterX = (rackFixture.x1 + rackFixture.x2) / 2;
+  const rackCenterZ = (rackFixture.z1 + rackFixture.z2) / 2;
+  const tapeCenterZ = (tapeBank.z1 + tapeBank.z2) / 2;
+
+  assert.ok(rackCenterX > modularCenterX, 'rack should sit beside the modular synth');
+  assert.ok(
+    rackFixture.x1 - modularFixture.x2 < 0.6,
+    'rack should be directly adjacent to the modular synth',
+  );
+  assert.ok(
+    Math.abs(rackCenterZ - modularCenterZ) < 0.05,
+    'rack should share the modular synth axis',
+  );
+  assert.equal(rackFixture.rotationY ?? 0, 0, 'rack orientation should remain unchanged');
+  assert.ok(
+    Math.abs(rackCenterZ - tapeCenterZ) > (rackFixture.z2 - rackFixture.z1) / 2,
+    'rack should no longer block the tape machine bank',
+  );
 });
 
 test('Neve outboard rack faces with the Neve console', () => {
