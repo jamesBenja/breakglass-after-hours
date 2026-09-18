@@ -5,6 +5,7 @@ const LOCKED_ACTIONS = new Set([
   'drums',
   'piano',
   'synth',
+  'modularSynth',
   'instruments',
   'amps',
   'mics',
