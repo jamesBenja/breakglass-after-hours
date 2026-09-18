@@ -1,3 +1,5 @@
+const ROOF_AC_POSITION = Object.freeze([5.35, 0.72, -2.55]);
+
 export const ROOF_STORY_IDS = [
   'jace-built',
   'jace-sessions',
@@ -147,6 +149,7 @@ export class RoofEndgameSystem {
     this.ui = ui;
     this.acAlignment = 2;
     this.acStage = 0;
+    this.acAudioSignature = '';
     this.syncVisuals();
   }
 
@@ -166,6 +169,93 @@ export class RoofEndgameSystem {
 
   sceneObject(sceneId, name) {
     return this.game.scenes?.get?.(sceneId)?.scene?.getObjectByName?.(name) ?? null;
+  }
+
+  acPointTone(options = {}) {
+    return this.game.spatialAudio?.pointTone?.(ROOF_AC_POSITION, {
+      refDistance: 1.15,
+      maxDistance: 17,
+      rolloffFactor: 1.18,
+      ...options,
+    });
+  }
+
+  syncAcAudio(force = false) {
+    const spatial = this.game.spatialAudio;
+    if (!spatial) return;
+    const onRoof = this.game.sceneManager?.current?.definition?.id === 'roof';
+    if (!onRoof || !this.game.audio?.context) {
+      if (this.acAudioSignature) spatial.stopPointMachine?.('roof-ac', 0.16);
+      this.acAudioSignature = '';
+      return;
+    }
+
+    const fixed = this.data().roofAcFixed === true;
+    const offset = Math.abs(Number(this.acAlignment) || 0);
+    let settings;
+    let signature;
+
+    if (fixed) {
+      signature = 'fixed';
+      settings = {
+        position: ROOF_AC_POSITION,
+        baseFrequency: 106,
+        secondaryFrequency: 212,
+        volume: 0.016,
+        pulseRate: 0.48,
+        pulseDepth: 0.00045,
+        wave: 'triangle',
+        refDistance: 1.35,
+        maxDistance: 19,
+        rolloffFactor: 1.05,
+      };
+    } else if (this.acStage === 2) {
+      signature = 'test-ready';
+      settings = {
+        position: ROOF_AC_POSITION,
+        baseFrequency: 99,
+        secondaryFrequency: 198,
+        volume: 0.019,
+        pulseRate: 1.1,
+        pulseDepth: 0.001,
+        wave: 'triangle',
+        refDistance: 1.3,
+        maxDistance: 18,
+        rolloffFactor: 1.08,
+      };
+    } else if (this.acStage === 1) {
+      signature = `alignment:${offset}`;
+      settings = {
+        position: ROOF_AC_POSITION,
+        baseFrequency: 92 + offset * 2.5,
+        secondaryFrequency: 146 + offset * 5,
+        volume: 0.022 + offset * 0.0025,
+        pulseRate: 3.2 + offset * 2.25,
+        pulseDepth: 0.0015 + offset * 0.0018,
+        wave: 'triangle',
+        refDistance: 1.25,
+        maxDistance: 18,
+        rolloffFactor: 1.1,
+      };
+    } else {
+      signature = 'broken';
+      settings = {
+        position: ROOF_AC_POSITION,
+        baseFrequency: 91,
+        secondaryFrequency: 143,
+        volume: 0.027,
+        pulseRate: 7.8,
+        pulseDepth: 0.0065,
+        wave: 'triangle',
+        refDistance: 1.25,
+        maxDistance: 18,
+        rolloffFactor: 1.12,
+      };
+    }
+
+    if (!force && signature === this.acAudioSignature) return;
+    spatial.setPointMachine?.('roof-ac', settings);
+    this.acAudioSignature = signature;
   }
 
   syncVisuals() {
@@ -232,6 +322,7 @@ export class RoofEndgameSystem {
   }
 
   acPanel() {
+    this.syncAcAudio(true);
     const fixed = this.data().roofAcFixed === true;
     this.ui.panel(
       'ROOF · AIR CONDITIONER',
@@ -250,6 +341,21 @@ export class RoofEndgameSystem {
   kickAc() {
     this.data().roofAcKicks = Math.min(999, (this.data().roofAcKicks ?? 0) + 1);
     this.game.scenes?.get?.('roof')?.roof?.kickAc?.();
+    this.acPointTone({
+      frequency: 74,
+      endFrequency: 48,
+      duration: 0.16,
+      volume: 0.13,
+      wave: 'square',
+    });
+    this.acPointTone({
+      frequency: 168,
+      endFrequency: 105,
+      duration: 0.09,
+      volume: 0.055,
+      wave: 'triangle',
+      when: 0.012,
+    });
     this.save();
     this.ui.panel(
       'THUNK',
@@ -263,6 +369,14 @@ export class RoofEndgameSystem {
   startAcRepair() {
     this.acStage = 0;
     this.acAlignment = 2;
+    this.acPointTone({
+      frequency: 128,
+      endFrequency: 92,
+      duration: 0.18,
+      volume: 0.055,
+      wave: 'square',
+    });
+    this.syncAcAudio(true);
     this.acRepairPanel();
   }
 
@@ -302,6 +416,20 @@ export class RoofEndgameSystem {
 
   acGuess(correct) {
     if (!correct) {
+      this.acPointTone({
+        frequency: 232,
+        endFrequency: 176,
+        duration: 0.1,
+        volume: 0.075,
+        wave: 'square',
+      });
+      this.acPointTone({
+        frequency: 316,
+        duration: 0.07,
+        volume: 0.04,
+        wave: 'triangle',
+        when: 0.055,
+      });
       this.ui.panel(
         'WRONG PANEL',
         'That panel is noisy, but it is only reacting to the real vibration. The unit rattles harder.',
@@ -310,24 +438,72 @@ export class RoofEndgameSystem {
       return;
     }
     this.acStage = 1;
+    this.acPointTone({
+      frequency: 142,
+      endFrequency: 118,
+      duration: 0.13,
+      volume: 0.06,
+      wave: 'triangle',
+    });
+    this.syncAcAudio(true);
     this.acRepairPanel();
   }
 
   acNudge(amount) {
     this.acAlignment = Math.max(-3, Math.min(3, this.acAlignment + amount));
+    this.acPointTone({
+      frequency: amount < 0 ? 186 : 214,
+      endFrequency: amount < 0 ? 164 : 190,
+      duration: 0.055,
+      volume: 0.045,
+      wave: 'square',
+    });
+    this.syncAcAudio(true);
     this.acRepairPanel();
   }
 
   acLock() {
     if (this.acAlignment !== 0) return;
     this.acStage = 2;
+    this.acPointTone({
+      frequency: 286,
+      endFrequency: 214,
+      duration: 0.08,
+      volume: 0.06,
+      wave: 'square',
+    });
+    this.acPointTone({
+      frequency: 91,
+      endFrequency: 74,
+      duration: 0.14,
+      volume: 0.05,
+      wave: 'triangle',
+      when: 0.035,
+    });
+    this.syncAcAudio(true);
     this.acRepairPanel();
   }
 
   finishAcRepair() {
+    this.acPointTone({
+      frequency: 68,
+      endFrequency: 112,
+      duration: 0.62,
+      volume: 0.07,
+      wave: 'triangle',
+    });
+    this.acPointTone({
+      frequency: 136,
+      endFrequency: 224,
+      duration: 0.52,
+      volume: 0.028,
+      wave: 'sine',
+      when: 0.08,
+    });
     this.data().roofAcFixed = true;
     this.data().roofAcRepairs = Math.min(999, (this.data().roofAcRepairs ?? 0) + 1);
     this.save();
+    this.syncAcAudio(true);
     this.ui.panel(
       'AC FIXED',
       'The test cycle settles into a low, even hum. For once, kicking something was not the final repair method.',
@@ -410,6 +586,11 @@ export class RoofEndgameSystem {
     return true;
   }
 
+  dispose() {
+    this.game.spatialAudio?.stopPointMachine?.('roof-ac', 0);
+    this.acAudioSignature = '';
+  }
+
   handle(target) {
     if (target?.action === 'gentrificationKey') {
       this.collectGentrificationKey();
@@ -459,6 +640,7 @@ export function installRoofEndgameSystem(game, ui) {
   const baseUpdate = game.update.bind(game);
   game.update = (now, movementOverride = null) => {
     const result = baseUpdate(now, movementOverride);
+    system.syncAcAudio();
     if (now - lastSync > 500) {
       system.syncVisuals();
       lastSync = now;
