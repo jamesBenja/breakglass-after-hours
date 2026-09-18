@@ -6,6 +6,23 @@ import { buildStudioEquipment } from '../src/scenes/geometry/upstairsFixtures.js
 import { buildStudioFurniture } from '../src/scenes/geometry/roomFurniture.js';
 
 test('Spectra suite furniture is rendered once, not duplicated by the equipment pass', () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    createElement() {
+      return {
+        width: 0,
+        height: 0,
+        getContext() {
+          return {
+            fillStyle: '',
+            font: '',
+            fillText() {},
+          };
+        },
+      };
+    },
+  };
+
   const root = new Group();
   const definition = createUpstairsDefinition('B');
 
@@ -25,4 +42,6 @@ test('Spectra suite furniture is rendered once, not duplicated by the equipment 
     });
     assert.equal(matches.length, 1, `${id} should have exactly one rendered owner`);
   }
+
+  globalThis.document = previousDocument;
 });
