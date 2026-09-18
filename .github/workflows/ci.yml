@@ -30,5 +30,12 @@ jobs:
       - name: Production build
         run: pnpm build
 
+      - name: Prettier diagnostic
+        run: |
+          pnpm exec prettier --write src/main.js src/runtime/LiveBackendPolicy.js
+          echo "::group::PRETTIER_DIFF"
+          git diff -- src/main.js src/runtime/LiveBackendPolicy.js
+          echo "::endgroup::"
+
       - name: Formatting
         run: pnpm run format:check
