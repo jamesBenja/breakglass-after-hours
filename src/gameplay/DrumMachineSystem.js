@@ -147,9 +147,7 @@ export class DrumMachineSystem {
     this.state = normalizeDrumMachineState(game.state?.data?.spectraDrumMachine);
     this.playing = false;
     this.currentStep = -1;
-    this.nextStepIndex = 0;
-    this.nextStepTime = 0;
-    this.scheduler = null;
+    this.transportUnsubscribe = null;
     this.stepButtons = new Map();
     this.persist();
   }
@@ -352,19 +350,17 @@ export class DrumMachineSystem {
 
   adjustTempo(delta) {
     if (!this.game.studio) return;
-    this.game.studio.bpm = clamp(this.transportBpm() + Number(delta || 0), 50, 220);
+    const next = clamp(this.transportBpm() + Number(delta || 0), 50, 220);
+    if (this.game.spectraTransport) this.game.spectraTransport.setTempo(next);
+    else this.game.studio.bpm = next;
     this.save();
-    if (this.playing) {
-      this.game.audio?.updateExternalTransport?.('spectra-drum-machine', {
-        interval: this.stepDuration(),
-      });
-    }
     this.open();
   }
 
   setSwing(value) {
     if (!this.game.studio) return;
-    if (typeof this.game.studio.setSwing === 'function') this.game.studio.setSwing(value);
+    if (this.game.spectraTransport) this.game.spectraTransport.setSwing(value);
+    else if (typeof this.game.studio.setSwing === 'function') this.game.studio.setSwing(value);
     else this.game.studio.swing = clamp(value, 0, 0.45);
     this.save();
     this.open();
@@ -386,13 +382,12 @@ export class DrumMachineSystem {
 
   triggerStep(step, baseWhen = 0) {
     const pattern = this.pattern();
-    const swingDelay = step % 2 === 1 ? this.stepDuration() * this.transportSwing() : 0;
     let hits = 0;
     for (const track of DRUM_MACHINE_TRACKS) {
       const velocity = pattern[track.id][step];
       if (!velocity) continue;
       const name = eventName(this.state.kit, track.id, velocity);
-      const delay = Math.max(0, Number(baseWhen) || 0) + swingDelay;
+      const delay = Math.max(0, Number(baseWhen) || 0);
       this.game.studioPlayback?.playDrumEvent?.(name, delay);
       const config = {
         mode: 'drums',
@@ -423,20 +418,6 @@ export class DrumMachineSystem {
     return hits;
   }
 
-  scheduleLiveSteps() {
-    const context = this.game.audio?.context;
-    if (!this.playing || !context || context.state !== 'running') return;
-    const horizon = context.currentTime + 0.12;
-    this.nextStepTime = Math.max(this.nextStepTime, context.currentTime);
-    while (this.nextStepTime <= horizon) {
-      const step = this.nextStepIndex;
-      this.triggerStep(step, this.nextStepTime - context.currentTime);
-      this.updatePlayhead(step);
-      this.nextStepTime += this.stepDuration();
-      this.nextStepIndex = (step + 1) % 16;
-    }
-  }
-
   async startLoop() {
     if (this.playing) return;
     try {
@@ -451,30 +432,30 @@ export class DrumMachineSystem {
       return;
     }
 
+    const transport = this.game.spectraTransport;
+    if (!transport) {
+      this.ui.warning?.('Spectra master transport is unavailable.');
+      return;
+    }
     this.playing = true;
     this.currentStep = -1;
-    this.nextStepIndex = 0;
-    this.nextStepTime = context.currentTime + 0.03;
-    this.game.audio?.setExternalTransport?.(
-      'spectra-drum-machine',
-      `Spectra ${this.state.kit} drum machine`,
-      this.stepDuration(),
-      { vibe: 0.44, mixQuality: 0.94 },
-    );
-    this.scheduleLiveSteps();
-    const timers = this.game.audio?.timers ?? globalThis;
-    this.scheduler = timers.setInterval(() => this.scheduleLiveSteps(), 20);
+    this.transportUnsubscribe?.();
+    this.transportUnsubscribe = transport.subscribe('drum-machine', (event) => {
+      if (!this.playing) return;
+      const step = event.loopStep % 16;
+      this.triggerStep(step, event.when);
+      this.updatePlayhead(step);
+    });
+    transport.acquire('drum-machine', { position: 0 });
     this.open();
   }
 
   stopLoop(refresh = true) {
-    const timers = this.game.audio?.timers ?? globalThis;
-    if (this.scheduler != null) timers.clearInterval(this.scheduler);
-    this.scheduler = null;
+    this.transportUnsubscribe?.();
+    this.transportUnsubscribe = null;
+    this.game.spectraTransport?.release?.('drum-machine');
     this.playing = false;
     this.currentStep = -1;
-    this.nextStepIndex = 0;
-    this.game.audio?.clearExternalTransport?.('spectra-drum-machine');
     this.updatePlayhead(-1);
     if (refresh) this.open();
   }
