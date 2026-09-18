@@ -152,7 +152,7 @@ export class StudioPlayback {
     for (const stem of session.stems) {
       const media = this.nativeStems.get(stem.id);
       if (!media) continue;
-      const audible = !stem.mute && (!anySolo || stem.solo);
+      const audible = stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
       media.volume = clamp((audible ? stem.level : 0) * environment * 0.88);
     }
   }
@@ -168,7 +168,7 @@ export class StudioPlayback {
       this.configureProcessing(stem, bus);
       bus.low.gain.setTargetAtTime((stem.low ?? 0) * 15, time, 0.025);
       bus.high.gain.setTargetAtTime((stem.high ?? 0) * 15, time, 0.025);
-      const audible = !stem.mute && (!anySolo || stem.solo);
+      const audible = stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
       bus.fader.gain.setTargetAtTime(audible ? stem.level : 0, time, 0.025);
       bus.fxGain.gain.setTargetAtTime((stem.fx ?? 0) * 0.38, time, 0.025);
       if (bus.pan) bus.pan.pan.setTargetAtTime(stem.pan ?? 0, time, 0.025);
@@ -468,7 +468,7 @@ export class StudioPlayback {
   renderStem(stem, step, when) {
     const bus = this.ensureBus(stem).input;
     const anySolo = this.session?.stems.some((candidate) => candidate.solo);
-    if (stem.mute || (anySolo && !stem.solo)) return;
+    if (stem.clipActive === false || stem.mute || (anySolo && !stem.solo)) return;
     const recording = this.session?.recordings.get(stem.id);
     if (recording) {
       if (step === 0) {
