@@ -118,3 +118,50 @@ test('step grid can be edited while live playback remains running', () => {
   assert.equal(modular.playing, true);
   assert.equal(game.studio.bpm, 125);
 });
+
+
+test('live modular transport starts a repeating scheduler and stops cleanly', async () => {
+  const tones = [];
+  const cleared = [];
+  let intervalCallback = null;
+  const timers = {
+    setInterval: (callback) => {
+      intervalCallback = callback;
+      return 17;
+    },
+    clearInterval: (id) => cleared.push(id),
+  };
+  const audio = {
+    timers,
+    context: { state: 'running', currentTime: 0 },
+    init: async () => {},
+    tone: (...args) => tones.push(args),
+    stop: () => {},
+    setExternalTransport: () => {},
+    clearExternalTransport: () => {},
+  };
+  const game = {
+    state: { data: { modularSynth: normalizeModularPatchState() } },
+    studio: { bpm: 120, loopEnabled: false, loopBars: 1 },
+    studioPlayback: { stop: () => {} },
+    dj: { stop: () => {} },
+    audio,
+    save: () => {},
+  };
+  const ui = { panel: () => {}, warning: () => {}, document: null, buttons: null };
+  const modular = new ModularSynthSystem(game, ui);
+
+  await modular.startLoop();
+  assert.equal(modular.playing, true);
+  assert.equal(modular.scheduler, 17);
+  assert.equal(typeof intervalCallback, 'function');
+  assert.ok(tones.length >= 1);
+
+  audio.context.currentTime = 0.2;
+  intervalCallback();
+  assert.ok(modular.currentStep >= 1);
+
+  modular.stopLoop(false);
+  assert.equal(modular.playing, false);
+  assert.deepEqual(cleared, [17]);
+});
