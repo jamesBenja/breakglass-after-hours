@@ -39,7 +39,6 @@ test('Spectra rear couch faces back toward the console', () => {
   assert.equal(couch.rotationY, Math.PI);
 });
 
-
 test('freight tape labels distinguish the moving elevator from each landing', () => {
   assert.equal(freightLandingTapeLabel(FREIGHT_FLOORS.roof), 'ROOF TAPE');
   assert.equal(freightLandingTapeLabel(FREIGHT_FLOORS.alley), 'ALLEY TAPE');

@@ -347,7 +347,9 @@ export class FreightElevatorSystem {
   enterCabin() {
     const currentFloor = this.floorPosition(this.activeScene);
     if (!freightAligned(this.position, currentFloor)) {
-      this.ui.warning?.("The landing gate is jammed. The ELEVATOR TAPE is not lined up with the ${freightLandingTapeLabel(currentFloor)}.");
+      this.ui.warning?.(
+        'The landing gate is jammed. The ELEVATOR TAPE is not lined up with the ${freightLandingTapeLabel(currentFloor)}.',
+      );
       this.render();
       return;
     }
@@ -378,7 +380,9 @@ export class FreightElevatorSystem {
     const targetScene = this.targetScene();
     const targetFloor = this.targetPosition();
     if (!this.gateClosed || !freightAligned(this.position, targetFloor)) {
-      this.ui.warning?.("The door will not clear the sill. Line up the ELEVATOR TAPE with the ${freightLandingTapeLabel(targetFloor)} first.");
+      this.ui.warning?.(
+        'The door will not clear the sill. Line up the ELEVATOR TAPE with the ${freightLandingTapeLabel(targetFloor)} first.',
+      );
       this.render();
       return;
     }
