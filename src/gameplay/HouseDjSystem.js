@@ -198,7 +198,11 @@ export class HouseDjSystem {
     // Safari can return a resumed AudioContext whose pre-background AudioBufferSourceNodes never
     // become audible again. Tear the active house set down before suspension so foreground
     // recovery creates fresh source nodes instead of trusting iOS to revive the old ones.
-    this.stopHouseAudio(0.03);
+    this.programRunning = false;
+    this.nextMixAt = Infinity;
+    this.discardProgramVoices();
+    this.game.audio.stopAsset?.('house-dj');
+    this.game.audio.clearExternalTransport?.('house-dj');
     return true;
   }
 
@@ -243,6 +247,21 @@ export class HouseDjSystem {
         this.programVoices.delete(voice);
       }
     }
+    this.currentProgramVoice = null;
+  }
+
+  discardProgramVoices() {
+    for (const voice of this.programVoices) {
+      voice.source.onended = null;
+      try {
+        voice.source.stop();
+      } catch {
+        // Already stopped.
+      }
+      voice.source.disconnect?.();
+      voice.gain?.disconnect?.();
+    }
+    this.programVoices.clear();
     this.currentProgramVoice = null;
   }
 
