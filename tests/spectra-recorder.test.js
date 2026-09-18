@@ -37,7 +37,9 @@ test(
     const studio = studioSession();
     let saves = 0;
     let mixUpdates = 0;
-    const remotePlayers = new Map([['remote-1', { avatar: { displayName: 'Nora' } }]]);
+    const remotePlayers = new Map([
+      ['remote-1', { avatar: { displayName: 'Nora' } }],
+    ]);
     const game = {
       studio,
       studioPlayback: {
