@@ -412,6 +412,8 @@ export class NpcSystem {
         navGoal: null,
         navStuckTime: 0,
         navFailures: 0,
+        navRetryAt: 0,
+        navSkipPending: false,
       };
     });
     this.elapsed = 0;
@@ -468,11 +470,25 @@ export class NpcSystem {
     return dialogues[id] ?? null;
   }
 
-  resetNavigation(npc) {
+  resetNavigation(npc, { preserveRetry = false } = {}) {
     npc.navPath = [];
     npc.navPathIndex = 0;
     npc.navGoal = null;
     npc.navStuckTime = 0;
+    if (!preserveRetry) {
+      npc.navRetryAt = 0;
+      npc.navSkipPending = false;
+    }
+  }
+
+  navigationRetryActive(npc) {
+    return (Number(npc.navRetryAt) || 0) > this.elapsed;
+  }
+
+  deferNavigationRetry(npc, baseSeconds = 0.45) {
+    const failures = Math.max(1, Number(npc.navFailures) || 1);
+    const multiplier = 2 ** Math.min(3, failures - 1);
+    npc.navRetryAt = this.elapsed + Math.min(2.4, baseSeconds * multiplier);
   }
 
   planNavigation(npc, target) {
@@ -485,11 +501,15 @@ export class NpcSystem {
       return true;
     }
 
-    this.navigator.clearCache();
     const path = this.navigator.plan(npc.group.position, target);
     if (!path.length) {
       npc.navFailures += 1;
-      this.resetNavigation(npc);
+      this.resetNavigation(npc, { preserveRetry: true });
+      this.deferNavigationRetry(npc);
+      npc.navSkipPending = true;
+      // Failed searches are exactly when progression gates may have changed. Clear the
+      // walkability cache after the expensive search, not before every NPC route plan.
+      this.navigator.clearCache();
       return false;
     }
 
@@ -500,6 +520,8 @@ export class NpcSystem {
     npc.navGoal = target.clone ? target.clone() : new Vector3(target.x, target.y ?? 0, target.z);
     npc.navFailures = 0;
     npc.navStuckTime = 0;
+    npc.navRetryAt = 0;
+    npc.navSkipPending = false;
     return true;
   }
 
@@ -543,6 +565,8 @@ export class NpcSystem {
       return true;
     }
 
+    if (!npc.navPath.length && this.navigationRetryActive(npc)) return false;
+
     if (
       !npc.navPath.length ||
       npc.navPathIndex >= npc.navPath.length ||
@@ -581,7 +605,9 @@ export class NpcSystem {
 
     if (npc.navStuckTime > 0.65) {
       npc.navFailures += 1;
-      this.resetNavigation(npc);
+      this.resetNavigation(npc, { preserveRetry: true });
+      this.deferNavigationRetry(npc, 0.25);
+      npc.navSkipPending = true;
       if (this.navigator) this.navigator.clearCache();
       return false;
     }
@@ -589,10 +615,10 @@ export class NpcSystem {
     return false;
   }
 
-  advanceRoute(npc) {
+  advanceRoute(npc, { preserveRetry = false } = {}) {
     if (!npc.route.length) return;
     npc.routeIndex = (npc.routeIndex + 1) % npc.route.length;
-    this.resetNavigation(npc);
+    this.resetNavigation(npc, { preserveRetry });
   }
 
   update(dt, audioState) {
@@ -639,9 +665,14 @@ export class NpcSystem {
           // cannot reach it, skip that leg rather than having the character walk into the wall
           // forever. Once the gate changes, later laps can use the point normally.
           if (!npc.navPath.length && npc.navFailures > 0) {
-            this.advanceRoute(npc);
-            attempts += 1;
-            continue;
+            // A failed A* search can touch thousands of collision cells. Skip only the failed
+            // leg now, then back off before trying another route point. Without this guard a
+            // locked studio gate can make every NPC run several full searches every frame.
+            if (npc.navSkipPending) {
+              npc.navSkipPending = false;
+              this.advanceRoute(npc, { preserveRetry: true });
+            }
+            break;
           }
           break;
         }
