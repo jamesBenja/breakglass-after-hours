@@ -286,6 +286,7 @@ export function validateSave(value) {
   state.bathroomUses = Math.max(0, Math.min(999, Math.floor(Number(value.bathroomUses) || 0)));
   state.handsWashed = Math.max(0, Math.min(999, Math.floor(Number(value.handsWashed) || 0)));
   state.modularSynth = normalizeModularPatchState(value.modularSynth);
+  state.spectraDrumMachine = normalizeDrumMachineState(value.spectraDrumMachine);
   state.gentrificationKey = value.gentrificationKey === true;
   state.gentrificationTransformed = value.gentrificationTransformed === true;
   if (Array.isArray(value.roofThrownItems)) {
