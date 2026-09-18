@@ -96,8 +96,12 @@ export class NpcNavigator {
     this.failedPlanCache.clear();
   }
 
-  clearCache() {
+  clearWalkableCache() {
     this.walkableCache.clear();
+  }
+
+  clearCache() {
+    this.clearWalkableCache();
     this.failedPlanCache.clear();
   }
 
