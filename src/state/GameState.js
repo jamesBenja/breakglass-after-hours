@@ -47,6 +47,7 @@ const HOUSE_DJ_IDS = [
   'lunice',
   'kaytranada',
   'james-benjamin',
+  'malaika',
   'siren-mars',
   'monib',
   'hydra',
@@ -177,6 +178,8 @@ const defaults = () => ({
   threadedTape: null,
   liveRoomArchive: null,
   houseDjId: null,
+  policeShutdowns: 0,
+  policeTicketReceived: false,
   smokesShared: 0,
   bathroomClogCleared: false,
   bathroomFlooded: false,
@@ -268,6 +271,11 @@ export function validateSave(value) {
   if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive))
     state.liveRoomArchive = value.liveRoomArchive;
   if (HOUSE_DJ_IDS.includes(value.houseDjId)) state.houseDjId = value.houseDjId;
+  state.policeShutdowns = Math.max(
+    0,
+    Math.min(99, Math.floor(Number(value.policeShutdowns) || 0)),
+  );
+  state.policeTicketReceived = value.policeTicketReceived === true;
   state.smokesShared = Math.max(0, Math.min(999, Math.floor(Number(value.smokesShared) || 0)));
   state.bathroomClogCleared = value.bathroomClogCleared === true;
   state.bathroomFlooded = value.bathroomFlooded === true;
