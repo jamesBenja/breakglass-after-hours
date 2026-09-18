@@ -1,22 +1,24 @@
 const INSTRUMENT_ACTIONS = new Set(['drums', 'piano', 'synth', 'instruments', 'amps']);
 const midiToFrequency = (midi) => 440 * Math.pow(2, (Number(midi) - 69) / 12);
 
-function playDrum(audio, name) {
-  if (name === 'kick') audio.kick();
+function playDrum(audio, name, gain = 1) {
+  const level = Math.max(0, Math.min(1, Number(gain) || 0));
+  if (!(level > 0)) return;
+  if (name === 'kick') audio.kick(0, 0.22 * level);
   else if (name === 'snare') {
-    audio.tone(185, 0.09, 'triangle', 0.075);
-    audio.hat(0.008);
-  } else if (name === 'closed-hat') audio.hat();
+    audio.tone(185, 0.09, 'triangle', 0.075 * level);
+    audio.hat(0.008, 0.07 * level);
+  } else if (name === 'closed-hat') audio.hat(0, 0.07 * level);
   else if (name === 'open-hat') {
-    audio.hat();
-    audio.hat(0.065);
-  } else if (name === 'low-tom') audio.tone(112, 0.22, 'sine', 0.1);
-  else if (name === 'high-tom') audio.tone(176, 0.18, 'sine', 0.085);
+    audio.hat(0, 0.07 * level);
+    audio.hat(0.065, 0.07 * level);
+  } else if (name === 'low-tom') audio.tone(112, 0.22, 'sine', 0.1 * level);
+  else if (name === 'high-tom') audio.tone(176, 0.18, 'sine', 0.085 * level);
   else if (name === 'crash') {
-    audio.hat();
-    audio.hat(0.04);
-    audio.hat(0.09);
-    audio.tone(420, 0.34, 'triangle', 0.035);
+    audio.hat(0, 0.07 * level);
+    audio.hat(0.04, 0.07 * level);
+    audio.hat(0.09, 0.07 * level);
+    audio.tone(420, 0.34, 'triangle', 0.035 * level);
   }
 }
 
@@ -71,12 +73,19 @@ export class InstrumentSync {
   publish(event) {
     const config = this.configSnapshot();
     if (!config || !this.canPublish()) return;
+    const claim = this.world.localClaims?.get?.(this.activeResourceId);
+    const playerPosition = this.game.player?.position;
+    const position =
+      claim?.position ??
+      (playerPosition ? [playerPosition.x, playerPosition.y, playerPosition.z] : null);
     this.client.send({
       type: 'object_update',
       objectId: 'live-instrument-event',
       data: {
         nonce: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
         resourceId: this.activeResourceId,
+        sceneId: this.game.sceneManager.current?.definition?.id,
+        position,
         config,
         event,
       },
@@ -130,12 +139,29 @@ export class InstrumentSync {
     };
   }
 
+  remoteGain(data) {
+    const sceneId = this.game.sceneManager.current?.definition?.id;
+    if (!sceneId || !data?.sceneId || sceneId !== data.sceneId) return 0;
+    const listener = this.game.player?.position;
+    const source = data.position;
+    if (!listener || !Array.isArray(source) || source.length < 3) return 0.55;
+    const dx = listener.x - Number(source[0]);
+    const dy = listener.y - Number(source[1]);
+    const dz = listener.z - Number(source[2]);
+    const distance = Math.hypot(dx, dy, dz);
+    if (distance >= 28) return 0;
+    if (distance <= 1.5) return 1;
+    return Math.max(0.04, 1 / (1 + Math.pow((distance - 1.5) / 6.5, 1.35)));
+  }
+
   playRemote(data) {
     const { config = {}, event = {} } = data;
     const audio = this.game.audio;
     if (!audio) return;
+    const remoteGain = this.remoteGain(data);
+    if (!(remoteGain > 0)) return;
     if (event.type === 'drum') {
-      playDrum(audio, event.name);
+      playDrum(audio, event.name, remoteGain);
       return;
     }
 
@@ -147,9 +173,9 @@ export class InstrumentSync {
           voice: config.instrumentVoice,
           amp: config.ampCharacter,
           volume:
-            config.mode === 'bass'
+            (config.mode === 'bass'
               ? Math.max(0.085, Number(config.volume) || 0.085)
-              : Math.max(0.065, Number(config.volume) || 0.065),
+              : Math.max(0.065, Number(config.volume) || 0.065)) * remoteGain,
           duration: config.mode === 'bass' ? 1.55 : 1.22,
           when,
         });
@@ -159,7 +185,7 @@ export class InstrumentSync {
         frequency,
         Number(config.duration) || 0.42,
         config.wave || 'triangle',
-        Number(config.volume) || 0.065,
+        (Number(config.volume) || 0.065) * remoteGain,
         when,
       );
       if (config.octaveLayer) {
@@ -167,7 +193,7 @@ export class InstrumentSync {
           frequency * 2,
           (Number(config.duration) || 0.42) * 0.72,
           'triangle',
-          (Number(config.volume) || 0.065) * 0.22,
+          (Number(config.volume) || 0.065) * 0.22 * remoteGain,
           when + 0.012,
         );
       }

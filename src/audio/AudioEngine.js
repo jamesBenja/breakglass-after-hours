@@ -29,11 +29,21 @@ export class AudioEngine {
     this.hatBuffer = null;
     this.externalTransports = new Map();
     this.continuousHums = new Map();
+    this.assetVoices = new Map();
+    this.assetGenerations = new Map();
+    this.sourceBuses = new Map();
+    this.sourceEnvironments = new Map();
+    this.prioritySource = null;
+    this.priorityDuck = 0.32;
   }
 
   get activeExternalTransport() {
     const values = [...this.externalTransports.values()];
-    return values[values.length - 1] ?? null;
+    for (let index = values.length - 1; index >= 0; index--) {
+      const transport = values[index];
+      if (this.sourceGain(transport.owner) > 0.001) return transport;
+    }
+    return null;
   }
 
   get label() {
@@ -41,7 +51,7 @@ export class AudioEngine {
   }
 
   get playing() {
-    return this.trackId !== null || this.externalTransports.size > 0 || this.nativeMedia.size > 0;
+    return this.trackId !== null || this.activeExternalTransport !== null;
   }
 
   setExternalTransport(owner, label, interval = 0.125, metrics = {}) {
@@ -87,9 +97,75 @@ export class AudioEngine {
     };
     this.setParam(this.environmentGain?.gain, this.environment.gain, 0.08);
     this.setParam(this.environmentFilter?.frequency, this.environment.lowpassHz, 0.08);
-    for (const media of this.nativeMedia.values()) {
-      media.element.volume = clamp(media.baseVolume * this.environment.gain);
+    for (const [owner, media] of this.nativeMedia) {
+      media.element.volume = clamp(media.baseVolume * this.sourceGain(owner));
     }
+  }
+
+  ensureSourceBus(owner) {
+    if (!owner || !this.context || !this.master) return null;
+    let bus = this.sourceBuses.get(owner);
+    if (bus) return bus;
+
+    const filter = this.context.createBiquadFilter?.() ?? null;
+    const gain = this.context.createGain();
+    const input = filter ?? gain;
+    if (filter) {
+      filter.type = 'lowpass';
+      filter.Q.value = 0.45;
+      filter.connect(gain);
+    }
+    gain.connect(this.master);
+    bus = { input, filter, gain };
+    this.sourceBuses.set(owner, bus);
+    this.applySourceEnvironment(owner);
+    return bus;
+  }
+
+  sourceDestination(owner) {
+    return this.ensureSourceBus(owner)?.input ?? this.master;
+  }
+
+  sourceGain(owner) {
+    const environment = this.sourceEnvironments.get(owner) ?? {
+      gain: 1,
+      lowpassHz: 20000,
+      label: 'local source',
+    };
+    const priority = this.prioritySource && owner !== this.prioritySource ? this.priorityDuck : 1;
+    return clamp(environment.gain * priority, 0, 1.2);
+  }
+
+  applySourceEnvironment(owner) {
+    const bus = this.sourceBuses.get(owner);
+    const environment = this.sourceEnvironments.get(owner) ?? {
+      gain: 1,
+      lowpassHz: 20000,
+      label: 'local source',
+    };
+    if (bus) {
+      this.setParam(bus.gain?.gain, this.sourceGain(owner), 0.08);
+      this.setParam(bus.filter?.frequency, environment.lowpassHz, 0.08);
+    }
+    const media = this.nativeMedia.get(owner);
+    if (media) media.element.volume = clamp(media.baseVolume * this.sourceGain(owner));
+  }
+
+  setSourceEnvironment(owner, { gain = 1, lowpassHz = 20000, label = 'local source' } = {}) {
+    if (!owner) return;
+    this.sourceEnvironments.set(owner, {
+      gain: clamp(Number(gain) || 0, 0, 1.2),
+      lowpassHz: clamp(Number(lowpassHz) || 20000, 280, 22000),
+      label,
+    });
+    this.applySourceEnvironment(owner);
+  }
+
+  setPrioritySource(owner = null, duck = 0.32) {
+    this.prioritySource = owner || null;
+    this.priorityDuck = clamp(Number(duck) || 0.32, 0.08, 1);
+    for (const sourceOwner of this.sourceBuses.keys()) this.applySourceEnvironment(sourceOwner);
+    for (const sourceOwner of this.nativeMedia.keys()) this.applySourceEnvironment(sourceOwner);
   }
 
   async init() {
@@ -266,14 +342,14 @@ export class AudioEngine {
     source.stop(time + duration + 0.03);
   }
 
-  kick(when = 0) {
+  kick(when = 0, volume = 0.22) {
     if (!this.context) return;
     const source = this.context.createOscillator();
     const gain = this.context.createGain();
     const time = this.context.currentTime + when;
     source.frequency.setValueAtTime(130, time);
     source.frequency.exponentialRampToValueAtTime(45, time + 0.18);
-    gain.gain.setValueAtTime(0.22, time);
+    gain.gain.setValueAtTime(clamp(Number(volume) || 0.22, 0.001, 0.3), time);
     gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
     source.connect(gain);
     gain.connect(this.master);
@@ -288,7 +364,7 @@ export class AudioEngine {
     );
   }
 
-  hat(when = 0) {
+  hat(when = 0, volume = 0.07) {
     if (!this.context) return;
     if (!this.hatBuffer) {
       const length = Math.floor(this.context.sampleRate * 0.04);
@@ -302,7 +378,7 @@ export class AudioEngine {
     source.buffer = this.hatBuffer;
     filter.type = 'highpass';
     filter.frequency.value = 6500;
-    gain.gain.value = 0.07;
+    gain.gain.value = clamp(Number(volume) || 0.07, 0.001, 0.16);
     source.connect(filter);
     filter.connect(gain);
     gain.connect(this.master);
@@ -363,22 +439,23 @@ export class AudioEngine {
     { owner = 'archive', label = id, loop = true, vibe = 0.28, baseVolume = 0.82, offset = 0 } = {},
   ) {
     if (!this.context || !this.assets?.entry?.(id)) return false;
-    this.stop();
-    const generation = this.generation;
+    this.stopAsset(owner);
+    const generation = (this.assetGenerations.get(owner) ?? 0) + 1;
+    this.assetGenerations.set(owner, generation);
     const buffer = await this.assets.audio(id, this.context);
-    if (generation !== this.generation) return false;
+    if (generation !== this.assetGenerations.get(owner)) return false;
     this.setExternalTransport(owner, label, 0.25, { vibe, mixQuality: 0.92 });
     if (buffer) {
       const source = this.context.createBufferSource();
       source.buffer = buffer;
       source.loop = loop;
-      source.connect(this.master);
+      source.connect(this.sourceDestination(owner));
       source.onended = () => {
         source.disconnect();
-        this.voices.delete(source);
+        if (this.assetVoices.get(owner) === source) this.assetVoices.delete(owner);
         if (!loop) this.clearExternalTransport(owner);
       };
-      this.voices.set(source, []);
+      this.assetVoices.set(owner, source);
       const startOffset =
         buffer.duration > 0 ? Math.max(0, Number(offset) || 0) % buffer.duration : 0;
       source.start(0, startOffset);
@@ -395,7 +472,7 @@ export class AudioEngine {
     element.loop = loop;
     element.playsInline = true;
     element.src = url;
-    element.volume = clamp(baseVolume * this.environment.gain);
+    element.volume = clamp(baseVolume * this.sourceGain(owner));
     const seek = () => {
       if (!(offset > 0)) return;
       try {
@@ -411,7 +488,7 @@ export class AudioEngine {
     try {
       await element.play();
       seek();
-      this.nativeMedia.set(owner, { element, baseVolume });
+      this.nativeMedia.set(owner, { element, baseVolume, owner });
       element.onended = () => {
         this.nativeMedia.delete(owner);
         this.clearExternalTransport(owner);
@@ -427,6 +504,18 @@ export class AudioEngine {
   }
 
   stopAsset(owner = 'archive') {
+    this.assetGenerations.set(owner, (this.assetGenerations.get(owner) ?? 0) + 1);
+    const source = this.assetVoices.get(owner);
+    if (source) {
+      source.onended = null;
+      try {
+        source.stop();
+      } catch {
+        // Already ended.
+      }
+      source.disconnect?.();
+      this.assetVoices.delete(owner);
+    }
     const media = this.nativeMedia.get(owner);
     if (media) {
       media.element.pause();
@@ -454,13 +543,10 @@ export class AudioEngine {
       nodes.forEach((node) => node.disconnect());
     }
     this.voices.clear();
-    for (const [owner, media] of this.nativeMedia) {
-      media.element.pause();
-      media.element.removeAttribute('src');
-      media.element.load?.();
-      this.clearExternalTransport(owner);
+    for (const owner of new Set([...this.assetVoices.keys(), ...this.nativeMedia.keys()])) {
+      this.stopAsset(owner);
     }
-    this.nativeMedia.clear();
+    this.externalTransports.clear();
   }
 
   async suspend() {
@@ -483,6 +569,15 @@ export class AudioEngine {
     this.stop();
     this.externalTransports.clear();
     this.continuousHums.clear();
+    this.assetVoices.clear();
+    this.assetGenerations.clear();
+    for (const bus of this.sourceBuses.values()) {
+      bus.input?.disconnect?.();
+      bus.filter?.disconnect?.();
+      bus.gain?.disconnect?.();
+    }
+    this.sourceBuses.clear();
+    this.sourceEnvironments.clear();
     this.master?.disconnect();
     this.environmentFilter?.disconnect();
     this.environmentGain?.disconnect();
