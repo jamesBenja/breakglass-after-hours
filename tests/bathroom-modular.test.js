@@ -179,34 +179,37 @@ test('live modular steps publish into the shared instrument stream for Spectra c
   assert.equal(published[0][2].offsetSeconds, 0.03);
 });
 
-test('live modular transport starts a repeating scheduler and stops cleanly', async () => {
+test('live modular loop follows the shared Spectra transport and stops cleanly', async () => {
   const tones = [];
-  const cleared = [];
-  let intervalCallback = null;
-  const timers = {
-    setInterval: (callback) => {
-      intervalCallback = callback;
-      return 17;
-    },
-    clearInterval: (id) => cleared.push(id),
-  };
+  let transportCallback = null;
+  const acquired = [];
+  const released = [];
   let globalStops = 0;
   let studioStops = 0;
   let djStops = 0;
   const audio = {
-    timers,
     context: { state: 'running', currentTime: 0 },
     init: async () => {},
     tone: (...args) => tones.push(args),
     stop: () => {
       globalStops += 1;
     },
-    setExternalTransport: () => {},
-    clearExternalTransport: () => {},
+  };
+  const spectraTransport = {
+    subscribe: (id, callback) => {
+      assert.equal(id, 'modular-synth');
+      transportCallback = callback;
+      return () => {
+        transportCallback = null;
+      };
+    },
+    acquire: (owner) => acquired.push(owner),
+    release: (owner) => released.push(owner),
   };
   const game = {
     state: { data: { modularSynth: normalizeModularPatchState() } },
     studio: { bpm: 120, loopEnabled: false, loopBars: 1 },
+    spectraTransport,
     studioPlayback: {
       stop: () => {
         studioStops += 1;
@@ -225,18 +228,24 @@ test('live modular transport starts a repeating scheduler and stops cleanly', as
 
   await modular.startLoop();
   assert.equal(modular.playing, true);
-  assert.equal(modular.scheduler, 17);
-  assert.equal(typeof intervalCallback, 'function');
-  assert.ok(tones.length >= 1);
+  assert.equal(typeof transportCallback, 'function');
+  assert.deepEqual(acquired, ['modular-synth']);
   assert.equal(globalStops, 0);
   assert.equal(studioStops, 0);
   assert.equal(djStops, 0);
 
-  audio.context.currentTime = 0.2;
-  intervalCallback();
-  assert.ok(modular.currentStep >= 1);
+  transportCallback({ loopStep: 0, when: 0.03 });
+  assert.equal(modular.currentStep, 0);
+  assert.ok(tones.length >= 1);
+
+  transportCallback({ loopStep: 3, when: 0.01 });
+  assert.equal(modular.currentStep, 3);
 
   modular.stopLoop(false);
   assert.equal(modular.playing, false);
-  assert.deepEqual(cleared, [17]);
+  assert.equal(transportCallback, null);
+  assert.deepEqual(released, ['modular-synth']);
+  assert.equal(globalStops, 0);
+  assert.equal(studioStops, 0);
+  assert.equal(djStops, 0);
 });
