@@ -300,6 +300,9 @@ export function buildBelowFixtures(downScene) {
       Math.PI / 2;
   }
 
+  label(downScene, 'LIGHTING DESK', 4.05, 1.82, -1.42, 0.2, '#ffd77a');
+  label(downScene, 'VISUALS / VJ', 4.72, 1.58, -2.5, 0.18, '#8de8ff');
+
   label(downScene, 'NORA · NIGHT PHOTOS', 8.72, 3.25, -1.05, 0.24, '#f3d4df');
   for (const z of [-2.1, -1.05, 0.0])
     box(downScene, 0.08, 0.22, 0.08, mat(0x262226), 8.86, 3.05, z);
