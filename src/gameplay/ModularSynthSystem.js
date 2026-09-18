@@ -335,12 +335,25 @@ export class ModularSynthSystem {
   triggerStep(index, when = 0) {
     const event = modularStepEvent(this.patch, index);
     if (!event) return false;
-    this.game.audio?.tone?.(
-      event.frequency,
-      this.stepDuration() * this.patch.gate,
-      this.patch.wave,
-      0.062,
-      Math.max(0, when),
+    const delay = Math.max(0, Number(when) || 0);
+    const duration = this.stepDuration() * this.patch.gate;
+    this.game.audio?.tone?.(event.frequency, duration, this.patch.wave, 0.062, delay);
+    this.game.multiplayer?.instrumentSync?.publishExternal?.(
+      {
+        mode: 'synth',
+        stemKind: 'synth',
+        label: 'Spectra modular sequencer',
+        wave: this.patch.wave,
+        volume: 0.062,
+        duration,
+        octaveLayer: false,
+      },
+      { type: 'midi', midi: event.midi },
+      {
+        resourceId:
+          this.game.multiplayer?.instrumentSync?.activeResourceId ?? 'modular-live',
+        offsetSeconds: delay,
+      },
     );
     return true;
   }
