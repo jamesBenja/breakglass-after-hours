@@ -217,6 +217,62 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   assert.equal(objectState.objectId, 'take-a-break-installation');
   assert.equal(objectState.data.mix.texture, 0.8);
 
+  const performanceEvents = Array.from({ length: 96 }, (_, index) => ({
+    time: index * 0.04,
+    midi: 48 + (index % 12),
+    frequency: 130.81,
+  }));
+  b.send({
+    type: 'object_update',
+    objectId: 'shared-studio-playback',
+    data: {
+      playing: true,
+      position: 1.25,
+      sentAt: Date.now(),
+      session: {
+        name: 'Collaborative Spectra Test',
+        bpm: 120,
+        loopEnabled: true,
+        loopBars: 4,
+        quantize: '1/16',
+        swing: 0,
+        takeCounter: 1,
+        setup: {},
+        stems: [
+          {
+            id: 'synth-1',
+            label: 'Nora · Synth',
+            kind: 'synth',
+            level: 0.68,
+            pan: 0,
+            low: 0,
+            high: 0,
+            fx: 0,
+            mute: false,
+            solo: false,
+            source: 'spectra-collaborative-capture',
+            performance: {
+              mode: 'synth',
+              label: 'Nora · Synth',
+              baseMidi: 48,
+              wave: 'triangle',
+              volume: 0.065,
+              noteDuration: 0.42,
+              octaveLayer: false,
+              bpm: 120,
+              duration: 8,
+              events: performanceEvents,
+            },
+          },
+        ],
+      },
+    },
+  });
+  const sharedStudio = await a.next('object_state');
+  assert.equal(sharedStudio.objectId, 'shared-studio-playback');
+  assert.equal(sharedStudio.data.session.stems[0].performance.events.length, 96);
+  assert.equal(sharedStudio.data.session.stems[0].performance.events[95].midi, 59);
+
   b.send({ type: 'chat', text: 'meet me in Below' });
   const chat = await a.next('chat');
   assert.equal(chat.message.name, 'Nora');
