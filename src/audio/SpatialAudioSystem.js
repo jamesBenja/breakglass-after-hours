@@ -1,4 +1,9 @@
 import { Vector3 } from 'three';
+import {
+  SPATIAL_TRANSPORT_OWNERS,
+  acousticEnvironmentFor,
+  acousticEnvironmentKey,
+} from './AcousticZones.js';
 import { TAKE_A_BREAK_SPEAKERS } from '../gameplay/TakeABreakImmersiveSystem.js';
 import {
   DEFAULT_INSTALLATION_PROGRAM_ID,
@@ -81,6 +86,7 @@ export class SpatialAudioSystem {
     this.recordedProgramIndex = 0;
     this.recordedGeneration = 0;
     this.lastEnvironmentKey = '';
+    this.lastSourceEnvironmentKeys = new Map();
     this.forward = new Vector3();
     this.elapsed = 0;
     this.pointMachines = new Map();
@@ -623,59 +629,17 @@ export class SpatialAudioSystem {
     } else listener.setOrientation?.(this.forward.x, this.forward.y, this.forward.z, 0, 1, 0);
   }
 
+  sourceEnvironmentFor(owner, level, surfaceId) {
+    return acousticEnvironmentFor(owner, level?.definition?.id ?? '', surfaceId, {
+      installationFocus: this.installationFocus,
+    });
+  }
+
   environmentFor(level, surfaceId) {
     const owner = this.audio.activeExternalTransport?.owner;
-    if (level.definition.id === 'alley')
-      return { gain: 0.3, lowpassHz: 1700, label: 'outside · club through walls/door' };
-
-    if (level.definition.id === 'downstairs') {
-      if (surfaceId === 'club') return { gain: 1, lowpassHz: 20000, label: 'club floor' };
-      if (surfaceId === 'lounge' || surfaceId === 'lounge-door') {
-        if (this.installationFocus)
-          return {
-            gain: 0.025,
-            lowpassHz: 520,
-            label: 'Take A Break · installation focus · club far through wall',
-          };
-        return {
-          gain: 0.045,
-          lowpassHz: 780,
-          label: 'Take A Break · immersive installation · club through wall',
-        };
-      }
-      if (surfaceId === 'service' || surfaceId === 'bar-door')
-        return { gain: 0.72, lowpassHz: 6200, label: 'bar / service room' };
-      if (surfaceId === 'storage')
-        return { gain: 0.57, lowpassHz: 3900, label: 'downstairs storage' };
-      if (surfaceId === 'coat-check')
-        return { gain: 0.63, lowpassHz: 4300, label: 'coat check / alley stair' };
-      if (surfaceId === 'stair-landing')
-        return { gain: 0.5, lowpassHz: 2800, label: 'Clark stair landing' };
-      return { gain: 0.78, lowpassHz: 9000, label: 'Below circulation' };
-    }
-
-    if (owner === 'dj') return { gain: 0.16, lowpassHz: 1050, label: 'club heard upstairs' };
-    if (owner === 'archive') {
-      if (surfaceId === 'neve-suite')
-        return { gain: 1, lowpassHz: 19000, label: 'Neve tape playback' };
-      if (surfaceId === 'mixing-suite')
-        return { gain: 0.58, lowpassHz: 5200, label: 'tape through control-room wall' };
-      if (surfaceId === 'live-room')
-        return { gain: 0.42, lowpassHz: 3600, label: 'tape through studio walls' };
-      return { gain: 0.34, lowpassHz: 2600, label: 'archive bleed' };
-    }
-    if (owner === 'studio') {
-      if (surfaceId === 'mixing-suite')
-        return { gain: 1, lowpassHz: 20000, label: 'Spectra control room' };
-      if (surfaceId === 'live-room')
-        return { gain: 0.78, lowpassHz: 12000, label: 'live room monitor bleed' };
-      if (surfaceId === 'dead-room') return { gain: 0.62, lowpassHz: 7200, label: 'dead room' };
-      if (surfaceId === 'neve-suite') return { gain: 0.52, lowpassHz: 5200, label: 'Neve room' };
-      if (surfaceId === 'storage')
-        return { gain: 0.32, lowpassHz: 2600, label: 'upstairs storage' };
-      return { gain: 0.5, lowpassHz: 4800, label: 'studio hallway' };
-    }
-    return { gain: 1, lowpassHz: 20000, label: 'upstairs' };
+    if (SPATIAL_TRANSPORT_OWNERS.includes(owner))
+      return this.sourceEnvironmentFor(owner, level, surfaceId);
+    return { gain: 1, lowpassHz: 20000, label: level?.definition?.id ?? 'local' };
   }
 
   update(level, player, camera) {
@@ -693,10 +657,21 @@ export class SpatialAudioSystem {
       level.definition.id === 'downstairs' &&
       (surfaceId === 'lounge' || surfaceId === 'lounge-door');
     if (this.installationFocus && !inLounge) this.installationFocus = false;
-    const environment = this.environmentFor(level, surfaceId);
-    const key = `${level.definition.id}:${surfaceId}:${this.audio.activeExternalTransport?.owner ?? 'none'}:${this.installationFocus ? 'focus' : 'room'}`;
+    for (const owner of SPATIAL_TRANSPORT_OWNERS) {
+      const key = acousticEnvironmentKey(owner, level.definition.id, surfaceId, {
+        installationFocus: this.installationFocus,
+      });
+      if (this.lastSourceEnvironmentKeys.get(owner) === key) continue;
+      this.audio.setSourceEnvironment?.(owner, this.sourceEnvironmentFor(owner, level, surfaceId));
+      this.lastSourceEnvironmentKeys.set(owner, key);
+    }
+
+    // Room coloration for long-running music now lives on independent source buses. Keep the
+    // legacy master path neutral so local point sources, UI cues and gameplay SFX are not muted
+    // merely because somebody else started a tape or a DJ deck elsewhere in the building.
+    const key = `${level.definition.id}:${surfaceId}:neutral`;
     if (key !== this.lastEnvironmentKey) {
-      this.audio.setEnvironment(environment);
+      this.audio.setEnvironment({ gain: 1, lowpassHz: 20000, label: surfaceId });
       this.lastEnvironmentKey = key;
     }
     const installationActive = inLounge && this.installationEnabled;
