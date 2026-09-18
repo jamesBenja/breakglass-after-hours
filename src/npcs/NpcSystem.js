@@ -139,6 +139,16 @@ export const CHARACTER_LOOKS = {
     hairStyle: 'short',
     prop: 'candy',
   },
+  killy: {
+    skin: 0xb78368,
+    hair: 0x17151b,
+    outfit: 0x17191f,
+    trousers: 0x111216,
+    accent: 0x8f64d8,
+    hairStyle: 'short',
+    bodyWidth: 0.9,
+    heightScale: 1.01,
+  },
   dave: {
     skin: 0xb9876a,
     hair: 0x231c1a,

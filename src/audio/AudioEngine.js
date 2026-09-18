@@ -35,6 +35,7 @@ export class AudioEngine {
     this.sourceEnvironments = new Map();
     this.prioritySource = null;
     this.priorityDuck = 0.32;
+    this._nativeMediaResumePending = false;
   }
 
   get activeExternalTransport() {
@@ -488,7 +489,7 @@ export class AudioEngine {
     try {
       await element.play();
       seek();
-      this.nativeMedia.set(owner, { element, baseVolume, owner });
+      this.nativeMedia.set(owner, { element, baseVolume, owner, resumeAfterSuspend: false });
       element.onended = () => {
         this.nativeMedia.delete(owner);
         this.clearExternalTransport(owner);
@@ -522,6 +523,7 @@ export class AudioEngine {
       media.element.removeAttribute('src');
       media.element.load?.();
       this.nativeMedia.delete(owner);
+      if (!this.nativeMedia.size) this._nativeMediaResumePending = false;
     }
     this.clearExternalTransport(owner);
   }
@@ -547,22 +549,51 @@ export class AudioEngine {
       this.stopAsset(owner);
     }
     this.externalTransports.clear();
+    this._nativeMediaResumePending = false;
   }
 
   async suspend() {
+    this._nativeMediaResumePending = false;
+    for (const media of this.nativeMedia.values()) {
+      media.resumeAfterSuspend = media.element.paused !== true;
+      if (media.resumeAfterSuspend) media.element.volume = 0;
+    }
+
+    if (this.context?.state === 'running') {
+      this.setParam(this.environmentGain?.gain, 0.0001, 0.012);
+      // Give the output a very short fade before iOS tears down the app audio route. This removes
+      // the sharp discontinuity/click heard when Safari is backgrounded in the middle of the club.
+      if (typeof document !== 'undefined') {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, 32));
+      }
+    }
+
+    for (const media of this.nativeMedia.values()) {
+      if (media.resumeAfterSuspend) media.element.pause();
+    }
     if (this.context?.state === 'running') await this.context.suspend();
-    for (const media of this.nativeMedia.values()) media.element.pause();
   }
 
   async resume() {
     if (this.context?.state === 'suspended') await this.context.resume();
-    for (const media of this.nativeMedia.values()) {
+    this.setParam(this.environmentGain?.gain, this.environment.gain, 0.06);
+
+    let retryNeeded = false;
+    for (const [owner, media] of this.nativeMedia) {
+      if (media.resumeAfterSuspend !== true) continue;
       try {
+        media.element.volume = 0;
         await media.element.play();
+        media.resumeAfterSuspend = false;
+        this.applySourceEnvironment(owner);
       } catch {
-        // Browser can require another user gesture; gameplay can continue silently.
+        // iOS can reject the visibilitychange resume because it is not a gesture. Keep the intent
+        // armed so the next touch/pointer/key gesture retries the same media instead of losing it.
+        retryNeeded = true;
       }
     }
+    this._nativeMediaResumePending = retryNeeded;
+    return !retryNeeded;
   }
 
   async dispose() {

@@ -7,6 +7,10 @@ export const dialogues = {
     title: 'JAMES',
     text: '“Make something upstairs, test it downstairs. That is basically the building.”',
   },
+  killy: {
+    title: 'KILLY · LIGHTING',
+    text: '“I love lasers and especially haze. Hope I don’t set off another fire alarm…”',
+  },
   jace: {
     title: 'JACE · STUDIO GUIDE',
     text: '“The rooms make more sense once you walk the signal path. Live Room, machines, console, then listen.”',
