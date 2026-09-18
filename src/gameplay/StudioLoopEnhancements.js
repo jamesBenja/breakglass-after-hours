@@ -1,4 +1,5 @@
 import { SpectraRecorder } from '../studio/SpectraRecorder.js';
+import { StudioExporter } from '../studio/StudioExporter.js';
 import { StudioSession } from '../studio/StudioSession.js';
 
 const GRID_DIVISIONS = {
@@ -420,6 +421,36 @@ function buildLoopPanel(game, ui) {
       },
     ],
     [
+      'EXPORT MIX WAV',
+      async () => {
+        try {
+          ui.warning?.('Rendering Spectra mix offline…');
+          const result = await game.studioExporter.exportMix(studio);
+          ui.warning?.(
+            `Exported ${result.filename} · ${result.duration.toFixed(1)} seconds.`,
+          );
+        } catch (error) {
+          ui.warning?.(`Track export failed: ${error?.message || 'unknown export error'}`);
+        }
+        buildLoopPanel(game, ui);
+      },
+    ],
+    [
+      'EXPORT SESSION PACK · MIX + STEM WAVS',
+      async () => {
+        try {
+          ui.warning?.('Rendering Spectra mix and individual stems offline…');
+          const result = await game.studioExporter.exportSessionPack(studio);
+          ui.warning?.(
+            `Exported ${result.filename} with the mix + ${result.stems} stem WAV${result.stems === 1 ? '' : 's'}.`,
+          );
+        } catch (error) {
+          ui.warning?.(`Session export failed: ${error?.message || 'unknown export error'}`);
+        }
+        buildLoopPanel(game, ui);
+      },
+    ],
+    [
       'Save song to house library',
       () => {
         saveSongToLibrary(game, ui);
@@ -468,6 +499,7 @@ export function installStudioLoopEnhancements(game, ui) {
   enhanceSession(game.studio);
   enhancePlayback(game.studioPlayback, game.studio);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
+  game.studioExporter ??= new StudioExporter(game);
   game.showStudioLoopBuilder = () => buildLoopPanel(game, ui);
   game.showStudioSongLibrary = (location = 'House playback') =>
     buildSongLibraryPanel(game, ui, location);
@@ -494,6 +526,21 @@ export function installStudioLoopEnhancements(game, ui) {
       button.className = 'studio-loop-builder-button';
       button.onclick = () => buildLoopPanel(game, ui);
       ui.buttons?.appendChild(button);
+
+      const exportButton = ui.document.createElement('button');
+      exportButton.type = 'button';
+      exportButton.textContent = 'EXPORT TRACK';
+      exportButton.className = 'studio-track-export-button';
+      exportButton.onclick = async () => {
+        try {
+          ui.warning?.('Rendering Spectra mix offline…');
+          const exported = await game.studioExporter.exportMix(session);
+          ui.warning?.(`Exported ${exported.filename}.`);
+        } catch (error) {
+          ui.warning?.(`Track export failed: ${error?.message || 'unknown export error'}`);
+        }
+      };
+      ui.buttons?.appendChild(exportButton);
       return result;
     };
     ui._studioLoopBuilderPatched = true;
