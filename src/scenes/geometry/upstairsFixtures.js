@@ -94,6 +94,17 @@ export function buildStudioEquipment(root, definition) {
         );
       }
       label(root, 'MODULAR', group.position.x, 2.28, group.position.z, 0.26, '#f2d5aa');
+    } else if (fixture.id.startsWith('mix-sofa')) {
+      const upholstery = mat(fixture.id === 'mix-sofa-rear' ? 0x4b4544 : 0x60514b, 0.94, 0.01);
+      const cushion = mat(fixture.id === 'mix-sofa-rear' ? 0x5a5150 : 0x71605a, 0.92, 0.01);
+      const seatHeight = 0.42;
+      box(group, w, 0.28, d * 0.82, upholstery, 0, seatHeight, 0);
+      box(group, w * 0.94, 0.12, d * 0.62, cushion, 0, seatHeight + 0.18, -d * 0.07);
+      box(group, w, 0.72, 0.16, upholstery, 0, 0.76, d / 2 - 0.09);
+      for (const x of [-w / 2 + 0.11, w / 2 - 0.11])
+        box(group, 0.2, 0.42, d * 0.82, upholstery, x, 0.5, 0);
+      for (const x of [-w / 2 + 0.18, w / 2 - 0.18])
+        box(group, 0.08, 0.18, 0.08, MAT.dark, x, 0.09, d * 0.3);
     } else if (fixture.id === 'side-rack') {
       box(group, w, 1.7, d, wood, 0, 0.85, 0);
       for (let i = 0; i < 7; i++) {

@@ -10,7 +10,7 @@ export const ROOF_STORY_IDS = [
   'james-future',
 ];
 
-const STORIES = {
+export const ROOF_STORIES = {
   jace: [
     {
       id: 'jace-built',
@@ -31,8 +31,8 @@ const STORIES = {
   dave: [
     {
       id: 'dave-loadins',
-      title: 'Everything somehow made it upstairs',
-      text: 'Dave remembers years of impossible-looking load-ins: amps, drums, consoles, lighting, cases and whatever else a project needed. Someone would look at the stairs, look at the gear, and then everybody would start carrying.',
+      title: "Sandor's white tape",
+      text: 'Dave remembers the big old freight elevator: a slow grey manual cage where you had to pull the gate shut and keep holding UP or DOWN the entire trip. The floor never stopped itself in quite the right place, so Sandor, the wonderfully eccentric old superintendent from two landlords back, put pieces of white electrical tape on the elevator and the doorway. You stopped only when the two tape marks lined up. That was how amps, drums, consoles, cases and half the history of Breakglass actually travelled through the building.',
     },
     {
       id: 'dave-roof',
@@ -181,8 +181,19 @@ export class RoofEndgameSystem {
       if (object) object.visible = false;
     }
 
-    const ladder = this.sceneObject('roof', 'roof-escape-ladder');
-    if (ladder) ladder.visible = fullGameComplete(data, this.context());
+    const freightUnlocked =
+      this.game.godMode === true ||
+      data.roofEscapeUnlocked === true ||
+      fullGameComplete(data, this.context());
+    const freightPosition = Number.isFinite(Number(data.freightElevatorPosition))
+      ? Number(data.freightElevatorPosition)
+      : 0;
+    const freight = this.sceneObject('roof', 'roof-freight-elevator');
+    if (freight) freight.visible = freightUnlocked && Math.abs(freightPosition) <= 2.2;
+    const freightCover = this.sceneObject('roof', 'roof-freight-hatch-cover');
+    if (freightCover) freightCover.visible = !freightUnlocked;
+    const shaftMouth = this.sceneObject('roof', 'roof-freight-shaft-mouth');
+    if (shaftMouth) shaftMouth.visible = freightUnlocked;
   }
 
   collectGentrificationKey() {
@@ -357,7 +368,7 @@ export class RoofEndgameSystem {
   }
 
   storyPanel(founderId) {
-    const stories = STORIES[founderId];
+    const stories = ROOF_STORIES[founderId];
     if (!stories) return false;
     const heard = new Set(this.data().roofStoriesHeard ?? []);
     const name = founderId === 'jace' ? 'JACE' : founderId === 'dave' ? 'DAVE' : 'JAMES';
@@ -377,7 +388,7 @@ export class RoofEndgameSystem {
     heard.add(story.id);
     this.data().roofStoriesHeard = [...heard];
     this.save();
-    const stories = STORIES[founderId] ?? [];
+    const stories = ROOF_STORIES[founderId] ?? [];
     const remaining = stories.filter((item) => !heard.has(item.id));
     this.ui.panel(`${founderId.toUpperCase()} · ${story.title.toUpperCase()}`, story.text, [
       ...(remaining.length
@@ -388,39 +399,15 @@ export class RoofEndgameSystem {
   }
 
   escapePanel() {
-    const checklist = endgameChecklist(this.data(), this.context());
-    const missing = checklist.filter((item) => !item.complete);
-    if (missing.length) {
-      this.ui.panel(
-        'SEALED ROOF PANEL',
-        `There is something under this hatch, but it will not open yet. The scratched message says: FINISH THE BUILDING. Remaining: ${missing.map((item) => item.label).join(' · ')}.`,
-      );
-      return;
-    }
-    this.syncVisuals();
+    if (this.game.freightElevator?.open) return this.game.freightElevator.open();
+    const missing = endgameChecklist(this.data(), this.context()).filter((item) => !item.complete);
     this.ui.panel(
-      'ESCAPE HATCH · PAST / FUTURE',
-      'The panel releases. A ladder drops down the outside of the building toward the yard, but the opening also seems to contain two versions of the same place: the yard as memory and the yard after everything changes.',
-      [
-        ['Climb down into the yard · PAST', () => this.escape('past')],
-        ['Climb down into whatever comes next · FUTURE', () => this.escape('future')],
-      ],
+      'SEALED FREIGHT HATCH',
+      missing.length
+        ? `The old roof freight hatch is still locked. Remaining: ${missing.map((item) => item.label).join(' · ')}.`
+        : 'The hatch has released, but the old freight controls have not initialized yet.',
     );
-  }
-
-  escape(era) {
-    this.data().roofEscapeEra = era;
-    this.data().roofEscapeUnlocked = true;
-    this.data().roofEscapeVisits = Math.min(999, (this.data().roofEscapeVisits ?? 0) + 1);
-    this.save();
-    Promise.resolve(this.game.sceneManager.request('alley@roofEscape')).then(() => {
-      this.ui.panel(
-        era === 'past' ? 'THE YARD · MEMORY' : 'THE YARD · AFTER',
-        era === 'past'
-          ? 'You climb down into the Breakglass yard as a memory-space: picnic tables, smoke breaks, load-ins and all the nights that already happened layered on top of one another.'
-          : 'You climb down into the same yard facing forward. The building may change, the address may change, but you have carried the archive and every completed path out with you.',
-      );
-    });
+    return true;
   }
 
   handle(target) {

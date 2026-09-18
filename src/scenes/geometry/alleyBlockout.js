@@ -67,6 +67,25 @@ export function buildAlleyBlockout(root) {
   label(root, 'BEAVER · BBQ', 14.65, 2.35, -2.15, 0.3, '#ffd0a6');
   label(root, 'HOT DOGS · TACOS · BEER', 15.1, 1.85, -2.12, 0.2, '#f6dfc7');
 
+  // Old freight elevator landing. It reads as a patched industrial service opening until the
+  // roof endgame unlocks the actual ride.
+  const freightGrey = mat(0x5d6362, 0.72, 0.22);
+  const freightDark = mat(0x303536, 0.82, 0.16);
+  const freightRust = mat(0x6a5144, 0.9, 0.06);
+  const tape = mat(0xe9e7dc, 0.74, 0.01);
+  box(root, 2.45, 2.75, 0.16, freightDark, 22.2, 1.38, -2.18);
+  for (const x of [21.05, 23.35]) box(root, 0.11, 2.8, 0.18, freightGrey, x, 1.4, -2.05);
+  box(root, 2.4, 0.11, 0.18, freightGrey, 22.2, 2.72, -2.05);
+  for (let i = -5; i <= 5; i++)
+    box(root, 0.035, 2.35, 0.035, freightGrey, 22.2 + i * 0.2, 1.3, -1.99);
+  for (let y = 0.25; y <= 2.45; y += 0.27)
+    box(root, 2.25, 0.035, 0.035, freightGrey, 22.2, y, -1.99);
+  const freightBrace = box(root, 0.06, 2.45, 0.05, freightRust, 22.2, 1.3, -1.95);
+  freightBrace.rotation.z = 0.55;
+  box(root, 0.42, 0.08, 0.04, tape, 21.12, 1.02, -1.92);
+  box(root, 0.42, 0.08, 0.04, tape, 21.5, 1.02, -1.9);
+  label(root, 'OLD FREIGHT', 22.2, 3.18, -2.02, 0.25, '#c9ceca');
+
   // Planters / trees create the narrow garden rhythm visible from De Castelnau.
   for (const [x, z] of [
     [-23, 1.25],

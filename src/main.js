@@ -8,6 +8,7 @@ import './ui/multiplayer.css';
 import './ui/arcade.css';
 import './ui/godMode.css';
 import './ui/invitation.css';
+import './ui/freightElevator.css';
 import './ui/mobileMixerEnhancements.js';
 import { Game } from './core/Game.js';
 import { installFaceAvatarEnhancements } from './avatar/faceAvatarEnhancements.js';
@@ -22,6 +23,7 @@ import { installStudioLoopEnhancements } from './gameplay/StudioLoopEnhancements
 import { installClubBathroomSystem } from './gameplay/ClubBathroomSystem.js';
 import { installModularSynthSystem } from './gameplay/ModularSynthSystem.js';
 import { installRoofEndgameSystem } from './gameplay/RoofEndgameSystem.js';
+import { installFreightElevatorSystem } from './gameplay/FreightElevatorSystem.js';
 import { installPerformanceRealismSystems } from './gameplay/installPerformanceRealismSystems.js';
 import { installCrowdDoorEnhancements } from './gameplay/crowdDoorEnhancements.js';
 import { installEntryEnhancements } from './gameplay/entryEnhancements.js';
@@ -83,6 +85,7 @@ try {
   installClubBathroomSystem(game, ui);
   installModularSynthSystem(game, ui);
   installRoofEndgameSystem(game, ui);
+  installFreightElevatorSystem(game, ui);
   installPerformanceRealismSystems(game, ui);
   installDjLessonSystem(game, ui);
   installCrowdDoorEnhancements(game, ui);

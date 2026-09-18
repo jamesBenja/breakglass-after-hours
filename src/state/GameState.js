@@ -195,6 +195,8 @@ const defaults = () => ({
   roofEscapeUnlocked: false,
   roofEscapeEra: null,
   roofEscapeVisits: 0,
+  freightElevatorPosition: 0,
+  freightElevatorTrips: 0,
   photos: [],
 });
 
@@ -299,6 +301,19 @@ export function validateSave(value) {
   state.roofEscapeVisits = Math.max(
     0,
     Math.min(999, Math.floor(Number(value.roofEscapeVisits) || 0)),
+  );
+  state.freightElevatorPosition = Math.max(
+    -5,
+    Math.min(
+      105,
+      Number.isFinite(Number(value.freightElevatorPosition))
+        ? Number(value.freightElevatorPosition)
+        : 0,
+    ),
+  );
+  state.freightElevatorTrips = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(value.freightElevatorTrips) || 0)),
   );
   if (Array.isArray(value.photos)) {
     state.photos = value.photos.map(normalizePhoto).filter(Boolean).slice(-18);

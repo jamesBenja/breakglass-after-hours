@@ -97,16 +97,49 @@ export function buildRoofBlockout(root) {
   cityLock.name = 'roof-gentrification-lock';
   cityLock.rotation.x = Math.PI / 2;
 
-  // Endgame escape panel. The actual ladder stays invisible until the completion gate opens.
-  const escapePanel = box(root, 1.18, 0.07, 1.2, mat(0x2e3235, 0.76, 0.08), -6.45, 0.055, 3.75);
-  escapePanel.name = 'roof-escape-panel';
-  const escapeLadder = new Group();
-  escapeLadder.name = 'roof-escape-ladder';
-  escapeLadder.visible = false;
-  escapeLadder.position.set(-6.45, 0, 4.25);
-  root.add(escapeLadder);
-  for (let i = 0; i < 7; i++) box(escapeLadder, 0.84, 0.05, 0.06, metal, 0, -0.08 - i * 0.32, 0);
-  for (const x of [-0.39, 0.39]) box(escapeLadder, 0.055, 2.15, 0.055, metal, x, -0.98, 0);
+  // Endgame roof hatch opens onto the building's old manual freight elevator.
+  // The cage is intentionally grey, heavy and slightly crooked rather than a modern lift.
+  const escapePanel = box(root, 1.75, 0.09, 1.55, mat(0x303536, 0.78, 0.12), -6.45, 0.06, 3.72);
+  escapePanel.name = 'roof-freight-hatch-cover';
+  box(root, 1.3, 0.035, 0.08, mat(0xe8e6dc, 0.75, 0.01), -6.45, 0.12, 3.34);
+  const shaftMouth = box(root, 1.82, 0.035, 1.62, mat(0x080a0a, 0.98, 0.0), -6.45, 0.045, 3.72);
+  shaftMouth.name = 'roof-freight-shaft-mouth';
+  shaftMouth.visible = false;
+
+  const freight = new Group();
+  freight.name = 'roof-freight-elevator';
+  freight.visible = false;
+  freight.position.set(-6.45, 0, 3.62);
+  root.add(freight);
+  const freightGrey = mat(0x5f6565, 0.72, 0.24);
+  const freightDark = mat(0x303536, 0.78, 0.2);
+  const freightRust = mat(0x6d5547, 0.88, 0.08);
+  const tape = mat(0xe9e7dc, 0.72, 0.01);
+
+  box(freight, 2.1, 0.13, 1.85, freightDark, 0, 0.07, 0);
+  for (const x of [-0.98, 0.98]) {
+    for (const z of [-0.8, 0.8]) box(freight, 0.09, 2.55, 0.09, freightGrey, x, 1.28, z);
+  }
+  box(freight, 2.08, 0.1, 1.75, freightGrey, 0, 2.55, 0);
+  for (let i = -4; i <= 4; i++) {
+    box(freight, 0.035, 2.25, 0.035, freightGrey, i * 0.22, 1.25, -0.84);
+  }
+  for (let y = 0.3; y <= 2.35; y += 0.28) {
+    box(freight, 1.95, 0.035, 0.035, freightGrey, 0, y, -0.84);
+  }
+  const braceA = box(freight, 0.06, 2.35, 0.06, freightRust, -0.42, 1.28, -0.88);
+  braceA.rotation.z = -0.53;
+  const braceB = box(freight, 0.06, 2.35, 0.06, freightRust, 0.42, 1.28, -0.88);
+  braceB.rotation.z = 0.53;
+
+  // Sandor's alignment marks: one on the fixed jamb, one on the moving cage gate.
+  box(freight, 0.42, 0.08, 0.04, tape, -1.1, 1.04, -0.9);
+  box(freight, 0.42, 0.08, 0.04, tape, -0.72, 1.04, -0.94);
+  const control = box(freight, 0.34, 0.62, 0.16, freightDark, 0.7, 1.15, -0.96);
+  control.rotation.x = -0.03;
+  cyl(freight, 0.055, 0.035, mat(0x6f8c68, 0.58, 0.16), 0.7, 1.31, -1.06).rotation.x = Math.PI / 2;
+  cyl(freight, 0.055, 0.035, mat(0x8b6a5c, 0.58, 0.16), 0.7, 1.0, -1.06).rotation.x = Math.PI / 2;
+  label(freight, 'FREIGHT', 0, 2.95, 0, 0.22, '#c9ceca');
 
   // Alley-facing dumpster, below the parapet.
   box(root, 2.1, 1.25, 1.25, mat(0x365847, 0.88, 0.03), 1.4, -2.55, 6.85);
