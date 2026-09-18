@@ -59,7 +59,7 @@ test('the furnished studio and Take A Break expose real seating', () => {
   const platformIds = new Set(upstairs.platforms.map((platform) => platform.id));
 
   assert.ok(fixtureIds.has('mix-sofa-rear'));
-  assert.ok(fixtureIds.has('mix-sofa-side'));
+  assert.equal(fixtureIds.has('mix-sofa-side'), false);
   assert.ok(fixtureIds.has('mix-coffee-table'));
   assert.ok(platformIds.has('mix-rug'));
   assert.ok(
