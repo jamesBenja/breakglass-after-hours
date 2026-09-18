@@ -22,6 +22,7 @@ import { installDjLessonSystem } from './gameplay/DjLessonSystem.js';
 import { installStudioLoopEnhancements } from './gameplay/StudioLoopEnhancements.js';
 import { installClubBathroomSystem } from './gameplay/ClubBathroomSystem.js';
 import { installModularSynthSystem } from './gameplay/ModularSynthSystem.js';
+import { installDrumMachineSystem } from './gameplay/DrumMachineSystem.js';
 import { installRoofEndgameSystem } from './gameplay/RoofEndgameSystem.js';
 import { installFreightElevatorSystem } from './gameplay/FreightElevatorSystem.js';
 import { installPerformanceRealismSystems } from './gameplay/installPerformanceRealismSystems.js';
