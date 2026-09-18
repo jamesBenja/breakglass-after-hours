@@ -28,6 +28,7 @@ export class AudioEngine {
     this.generation = 0;
     this.hatBuffer = null;
     this.externalTransports = new Map();
+    this.continuousHums = new Map();
   }
 
   get activeExternalTransport() {
@@ -164,6 +165,88 @@ export class AudioEngine {
       nodes.forEach((node) => node.disconnect());
       this.voices.delete(source);
     };
+  }
+
+  startContinuousHum(owner, { frequency = 124, volume = 0.022, type = 'triangle' } = {}) {
+    if (!owner || !this.context || !this.master) return false;
+    this.stopContinuousHum(owner, 0);
+
+    const time = this.context.currentTime;
+    const masterGain = this.context.createGain();
+    const base = this.context.createOscillator();
+    const harmonic = this.context.createOscillator();
+    const baseGain = this.context.createGain();
+    const harmonicGain = this.context.createGain();
+
+    base.type = type;
+    base.frequency.value = Math.max(40, Number(frequency) || 124);
+    harmonic.type = 'sine';
+    harmonic.frequency.value = base.frequency.value * 2.01;
+
+    baseGain.gain.value = 0.82;
+    harmonicGain.gain.value = 0.18;
+
+    if (masterGain.gain?.setValueAtTime) {
+      masterGain.gain.setValueAtTime(0.0001, time);
+      masterGain.gain.exponentialRampToValueAtTime(
+        Math.max(0.0002, Number(volume) || 0.022),
+        time + 0.08,
+      );
+    } else {
+      masterGain.gain.value = Math.max(0.0002, Number(volume) || 0.022);
+    }
+
+    base.connect(baseGain);
+    harmonic.connect(harmonicGain);
+    baseGain.connect(masterGain);
+    harmonicGain.connect(masterGain);
+    masterGain.connect(this.master);
+
+    const hum = {
+      sources: [base, harmonic],
+      nodes: [baseGain, harmonicGain, masterGain],
+      masterGain,
+    };
+    this.continuousHums.set(owner, hum);
+
+    let ended = 0;
+    const cleanup = () => {
+      ended += 1;
+      if (ended < hum.sources.length) return;
+      for (const source of hum.sources) source.disconnect?.();
+      for (const node of hum.nodes) node.disconnect?.();
+    };
+    base.onended = cleanup;
+    harmonic.onended = cleanup;
+    base.start(time);
+    harmonic.start(time);
+    return true;
+  }
+
+  stopContinuousHum(owner, fadeSeconds = 0.09) {
+    const hum = this.continuousHums.get(owner);
+    if (!hum) return false;
+    this.continuousHums.delete(owner);
+
+    const time = this.context?.currentTime ?? 0;
+    const fade = Math.max(0, Number(fadeSeconds) || 0);
+    const gain = hum.masterGain?.gain;
+    if (gain?.cancelScheduledValues) gain.cancelScheduledValues(time);
+    if (gain?.setValueAtTime && gain?.exponentialRampToValueAtTime && fade > 0) {
+      gain.setValueAtTime(Math.max(0.0001, gain.value || 0.0001), time);
+      gain.exponentialRampToValueAtTime(0.0001, time + fade);
+    } else if (gain) {
+      gain.value = 0.0001;
+    }
+
+    for (const source of hum.sources) {
+      try {
+        source.stop(time + fade + 0.015);
+      } catch {
+        source.disconnect?.();
+      }
+    }
+    return true;
   }
 
   tone(freq = 220, duration = 0.18, type = 'sine', volume = 0.1, when = 0) {
@@ -355,6 +438,7 @@ export class AudioEngine {
   }
 
   stop() {
+    for (const owner of [...this.continuousHums.keys()]) this.stopContinuousHum(owner, 0);
     this.generation++;
     if (this.timer !== null) this.timers.clearInterval(this.timer);
     this.timer = null;
@@ -398,6 +482,7 @@ export class AudioEngine {
   async dispose() {
     this.stop();
     this.externalTransports.clear();
+    this.continuousHums.clear();
     this.master?.disconnect();
     this.environmentFilter?.disconnect();
     this.environmentGain?.disconnect();
