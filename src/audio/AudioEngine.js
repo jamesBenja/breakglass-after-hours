@@ -343,14 +343,14 @@ export class AudioEngine {
     source.stop(time + duration + 0.03);
   }
 
-  kick(when = 0) {
+  kick(when = 0, volume = 0.22) {
     if (!this.context) return;
     const source = this.context.createOscillator();
     const gain = this.context.createGain();
     const time = this.context.currentTime + when;
     source.frequency.setValueAtTime(130, time);
     source.frequency.exponentialRampToValueAtTime(45, time + 0.18);
-    gain.gain.setValueAtTime(0.22, time);
+    gain.gain.setValueAtTime(clamp(Number(volume) || 0.22, 0.001, 0.3), time);
     gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
     source.connect(gain);
     gain.connect(this.master);
@@ -365,7 +365,7 @@ export class AudioEngine {
     );
   }
 
-  hat(when = 0) {
+  hat(when = 0, volume = 0.07) {
     if (!this.context) return;
     if (!this.hatBuffer) {
       const length = Math.floor(this.context.sampleRate * 0.04);
@@ -379,7 +379,7 @@ export class AudioEngine {
     source.buffer = this.hatBuffer;
     filter.type = 'highpass';
     filter.frequency.value = 6500;
-    gain.gain.value = 0.07;
+    gain.gain.value = clamp(Number(volume) || 0.07, 0.001, 0.16);
     source.connect(filter);
     filter.connect(gain);
     gain.connect(this.master);
