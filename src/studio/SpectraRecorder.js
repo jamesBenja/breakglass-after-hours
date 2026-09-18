@@ -5,7 +5,8 @@ function loopSeconds(session) {
   if (!session?.loopEnabled) return 0;
   return Math.max(
     0.25,
-    ((Number(session.loopBars) || 4) * 4 * 60) / Math.max(1, Number(session.bpm) || 118),
+    ((Number(session.loopBars) || 4) * 4 * 60) /
+      Math.max(1, Number(session.bpm) || 118),
   );
 }
 
@@ -183,8 +184,7 @@ export class SpectraRecorder {
     }
 
     const session = this.game.studio;
-    const duration =
-      loopSeconds(session) || Math.max(0.25, (clockNow() - this.startedAt) / 1000);
+    const duration = loopSeconds(session) || Math.max(0.25, (clockNow() - this.startedAt) / 1000);
     const committed = [];
     for (const lane of this.lanes.values()) {
       if (!lane.events.length) continue;
