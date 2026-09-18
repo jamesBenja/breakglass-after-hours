@@ -147,6 +147,9 @@ export function applyGodMode(game, ui) {
   state.mixingChallengeCompleted = [...MIXING_CHALLENGE_IDS];
   state.mixingRewardKey = true;
   state.alleyShortcutUnlocked = true;
+  // The endgame freight elevator is directly available in God Mode. This is intentionally
+  // independent of missions, founder stories, the condo key, AC repair or any other completion.
+  state.roofEscapeUnlocked = true;
 
   // Door/security progression is bypassed in God Mode. Keep the state aligned with that
   // behavior as well so no guestlist-specific wrapper can resurrect a stale pending referral.
