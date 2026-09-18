@@ -68,6 +68,38 @@ function safeSend(socket, payload) {
   }
 }
 
+export function multiplayerMaddoxState(game) {
+  const unlocked = game?.state?.data?.roofSecretUnlocked === true;
+  const dog = game?.sceneManager?.current?.maddox ?? null;
+  const snapshot = dog?.snapshot?.() ?? null;
+  if (!unlocked || !dog || !snapshot) {
+    return {
+      unlocked,
+      visible: false,
+      following: false,
+      position: [0, 0, 0],
+      rotationY: 0,
+      state: 'sit',
+      moving: false,
+      petPulse: 0,
+      bellyRubPulse: 0,
+    };
+  }
+  return {
+    unlocked: true,
+    visible: dog.root?.visible === true,
+    following: snapshot.following === true || game.state.data.maddoxCompanion === true,
+    position: Array.isArray(snapshot.position)
+      ? snapshot.position.map((value) => Number(value) || 0)
+      : dog.root.position.toArray(),
+    rotationY: Number(snapshot.rotationY ?? dog.root?.rotation?.y) || 0,
+    state: typeof snapshot.state === 'string' ? snapshot.state : 'sit',
+    moving: snapshot.moving === true,
+    petPulse: Number(snapshot.petPulse) || 0,
+    bellyRubPulse: Number(snapshot.bellyRubPulse) || 0,
+  };
+}
+
 function buildPresence(document) {
   const element = document.createElement('div');
   element.id = 'multiplayerPresence';
@@ -304,6 +336,7 @@ export class MultiplayerClient {
       dancing: player.danceRemaining > 0,
       seated: player.seated === true,
       grounded: player.grounded !== false,
+      maddox: multiplayerMaddoxState(this.game),
     };
   }
 
@@ -318,6 +351,15 @@ export class MultiplayerClient {
       state.dancing,
       state.seated,
       state.grounded,
+      state.maddox.unlocked,
+      state.maddox.visible,
+      state.maddox.following,
+      ...state.maddox.position.map((value) => Math.round(value * 100) / 100),
+      Math.round(state.maddox.rotationY * 100) / 100,
+      state.maddox.state,
+      state.maddox.moving,
+      Math.round(state.maddox.petPulse * 10) / 10,
+      Math.round(state.maddox.bellyRubPulse * 10) / 10,
     ]);
     // Send a heartbeat state at least every 1.2s even while perfectly still.
     if (signature === this.lastSnapshot && now - this.lastSentAt < 1200) return;
