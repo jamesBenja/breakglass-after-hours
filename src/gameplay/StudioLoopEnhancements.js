@@ -591,6 +591,7 @@ export function installStudioLoopEnhancements(game, ui) {
   game.spectraClipEngine ??= new SpectraClipEngine(game);
   game.studioPlayback.spectraTransport = game.spectraTransport;
   game.keyboardPerformance.spectraTransport = game.spectraTransport;
+  game.micRecorder.spectraTransport = game.spectraTransport;
   enhancePlayback(game.studioPlayback, game.studio);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
   game.studioExporter ??= new StudioExporter(game);
