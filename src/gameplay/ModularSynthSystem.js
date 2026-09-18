@@ -386,10 +386,9 @@ export class ModularSynthSystem {
       return;
     }
 
-    this.game.studioPlayback?.stop?.();
-    this.game.dj?.stop?.();
-    this.game.audio?.stop?.();
-
+    // The modular is another live studio source. Do not stop the shared studio transport,
+    // club playback, or the global audio engine when it starts; that would tear down unrelated
+    // spatial/zone-owned sources and makes collaborative overdubbing impossible.
     this.playing = true;
     this.currentStep = -1;
     this.nextStepIndex = 0;
