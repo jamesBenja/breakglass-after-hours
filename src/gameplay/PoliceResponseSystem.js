@@ -211,6 +211,7 @@ export class PoliceResponseSystem {
     state.policeTicketReceived = state.policeTicketReceived === true || repeat;
 
     this.game.evacuationStarted = true;
+    this.game.partyLife?.houseDj?.stopHouseAudio?.(0.08);
     this.game.stopAll();
     alley?.beginEvacuation?.();
     this.moveCrowdOutside();
@@ -275,7 +276,9 @@ export class PoliceResponseSystem {
 
     const houseDj = this.game.partyLife?.houseDj;
     houseDj?.holdForPlayer?.(0);
+    houseDj?.setSharedFollower?.(false);
     await houseDj?.start?.();
+    if (multiplayer?.joined) multiplayer.sharedMedia?.publishHouseDj?.(true);
     this.ui.panel(
       'PARTY BACK ON',
       'You take the risk. A house DJ brings the music back in and the party starts rebuilding. Another police shutdown will end the night with a noise complaint ticket.',
@@ -291,6 +294,8 @@ export class PoliceResponseSystem {
     this.game.state.data.sceneId = entryScene;
     this.game.state.data.position = null;
     this.game.state.data.policeDecisionPending = false;
+    this.game.state.data.policeShutdowns = 0;
+    this.game.state.data.policeTicketReceived = false;
     this.game.state.save?.();
     globalThis.location?.reload?.();
   }
