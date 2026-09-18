@@ -9,6 +9,9 @@ export class MicrophoneRecorder {
     this.recorder = null;
     this.chunks = [];
     this.startedAt = 0;
+    this.spectraTransport = null;
+    this.transportOwner = 'microphone-recorder';
+    this.timelineStart = 0;
   }
 
   get supported() {
@@ -46,6 +49,14 @@ export class MicrophoneRecorder {
       if (event.data?.size) this.chunks.push(event.data);
     };
     this.startedAt = performance.now();
+    if (this.spectraTransport) {
+      this.spectraTransport.acquire(this.transportOwner, { position: 0 });
+      const position = this.spectraTransport.position();
+      this.timelineStart = this.spectraTransport.quantizeTime(position, {
+        wrap: this.spectraTransport.session?.loopEnabled === true,
+        includeSwing: true,
+      });
+    } else this.timelineStart = 0;
     this.recorder.start(250);
     return true;
   }
@@ -73,7 +84,8 @@ export class MicrophoneRecorder {
     this.cleanupStream();
     this.recorder = null;
     this.chunks = [];
-    return { blob, buffer, duration, type };
+    this.spectraTransport?.release?.(this.transportOwner);
+    return { blob, buffer, duration, type, timelineStart: this.timelineStart };
   }
 
   cancel() {
@@ -81,6 +93,8 @@ export class MicrophoneRecorder {
     this.cleanupStream();
     this.recorder = null;
     this.chunks = [];
+    this.spectraTransport?.release?.(this.transportOwner);
+    this.timelineStart = 0;
   }
 
   cleanupStream() {
