@@ -207,6 +207,15 @@ export function applyInvitationAccess(game, profile) {
 }
 
 function letterHints(profile) {
+  if (profile.id === 'godmode') {
+    return [
+      'They Who Remain enter with the building already open.',
+      'The roof freight elevator is available immediately. No missions, keys, founder stories or other completion checks are required.',
+      'Guestlist, DJ booth, studio, storage, archive, Dead Room and shortcut access are already cleared.',
+      'You can still play any minigame, mission or conversation normally if you want to experience it.',
+      'God Mode is for exploring, testing and revisiting the whole Breakglass archive without progression gates.',
+    ];
+  }
   const residentProducer = profile.id === 'residentproducer';
   const roleHint =
     profile.id === 'dj'
