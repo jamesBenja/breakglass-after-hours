@@ -428,18 +428,14 @@ export function installInvitationAccess(game, ui, profileInput) {
         const police = policeState(game);
         if (police?.policePresent) {
           actions.push([
-            'Police are outside — can you handle it?',
+            'The police are here',
             () => {
-              const alley = game.scenes.get('alley')?.alley;
-              const result = alley?.resolvePolice?.('cooperate');
               state.policeDecisionPending = false;
               state.policePlan = 'james';
               save();
-              ui.panel(
-                'JAMES · I’VE GOT IT',
-                `“Yeah. Stay inside — I’ll deal with them.” James heads out to speak with the officers.${result ? ` ${result}` : ''}`,
-                [],
-              );
+              if (!game.policeResponse?.tellJames?.()) {
+                ui.warning?.('The police are no longer outside.');
+              }
             },
           ]);
         }
