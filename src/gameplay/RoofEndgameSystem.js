@@ -31,8 +31,8 @@ const STORIES = {
   dave: [
     {
       id: 'dave-loadins',
-      title: 'Everything somehow made it upstairs',
-      text: 'Dave remembers years of impossible-looking load-ins: amps, drums, consoles, lighting, cases and whatever else a project needed. Someone would look at the stairs, look at the gear, and then everybody would start carrying.',
+      title: "Sandor's white tape",
+      text: 'Dave remembers the big old freight elevator: a slow grey manual cage where you had to pull the gate shut and keep holding UP or DOWN the entire trip. The floor never stopped itself in quite the right place, so Sandor, the wonderfully eccentric old superintendent from two landlords back, put pieces of white electrical tape on the elevator and the doorway. You stopped only when the two tape marks lined up. That was how amps, drums, consoles, cases and half the history of Breakglass actually travelled through the building.',
     },
     {
       id: 'dave-roof',
