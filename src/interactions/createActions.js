@@ -487,6 +487,7 @@ export function createActions({
                 compressor: studio.setup.compressor,
               },
             );
+            stem.clipStart = Math.max(0, Number(result.timelineStart) || 0);
             if (result.buffer) studio.attachRecording(stem.id, result.buffer);
             else
               ui.warning?.(
