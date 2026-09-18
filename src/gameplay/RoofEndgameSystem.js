@@ -405,7 +405,7 @@ export class RoofEndgameSystem {
       'SEALED FREIGHT HATCH',
       missing.length
         ? `The old roof freight hatch is still locked. Remaining: ${missing.map((item) => item.label).join(' · ')}.`
-        : "The hatch has released, but the old freight controls have not initialized yet.",
+        : 'The hatch has released, but the old freight controls have not initialized yet.',
     );
     return true;
   }

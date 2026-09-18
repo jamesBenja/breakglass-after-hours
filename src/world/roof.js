@@ -89,12 +89,7 @@ export const roofLevel = {
       1.4,
       'gentrificationTrigger',
     ),
-    escapeHatch: anchor(
-      'Old freight elevator hatch',
-      [-6.45, 0, 3.35],
-      1.6,
-      'freightElevator',
-    ),
+    escapeHatch: anchor('Old freight elevator hatch', [-6.45, 0, 3.35], 1.6, 'freightElevator'),
   },
   maddox: {
     name: 'Maddox',

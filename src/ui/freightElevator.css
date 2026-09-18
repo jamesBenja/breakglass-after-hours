@@ -36,15 +36,19 @@
   padding: 12px 18px;
   border-bottom: 5px solid rgba(121, 91, 67, 0.55);
   background:
-    linear-gradient(90deg, rgba(255,255,255,0.035), transparent 28%, rgba(0,0,0,0.22)),
-    repeating-linear-gradient(0deg, rgba(75,57,46,0.36) 0 10px, rgba(48,43,39,0.4) 10px 20px);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035), transparent 28%, rgba(0, 0, 0, 0.22)),
+    repeating-linear-gradient(0deg, rgba(75, 57, 46, 0.36) 0 10px, rgba(48, 43, 39, 0.4) 10px 20px);
   color: rgba(238, 231, 215, 0.88);
 }
 
 .freight-history-layer:nth-child(2n) {
   background:
-    linear-gradient(90deg, rgba(79,91,94,0.24), transparent 35%, rgba(0,0,0,0.28)),
-    repeating-linear-gradient(90deg, rgba(55,58,58,0.48) 0 18px, rgba(45,43,40,0.48) 18px 36px);
+    linear-gradient(90deg, rgba(79, 91, 94, 0.24), transparent 35%, rgba(0, 0, 0, 0.28)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(55, 58, 58, 0.48) 0 18px,
+      rgba(45, 43, 40, 0.48) 18px 36px
+    );
 }
 
 .freight-history-layer strong {
@@ -62,8 +66,8 @@
   inset: 0;
   pointer-events: none;
   background:
-    repeating-linear-gradient(90deg, transparent 0 34px, rgba(126,132,132,0.62) 34px 38px),
-    linear-gradient(0deg, transparent 47%, rgba(130,135,134,0.62) 48% 51%, transparent 52%);
+    repeating-linear-gradient(90deg, transparent 0 34px, rgba(126, 132, 132, 0.62) 34px 38px),
+    linear-gradient(0deg, transparent 47%, rgba(130, 135, 134, 0.62) 48% 51%, transparent 52%);
   box-shadow: inset 0 0 0 2px rgba(155, 160, 158, 0.24);
 }
 
@@ -71,8 +75,8 @@
 .freight-alignment-readout {
   min-height: 31px;
   padding: 6px 8px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(0,0,0,0.24);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.24);
   font-size: 9px;
   line-height: 1.35;
 }
@@ -83,8 +87,11 @@
   overflow: hidden;
   border-left: 5px solid #626766;
   border-right: 5px solid #626766;
-  background:
-    repeating-linear-gradient(90deg, rgba(50,52,51,0.95) 0 24px, rgba(62,64,62,0.95) 24px 48px);
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(50, 52, 51, 0.95) 0 24px,
+    rgba(62, 64, 62, 0.95) 24px 48px
+  );
 }
 
 .freight-tape {
@@ -95,9 +102,11 @@
   padding: 0 6px;
   background: #e9e7dd;
   color: #282a29;
-  font: 800 8px/11px system-ui, sans-serif;
+  font:
+    800 8px/11px system-ui,
+    sans-serif;
   letter-spacing: 0.09em;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .freight-tape.fixed {

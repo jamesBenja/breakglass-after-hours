@@ -99,16 +99,7 @@ export function buildRoofBlockout(root) {
 
   // Endgame roof hatch opens onto the building's old manual freight elevator.
   // The cage is intentionally grey, heavy and slightly crooked rather than a modern lift.
-  const escapePanel = box(
-    root,
-    1.75,
-    0.09,
-    1.55,
-    mat(0x303536, 0.78, 0.12),
-    -6.45,
-    0.06,
-    3.72,
-  );
+  const escapePanel = box(root, 1.75, 0.09, 1.55, mat(0x303536, 0.78, 0.12), -6.45, 0.06, 3.72);
   escapePanel.name = 'roof-freight-hatch-cover';
   box(root, 1.3, 0.035, 0.08, mat(0xe8e6dc, 0.75, 0.01), -6.45, 0.12, 3.34);
   const shaftMouth = box(root, 1.82, 0.035, 1.62, mat(0x080a0a, 0.98, 0.0), -6.45, 0.045, 3.72);
@@ -146,10 +137,8 @@ export function buildRoofBlockout(root) {
   box(freight, 0.42, 0.08, 0.04, tape, -0.72, 1.04, -0.94);
   const control = box(freight, 0.34, 0.62, 0.16, freightDark, 0.7, 1.15, -0.96);
   control.rotation.x = -0.03;
-  cyl(freight, 0.055, 0.035, mat(0x6f8c68, 0.58, 0.16), 0.7, 1.31, -1.06).rotation.x =
-    Math.PI / 2;
-  cyl(freight, 0.055, 0.035, mat(0x8b6a5c, 0.58, 0.16), 0.7, 1.0, -1.06).rotation.x =
-    Math.PI / 2;
+  cyl(freight, 0.055, 0.035, mat(0x6f8c68, 0.58, 0.16), 0.7, 1.31, -1.06).rotation.x = Math.PI / 2;
+  cyl(freight, 0.055, 0.035, mat(0x8b6a5c, 0.58, 0.16), 0.7, 1.0, -1.06).rotation.x = Math.PI / 2;
   label(freight, 'FREIGHT', 0, 2.95, 0, 0.22, '#c9ceca');
 
   // Alley-facing dumpster, below the parapet.

@@ -304,9 +304,12 @@ export function validateSave(value) {
   );
   state.freightElevatorPosition = Math.max(
     -5,
-    Math.min(105, Number.isFinite(Number(value.freightElevatorPosition))
-      ? Number(value.freightElevatorPosition)
-      : 0),
+    Math.min(
+      105,
+      Number.isFinite(Number(value.freightElevatorPosition))
+        ? Number(value.freightElevatorPosition)
+        : 0,
+    ),
   );
   state.freightElevatorTrips = Math.max(
     0,

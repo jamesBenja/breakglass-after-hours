@@ -19,7 +19,8 @@ export const FREIGHT_HISTORY_LAYERS = Object.freeze([
   {
     max: 49,
     title: 'STUDIO YEARS',
-    detail: 'Old session rooms, patch runs, paint lines and the building being adapted again and again.',
+    detail:
+      'Old session rooms, patch runs, paint lines and the building being adapted again and again.',
   },
   {
     max: 67,
@@ -29,7 +30,8 @@ export const FREIGHT_HISTORY_LAYERS = Object.freeze([
   {
     max: 84,
     title: 'OLDER INDUSTRIAL LAYERS',
-    detail: 'Freight rails, tired brick, old electrical work, blocked openings and previous tenants.',
+    detail:
+      'Freight rails, tired brick, old electrical work, blocked openings and previous tenants.',
   },
   {
     max: 100,
@@ -42,7 +44,9 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 
 
 export function historicalLayerAt(position) {
   const value = clamp(position, 0, 100);
-  return FREIGHT_HISTORY_LAYERS.find((layer) => value <= layer.max) ?? FREIGHT_HISTORY_LAYERS.at(-1);
+  return (
+    FREIGHT_HISTORY_LAYERS.find((layer) => value <= layer.max) ?? FREIGHT_HISTORY_LAYERS.at(-1)
+  );
 }
 
 export function freightAligned(position, floorPosition, tolerance = FREIGHT_ALIGNMENT_TOLERANCE) {
@@ -131,7 +135,9 @@ export class FreightElevatorSystem {
 
     if (!['roof', 'alley'].includes(this.activeScene)) return false;
     if (this.activeScene === 'roof' && !this.unlocked()) {
-      const missing = endgameChecklist(this.data(), this.context()).filter((item) => !item.complete);
+      const missing = endgameChecklist(this.data(), this.context()).filter(
+        (item) => !item.complete,
+      );
       this.ui.panel(
         'SEALED FREIGHT HATCH',
         `The roof hatch will not release yet. Scratched into the grey plate: FINISH THE BUILDING. Remaining: ${missing.map((item) => item.label).join(' · ')}.`,
@@ -246,8 +252,11 @@ export class FreightElevatorSystem {
     this.refs.movingTape.style.transform = `translateY(${gaugeOffset}px)`;
 
     const aligned = freightAligned(this.position, target);
-    const relation =
-      aligned ? 'TAPE LINED UP' : offset < 0 ? `${Math.abs(offset).toFixed(1)} HIGH` : `${Math.abs(offset).toFixed(1)} LOW`;
+    const relation = aligned
+      ? 'TAPE LINED UP'
+      : offset < 0
+        ? `${Math.abs(offset).toFixed(1)} HIGH`
+        : `${Math.abs(offset).toFixed(1)} LOW`;
     this.refs.alignment.textContent = `Cage ${this.position.toFixed(1)} · target ${target.toFixed(1)} · ${relation}`;
     this.refs.alignment.classList.toggle('aligned', aligned);
   }
@@ -321,7 +330,9 @@ export class FreightElevatorSystem {
     this.ui.buttons.appendChild(controls);
 
     const exit = this.createButton(
-      aligned ? `Open gate at ${floorLabel(destination)}` : 'Door catches · align the white tape first',
+      aligned
+        ? `Open gate at ${floorLabel(destination)}`
+        : 'Door catches · align the white tape first',
       () => this.exitCabin(),
       'freight-gate-button freight-exit-button',
     );
@@ -372,15 +383,11 @@ export class FreightElevatorSystem {
     this.position = targetFloor;
     this.data().freightElevatorPosition = targetFloor;
     this.data().roofEscapeUnlocked = true;
-    this.data().freightElevatorTrips = Math.min(
-      999,
-      (this.data().freightElevatorTrips ?? 0) + 1,
-    );
+    this.data().freightElevatorTrips = Math.min(999, (this.data().freightElevatorTrips ?? 0) + 1);
     this.data().roofEscapeVisits = Math.min(999, (this.data().roofEscapeVisits ?? 0) + 1);
     this.game.save?.();
 
-    const target =
-      targetScene === 'alley' ? 'alley@freightElevator' : 'roof@freightElevator';
+    const target = targetScene === 'alley' ? 'alley@freightElevator' : 'roof@freightElevator';
     await this.game.sceneManager.request(target);
     this.activeScene = targetScene;
     this.phase = 'landing';
