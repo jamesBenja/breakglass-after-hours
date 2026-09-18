@@ -132,7 +132,6 @@ test('Spectra recorder ignores performances until armed and rejects remote event
   assert.equal(studio.stems.length, 0);
 });
 
-
 test('Spectra recorder uses the shared transport grid for attached live instruments', () => {
   const studio = studioSession();
   studio.quantize = '1/16';

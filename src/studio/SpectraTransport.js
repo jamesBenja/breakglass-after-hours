@@ -9,8 +9,8 @@ export const SPECTRA_GRID_DIVISIONS = {
 export function spectraLoopSeconds(session) {
   return Math.max(
     0.25,
-    ((Math.max(1, Number(session?.loopBars) || 4) * 4 * 60) /
-      Math.max(1, Number(session?.bpm) || 118)),
+    (Math.max(1, Number(session?.loopBars) || 4) * 4 * 60) /
+      Math.max(1, Number(session?.bpm) || 118),
   );
 }
 
@@ -187,7 +187,8 @@ export class SpectraTransport {
     while (this.nextStepContextTime <= horizon) {
       const absoluteStep = this.nextStepIndex;
       const loopStep = ((absoluteStep % this.loopSteps) + this.loopSteps) % this.loopSteps;
-      const swingDelay = absoluteStep % 2 === 1 ? stepDuration * clamp(this.session?.swing, 0, 0.45) : 0;
+      const swingDelay =
+        absoluteStep % 2 === 1 ? stepDuration * clamp(this.session?.swing, 0, 0.45) : 0;
       const scheduledContextTime = this.nextStepContextTime + swingDelay;
       const event = {
         absoluteStep,
@@ -243,9 +244,7 @@ export class SpectraTransport {
 
   setLoopBars(bars) {
     return this.reconfigure((session) => {
-      session.loopBars = [1, 2, 4, 8, 16].includes(Number(bars))
-        ? Number(bars)
-        : session.loopBars;
+      session.loopBars = [1, 2, 4, 8, 16].includes(Number(bars)) ? Number(bars) : session.loopBars;
     });
   }
 

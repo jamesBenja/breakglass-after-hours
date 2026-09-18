@@ -212,9 +212,7 @@ export class KeyboardPerformance {
       ? this.spectraTransport.session?.loopEnabled
         ? Math.max(
             0.25,
-            this.spectraTransport.session.loopBars *
-              4 *
-              (60 / this.spectraTransport.session.bpm),
+            this.spectraTransport.session.loopBars * 4 * (60 / this.spectraTransport.session.bpm),
           )
         : Math.max(0, this.spectraTransport.position())
       : Math.max(0, (now() - this.startedAt) / 1000);

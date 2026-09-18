@@ -635,8 +635,7 @@ export class StudioPlayback {
       for (const media of this.nativeStems.values()) {
         try {
           const duration = Number(media.duration);
-          media.currentTime =
-            Number.isFinite(duration) && duration > 0 ? phase % duration : phase;
+          media.currentTime = Number.isFinite(duration) && duration > 0 ? phase % duration : phase;
         } catch {
           // The periodic native sync pass retries once the stream becomes seekable.
         }

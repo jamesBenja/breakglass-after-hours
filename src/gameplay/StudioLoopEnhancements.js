@@ -397,10 +397,7 @@ function buildLoopPanel(game, ui) {
       : 'live recorder idle'
   }`;
   const actions = [
-    [
-      'OPEN QUANTIZED CLIP LAUNCHER',
-      () => buildClipPanel(game, ui),
-    ],
+    ['OPEN QUANTIZED CLIP LAUNCHER', () => buildClipPanel(game, ui)],
     [
       transportStatus?.running ? '■ STOP SPECTRA MASTER CLOCK' : '▶ START SPECTRA MASTER CLOCK',
       () => {

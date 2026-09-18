@@ -346,15 +346,23 @@ export class ModularSynthSystem {
     };
     const instrumentSync = this.game.multiplayer?.instrumentSync;
     if (instrumentSync?.publishExternal) {
-      instrumentSync.publishExternal(config, { type: 'midi', midi: event.midi }, {
-        resourceId: MODULAR_RESOURCE_ID,
-        offsetSeconds: delay,
-      });
+      instrumentSync.publishExternal(
+        config,
+        { type: 'midi', midi: event.midi },
+        {
+          resourceId: MODULAR_RESOURCE_ID,
+          offsetSeconds: delay,
+        },
+      );
     } else {
-      this.game.spectraRecorder?.captureLocal?.(config, { type: 'midi', midi: event.midi }, {
-        resourceId: MODULAR_RESOURCE_ID,
-        offsetSeconds: delay,
-      });
+      this.game.spectraRecorder?.captureLocal?.(
+        config,
+        { type: 'midi', midi: event.midi },
+        {
+          resourceId: MODULAR_RESOURCE_ID,
+          offsetSeconds: delay,
+        },
+      );
     }
     return true;
   }

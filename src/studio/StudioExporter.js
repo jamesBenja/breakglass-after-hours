@@ -640,10 +640,7 @@ export class StudioExporter {
 
     for (const stem of session.stems) {
       if (selected && !selected.has(stem.id)) continue;
-      if (
-        respectMuteSolo &&
-        (stem.clipActive === false || stem.mute || (anySolo && !stem.solo))
-      )
+      if (respectMuteSolo && (stem.clipActive === false || stem.mute || (anySolo && !stem.solo)))
         continue;
       const input = createChannel(context, stem, master);
       const recording = session.recordings?.get?.(stem.id);
