@@ -11,6 +11,7 @@ const ROOM_ID_PATTERN = /^[a-z0-9][a-z0-9-_]{0,47}$/i;
 const RESOURCE_ID_PATTERN = /^[a-z0-9][a-z0-9:._-]{0,95}$/i;
 const OBJECT_ID_PATTERN = RESOURCE_ID_PATTERN;
 const SCENE_IDS = new Set(['alley', 'downstairs', 'upstairs', 'roof']);
+const MADDOX_STATES = new Set(['roam', 'lead', 'follow', 'sit', 'nap', 'pet', 'belly']);
 const ROLES = new Set([
   'dj',
   'producer',
@@ -66,6 +67,25 @@ function sanitizeAvatar(value = {}) {
   };
 }
 
+function sanitizeMaddoxState(value = {}) {
+  const position = Array.isArray(value.position) ? value.position : [0, 0, 0];
+  return {
+    unlocked: value.unlocked === true,
+    visible: value.visible === true,
+    following: value.following === true,
+    position: [
+      clamp(position[0], -120, 120),
+      clamp(position[1], -20, 80),
+      clamp(position[2], -120, 120),
+    ],
+    rotationY: finite(value.rotationY),
+    state: MADDOX_STATES.has(value.state) ? value.state : 'sit',
+    moving: value.moving === true,
+    petPulse: clamp(value.petPulse),
+    bellyRubPulse: clamp(value.bellyRubPulse),
+  };
+}
+
 function sanitizeState(value = {}) {
   const sceneId = SCENE_IDS.has(value.sceneId) ? value.sceneId : 'alley';
   const position = Array.isArray(value.position) ? value.position : [0, 0, 0];
@@ -81,6 +101,7 @@ function sanitizeState(value = {}) {
     dancing: value.dancing === true,
     seated: value.seated === true,
     grounded: value.grounded !== false,
+    maddox: sanitizeMaddoxState(value.maddox),
     sentAt: Date.now(),
   };
 }
