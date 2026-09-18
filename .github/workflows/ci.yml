@@ -30,12 +30,5 @@ jobs:
       - name: Production build
         run: pnpm build
 
-      - name: Prettier diagnostic
-        run: |
-          pnpm exec prettier --write tests/studio-furniture-ownership.test.js
-          echo "::group::PRETTIER_DIFF"
-          git diff -- tests/studio-furniture-ownership.test.js
-          echo "::endgroup::"
-
       - name: Formatting
         run: pnpm run format:check
