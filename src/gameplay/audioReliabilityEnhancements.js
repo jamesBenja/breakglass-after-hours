@@ -122,16 +122,19 @@ export function installAudioReliabilityEnhancements(game, ui) {
   const arm = () => {
     const nativeResumePending = audio._nativeMediaResumePending === true;
     const contextResumePending = audio._contextResumePending === true;
+    const playbackRecoveryPending = game.audioPlaybackRecoveryPending === true;
     if (
       audio._audioReady &&
       audio.context?.state === 'running' &&
       !nativeResumePending &&
-      !contextResumePending
+      !contextResumePending &&
+      !playbackRecoveryPending
     )
       return;
-    // Once a context exists, resume() is the recovery path: it retries both the WebAudio device
-    // and any native house-DJ media independently. unlock() remains for first-time startup only.
-    const request = audio.context ? audio.resume() : audio.unlock();
+
+    const recovering =
+      nativeResumePending || contextResumePending || playbackRecoveryPending || audio.context;
+    const request = recovering ? (game.resumeAudioPlayback?.() ?? audio.resume()) : audio.unlock();
     void Promise.resolve(request).catch((error) => ui?.warning?.(`Audio: ${error.message}`));
   };
 
