@@ -467,23 +467,22 @@ export class StudioPlayback {
 
   renderStem(stem, step, when) {
     const bus = this.ensureBus(stem).input;
+    const recording = this.session?.recordings.get(stem.id);
+    if (recording && step === 0) {
+      const source = this.audio.context.createBufferSource();
+      source.buffer = recording;
+      source.connect(bus);
+      source.onended = () => {
+        source.disconnect();
+        this.sources.delete(source);
+      };
+      this.sources.add(source);
+      source.start(this.audio.context.currentTime + when);
+    }
+
     const anySolo = this.session?.stems.some((candidate) => candidate.solo);
     if (stem.clipActive === false || stem.mute || (anySolo && !stem.solo)) return;
-    const recording = this.session?.recordings.get(stem.id);
-    if (recording) {
-      if (step === 0) {
-        const source = this.audio.context.createBufferSource();
-        source.buffer = recording;
-        source.connect(bus);
-        source.onended = () => {
-          source.disconnect();
-          this.sources.delete(source);
-        };
-        this.sources.add(source);
-        source.start(this.audio.context.currentTime + when);
-      }
-      return;
-    }
+    if (recording) return;
     if (this.renderPerformance(stem, step, when)) return;
     if (stem.kind === 'drums') {
       if (step % 4 === 0) this.kick(bus, when);
