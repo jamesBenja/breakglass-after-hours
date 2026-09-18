@@ -395,17 +395,26 @@ export class DrumMachineSystem {
       const name = eventName(this.state.kit, track.id, velocity);
       const delay = Math.max(0, Number(baseWhen) || 0) + swingDelay;
       this.game.studioPlayback?.playDrumEvent?.(name, delay);
-      this.game.multiplayer?.instrumentSync?.publishExternal?.(
-        {
-          mode: 'drums',
-          stemKind: 'drums',
-          label: `Spectra ${this.state.kit} drum machine`,
-          volume: velocity >= 2 ? 0.11 : 0.085,
-          duration: this.stepDuration() * 0.8,
-        },
-        { type: 'drum', name },
-        { resourceId: DRUM_MACHINE_RESOURCE_ID, offsetSeconds: delay },
-      );
+      const config = {
+        mode: 'drums',
+        stemKind: 'drums',
+        label: `Spectra ${this.state.kit} drum machine`,
+        volume: velocity >= 2 ? 0.11 : 0.085,
+        duration: this.stepDuration() * 0.8,
+      };
+      const instrumentSync = this.game.multiplayer?.instrumentSync;
+      if (instrumentSync?.publishExternal) {
+        instrumentSync.publishExternal(
+          config,
+          { type: 'drum', name },
+          { resourceId: DRUM_MACHINE_RESOURCE_ID, offsetSeconds: delay },
+        );
+      } else {
+        this.game.spectraRecorder?.captureLocal?.(config, { type: 'drum', name }, {
+          resourceId: DRUM_MACHINE_RESOURCE_ID,
+          offsetSeconds: delay,
+        });
+      }
       hits += 1;
     }
     return hits;
