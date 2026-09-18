@@ -51,7 +51,6 @@ test('Spectra suite furniture is rendered once, not duplicated by the equipment 
   globalThis.document = previousDocument;
 });
 
-
 test('Spectra outboard rack sits beside and faces with the console', () => {
   const definition = createUpstairsDefinition('B');
   const consoleFixture = definition.fixtures.find((fixture) => fixture.id === 'spectra-console');
