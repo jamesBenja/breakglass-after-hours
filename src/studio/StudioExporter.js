@@ -439,6 +439,7 @@ function scheduleBuffer(context, buffer, destination, duration, loop) {
     source.loopEnd = Math.max(0.01, Math.min(buffer.duration, duration));
   }
   source.start(0);
+  if (loop) source.stop(duration);
 }
 
 function sessionMetadata(session, duration) {
@@ -547,7 +548,7 @@ export class StudioExporter {
     this.document.body?.appendChild(link);
     link.click();
     link.remove?.();
-    globalThis.setTimeout?.(() => this.URL.revokeObjectURL(url), 2_000);
+    globalThis.setTimeout?.(() => this.URL.revokeObjectURL(url), 60_000);
     return filename;
   }
 
