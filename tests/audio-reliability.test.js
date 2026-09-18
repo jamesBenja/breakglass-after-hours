@@ -211,6 +211,46 @@ test('iOS interrupted WebAudio does not block house-DJ media from resuming', asy
   assert.equal(resumeCalls, 2);
 });
 
+test('iOS foreground wake can be constructed from real global browser targets without recursion', () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+
+  const windowTarget = {
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const documentTarget = {
+    hidden: false,
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const navigatorTarget = {
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_5 like Mac OS X) AppleWebKit Safari',
+    platform: 'iPhone',
+    maxTouchPoints: 5,
+  };
+
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: windowTarget });
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: documentTarget });
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: navigatorTarget });
+
+  try {
+    const recovery = createIOSForegroundAudioWake({
+      game: { audio: { context: { state: 'running' } } },
+      ui: { warning() {} },
+    });
+    assert.ok(recovery, 'real iPhone defaults create exactly one foreground recovery owner');
+    recovery.dispose();
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
+  }
+});
 test('iOS foreground wake deliberately cycles a running-but-inaudible audio route', async () => {
   const documentListeners = new Map();
   const windowListeners = new Map();

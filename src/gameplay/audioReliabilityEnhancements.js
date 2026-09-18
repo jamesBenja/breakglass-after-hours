@@ -29,7 +29,6 @@ export function createIOSForegroundAudioWake({
     return null;
 
   const audio = game.audio;
-  const foregroundWake = createIOSForegroundAudioWake({ game, ui });
   let armed = false;
   let timer = null;
   let wakePromise = null;
