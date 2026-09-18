@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - feat/multiplayer-phase-2-shared-world
-      - main
 permissions:
   contents: read
   pages: write
@@ -16,6 +15,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/feat/multiplayer-phase-2-shared-world'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -80,6 +80,7 @@ jobs:
           path: dist
 
   deploy:
+    if: github.ref == 'refs/heads/feat/multiplayer-phase-2-shared-world'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
