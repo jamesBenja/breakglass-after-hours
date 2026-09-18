@@ -112,6 +112,7 @@ export class Game {
       this.keyboardPerformance.stop(false);
       this.studioPlayback.stop();
       this.dj.stop();
+      this.partyLife?.houseDj?.stopHouseAudio?.(0);
       this.audio.stop();
       this.micRecorder.cancel();
     };
