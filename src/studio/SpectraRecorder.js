@@ -3,7 +3,10 @@ const clockNow = () => globalThis.performance?.now?.() ?? Date.now();
 
 function loopSeconds(session) {
   if (!session?.loopEnabled) return 0;
-  return Math.max(0.25, ((Number(session.loopBars) || 4) * 4 * 60) / Math.max(1, Number(session.bpm) || 118));
+  return Math.max(
+    0.25,
+    ((Number(session.loopBars) || 4) * 4 * 60) / Math.max(1, Number(session.bpm) || 118),
+  );
 }
 
 function kindFor(config = {}) {
@@ -23,8 +26,7 @@ function eventsForCapture(event = {}) {
     return [{ drum: event.name.slice(0, 24), delay: 0 }];
   }
   if (event.type === 'chord' && Array.isArray(event.midis)) {
-    const notes =
-      event.direction === 'up' ? [...event.midis].reverse() : [...event.midis];
+    const notes = event.direction === 'up' ? [...event.midis].reverse() : [...event.midis];
     return notes.slice(0, 8).map((midi, index) => ({
       ...midiEvent(midi),
       delay: index * 0.021,
@@ -95,10 +97,22 @@ export class SpectraRecorder {
     return Math.max(0, (clockNow() - this.startedAt) / 1000 + offset);
   }
 
-  capture({ playerId = 'local', playerName = 'Player', resourceId = 'instrument', config = {}, event = {}, offsetSeconds = 0, source = 'spectra-live-capture' } = {}) {
+  capture(
+    {
+      playerId = 'local',
+      playerName = 'Player',
+      resourceId = 'instrument',
+      config = {},
+      event = {},
+      offsetSeconds = 0,
+      source = 'spectra-live-capture',
+    } = {},
+  ) {
     if (!this.armed) return false;
     this.beginOnFirstEvent(offsetSeconds);
-    const laneId = [playerId || 'local', resourceId || config.mode || 'instrument'].join(':').slice(0, 96);
+    const laneId = [playerId || 'local', resourceId || config.mode || 'instrument']
+      .join(':')
+      .slice(0, 96);
     let lane = this.lanes.get(laneId);
     if (!lane) {
       lane = {
@@ -114,7 +128,10 @@ export class SpectraRecorder {
           volume: clamp(config.volume ?? 0.065, 0.01, 0.22),
           duration: clamp(config.duration ?? 0.42, 0.06, 1.5),
           octaveLayer: config.octaveLayer === true,
-          processing: config.processing && typeof config.processing === 'object' ? { ...config.processing } : null,
+          processing:
+            config.processing && typeof config.processing === 'object'
+              ? { ...config.processing }
+              : null,
         },
         source,
         events: [],
@@ -143,7 +160,8 @@ export class SpectraRecorder {
   }
 
   captureRemote(data = {}, playerId = 'remote') {
-    if (data.sceneId && data.sceneId !== this.game.sceneManager?.current?.definition?.id) return false;
+    if (data.sceneId && data.sceneId !== this.game.sceneManager?.current?.definition?.id)
+      return false;
     const remote = this.game.multiplayer?.remotePlayers?.get?.(playerId);
     return this.capture({
       playerId,
@@ -165,7 +183,8 @@ export class SpectraRecorder {
     }
 
     const session = this.game.studio;
-    const duration = loopSeconds(session) || Math.max(0.25, (clockNow() - this.startedAt) / 1000);
+    const duration =
+      loopSeconds(session) || Math.max(0.25, (clockNow() - this.startedAt) / 1000);
     const committed = [];
     for (const lane of this.lanes.values()) {
       if (!lane.events.length) continue;
