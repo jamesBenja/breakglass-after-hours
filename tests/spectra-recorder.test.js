@@ -35,9 +35,7 @@ test('Spectra live recorder builds separate stems for simultaneous local and rem
   const studio = studioSession();
   let saves = 0;
   let mixUpdates = 0;
-  const remotePlayers = new Map([
-    ['remote-1', { avatar: { displayName: 'Nora' } }],
-  ]);
+  const remotePlayers = new Map([['remote-1', { avatar: { displayName: 'Nora' } }]]);
   const game = {
     studio,
     studioPlayback: {
@@ -96,7 +94,9 @@ test('Spectra live recorder builds separate stems for simultaneous local and rem
   assert.equal(mixUpdates, 1);
 });
 
-test('Spectra recorder ignores performances until armed and rejects remote events from another scene', () => {
+test(
+  'Spectra recorder ignores performances until armed and rejects remote events from another scene',
+  () => {
   const studio = studioSession();
   const game = {
     studio,
@@ -131,5 +131,6 @@ test('Spectra recorder ignores performances until armed and rejects remote event
     false,
   );
   assert.equal(recorder.stop({ commit: true }).length, 0);
-  assert.equal(studio.stems.length, 0);
-});
+    assert.equal(studio.stems.length, 0);
+  },
+);
