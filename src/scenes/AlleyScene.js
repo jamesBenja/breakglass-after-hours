@@ -37,6 +37,24 @@ export const createAlleyScene = async (assets) => {
   const baseUpdate = level.update.bind(level);
   level.update = (dt, audio, playerPosition = null) => {
     baseUpdate(dt, audio, playerPosition);
+
+    // AlleySystem owns the real spill-out count. Mirror that number into a non-dancing visual
+    // crowd so a shutdown visibly empties Below into the alley instead of turning people off.
+    if (level.crowd && level.alley) {
+      const count = Math.max(0, Math.min(level.crowd.max, Math.round(level.alley.occupancy)));
+      level.crowd.attendance = count;
+      level.crowd.targetAttendance = count;
+      level.crowd.danceShare = 0;
+      level.crowd.update(0, {
+        playing: false,
+        energy: 0,
+        bass: 0,
+        beat: 0,
+        vibe: 0,
+        mixQuality: 0.9,
+      });
+    }
+
     const sam = level.npcs?.get?.('sam');
     if (!sam?.group || !playerPosition) return;
     const dx = playerPosition.x - sam.group.position.x;
