@@ -2,7 +2,16 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 
 const midiToFrequency = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
 
 const STEP_VALUES = [null, 0, 3, 5, 7, 10, 12];
-const STEP_LABELS = ['·', 'C', 'D#', 'F', 'G', 'A#', 'C+'];
+const PLAYABLE_STEP_VALUES = STEP_VALUES.filter((value) => value != null);
+const STEP_LABELS = new Map([
+  [null, '·'],
+  [0, 'C'],
+  [3, 'D#'],
+  [5, 'F'],
+  [7, 'G'],
+  [10, 'A#'],
+  [12, 'C+'],
+]);
 const WAVES = ['sawtooth', 'square', 'triangle'];
 const PATCH_CABLES = [
   ['sequencerToVco', 'SEQ → VCO'],
@@ -12,7 +21,24 @@ const PATCH_CABLES = [
   ['lfoToVco', 'LFO → VCO'],
 ];
 
-const defaultSteps = () => [0, null, 7, null, 3, null, 10, null, 0, null, 12, 10, 7, null, 3, null];
+const defaultSteps = () => [
+  0,
+  null,
+  7,
+  null,
+  3,
+  null,
+  10,
+  null,
+  0,
+  null,
+  12,
+  10,
+  7,
+  null,
+  3,
+  null,
+];
 
 export function normalizeModularPatchState(value = {}) {
   const steps = Array.isArray(value.steps) ? value.steps.slice(0, 16) : defaultSteps();
@@ -41,26 +67,33 @@ export function modularPatchIsAudible(patch) {
   return value.vcoToVcf && value.vcfToVca && value.envToVca;
 }
 
+export function modularStepEvent(patch, index) {
+  const value = normalizeModularPatchState(patch);
+  if (!modularPatchIsAudible(value)) return null;
+  const stepIndex = Math.abs(Math.floor(Number(index) || 0)) % 16;
+  const step = value.steps[stepIndex];
+  if (step == null) return null;
+  const sequencePitch = value.sequencerToVco ? step : 0;
+  const lfoPitch = value.lfoToVco && stepIndex % 2 === 1 ? 1 : 0;
+  const midi = value.baseMidi + sequencePitch + lfoPitch;
+  return { midi, frequency: midiToFrequency(midi) };
+}
+
 export function createModularPerformance(patch, bpm = 118, bars = 1) {
   const value = normalizeModularPatchState(patch);
   const safeBpm = clamp(bpm, 50, 220);
   const safeBars = Math.max(1, Math.min(16, Math.floor(Number(bars) || 1)));
   const stepDuration = 60 / safeBpm / 4;
   const events = [];
-  if (modularPatchIsAudible(value)) {
-    for (let bar = 0; bar < safeBars; bar++) {
-      value.steps.forEach((step, index) => {
-        if (step == null) return;
-        const sequencePitch = value.sequencerToVco ? step : 0;
-        const lfoPitch = value.lfoToVco && (index + bar * 16) % 2 === 1 ? 1 : 0;
-        const midi = value.baseMidi + sequencePitch + lfoPitch;
-        events.push({
-          time: (bar * 16 + index) * stepDuration,
-          midi,
-          frequency: midiToFrequency(midi),
-        });
+  for (let bar = 0; bar < safeBars; bar++) {
+    value.steps.forEach((_step, index) => {
+      const event = modularStepEvent(value, index);
+      if (!event) return;
+      events.push({
+        time: (bar * 16 + index) * stepDuration,
+        ...event,
       });
-    }
+    });
   }
   return {
     mode: 'synth',
@@ -86,6 +119,13 @@ export class ModularSynthSystem {
     this.game = game;
     this.ui = ui;
     this.patch = normalizeModularPatchState(game.state?.data?.modularSynth);
+    this.selectedStepValue = 0;
+    this.playing = false;
+    this.currentStep = -1;
+    this.nextStepIndex = 0;
+    this.nextStepTime = 0;
+    this.scheduler = null;
+    this.stepButtons = [];
     this.persist();
   }
 
@@ -99,12 +139,13 @@ export class ModularSynthSystem {
     this.game.save?.();
   }
 
-  appendButton(label, action, parent = this.ui.buttons) {
+  appendButton(label, action, parent = this.ui.buttons, className = '') {
     if (!this.ui.document || !parent) return null;
     const button = this.ui.document.createElement('button');
     button.type = 'button';
     button.textContent = label;
     button.onclick = action;
+    if (className) button.className = className;
     parent.appendChild(button);
     return button;
   }
@@ -115,6 +156,16 @@ export class ModularSynthSystem {
     row.className = className;
     this.ui.buttons.appendChild(row);
     return row;
+  }
+
+  transportBpm() {
+    return clamp(this.game.studio?.bpm ?? 118, 50, 220);
+  }
+
+  stepDuration(index = this.nextStepIndex) {
+    const base = 60 / this.transportBpm() / 4;
+    const swing = clamp(this.game.studio?.swing ?? 0, 0, 0.45);
+    return index % 2 === 0 ? base * (1 + swing) : base * (1 - swing);
   }
 
   patchSummary() {
@@ -130,17 +181,54 @@ export class ModularSynthSystem {
   open() {
     this.patch = normalizeModularPatchState(this.patch);
     const active = this.patch.steps.filter((step) => step != null).length;
+    const transport = this.playing
+      ? `LOOP PLAYING · step ${this.currentStep + 1 || 1}/16 · ${Math.round(this.transportBpm())} BPM. Tap steps or change the patch and you will hear the next pass immediately.`
+      : `Loop stopped · ${Math.round(this.transportBpm())} BPM. Pick a note, tap steps into the grid, then start the live loop.`;
     this.ui.panel(
-      'SPECTRA ROOM · PATCHABLE MODULAR',
-      `${this.patchSummary()} The 16-step sequencer has ${active} active steps. Patch the modules, program the row, audition it, then record the sequence as a stem into the Spectra console and studio loop system.`,
+      'SPECTRA ROOM · LIVE MODULAR SEQUENCER',
+      `${this.patchSummary()} ${transport} ${active} steps are programmed.`,
       [
-        ['Preview one bar', () => this.preview()],
-        ['Record / send loop to Spectra', () => this.recordToConsole()],
-        ['Reset patch + sequence', () => this.reset()],
+        [
+          this.playing ? '■ STOP LIVE LOOP' : '▶ START LIVE LOOP',
+          () => (this.playing ? this.stopLoop() : this.startLoop()),
+        ],
+        ['Record current pattern → Spectra', () => this.recordToConsole()],
       ],
     );
+    this.renderTransportControls();
     this.renderPatchControls();
+    this.renderPitchPalette();
     this.renderSequence();
+    this.renderPatternTools();
+  }
+
+  renderTransportControls() {
+    const row = this.appendRow('row modular-transport-row');
+    this.appendButton(
+      'BPM −5',
+      () => this.adjustTempo(-5),
+      row,
+      'modular-transport-button',
+    );
+    const bpm = this.appendButton(
+      `${Math.round(this.transportBpm())} BPM`,
+      () => {},
+      row,
+      'modular-transport-readout',
+    );
+    if (bpm) bpm.disabled = true;
+    this.appendButton(
+      'BPM +5',
+      () => this.adjustTempo(5),
+      row,
+      'modular-transport-button',
+    );
+    this.appendButton(
+      `SWING ${Math.round((this.game.studio?.swing ?? 0) * 100)}%`,
+      () => this.cycleSwing(),
+      row,
+      'modular-transport-button',
+    );
   }
 
   renderPatchControls() {
@@ -154,60 +242,224 @@ export class ModularSynthSystem {
           this.open();
         },
         cableRow,
+        this.patch[key] ? 'modular-patch active' : 'modular-patch',
       );
     }
 
     const voiceRow = this.appendRow('row modular-voice-row');
     this.appendButton(
-      `VCO: ${this.patch.wave.toUpperCase()}`,
+      `VCO ${this.patch.wave.toUpperCase()}`,
       () => {
         this.patch.wave = cycle(WAVES, this.patch.wave);
         this.save();
         this.open();
       },
       voiceRow,
+      'modular-voice-button',
     );
     this.appendButton(
-      `ROOT: MIDI ${this.patch.baseMidi}`,
+      `ROOT MIDI ${this.patch.baseMidi}`,
       () => {
         this.patch.baseMidi = this.patch.baseMidi >= 60 ? 36 : this.patch.baseMidi + 12;
         this.save();
         this.open();
       },
       voiceRow,
+      'modular-voice-button',
     );
     this.appendButton(
-      `GATE: ${Math.round(this.patch.gate * 100)}%`,
+      `GATE ${Math.round(this.patch.gate * 100)}%`,
       () => {
-        this.patch.gate = this.patch.gate >= 0.9 ? 0.35 : Math.min(0.95, this.patch.gate + 0.15);
+        this.patch.gate =
+          this.patch.gate >= 0.9 ? 0.35 : Math.min(0.95, this.patch.gate + 0.15);
         this.save();
         this.open();
       },
       voiceRow,
+      'modular-voice-button',
     );
   }
 
-  renderSequence() {
-    const row = this.appendRow('row modular-step-row');
-    this.patch.steps.forEach((step, index) => {
-      const labelIndex = STEP_VALUES.findIndex((value) => value === step);
+  renderPitchPalette() {
+    const row = this.appendRow('row modular-pitch-row');
+    for (const value of PLAYABLE_STEP_VALUES) {
       this.appendButton(
-        `${String(index + 1).padStart(2, '0')}·${STEP_LABELS[Math.max(0, labelIndex)]}`,
+        STEP_LABELS.get(value),
         () => {
-          this.patch.steps[index] = cycle(STEP_VALUES, step);
-          this.save();
+          this.selectedStepValue = value;
           this.open();
         },
         row,
+        value === this.selectedStepValue ? 'modular-pitch active' : 'modular-pitch',
       );
+    }
+  }
+
+  stepLabel(index) {
+    const value = this.patch.steps[index];
+    const playhead = this.playing && index === this.currentStep ? '▶ ' : '';
+    return `${playhead}${String(index + 1).padStart(2, '0')}  ${STEP_LABELS.get(value) ?? '·'}`;
+  }
+
+  renderSequence() {
+    this.stepButtons = [];
+    const grid = this.appendRow('modular-step-grid');
+    this.patch.steps.forEach((step, index) => {
+      const button = this.appendButton(
+        this.stepLabel(index),
+        () => this.editStep(index),
+        grid,
+        step == null ? 'modular-step' : 'modular-step active',
+      );
+      if (button) {
+        button.dataset.stepIndex = String(index);
+        button.setAttribute('aria-pressed', step == null ? 'false' : 'true');
+        this.stepButtons[index] = button;
+      }
     });
+    this.updatePlayhead(this.currentStep);
+  }
+
+  renderPatternTools() {
+    const row = this.appendRow('row modular-pattern-tools');
+    this.appendButton(
+      'CLEAR STEPS',
+      () => {
+        this.patch.steps = Array(16).fill(null);
+        this.save();
+        this.open();
+      },
+      row,
+    );
+    this.appendButton(
+      'DEFAULT PATTERN',
+      () => {
+        this.patch.steps = defaultSteps();
+        this.save();
+        this.open();
+      },
+      row,
+    );
+    this.appendButton(
+      'RESET PATCH',
+      () => this.reset(),
+      row,
+    );
+  }
+
+  editStep(index) {
+    const current = this.patch.steps[index];
+    this.patch.steps[index] = current === this.selectedStepValue ? null : this.selectedStepValue;
+    this.save();
+    this.open();
+  }
+
+  adjustTempo(delta) {
+    if (!this.game.studio) return;
+    this.game.studio.bpm = clamp(this.transportBpm() + Number(delta || 0), 50, 220);
+    this.save();
+    if (this.playing)
+      this.game.audio?.updateExternalTransport?.('modular-live', {
+        interval: this.stepDuration(),
+      });
+    this.open();
+  }
+
+  cycleSwing() {
+    if (!this.game.studio) return;
+    const values = [0, 0.1, 0.2, 0.3];
+    const current = values.find((value) => Math.abs(value - this.game.studio.swing) < 0.001) ?? 0;
+    this.game.studio.swing = cycle(values, current);
+    this.save();
+    this.open();
   }
 
   performance(bars = null) {
     const session = this.game.studio;
     const length =
       bars ?? (session?.loopEnabled === true ? Math.max(1, Number(session.loopBars) || 1) : 1);
-    return createModularPerformance(this.patch, session?.bpm ?? 118, length);
+    return createModularPerformance(this.patch, this.transportBpm(), length);
+  }
+
+  triggerStep(index, when = 0) {
+    const event = modularStepEvent(this.patch, index);
+    if (!event) return false;
+    this.game.audio?.tone?.(
+      event.frequency,
+      this.stepDuration(index) * this.patch.gate,
+      this.patch.wave,
+      0.062,
+      Math.max(0, when),
+    );
+    return true;
+  }
+
+  scheduleLiveSteps() {
+    const context = this.game.audio?.context;
+    if (!this.playing || !context || context.state !== 'running') return;
+    const horizon = context.currentTime + 0.045;
+    this.nextStepTime = Math.max(this.nextStepTime, context.currentTime);
+    while (this.nextStepTime <= horizon) {
+      const step = this.nextStepIndex;
+      this.triggerStep(step, this.nextStepTime - context.currentTime);
+      this.updatePlayhead(step);
+      this.nextStepTime += this.stepDuration(step);
+      this.nextStepIndex = (step + 1) % 16;
+    }
+  }
+
+  async startLoop() {
+    if (this.playing) return;
+    try {
+      await this.game.audio?.init?.();
+    } catch {
+      this.ui.warning?.('Audio could not start. Tap the game once and try the modular again.');
+      return;
+    }
+    const context = this.game.audio?.context;
+    if (!context) {
+      this.ui.warning?.('Audio is not available yet. Tap the game once and try again.');
+      return;
+    }
+
+    this.game.studioPlayback?.stop?.();
+    this.game.dj?.stop?.();
+    this.game.audio?.stop?.();
+
+    this.playing = true;
+    this.currentStep = -1;
+    this.nextStepIndex = 0;
+    this.nextStepTime = context.currentTime + 0.025;
+    this.game.audio?.setExternalTransport?.('modular-live', 'Live modular sequencer', this.stepDuration(), {
+      vibe: 0.38,
+      mixQuality: 0.9,
+    });
+    this.scheduleLiveSteps();
+    const timers = this.game.audio?.timers ?? globalThis;
+    this.scheduler = timers.setInterval(() => this.scheduleLiveSteps(), 20);
+    this.open();
+  }
+
+  stopLoop(refresh = true) {
+    const timers = this.game.audio?.timers ?? globalThis;
+    if (this.scheduler != null) timers.clearInterval(this.scheduler);
+    this.scheduler = null;
+    this.playing = false;
+    this.currentStep = -1;
+    this.nextStepIndex = 0;
+    this.game.audio?.clearExternalTransport?.('modular-live');
+    this.updatePlayhead(-1);
+    if (refresh) this.open();
+  }
+
+  updatePlayhead(index) {
+    this.currentStep = Number.isInteger(index) ? index : -1;
+    for (let step = 0; step < this.stepButtons.length; step++) {
+      const button = this.stepButtons[step];
+      if (!button) continue;
+      button.textContent = this.stepLabel(step);
+      button.classList?.toggle?.('playhead', this.playing && step === this.currentStep);
+    }
   }
 
   preview() {
@@ -215,10 +467,9 @@ export class ModularSynthSystem {
     if (!performance.events.length) {
       this.ui.warning?.(
         modularPatchIsAudible(this.patch)
-          ? 'Turn on at least one sequencer step.'
+          ? 'Program at least one active sequencer step.'
           : 'The modular has no complete signal path. Repatch VCO → VCF → VCA and ENV → VCA.',
       );
-      this.open();
       return;
     }
     for (const event of performance.events) {
@@ -254,20 +505,26 @@ export class ModularSynthSystem {
     this.save();
     this.ui.panel(
       'MODULAR LOOP → SPECTRA',
-      `${take.label} is now a console stem. It will play through the same mixer, loop builder, mute/solo, EQ and FX controls as the other studio recordings.`,
+      `${take.label} is now a console stem. The live sequencer can keep running while you decide whether to build another variation.`,
       [
         ...(typeof this.game.showStudioLoopBuilder === 'function'
           ? [['Open loop / song builder', () => this.game.showStudioLoopBuilder()]]
           : []),
-        ['Back to modular', () => this.open()],
+        ['Back to live modular', () => this.open()],
       ],
     );
   }
 
   reset() {
     this.patch = normalizeModularPatchState();
+    this.selectedStepValue = 0;
     this.save();
     this.open();
+  }
+
+  dispose() {
+    this.stopLoop(false);
+    this.stepButtons = [];
   }
 
   handle(target) {
@@ -287,5 +544,12 @@ export function installModularSynthSystem(game, ui) {
     if (modular.handle(target)) return;
     baseDispatch(target);
   };
+  const baseStopAll = game.stopAll?.bind(game);
+  if (baseStopAll) {
+    game.stopAll = (...args) => {
+      modular.stopLoop(false);
+      return baseStopAll(...args);
+    };
+  }
   return modular;
 }
