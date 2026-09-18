@@ -1,4 +1,4 @@
-const INSTRUMENT_ACTIONS = new Set(['drums', 'piano', 'synth', 'instruments', 'amps']);
+const INSTRUMENT_ACTIONS = new Set(['drums', 'piano', 'synth', 'instruments', 'amps', 'modularSynth']);
 const midiToFrequency = (midi) => 440 * Math.pow(2, (Number(midi) - 69) / 12);
 
 function playDrum(audio, name, gain = 1) {
@@ -56,6 +56,9 @@ export class InstrumentSync {
       volume: config.volume,
       duration: config.duration,
       octaveLayer: config.octaveLayer === true,
+      label: config.label,
+      stemKind: config.stemKind,
+      processing: config.processing,
       instrumentVoice: config.instrumentVoice,
       ampCharacter: config.ampCharacter,
     };
@@ -70,26 +73,44 @@ export class InstrumentSync {
     );
   }
 
-  publish(event) {
-    const config = this.configSnapshot();
-    if (!config || !this.canPublish()) return;
-    const claim = this.world.localClaims?.get?.(this.activeResourceId);
+  publishWithConfig(config, event, { resourceId = this.activeResourceId, offsetSeconds = 0 } = {}) {
+    if (!config) return false;
+    this.game.spectraRecorder?.captureLocal?.(config, event, {
+      resourceId: resourceId ?? 'local-instrument',
+      offsetSeconds,
+    });
+    if (
+      this.disposed ||
+      !this.client.joined ||
+      !resourceId ||
+      !this.world.owns(resourceId)
+    )
+      return false;
+    const claim = this.world.localClaims?.get?.(resourceId);
     const playerPosition = this.game.player?.position;
     const position =
       claim?.position ??
       (playerPosition ? [playerPosition.x, playerPosition.y, playerPosition.z] : null);
-    this.client.send({
+    return this.client.send({
       type: 'object_update',
       objectId: 'live-instrument-event',
       data: {
         nonce: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-        resourceId: this.activeResourceId,
+        resourceId,
         sceneId: this.game.sceneManager.current?.definition?.id,
         position,
         config,
         event,
       },
     });
+  }
+
+  publish(event) {
+    return this.publishWithConfig(this.configSnapshot(), event);
+  }
+
+  publishExternal(config, event, options = {}) {
+    return this.publishWithConfig(config, event, options);
   }
 
   patchPerformance() {
@@ -134,6 +155,7 @@ export class InstrumentSync {
         message.by !== this.client.localId &&
         message.data?.event
       ) {
+        this.game.spectraRecorder?.captureRemote?.(message.data, message.by);
         this.playRemote(message.data);
       }
     };
