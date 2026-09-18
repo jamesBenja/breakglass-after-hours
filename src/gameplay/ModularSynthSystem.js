@@ -335,22 +335,27 @@ export class ModularSynthSystem {
     const delay = Math.max(0, Number(when) || 0);
     const duration = this.stepDuration() * this.patch.gate;
     this.game.audio?.tone?.(event.frequency, duration, this.patch.wave, 0.062, delay);
-    this.game.multiplayer?.instrumentSync?.publishExternal?.(
-      {
-        mode: 'synth',
-        stemKind: 'synth',
-        label: 'Spectra modular sequencer',
-        wave: this.patch.wave,
-        volume: 0.062,
-        duration,
-        octaveLayer: false,
-      },
-      { type: 'midi', midi: event.midi },
-      {
+    const config = {
+      mode: 'synth',
+      stemKind: 'synth',
+      label: 'Spectra modular sequencer',
+      wave: this.patch.wave,
+      volume: 0.062,
+      duration,
+      octaveLayer: false,
+    };
+    const instrumentSync = this.game.multiplayer?.instrumentSync;
+    if (instrumentSync?.publishExternal) {
+      instrumentSync.publishExternal(config, { type: 'midi', midi: event.midi }, {
         resourceId: MODULAR_RESOURCE_ID,
         offsetSeconds: delay,
-      },
-    );
+      });
+    } else {
+      this.game.spectraRecorder?.captureLocal?.(config, { type: 'midi', midi: event.midi }, {
+        resourceId: MODULAR_RESOURCE_ID,
+        offsetSeconds: delay,
+      });
+    }
     return true;
   }
 
