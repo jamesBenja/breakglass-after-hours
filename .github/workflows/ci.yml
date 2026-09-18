@@ -24,6 +24,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prettier diagnostic
+        run: |
+          pnpm exec prettier --write src/audio/AcousticZones.js src/audio/AudioEngine.js src/multiplayer/SharedMediaSync.js tests/acoustic-zones.test.js
+          echo "::group::PRETTIER_DIFF"
+          git diff -- src/audio/AcousticZones.js src/audio/AudioEngine.js src/multiplayer/SharedMediaSync.js tests/acoustic-zones.test.js
+          echo "::endgroup::"
+
       - name: Unit tests
         run: pnpm test
 
