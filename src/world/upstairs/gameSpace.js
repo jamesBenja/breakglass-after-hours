@@ -107,7 +107,7 @@ export function createGameSpace() {
       kind: 'equipment',
       rotationY: Math.PI,
     }),
-    prop('neve-side-rack', 461, 821, 0.72, 0.72, 1.72, 0x34383a, {
+    prop('neve-side-rack', 414, 880, 0.72, 0.72, 1.72, 0x34383a, {
       kind: 'equipment',
       rotationY: Math.PI,
     }),
