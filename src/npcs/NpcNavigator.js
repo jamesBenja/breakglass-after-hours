@@ -84,10 +84,36 @@ export class NpcNavigator {
     this.maxVisited = maxVisited;
     this.bounds = boundsFromCollision(collision);
     this.walkableCache = new Map();
+    this.failedPlanCache = new Set();
+    this.cacheRevision = Number(collision?.navigationRevision) || 0;
+  }
+
+  syncCacheRevision() {
+    const revision = Number(this.collision?.navigationRevision) || 0;
+    if (revision === this.cacheRevision) return;
+    this.cacheRevision = revision;
+    this.walkableCache.clear();
+    this.failedPlanCache.clear();
+  }
+
+  clearWalkableCache() {
+    this.walkableCache.clear();
   }
 
   clearCache() {
-    this.walkableCache.clear();
+    this.clearWalkableCache();
+    this.failedPlanCache.clear();
+  }
+
+  failedPlanKey(start, goal) {
+    const quantum = Math.max(0.2, this.resolution * 0.5);
+    const q = (value) => Math.round((Number(value) || 0) / quantum);
+    return `${q(start?.x)},${q(start?.z)}>${q(goal?.x)},${q(goal?.z)}`;
+  }
+
+  rememberFailedPlan(cacheKey) {
+    if (cacheKey) this.failedPlanCache.add(cacheKey);
+    return [];
   }
 
   cellFor(position) {
@@ -106,6 +132,7 @@ export class NpcNavigator {
   }
 
   walkable(point, y = 0) {
+    this.syncCacheRevision();
     const cacheKey = `${Math.round(point.x * 100)},${Math.round(point.z * 100)},${Math.round(y * 100)}`;
     if (this.walkableCache.has(cacheKey)) return this.walkableCache.get(cacheKey);
 
@@ -204,16 +231,23 @@ export class NpcNavigator {
 
   plan(startInput, goalInput) {
     if (!this.collision || !startInput || !goalInput) return [];
+    this.syncCacheRevision();
+    const failureKey = this.failedPlanKey(startInput, goalInput);
+    if (this.failedPlanCache.has(failureKey)) return [];
+
     const y = Number(startInput.y) || 0;
     const start = this.nearestWalkable({ x: startInput.x, y, z: startInput.z });
     const goal = this.nearestWalkable({ x: goalInput.x, y, z: goalInput.z });
-    if (!start || !goal) return [];
+    if (!start || !goal) return this.rememberFailedPlan(failureKey);
 
-    if (this.lineClear(start, goal)) return [{ ...goal }];
+    if (this.lineClear(start, goal)) {
+      this.failedPlanCache.delete(failureKey);
+      return [{ ...goal }];
+    }
 
     const startGrid = this.nearestGridCell(start);
     const goalGrid = this.nearestGridCell(goal);
-    if (!startGrid || !goalGrid) return [];
+    if (!startGrid || !goalGrid) return this.rememberFailedPlan(failureKey);
     const startCell = { ix: startGrid.ix, iz: startGrid.iz };
     const goalCell = { ix: goalGrid.ix, iz: goalGrid.iz };
     const startKey = key(startCell.ix, startCell.iz);
@@ -252,6 +286,7 @@ export class NpcNavigator {
         } else if (!path.length || planarDistance(path.at(-1), goalGrid.point) > 0.1) {
           path.push(goalGrid.point);
         }
+        this.failedPlanCache.delete(failureKey);
         return path;
       }
 
@@ -281,6 +316,6 @@ export class NpcNavigator {
       }
     }
 
-    return [];
+    return this.rememberFailedPlan(failureKey);
   }
 }

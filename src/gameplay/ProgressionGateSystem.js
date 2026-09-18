@@ -47,10 +47,13 @@ export class ProgressionGateSystem {
   setUnlocked(id, unlocked) {
     const gate = this.gates.find((item) => item.config.id === id);
     if (!gate) return false;
-    gate.unlocked = unlocked === true;
+    const nextUnlocked = unlocked === true;
+    const changed = gate.unlocked !== nextUnlocked;
+    gate.unlocked = nextUnlocked;
     gate.obstacle.player = !gate.unlocked;
     gate.obstacle.camera = !gate.unlocked;
     if (gate.mesh) gate.mesh.visible = !gate.unlocked;
+    if (changed) this.collision?.markNavigationChanged?.();
     return true;
   }
 

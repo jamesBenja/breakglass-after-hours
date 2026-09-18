@@ -507,9 +507,8 @@ export class NpcSystem {
       this.resetNavigation(npc, { preserveRetry: true });
       this.deferNavigationRetry(npc);
       npc.navSkipPending = true;
-      // Failed searches are exactly when progression gates may have changed. Clear the
-      // walkability cache after the expensive search, not before every NPC route plan.
-      this.navigator.clearCache();
+      // The navigator caches unreachable plans for the current collision revision, so timed
+      // retries are cheap until a progression gate actually changes.
       return false;
     }
 
@@ -608,7 +607,7 @@ export class NpcSystem {
       this.resetNavigation(npc, { preserveRetry: true });
       this.deferNavigationRetry(npc, 0.25);
       npc.navSkipPending = true;
-      if (this.navigator) this.navigator.clearCache();
+      this.navigator?.clearWalkableCache?.();
       return false;
     }
 
