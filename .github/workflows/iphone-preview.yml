@@ -1,7 +1,6 @@
 name: Live Game Deploy
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - feat/multiplayer-phase-2-shared-world
