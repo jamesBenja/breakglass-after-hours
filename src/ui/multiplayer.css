@@ -432,3 +432,26 @@ body.ui-minimal .live-social-dock {
     max-height: calc(78vh - 64px);
   }
 }
+
+
+/* Portrait phone social HUD: do not stack LIVE / CHAT / PHONE on the game HUD. */
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  #multiplayerPresence {
+    top: max(7px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+  }
+
+  .live-social-dock {
+    left: 50%;
+    right: auto;
+    top: calc(max(8px, env(safe-area-inset-top)) + 142px);
+    bottom: auto;
+    width: min(94vw, 330px);
+    transform: translateX(-50%);
+  }
+
+  .live-social-quickbar {
+    justify-content: center;
+    gap: 8px;
+  }
+}
