@@ -1,10 +1,15 @@
 import { multiplayerAvatar } from '../avatar/profile.js';
+import {
+  CANONICAL_MULTIPLAYER_ROOM,
+  CANONICAL_MULTIPLAYER_SERVER,
+  liveBackendSelection,
+} from '../runtime/LiveBackendPolicy.js';
 import { RemotePlayer } from './RemotePlayer.js';
 import { RealtimeMedia } from './RealtimeMedia.js';
 import { SharedWorld } from './SharedWorld.js';
 
-const DEFAULT_ROOM = 'breakglass-main';
-const DEFAULT_SERVER = 'https://multiplayer-phase2-webrtc-production.up.railway.app';
+const DEFAULT_ROOM = CANONICAL_MULTIPLAYER_ROOM;
+const DEFAULT_SERVER = CANONICAL_MULTIPLAYER_SERVER;
 const LEGACY_SERVERS = new Set([
   'https://multiplayer-phase2-live-production.up.railway.app',
   'https://multiplayer-phase2-production.up.railway.app',
@@ -26,18 +31,7 @@ function websocketUrl(value) {
 }
 
 export function resolveMultiplayerConfig() {
-  const params = new URLSearchParams(location.search);
-  if (params.get('offline') === '1') return { url: null, room: DEFAULT_ROOM };
-  const room =
-    (params.get('room') || DEFAULT_ROOM).replace(/[^a-z0-9-_]/gi, '').slice(0, 48) || DEFAULT_ROOM;
-  const queryServer = params.get('server');
-  if (queryServer) {
-    try {
-      localStorage.setItem('breakglass.multiplayer.server', queryServer);
-    } catch {
-      // Private mode may block storage; the query parameter still works for this session.
-    }
-  }
+  const production = import.meta.env?.PROD === true;
   let stored = null;
   try {
     stored = localStorage.getItem('breakglass.multiplayer.server');
@@ -46,16 +40,34 @@ export function resolveMultiplayerConfig() {
       localStorage.removeItem('breakglass.multiplayer.server');
       stored = null;
     }
+    if (production && stored) {
+      localStorage.removeItem('breakglass.multiplayer.server');
+      stored = null;
+    }
   } catch {
-    // Multiplayer remains optional when storage is blocked.
+    // Multiplayer remains available with the canonical server when storage is blocked.
   }
-  const configured =
-    queryServer ||
-    globalThis.BREAKGLASS_MULTIPLAYER_URL ||
-    import.meta.env?.VITE_MULTIPLAYER_URL ||
-    stored ||
-    DEFAULT_SERVER;
-  return { url: websocketUrl(configured), room };
+
+  const selection = liveBackendSelection({
+    search: location.search,
+    production,
+    globalServer: globalThis.BREAKGLASS_MULTIPLAYER_URL,
+    envServer: import.meta.env?.VITE_MULTIPLAYER_URL,
+    storedServer: stored,
+  });
+
+  if (!production && selection.queryServer) {
+    try {
+      localStorage.setItem('breakglass.multiplayer.server', selection.queryServer);
+    } catch {
+      // Private mode may block storage; the query parameter still works for this session.
+    }
+  }
+
+  return {
+    url: selection.offline ? null : websocketUrl(selection.server),
+    room: selection.room,
+  };
 }
 
 function safeSend(socket, payload) {
