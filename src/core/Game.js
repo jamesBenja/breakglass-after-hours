@@ -40,6 +40,7 @@ export class Game {
     this.fps = 60;
     this.evacuationStarted = false;
     this.lastPoliceVisits = 0;
+    this.localAudioPriorityKey = '';
     let storage = options.storage;
     if (!('storage' in options)) {
       try {
@@ -393,6 +394,36 @@ export class Game {
     });
   }
 
+  updateLocalAudioPriority() {
+    let owner = null;
+    let duck = 0.32;
+
+    if (this.arcade?.active) {
+      owner = 'gameplay';
+      duck = 0.16;
+    } else if (
+      this.freightElevator?.phase === 'inside' ||
+      this.freightElevator?.holdTimer != null
+    ) {
+      owner = 'gameplay';
+      duck = 0.18;
+    } else if (this.roofEndgame?.acRepairActive === true) {
+      owner = 'gameplay';
+      duck = 0.2;
+    } else if (this.djLesson?.mode === 'lesson' || this.djLesson?.mode === 'proficiency') {
+      owner = 'dj';
+      duck = 0.22;
+    } else if (this.keyboardPerformance?.active) {
+      owner = 'gameplay';
+      duck = 0.24;
+    }
+
+    const key = `${owner ?? 'none'}:${duck}`;
+    if (key === this.localAudioPriorityKey) return;
+    this.audio.setPrioritySource?.(owner, duck);
+    this.localAudioPriorityKey = key;
+  }
+
   update(now, movementOverride = null) {
     const elapsed = this.lastTime == null ? 0 : (now - this.lastTime) / 1000;
     this.lastTime = now;
@@ -433,6 +464,7 @@ export class Game {
       } else {
         this.input.clear();
       }
+      this.updateLocalAudioPriority();
       this.barService.update(dt);
       this.dj.update(dt);
       const currentLevel = this.sceneManager.current;
