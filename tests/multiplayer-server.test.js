@@ -89,6 +89,17 @@ const state = (x = 0) => ({
   dancing: false,
   seated: false,
   grounded: true,
+  maddox: {
+    unlocked: false,
+    visible: false,
+    following: false,
+    position: [0, 0, 0],
+    rotationY: 0,
+    state: 'sit',
+    moving: false,
+    petPulse: 0,
+    bellyRubPulse: 0,
+  },
 });
 
 test('multiplayer server owns shared resources, world state, chat and media signaling', async (t) => {
@@ -122,12 +133,36 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   assert.equal(welcomeB.players[0].avatar.displayName, 'James');
   assert.equal(joined.player.avatar.displayName, 'Nora');
 
-  b.send({ type: 'state', state: { ...state(6), sceneId: 'downstairs', dancing: true } });
+  b.send({
+    type: 'state',
+    state: {
+      ...state(6),
+      sceneId: 'upstairs',
+      dancing: true,
+      maddox: {
+        unlocked: true,
+        visible: true,
+        following: true,
+        position: [5.2, 0, 1.4],
+        rotationY: 0.9,
+        state: 'lead',
+        moving: true,
+        petPulse: 0.3,
+        bellyRubPulse: 0,
+      },
+    },
+  });
   const movement = await a.next('state');
   assert.equal(movement.id, welcomeB.id);
-  assert.equal(movement.state.sceneId, 'downstairs');
+  assert.equal(movement.state.sceneId, 'upstairs');
   assert.equal(movement.state.position[0], 6);
   assert.equal(movement.state.dancing, true);
+  assert.equal(movement.state.maddox.unlocked, true);
+  assert.equal(movement.state.maddox.visible, true);
+  assert.equal(movement.state.maddox.following, true);
+  assert.deepEqual(movement.state.maddox.position, [5.2, 0, 1.4]);
+  assert.equal(movement.state.maddox.state, 'lead');
+  assert.equal(movement.state.maddox.moving, true);
 
   b.send({ type: 'emote', kind: 'highfive', targetId: welcomeA.id });
   const emote = await a.next('emote');
