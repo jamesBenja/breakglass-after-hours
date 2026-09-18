@@ -336,7 +336,6 @@ export class MaddoxSystem {
   }
 
   animatePose(dt, moving = false) {
-    this.elapsed += 0;
     const belly = this.state === 'belly';
     const gait = Math.sin(this.elapsed * 9.2);
     for (let i = 0; i < this.legPivots.length; i++) {
