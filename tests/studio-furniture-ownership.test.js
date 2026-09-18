@@ -33,7 +33,12 @@ test('Spectra suite furniture is rendered once, not duplicated by the equipment 
     .map((fixture) => fixture.id)
     .filter((id) => id?.startsWith('mix-sofa-') || id === 'mix-coffee-table');
 
-  assert.ok(furnitureIds.length >= 2, 'expected Spectra suite furniture fixtures');
+  assert.equal(
+    definition.fixtures.some((fixture) => fixture.id === 'mix-sofa-side'),
+    false,
+    'the Spectra doorway area should not contain a loveseat fixture',
+  );
+  assert.ok(furnitureIds.length >= 2, 'expected remaining Spectra suite furniture fixtures');
 
   for (const id of furnitureIds) {
     const matches = [];
