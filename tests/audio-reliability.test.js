@@ -158,7 +158,6 @@ test('DJ STOP cancels a PLAY that is still waiting for the iPhone audio unlock',
   globalThis.window = originalWindow;
 });
 
-
 test('iOS interrupted WebAudio does not block house-DJ media from resuming', async () => {
   let resumeCalls = 0;
   const context = {
@@ -189,13 +188,25 @@ test('iOS interrupted WebAudio does not block house-DJ media from resuming', asy
     resumeAfterSuspend: true,
   });
 
-  assert.equal(await audio.resume(), false, 'device recovery can remain pending after visibility return');
+  assert.equal(
+    await audio.resume(),
+    false,
+    'device recovery can remain pending after visibility return',
+  );
   assert.equal(audio._contextResumePending, true);
   assert.equal(audio._nativeMediaResumePending, false);
-  assert.equal(mediaPlayCalls, 1, 'native house-DJ media still restarts despite WebAudio failure');
+  assert.equal(
+    mediaPlayCalls,
+    1,
+    'native house-DJ media still restarts despite WebAudio failure',
+  );
   assert.equal(element.paused, false);
 
-  assert.equal(await audio.resume(), true, 'a later gesture can recover the interrupted AudioContext');
+  assert.equal(
+    await audio.resume(),
+    true,
+    'a later gesture can recover the interrupted AudioContext',
+  );
   assert.equal(context.state, 'running');
   assert.equal(audio._contextResumePending, false);
   assert.equal(resumeCalls, 2);
