@@ -82,6 +82,7 @@ export class HouseDjSystem {
     this.nextMixAt = Infinity;
     this.programTrackDuration = 0;
     this.programStartedAtMs = 0;
+    this.sharedFollower = false;
   }
 
   get selected() {
@@ -345,6 +346,26 @@ export class HouseDjSystem {
     return true;
   }
 
+  async applySharedTransport({ djId, programIndex = 0, playing = false, offset = 0 } = {}) {
+    if (!HOUSE_DJ_IDS.includes(djId)) return false;
+    this.sharedFollower = true;
+    this.stopHouseAudio(0);
+    this.selectedId = djId;
+    this.game.state.data.houseDjId = djId;
+    this.programIndex =
+      Math.max(0, Math.floor(Number(programIndex) || 0)) % Math.max(1, this.fallbackProgram.length);
+    this.programRunning = false;
+    this.nextMixAt = Infinity;
+    this.applyLook();
+    this.game.save();
+    if (playing) await this.start({ offset });
+    return true;
+  }
+
+  setSharedFollower(active) {
+    this.sharedFollower = active === true;
+  }
+
   panel() {
     this.ui.panel(
       'HOUSE DJ · PRODUCTION DESK',
@@ -403,13 +424,19 @@ export class HouseDjSystem {
     // A programmed NPC set is building-wide transport. Begin the incoming track before the
     // outgoing track ends so the overlap is a real mix on one spatial house-dj source bus.
     if (
+      !this.sharedFollower &&
       this.programRunning &&
       Number.isFinite(this.nextMixAt) &&
       this.game.audio.context?.currentTime >= this.nextMixAt
     ) {
       this.nextMixAt = Infinity;
       this.advanceProgram();
-    } else if (this.programRunning && !Number.isFinite(this.nextMixAt) && !this.isHouseAudio()) {
+    } else if (
+      !this.sharedFollower &&
+      this.programRunning &&
+      !Number.isFinite(this.nextMixAt) &&
+      !this.isHouseAudio()
+    ) {
       // Native/fallback media cannot be pre-scheduled as decoded WebAudio. Preserve the old
       // end-of-track continuation behavior as a compatibility fallback, still using the same bus.
       this.advanceProgram();
@@ -418,11 +445,11 @@ export class HouseDjSystem {
 
     if (!downstairs) return;
     this.rotationTimer -= dt;
-    if (this.rotationTimer <= 0 && this.isHouseAudio()) {
+    if (!this.sharedFollower && this.rotationTimer <= 0 && this.isHouseAudio()) {
       void this.select(this.next());
       return;
     }
-    if (!this.game.audio.playing) void this.start();
+    if (!this.sharedFollower && !this.game.audio.playing) void this.start();
   }
 
   dispose() {
