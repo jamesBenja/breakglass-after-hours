@@ -50,6 +50,7 @@ export class StudioPlayback {
     this.bpm = 118;
     this.transportOffset = 0;
     this.transportStartedAt = 0;
+    this.previewDrumInput = null;
   }
 
   get playing() {
@@ -192,14 +193,45 @@ export class StudioPlayback {
     source.stop(start + duration + 0.04);
   }
 
-  kick(destination, when = 0) {
+  sweptOscillator(
+    startFrequency,
+    endFrequency,
+    duration,
+    destination,
+    { type = 'sine', volume = 0.16, when = 0 } = {},
+  ) {
+    const context = this.audio.context;
+    const source = context.createOscillator();
+    const gain = context.createGain();
+    const start = context.currentTime + when;
+    source.type = type;
+    source.frequency.setValueAtTime(Math.max(20, startFrequency), start);
+    source.frequency.exponentialRampToValueAtTime(
+      Math.max(20, endFrequency),
+      start + Math.max(0.02, duration),
+    );
+    gain.gain.setValueAtTime(Math.max(0.0002, volume), start);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + Math.max(0.03, duration));
+    source.connect(gain);
+    gain.connect(destination);
+    source.onended = () => {
+      source.disconnect();
+      gain.disconnect();
+      this.sources.delete(source);
+    };
+    this.sources.add(source);
+    source.start(start);
+    source.stop(start + duration + 0.04);
+  }
+
+  kick(destination, when = 0, level = 1) {
     const context = this.audio.context;
     const source = context.createOscillator();
     const gain = context.createGain();
     const start = context.currentTime + when;
     source.frequency.setValueAtTime(125, start);
     source.frequency.exponentialRampToValueAtTime(42, start + 0.18);
-    gain.gain.setValueAtTime(0.23, start);
+    gain.gain.setValueAtTime(0.23 * clamp(level, 0, 1.5), start);
     gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
     source.connect(gain);
     gain.connect(destination);
@@ -239,30 +271,135 @@ export class StudioPlayback {
     source.start(context.currentTime + when);
   }
 
-  renderDrumEvent(name, bus, when) {
-    switch (name) {
+  drumPreviewDestination() {
+    if (!this.audio.context) return null;
+    if (!this.previewDrumInput) {
+      this.previewDrumInput = this.audio.context.createGain();
+      this.previewDrumInput.gain.value = 0.82;
+      this.previewDrumInput.connect(this.audio.sourceDestination?.('studio') ?? this.audio.master);
+    }
+    return this.previewDrumInput;
+  }
+
+  playDrumEvent(name, when = 0, level = 1) {
+    const destination = this.drumPreviewDestination();
+    if (!destination) return false;
+    this.renderDrumEvent(name, destination, Math.max(0, Number(when) || 0), level);
+    return true;
+  }
+
+  renderDrumEvent(name, bus, when, gain = 1) {
+    const raw = String(name || '').toLowerCase();
+    const accent = raw.endsWith('-accent');
+    const normalized = accent ? raw.slice(0, -7) : raw;
+    const match = normalized.match(/^(808|909|dmx|linn)-(.+)$/);
+    const level = clamp(Number(gain) || 0, 0, 1.5) * (accent ? 1.2 : 1);
+
+    if (match) {
+      const kit = match[1];
+      const voice = match[2];
+      const profiles = {
+        '808': { kick: [168, 42, 0.42, 0.23], snare: [172, 0.11, 0.07, 0.075], tom: 104 },
+        '909': { kick: [148, 48, 0.25, 0.245], snare: [196, 0.085, 0.085, 0.095], tom: 118 },
+        dmx: { kick: [122, 52, 0.18, 0.21], snare: [212, 0.075, 0.07, 0.08], tom: 126 },
+        linn: { kick: [112, 54, 0.16, 0.19], snare: [188, 0.095, 0.065, 0.075], tom: 132 },
+      };
+      const profile = profiles[kit];
+
+      if (voice === 'kick') {
+        this.sweptOscillator(profile.kick[0], profile.kick[1], profile.kick[2], bus, {
+          type: kit === 'dmx' ? 'triangle' : 'sine',
+          volume: profile.kick[3] * level,
+          when,
+        });
+        if (kit !== '808')
+          this.noise(bus, when, 0.018, (kit === '909' ? 0.028 : 0.018) * level);
+        return;
+      }
+      if (voice === 'snare') {
+        this.oscillator(profile.snare[0], profile.snare[1], bus, {
+          type: kit === 'dmx' ? 'square' : 'triangle',
+          volume: profile.snare[2] * level,
+          when,
+        });
+        this.noise(bus, when + 0.006, kit === '909' ? 0.11 : 0.085, profile.snare[3] * level);
+        return;
+      }
+      if (voice === 'clap') {
+        const volume = (kit === '909' ? 0.09 : kit === 'dmx' ? 0.075 : 0.065) * level;
+        for (const offset of [0, 0.013, 0.027]) this.noise(bus, when + offset, 0.028, volume);
+        this.noise(bus, when + 0.042, kit === 'linn' ? 0.07 : 0.1, volume * 0.72);
+        return;
+      }
+      if (voice === 'closed-hat') {
+        this.noise(bus, when, kit === '808' ? 0.032 : 0.042, (kit === '909' ? 0.075 : 0.06) * level);
+        return;
+      }
+      if (voice === 'open-hat') {
+        this.noise(bus, when, kit === '909' ? 0.19 : 0.145, (kit === '909' ? 0.08 : 0.067) * level);
+        return;
+      }
+      if (voice === 'low-tom') {
+        this.sweptOscillator(profile.tom * 1.15, profile.tom, kit === '808' ? 0.31 : 0.2, bus, {
+          type: 'sine',
+          volume: 0.1 * level,
+          when,
+        });
+        return;
+      }
+      if (voice === 'cowbell') {
+        const root = kit === '808' ? 540 : kit === '909' ? 610 : kit === 'dmx' ? 585 : 515;
+        this.oscillator(root, 0.11, bus, { type: 'square', volume: 0.045 * level, when });
+        this.oscillator(root * 1.48, 0.09, bus, {
+          type: 'square',
+          volume: 0.03 * level,
+          when: when + 0.002,
+        });
+        return;
+      }
+      if (voice === 'rim') {
+        const frequency = kit === 'linn' ? 1420 : kit === 'dmx' ? 1760 : 1580;
+        this.oscillator(frequency, 0.035, bus, {
+          type: 'triangle',
+          volume: 0.065 * level,
+          when,
+        });
+        this.noise(bus, when, 0.022, 0.025 * level);
+        return;
+      }
+    }
+
+    switch (normalized) {
       case 'kick':
-        this.kick(bus, when);
+        this.kick(bus, when, level);
         break;
       case 'snare':
-        this.oscillator(185, 0.09, bus, { type: 'triangle', volume: 0.075, when });
-        this.noise(bus, when + 0.008, 0.08, 0.085);
+        this.oscillator(185, 0.09, bus, {
+          type: 'triangle',
+          volume: 0.075 * level,
+          when,
+        });
+        this.noise(bus, when + 0.008, 0.08, 0.085 * level);
         break;
       case 'closed-hat':
-        this.noise(bus, when, 0.035, 0.06);
+        this.noise(bus, when, 0.035, 0.06 * level);
         break;
       case 'open-hat':
-        this.noise(bus, when, 0.14, 0.07);
+        this.noise(bus, when, 0.14, 0.07 * level);
         break;
       case 'low-tom':
-        this.oscillator(112, 0.22, bus, { type: 'sine', volume: 0.1, when });
+        this.oscillator(112, 0.22, bus, { type: 'sine', volume: 0.1 * level, when });
         break;
       case 'high-tom':
-        this.oscillator(176, 0.18, bus, { type: 'sine', volume: 0.085, when });
+        this.oscillator(176, 0.18, bus, { type: 'sine', volume: 0.085 * level, when });
         break;
       case 'crash':
-        this.noise(bus, when, 0.42, 0.08);
-        this.oscillator(420, 0.34, bus, { type: 'triangle', volume: 0.035, when });
+        this.noise(bus, when, 0.42, 0.08 * level);
+        this.oscillator(420, 0.34, bus, {
+          type: 'triangle',
+          volume: 0.035 * level,
+          when,
+        });
         break;
     }
   }
@@ -546,6 +683,8 @@ export class StudioPlayback {
       for (const node of Object.values(bus)) node?.disconnect?.();
     }
     this.buses.clear();
+    this.previewDrumInput?.disconnect?.();
+    this.previewDrumInput = null;
     this.assetBuffers.clear();
     this.session = null;
   }
