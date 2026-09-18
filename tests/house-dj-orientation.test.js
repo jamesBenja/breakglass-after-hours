@@ -8,7 +8,6 @@ test('house DJ roster remains intact through orientation pass', () => {
   assert.ok(HOUSE_DJS.some((dj) => dj.id === 'kaytranada'));
 });
 
-
 test('house DJ snapshots and recreates decoded playback after Safari backgrounding', async () => {
   const externalTransports = new Map([['house-dj', { owner: 'house-dj' }]]);
   let stopped = 0;
