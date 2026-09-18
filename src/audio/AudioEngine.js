@@ -39,7 +39,11 @@ export class AudioEngine {
 
   get activeExternalTransport() {
     const values = [...this.externalTransports.values()];
-    return values[values.length - 1] ?? null;
+    for (let index = values.length - 1; index >= 0; index--) {
+      const transport = values[index];
+      if (this.sourceGain(transport.owner) > 0.001) return transport;
+    }
+    return null;
   }
 
   get label() {
@@ -47,7 +51,7 @@ export class AudioEngine {
   }
 
   get playing() {
-    return this.trackId !== null || this.externalTransports.size > 0 || this.nativeMedia.size > 0;
+    return this.trackId !== null || this.activeExternalTransport !== null;
   }
 
   setExternalTransport(owner, label, interval = 0.125, metrics = {}) {
