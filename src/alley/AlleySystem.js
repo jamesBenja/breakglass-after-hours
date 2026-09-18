@@ -148,6 +148,7 @@ export class AlleySystem {
     this.lastPoliceOutcome = null;
     this.evacuationRequired = false;
     this.evacuationStarted = false;
+    this.policeBustTime = 0;
     this.visual = buildPoliceVisual(root, this.policePosition);
   }
 
@@ -214,6 +215,7 @@ export class AlleySystem {
   beginEvacuation() {
     this.evacuationRequired = true;
     this.evacuationStarted = true;
+    this.policeBustTime = 0;
     this.policePresent = true;
     this.lastPoliceOutcome = 'evacuating';
     this.setPoliceVisible(true);
@@ -253,7 +255,7 @@ export class AlleySystem {
       const model = officer.model;
       model.group.visible = index < 2 || busting;
       if (!model.group.visible) continue;
-      const advance = busting ? Math.min(4.2 + index * 0.45, this.policeResponseTime * 0.34 + 0.6) : 0;
+      const advance = busting ? Math.min(4.2 + index * 0.45, this.policeBustTime * 0.72 + 0.6) : 0;
       model.group.position.set(
         officer.base[0] + advance,
         officer.base[1],
@@ -277,6 +279,8 @@ export class AlleySystem {
   update(dt, metrics = {}) {
     this.elapsed += dt;
     this.policeCooldown = Math.max(0, this.policeCooldown - dt);
+    this.policeBustTime =
+      this.evacuationRequired || this.evacuationStarted ? this.policeBustTime + dt : 0;
     this.updatePoliceLights();
 
     if (this.evacuationStarted) {
@@ -363,8 +367,14 @@ export class AlleySystem {
   dispose() {
     if (!this.visual) return;
     this.visual.group.removeFromParent();
-    this.visual.group.traverse((object) => object.geometry?.dispose?.());
-    for (const item of this.visual.materials) item.dispose();
+    const materials = new Set(this.visual.materials);
+    this.visual.group.traverse((object) => {
+      object.geometry?.dispose?.();
+      if (Array.isArray(object.material)) {
+        for (const material of object.material) materials.add(material);
+      } else if (object.material) materials.add(object.material);
+    });
+    for (const item of materials) item.dispose?.();
     this.visual = null;
   }
 }
