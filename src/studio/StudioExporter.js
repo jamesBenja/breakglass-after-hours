@@ -354,8 +354,8 @@ function drum(context, destination, name, when) {
     const kit = match[1];
     const voice = match[2];
     const profiles = {
-      '808': { kick: [168, 42, 0.42, 0.23], snare: [172, 0.11, 0.07, 0.075], tom: 104 },
-      '909': { kick: [148, 48, 0.25, 0.245], snare: [196, 0.085, 0.085, 0.095], tom: 118 },
+      808: { kick: [168, 42, 0.42, 0.23], snare: [172, 0.11, 0.07, 0.075], tom: 104 },
+      909: { kick: [148, 48, 0.25, 0.245], snare: [196, 0.085, 0.085, 0.095], tom: 118 },
       dmx: { kick: [122, 52, 0.18, 0.21], snare: [212, 0.075, 0.07, 0.08], tom: 126 },
       linn: { kick: [112, 54, 0.16, 0.19], snare: [188, 0.095, 0.065, 0.075], tom: 132 },
     };
@@ -367,7 +367,8 @@ function drum(context, destination, name, when) {
         volume: profile.kick[3] * level,
         when,
       });
-      if (kit !== '808') noise(context, destination, when, 0.018, (kit === '909' ? 0.028 : 0.018) * level);
+      if (kit !== '808')
+        noise(context, destination, when, 0.018, (kit === '909' ? 0.028 : 0.018) * level);
       return;
     }
     if (voice === 'snare') {
@@ -376,29 +377,55 @@ function drum(context, destination, name, when) {
         volume: profile.snare[2] * level,
         when,
       });
-      noise(context, destination, when + 0.006, kit === '909' ? 0.11 : 0.085, profile.snare[3] * level);
+      noise(
+        context,
+        destination,
+        when + 0.006,
+        kit === '909' ? 0.11 : 0.085,
+        profile.snare[3] * level,
+      );
       return;
     }
     if (voice === 'clap') {
       const volume = (kit === '909' ? 0.09 : kit === 'dmx' ? 0.075 : 0.065) * level;
-      for (const offset of [0, 0.013, 0.027]) noise(context, destination, when + offset, 0.028, volume);
+      for (const offset of [0, 0.013, 0.027])
+        noise(context, destination, when + offset, 0.028, volume);
       noise(context, destination, when + 0.042, kit === 'linn' ? 0.07 : 0.1, volume * 0.72);
       return;
     }
     if (voice === 'closed-hat') {
-      noise(context, destination, when, kit === '808' ? 0.032 : 0.042, (kit === '909' ? 0.075 : 0.06) * level);
+      noise(
+        context,
+        destination,
+        when,
+        kit === '808' ? 0.032 : 0.042,
+        (kit === '909' ? 0.075 : 0.06) * level,
+      );
       return;
     }
     if (voice === 'open-hat') {
-      noise(context, destination, when, kit === '909' ? 0.19 : 0.145, (kit === '909' ? 0.08 : 0.067) * level);
+      noise(
+        context,
+        destination,
+        when,
+        kit === '909' ? 0.19 : 0.145,
+        (kit === '909' ? 0.08 : 0.067) * level,
+      );
       return;
     }
     if (voice === 'low-tom') {
-      sweptOscillator(context, destination, profile.tom * 1.15, profile.tom, kit === '808' ? 0.31 : 0.2, {
-        type: 'sine',
-        volume: 0.1 * level,
-        when,
-      });
+      sweptOscillator(
+        context,
+        destination,
+        profile.tom * 1.15,
+        profile.tom,
+        kit === '808' ? 0.31 : 0.2,
+        {
+          type: 'sine',
+          volume: 0.1 * level,
+          when,
+        },
+      );
       return;
     }
     if (voice === 'cowbell') {

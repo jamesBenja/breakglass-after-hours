@@ -139,8 +139,7 @@ export function buildStudioEquipment(root, definition) {
           0.01 + row * 0.115,
         );
       }
-      for (let i = 0; i < 4; i++)
-        cyl(group, 0.035, 0.04, cream, 0.19 + i * 0.12, 1.035, -0.2);
+      for (let i = 0; i < 4; i++) cyl(group, 0.035, 0.04, cream, 0.19 + i * 0.12, 1.035, -0.2);
       label(root, 'RHYTHM', group.position.x, 1.55, group.position.z, 0.22, '#ffd99e');
     } else if (fixture.id === 'piano-body') {
       box(group, w, 0.62, d, wood, 0, 0.74, 0);

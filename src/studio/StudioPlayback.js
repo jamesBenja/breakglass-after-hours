@@ -303,8 +303,8 @@ export class StudioPlayback {
       const kit = match[1];
       const voice = match[2];
       const profiles = {
-        '808': { kick: [168, 42, 0.42, 0.23], snare: [172, 0.11, 0.07, 0.075], tom: 104 },
-        '909': { kick: [148, 48, 0.25, 0.245], snare: [196, 0.085, 0.085, 0.095], tom: 118 },
+        808: { kick: [168, 42, 0.42, 0.23], snare: [172, 0.11, 0.07, 0.075], tom: 104 },
+        909: { kick: [148, 48, 0.25, 0.245], snare: [196, 0.085, 0.085, 0.095], tom: 118 },
         dmx: { kick: [122, 52, 0.18, 0.21], snare: [212, 0.075, 0.07, 0.08], tom: 126 },
         linn: { kick: [112, 54, 0.16, 0.19], snare: [188, 0.095, 0.065, 0.075], tom: 132 },
       };
@@ -316,8 +316,7 @@ export class StudioPlayback {
           volume: profile.kick[3] * level,
           when,
         });
-        if (kit !== '808')
-          this.noise(bus, when, 0.018, (kit === '909' ? 0.028 : 0.018) * level);
+        if (kit !== '808') this.noise(bus, when, 0.018, (kit === '909' ? 0.028 : 0.018) * level);
         return;
       }
       if (voice === 'snare') {
@@ -336,7 +335,12 @@ export class StudioPlayback {
         return;
       }
       if (voice === 'closed-hat') {
-        this.noise(bus, when, kit === '808' ? 0.032 : 0.042, (kit === '909' ? 0.075 : 0.06) * level);
+        this.noise(
+          bus,
+          when,
+          kit === '808' ? 0.032 : 0.042,
+          (kit === '909' ? 0.075 : 0.06) * level,
+        );
         return;
       }
       if (voice === 'open-hat') {

@@ -207,9 +207,7 @@ export class DrumMachineSystem {
 
   open() {
     this.state = normalizeDrumMachineState(this.state);
-    const status = this.playing
-      ? `PLAYING · step ${this.currentStep + 1 || 1}/16`
-      : 'STOPPED';
+    const status = this.playing ? `PLAYING · step ${this.currentStep + 1 || 1}/16` : 'STOPPED';
     this.ui.panel(
       'SPECTRA · RHYTHM PROGRAMMER',
       `${this.state.kit} voice bank · pattern ${this.state.selectedPattern} · ${status} · ${Math.round(this.transportBpm())} BPM · swing ${Math.round(this.transportSwing() * 100)}%. ${this.activeStepCount()} programmed hits. Tap a step once for a hit, twice for an accent.`,
@@ -410,10 +408,14 @@ export class DrumMachineSystem {
           { resourceId: DRUM_MACHINE_RESOURCE_ID, offsetSeconds: delay },
         );
       } else {
-        this.game.spectraRecorder?.captureLocal?.(config, { type: 'drum', name }, {
-          resourceId: DRUM_MACHINE_RESOURCE_ID,
-          offsetSeconds: delay,
-        });
+        this.game.spectraRecorder?.captureLocal?.(
+          config,
+          { type: 'drum', name },
+          {
+            resourceId: DRUM_MACHINE_RESOURCE_ID,
+            offsetSeconds: delay,
+          },
+        );
       }
       hits += 1;
     }
