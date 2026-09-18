@@ -123,6 +123,7 @@ export class RoofSystem {
   }
 
   syncGentrification(done) {
+    if (this.gentrificationAge >= 0) return;
     const oldSkyline = this.sceneObject('roof-skyline-old');
     const newSkyline = this.sceneObject('roof-skyline-gentrified');
     if (done) {
