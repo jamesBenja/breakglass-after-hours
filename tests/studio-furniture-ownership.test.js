@@ -83,41 +83,28 @@ test('Spectra outboard rack sits beside the modular synth without blocking tape 
   );
 });
 
-test(
-  'Neve outboard rack sits beside the tape machine and clear of the console',
-  () => {
-    const definition = createUpstairsDefinition('B');
-    const consoleFixture = definition.fixtures.find((fixture) => fixture.id === 'neve-console');
-    const rackFixture = definition.fixtures.find((fixture) => fixture.id === 'neve-side-rack');
-    const tapeFixture = definition.fixtures.find((fixture) => fixture.id === 'neve-tape-machine');
+test('Neve outboard rack sits beside the tape machine and clear of the console', () => {
+  const definition = createUpstairsDefinition('B');
+  const consoleFixture = definition.fixtures.find((fixture) => fixture.id === 'neve-console');
+  const rackFixture = definition.fixtures.find((fixture) => fixture.id === 'neve-side-rack');
+  const tapeFixture = definition.fixtures.find((fixture) => fixture.id === 'neve-tape-machine');
 
-    assert.ok(consoleFixture, 'expected Neve console fixture');
-    assert.ok(rackFixture, 'expected Neve outboard rack fixture');
-    assert.ok(tapeFixture, 'expected Neve tape machine fixture');
+  assert.ok(consoleFixture, 'expected Neve console fixture');
+  assert.ok(rackFixture, 'expected Neve outboard rack fixture');
+  assert.ok(tapeFixture, 'expected Neve tape machine fixture');
 
-    const rackCenterX = (rackFixture.x1 + rackFixture.x2) / 2;
-    const rackCenterZ = (rackFixture.z1 + rackFixture.z2) / 2;
-    const tapeCenterX = (tapeFixture.x1 + tapeFixture.x2) / 2;
-    const tapeCenterZ = (tapeFixture.z1 + tapeFixture.z2) / 2;
-    const consoleCenterZ = (consoleFixture.z1 + consoleFixture.z2) / 2;
+  const rackCenterX = (rackFixture.x1 + rackFixture.x2) / 2;
+  const rackCenterZ = (rackFixture.z1 + rackFixture.z2) / 2;
+  const tapeCenterX = (tapeFixture.x1 + tapeFixture.x2) / 2;
+  const tapeCenterZ = (tapeFixture.z1 + tapeFixture.z2) / 2;
+  const consoleCenterZ = (consoleFixture.z1 + consoleFixture.z2) / 2;
 
-    assert.ok(rackCenterX > tapeCenterX, 'rack should sit directly beside the tape machine');
-    assert.ok(
-      rackFixture.x1 - tapeFixture.x2 < 0.3,
-      'rack should be adjacent to the tape machine',
-    );
-    assert.ok(
-      Math.abs(rackCenterZ - tapeCenterZ) < 0.05,
-      'rack should share the tape machine axis',
-    );
-      assert.equal(
-        rackFixture.rotationY ?? 0,
-        Math.PI,
-        'rack orientation should stay unchanged',
-      );
-      assert.ok(
-        Math.abs(rackCenterZ - consoleCenterZ) > (rackFixture.z2 - rackFixture.z1) / 2,
-        'rack should no longer obstruct the Neve console',
-      );
-  },
-);
+  assert.ok(rackCenterX > tapeCenterX, 'rack should sit directly beside the tape machine');
+  assert.ok(rackFixture.x1 - tapeFixture.x2 < 0.3, 'rack should be adjacent to the tape machine');
+  assert.ok(Math.abs(rackCenterZ - tapeCenterZ) < 0.05, 'rack should share the tape machine axis');
+  assert.equal(rackFixture.rotationY ?? 0, Math.PI, 'rack orientation should stay unchanged');
+  assert.ok(
+    Math.abs(rackCenterZ - consoleCenterZ) > (rackFixture.z2 - rackFixture.z1) / 2,
+    'rack should no longer obstruct the Neve console',
+  );
+});
