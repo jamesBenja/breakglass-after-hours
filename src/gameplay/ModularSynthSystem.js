@@ -21,24 +21,7 @@ const PATCH_CABLES = [
   ['lfoToVco', 'LFO → VCO'],
 ];
 
-const defaultSteps = () => [
-  0,
-  null,
-  7,
-  null,
-  3,
-  null,
-  10,
-  null,
-  0,
-  null,
-  12,
-  10,
-  7,
-  null,
-  3,
-  null,
-];
+const defaultSteps = () => [0, null, 7, null, 3, null, 10, null, 0, null, 12, 10, 7, null, 3, null];
 
 export function normalizeModularPatchState(value = {}) {
   const steps = Array.isArray(value.steps) ? value.steps.slice(0, 16) : defaultSteps();
@@ -202,12 +185,7 @@ export class ModularSynthSystem {
 
   renderTransportControls() {
     const row = this.appendRow('row modular-transport-row');
-    this.appendButton(
-      'BPM −5',
-      () => this.adjustTempo(-5),
-      row,
-      'modular-transport-button',
-    );
+    this.appendButton('BPM −5', () => this.adjustTempo(-5), row, 'modular-transport-button');
     const bpm = this.appendButton(
       `${Math.round(this.transportBpm())} BPM`,
       () => {},
@@ -215,13 +193,7 @@ export class ModularSynthSystem {
       'modular-transport-readout',
     );
     if (bpm) bpm.disabled = true;
-    this.appendButton(
-      'BPM +5',
-      () => this.adjustTempo(5),
-      row,
-      'modular-transport-button',
-    );
-
+    this.appendButton('BPM +5', () => this.adjustTempo(5), row, 'modular-transport-button');
   }
 
   renderPatchControls() {
@@ -263,8 +235,7 @@ export class ModularSynthSystem {
     this.appendButton(
       `GATE ${Math.round(this.patch.gate * 100)}%`,
       () => {
-        this.patch.gate =
-          this.patch.gate >= 0.9 ? 0.35 : Math.min(0.95, this.patch.gate + 0.15);
+        this.patch.gate = this.patch.gate >= 0.9 ? 0.35 : Math.min(0.95, this.patch.gate + 0.15);
         this.save();
         this.open();
       },
@@ -333,11 +304,7 @@ export class ModularSynthSystem {
       },
       row,
     );
-    this.appendButton(
-      'RESET PATCH',
-      () => this.reset(),
-      row,
-    );
+    this.appendButton('RESET PATCH', () => this.reset(), row);
   }
 
   editStep(index) {
@@ -414,10 +381,15 @@ export class ModularSynthSystem {
     this.currentStep = -1;
     this.nextStepIndex = 0;
     this.nextStepTime = context.currentTime + 0.025;
-    this.game.audio?.setExternalTransport?.('modular-live', 'Live modular sequencer', this.stepDuration(), {
-      vibe: 0.38,
-      mixQuality: 0.9,
-    });
+    this.game.audio?.setExternalTransport?.(
+      'modular-live',
+      'Live modular sequencer',
+      this.stepDuration(),
+      {
+        vibe: 0.38,
+        mixQuality: 0.9,
+      },
+    );
     this.scheduleLiveSteps();
     const timers = this.game.audio?.timers ?? globalThis;
     this.scheduler = timers.setInterval(() => this.scheduleLiveSteps(), 20);

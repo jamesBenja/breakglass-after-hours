@@ -65,11 +65,27 @@ test('modular patch creates console-compatible performance events and respects b
   assert.equal(createModularPerformance(patch, 120, 1).events.length, 0);
 });
 
-
 test('live modular step reads the current patch on every pass', () => {
   const patch = normalizeModularPatchState({
     baseMidi: 48,
-    steps: [0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+    steps: [
+      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ],
   });
   const first = modularStepEvent(patch, 0);
   patch.steps[0] = 7;
@@ -88,7 +104,24 @@ test('step grid can be edited while live playback remains running', () => {
     state: {
       data: {
         modularSynth: normalizeModularPatchState({
-          steps: [0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+          steps: [
+            0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+          ],
         }),
       },
     },
@@ -118,7 +151,6 @@ test('step grid can be edited while live playback remains running', () => {
   assert.equal(modular.playing, true);
   assert.equal(game.studio.bpm, 125);
 });
-
 
 test('live modular transport starts a repeating scheduler and stops cleanly', async () => {
   const tones = [];
