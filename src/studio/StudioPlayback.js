@@ -51,13 +51,23 @@ export class StudioPlayback {
     this.transportOffset = 0;
     this.transportStartedAt = 0;
     this.previewDrumInput = null;
+    this.spectraTransport = null;
+    this.transportUnsubscribe = null;
   }
 
   get playing() {
-    return this.timer !== null || this.realSessionPlaying || this.nativeStems.size > 0;
+    return (
+      this.timer !== null ||
+      this.transportUnsubscribe !== null ||
+      this.realSessionPlaying ||
+      this.nativeStems.size > 0
+    );
   }
 
   position() {
+    if (this.transportUnsubscribe && this.spectraTransport?.running) {
+      return this.spectraTransport.position();
+    }
     if (this.nativeStems.size) {
       const first = this.nativeStems.values().next().value;
       if (Number.isFinite(first?.currentTime)) return Math.max(0, first.currentTime);
@@ -628,12 +638,34 @@ export class StudioPlayback {
   async play(session, offset = 0) {
     if (!this.audio.context) return false;
     this.stop();
-    const safeOffset = Math.max(0, Number(offset) || 0);
+    const requestedOffset = Math.max(0, Number(offset) || 0);
     this.session = session;
     this.bpm = session.bpm ?? 118;
-    this.transportOffset = safeOffset;
-    this.transportStartedAt = this.audio.context.currentTime;
     this.updateMix(session);
+
+    let safeOffset = requestedOffset;
+    if (this.spectraTransport) {
+      safeOffset = this.spectraTransport.running
+        ? this.spectraTransport.position()
+        : requestedOffset;
+      this.transportUnsubscribe = this.spectraTransport.subscribe(
+        'studio-playback',
+        (transportEvent) => {
+          if (this.session !== session || this.realSessionPlaying || this.nativeStems.size) return;
+          this.updateMix(session);
+          for (const stem of session.stems) {
+            this.renderStem(stem, transportEvent.loopStep, transportEvent.when);
+          }
+        },
+      );
+      this.spectraTransport.acquire('studio-playback', { position: safeOffset });
+      this.transportOffset = safeOffset;
+      this.transportStartedAt =
+        this.audio.context.currentTime - Math.max(0, this.spectraTransport.position());
+    } else {
+      this.transportOffset = safeOffset;
+      this.transportStartedAt = this.audio.context.currentTime;
+    }
 
     const alignedAssets = await this.loadAlignedAssets(session);
     if (alignedAssets) {
@@ -644,10 +676,13 @@ export class StudioPlayback {
     if (await this.startNativeAssets(session, safeOffset)) return true;
 
     const interval = 60 / this.bpm / 4;
+    this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
+
+    if (this.spectraTransport) return true;
+
     this.step = Math.floor(safeOffset / interval) % 256;
     const remainder = safeOffset % interval;
     this.nextTime = this.audio.context.currentTime + (remainder > 0 ? interval - remainder : 0);
-    this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
     const schedule = () => {
       if (!this.audio.context || this.audio.context.state !== 'running') return;
       this.nextTime = Math.max(this.nextTime, this.audio.context.currentTime);
@@ -667,6 +702,9 @@ export class StudioPlayback {
   stop() {
     if (this.timer !== null) this.timers.clearInterval(this.timer);
     this.timer = null;
+    if (this.transportUnsubscribe) this.transportUnsubscribe();
+    this.transportUnsubscribe = null;
+    this.spectraTransport?.release?.('studio-playback');
     this.realSessionPlaying = false;
     for (const source of this.sources) {
       source.onended = null;
