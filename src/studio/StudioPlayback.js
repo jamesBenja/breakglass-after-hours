@@ -420,16 +420,20 @@ export class StudioPlayback {
     );
     const current = step % loopSteps;
     for (const event of performance.events) {
-      const eventStep = Math.round((event.time || 0) / stepDuration) % loopSteps;
+      const eventTime = Math.max(0, Number(event.time) || 0);
+      const absoluteStep = Math.round(eventTime / stepDuration);
+      const eventStep = absoluteStep % loopSteps;
       if (eventStep !== current) continue;
+      const microOffset = Math.max(0, eventTime - absoluteStep * stepDuration);
+      const eventWhen = when + microOffset;
       if (event.drum) {
-        this.renderDrumEvent(event.drum, bus, when);
+        this.renderDrumEvent(event.drum, bus, eventWhen);
         continue;
       }
       this.oscillator(event.frequency || 440, performance.noteDuration || 0.42, bus, {
         type: performance.wave || 'triangle',
         volume: performance.volume || 0.065,
-        when,
+        when: eventWhen,
       });
       if (performance.octaveLayer) {
         this.oscillator(
@@ -439,7 +443,7 @@ export class StudioPlayback {
           {
             type: 'triangle',
             volume: (performance.volume || 0.065) * 0.22,
-            when: when + 0.012,
+            when: eventWhen + 0.012,
           },
         );
       }
