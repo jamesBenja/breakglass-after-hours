@@ -1,4 +1,6 @@
-import { BoxGeometry, Group, Mesh, MeshStandardMaterial, PointLight } from 'three';
+import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshStandardMaterial, PointLight } from 'three';
+import { poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import { createNpcCharacter } from '../npcs/NpcSystem.js';
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
@@ -8,39 +10,119 @@ function buildPoliceVisual(root, position) {
   group.name = 'alley:police-response';
   group.position.fromArray(position);
 
-  const dark = new MeshStandardMaterial({ color: 0x1b2430, roughness: 0.76, metalness: 0.08 });
-  const glass = new MeshStandardMaterial({ color: 0x32475c, roughness: 0.35, metalness: 0.18 });
-  const skin = new MeshStandardMaterial({ color: 0xaa765a, roughness: 0.82, metalness: 0.02 });
-  const car = new Mesh(new BoxGeometry(3.1, 0.72, 1.55), dark);
-  car.position.set(0, 0.48, 0);
-  car.castShadow = true;
-  const cabin = new Mesh(new BoxGeometry(1.55, 0.62, 1.35), glass);
-  cabin.position.set(-0.15, 1.05, 0);
-  cabin.castShadow = true;
-  group.add(car, cabin);
+  const dark = new MeshStandardMaterial({ color: 0x172231, roughness: 0.6, metalness: 0.18 });
+  const trim = new MeshStandardMaterial({ color: 0x07090d, roughness: 0.52, metalness: 0.35 });
+  const glass = new MeshStandardMaterial({
+    color: 0x47637a,
+    roughness: 0.18,
+    metalness: 0.12,
+    transparent: true,
+    opacity: 0.84,
+  });
+  const headlight = new MeshStandardMaterial({
+    color: 0xe9f3ff,
+    emissive: 0xbad6ff,
+    emissiveIntensity: 1.5,
+    roughness: 0.22,
+  });
+  const redMaterial = new MeshStandardMaterial({
+    color: 0xff2947,
+    emissive: 0xff1637,
+    emissiveIntensity: 2.1,
+  });
+  const blueMaterial = new MeshStandardMaterial({
+    color: 0x2d65ff,
+    emissive: 0x214fff,
+    emissiveIntensity: 2.1,
+  });
 
-  for (const [index, z] of [-1.05, 1.05].entries()) {
-    const officer = new Group();
-    officer.position.set(1.9, 0, z * 0.55);
-    const body = new Mesh(new BoxGeometry(0.48, 0.92, 0.32), dark);
-    body.position.y = 0.92;
-    const head = new Mesh(new BoxGeometry(0.3, 0.32, 0.3), skin);
-    head.position.y = 1.63;
-    const cap = new Mesh(new BoxGeometry(0.36, 0.1, 0.38), dark);
-    cap.position.y = 1.83;
-    officer.add(body, head, cap);
-    officer.rotation.y = index ? -0.2 : 0.2;
-    group.add(officer);
+  const chassis = new Mesh(new BoxGeometry(3.45, 0.58, 1.62), dark);
+  chassis.position.set(0, 0.48, 0);
+  chassis.castShadow = true;
+  const hood = new Mesh(new BoxGeometry(1.05, 0.22, 1.5), dark);
+  hood.position.set(1.13, 0.83, 0);
+  const trunk = new Mesh(new BoxGeometry(0.68, 0.2, 1.48), dark);
+  trunk.position.set(-1.34, 0.8, 0);
+  const cabin = new Mesh(new BoxGeometry(1.55, 0.64, 1.36), glass);
+  cabin.position.set(-0.22, 1.04, 0);
+  cabin.castShadow = true;
+  const bumperFront = new Mesh(new BoxGeometry(0.14, 0.18, 1.66), trim);
+  bumperFront.position.set(1.78, 0.39, 0);
+  const bumperRear = bumperFront.clone();
+  bumperRear.position.x = -1.78;
+  group.add(chassis, hood, trunk, cabin, bumperFront, bumperRear);
+
+  for (const x of [-1.12, 1.08]) {
+    for (const z of [-0.82, 0.82]) {
+      const wheel = new Mesh(new CylinderGeometry(0.31, 0.31, 0.22, 12), trim);
+      wheel.rotation.x = Math.PI / 2;
+      wheel.position.set(x, 0.31, z);
+      wheel.castShadow = true;
+      group.add(wheel);
+    }
+  }
+  for (const z of [-0.52, 0.52]) {
+    const lamp = new Mesh(new BoxGeometry(0.08, 0.18, 0.3), headlight);
+    lamp.position.set(1.76, 0.62, z);
+    group.add(lamp);
   }
 
-  const redLight = new PointLight(0xff334d, 0, 11, 2);
-  const blueLight = new PointLight(0x3f7cff, 0, 11, 2);
-  redLight.position.set(-0.25, 1.55, -0.35);
-  blueLight.position.set(-0.25, 1.55, 0.35);
+  const lightBarBase = new Mesh(new BoxGeometry(0.78, 0.06, 0.24), trim);
+  lightBarBase.position.set(-0.24, 1.43, 0);
+  const redBar = new Mesh(new BoxGeometry(0.34, 0.11, 0.19), redMaterial);
+  redBar.position.set(-0.24, 1.51, -0.14);
+  const blueBar = new Mesh(new BoxGeometry(0.34, 0.11, 0.19), blueMaterial);
+  blueBar.position.set(-0.24, 1.51, 0.14);
+  group.add(lightBarBase, redBar, blueBar);
+
+  const officers = [];
+  const officerStarts = [
+    [1.95, 0, -0.62],
+    [1.9, 0, 0.62],
+    [0.8, 0, 0.92],
+  ];
+  for (let index = 0; index < officerStarts.length; index++) {
+    const model = createNpcCharacter({
+      id: `police-officer-${index + 1}`,
+      appearance: {
+        skin: index === 1 ? 0x8f624c : 0xc08b6d,
+        hair: 0x17191d,
+        outfit: 0x182a40,
+        trousers: 0x111a26,
+        accent: 0x8b9db2,
+        hairStyle: 'short',
+        cap: true,
+        bodyWidth: 0.96,
+      },
+    });
+    model.group.position.fromArray(officerStarts[index]);
+    model.group.rotation.y = index === 0 ? 0.28 : index === 1 ? -0.24 : -0.55;
+    model.group.scale.setScalar(1.03);
+    model.group.visible = index < 2;
+    group.add(model.group);
+    officers.push({
+      model,
+      base: [...officerStarts[index]],
+      phase: index * 1.7,
+    });
+  }
+
+  const redLight = new PointLight(0xff334d, 0, 14, 2);
+  const blueLight = new PointLight(0x3f7cff, 0, 14, 2);
+  redLight.position.set(-0.25, 1.62, -0.35);
+  blueLight.position.set(-0.25, 1.62, 0.35);
   group.add(redLight, blueLight);
   group.visible = false;
   root.add(group);
-  return { group, redLight, blueLight, materials: [dark, glass, skin] };
+  return {
+    group,
+    redLight,
+    blueLight,
+    redBar,
+    blueBar,
+    officers,
+    materials: [dark, trim, glass, headlight, redMaterial, blueMaterial],
+  };
 }
 
 /** Dynamic alley spill-out, neighbour-noise pressure and police escalation. */
@@ -155,11 +237,41 @@ export class AlleySystem {
     if (!this.policePresent) {
       this.visual.redLight.intensity = 0;
       this.visual.blueLight.intensity = 0;
+      this.visual.redBar.material.emissiveIntensity = 0.25;
+      this.visual.blueBar.material.emissiveIntensity = 0.25;
       return;
     }
     const phase = Math.sin(this.elapsed * 10.5);
-    this.visual.redLight.intensity = phase > 0 ? 5.8 : 0.5;
-    this.visual.blueLight.intensity = phase <= 0 ? 5.8 : 0.5;
+    const redOn = phase > 0;
+    this.visual.redLight.intensity = redOn ? 6.8 : 0.45;
+    this.visual.blueLight.intensity = redOn ? 0.45 : 6.8;
+    this.visual.redBar.material.emissiveIntensity = redOn ? 3.2 : 0.35;
+    this.visual.blueBar.material.emissiveIntensity = redOn ? 0.35 : 3.2;
+
+    const busting = this.evacuationRequired || this.evacuationStarted;
+    for (const [index, officer] of this.visual.officers.entries()) {
+      const model = officer.model;
+      model.group.visible = index < 2 || busting;
+      if (!model.group.visible) continue;
+      const advance = busting ? Math.min(4.2 + index * 0.45, this.policeResponseTime * 0.34 + 0.6) : 0;
+      model.group.position.set(
+        officer.base[0] + advance,
+        officer.base[1],
+        officer.base[2] + Math.sin(this.elapsed * 0.55 + officer.phase) * 0.08,
+      );
+      poseLightweightHuman(model, {
+        time: this.elapsed,
+        phase: officer.phase,
+        moving: busting,
+        energy: busting ? 0.58 : 0.24,
+      });
+      if (!busting) {
+        const talk = (Math.sin(this.elapsed * 1.35 + officer.phase) + 1) * 0.5;
+        model.rightArm.rotation.x = -0.12 - talk * 0.28;
+        model.rightForearm.rotation.x = -0.18 - talk * 0.34;
+        model.head.rotation.y += Math.sin(this.elapsed * 0.7 + officer.phase) * 0.045;
+      }
+    }
   }
 
   update(dt, metrics = {}) {
