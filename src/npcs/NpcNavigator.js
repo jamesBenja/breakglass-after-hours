@@ -146,7 +146,25 @@ export class NpcNavigator {
     return null;
   }
 
-  reconstruct(cameFrom, currentKey, y) {
+  nearestGridCell(position, maxRings = 10) {
+    const origin = this.cellFor(position);
+    for (let ring = 0; ring <= maxRings; ring++) {
+      for (let dx = -ring; dx <= ring; dx++) {
+        for (let dz = -ring; dz <= ring; dz++) {
+          if (ring > 0 && Math.max(Math.abs(dx), Math.abs(dz)) !== ring) continue;
+          const ix = origin.ix + dx;
+          const iz = origin.iz + dz;
+          const point = this.pointFor(ix, iz, position.y ?? 0);
+          if (!this.walkable(point, position.y ?? 0)) continue;
+          if (this.walkable(position, position.y ?? 0) && !this.lineClear(position, point)) continue;
+          return { ix, iz, point };
+        }
+      }
+    }
+    return null;
+  }
+
+    reconstruct(cameFrom, currentKey, y) {
     const points = [];
     let cursor = currentKey;
     while (cursor) {
@@ -186,15 +204,18 @@ export class NpcNavigator {
 
     if (this.lineClear(start, goal)) return [{ ...goal }];
 
-    const startCell = this.cellFor(start);
-    const goalCell = this.cellFor(goal);
+    const startGrid = this.nearestGridCell(start);
+    const goalGrid = this.nearestGridCell(goal);
+    if (!startGrid || !goalGrid) return [];
+    const startCell = { ix: startGrid.ix, iz: startGrid.iz };
+    const goalCell = { ix: goalGrid.ix, iz: goalGrid.iz };
     const startKey = key(startCell.ix, startCell.iz);
     const goalKey = key(goalCell.ix, goalCell.iz);
     const open = new MinHeap();
     const cameFrom = new Map();
     const g = new Map([[startKey, 0]]);
     const closed = new Set();
-    open.push({ ...startCell, priority: planarDistance(start, goal) });
+    open.push({ ...startCell, priority: planarDistance(startGrid.point, goalGrid.point) });
 
     const neighbours = [
       [-1, 0, 1],
@@ -219,7 +240,14 @@ export class NpcNavigator {
         const raw = this.reconstruct(cameFrom, currentKey, y);
         raw.shift();
         const path = this.smooth(raw, start);
-        if (!path.length || planarDistance(path.at(-1), goal) > 0.1) path.push(goal);
+        if (this.lineClear(path.at(-1) ?? start, goal)) {
+          if (!path.length || planarDistance(path.at(-1), goal) > 0.1) path.push(goal);
+        } else if (
+          !path.length ||
+          planarDistance(path.at(-1), goalGrid.point) > 0.1
+        ) {
+          path.push(goalGrid.point);
+        }
         return path;
       }
 
