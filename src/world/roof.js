@@ -19,7 +19,7 @@ export const roofLevel = {
   provenance: {
     status: 'GAME memory-space inspired by the studio founders era',
     reference: 'Breakglass building roof / founding-days stories',
-    note: 'Atmospheric throwback scene. Specific stories are intentionally kept broad until verified anecdotes are attached.',
+    note: 'Atmospheric memory-space. Founder stories are non-verbatim; specific building details such as Sandor’s freight-elevator tape marks come from firsthand project direction.',
   },
   background: 0x10161c,
   fog: [28, 84],
