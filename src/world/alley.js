@@ -86,10 +86,12 @@ export const alleyLevel = {
     social: anchor('Alley conversation', [7.7, 0, 0.7], 1.9, 'alleySocial'),
     beaver: anchor('Beaver', [14.35, 0, -0.72], 1.35, 'dialogue'),
     beaverBbq: anchor('Beaver BBQ', [15.35, 0, -0.78], 1.6, 'beaverBbq'),
-    freightElevator: {
-      ...anchor('Old freight elevator ↑ roof', [22.2, 0, -1.72], 1.65, 'freightElevator'),
-      requires: 'roofEscapeUnlocked',
-    },
+    freightElevator: anchor(
+      'Old freight elevator ↑ roof',
+      [22.2, 0, -1.72],
+      1.65,
+      'freightElevator',
+    ),
   },
   npcs: [
     {
