@@ -58,19 +58,15 @@ export function createGameSpace() {
     prop('monitor-right', 289, 852, 0.65, 0.6, 2.1, 0x1f292b, { kind: 'equipment' }),
     prop('tape-bank', 189, 830, 1, 2.2, 1.8, 0x78604b, { kind: 'equipment' }),
     prop('patch-rack', 185, 777, 0.5, 2.2, 2, 0x534c43, { kind: 'equipment' }),
-    prop('side-rack', 310, 714, 0.85, 1.3, 1.7, 0x414f57, { kind: 'equipment' }),
+    prop('side-rack', 208, 836, 0.85, 1.3, 1.7, 0x414f57, {
+      kind: 'equipment',
+      name: 'Spectra outboard rack',
+      rotationY: 0,
+    }),
     prop('mix-sofa-rear', 252, 706, 3.25, 0.95, 0.82, 0x4b4544, {
       kind: 'equipment',
       name: 'Spectra control-room couch',
       rotationY: Math.PI,
-      player: false,
-      camera: false,
-      surface: false,
-    }),
-    prop('mix-sofa-side', 292, 770, 0.86, 2.15, 0.8, 0x60514b, {
-      kind: 'equipment',
-      name: 'Spectra control-room loveseat',
-      rotationY: Math.PI / 2,
       player: false,
       camera: false,
       surface: false,
@@ -111,7 +107,10 @@ export function createGameSpace() {
       kind: 'equipment',
       rotationY: Math.PI,
     }),
-    prop('neve-side-rack', 461, 821, 0.72, 0.72, 1.72, 0x34383a, { kind: 'equipment' }),
+    prop('neve-side-rack', 461, 821, 0.72, 0.72, 1.72, 0x34383a, {
+      kind: 'equipment',
+      rotationY: Math.PI,
+    }),
     prop('neve-tape-machine', 396, 880, 1.02, 0.82, 1.62, 0x5a5d5d, { kind: 'equipment' }),
 
     // Storage archive shelving. Reel labels/content remain intentionally generic until
