@@ -452,7 +452,7 @@ canvas:focus {
 }
 
 
-/* Portrait phone HUD: reserve the presence row and keep the main HUD below it.
+/* Portrait phone HUD v2: reserve the presence row and keep the main HUD below it.
    Width/orientation is used instead of input-device detection so iOS Safari cannot miss it. */
 @media (orientation: portrait) and (max-width: 720px) {
   #hud {
