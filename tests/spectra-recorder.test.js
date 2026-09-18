@@ -131,3 +131,52 @@ test('Spectra recorder ignores performances until armed and rejects remote event
   assert.equal(recorder.stop({ commit: true }).length, 0);
   assert.equal(studio.stems.length, 0);
 });
+
+
+test('Spectra recorder uses the shared transport grid for attached live instruments', () => {
+  const studio = studioSession();
+  studio.quantize = '1/16';
+  studio.swing = 0.24;
+  const owners = new Set();
+  const transport = {
+    running: true,
+    session: studio,
+    acquire(owner) {
+      owners.add(owner);
+    },
+    release(owner) {
+      owners.delete(owner);
+    },
+    snapshot() {
+      return { running: true, bar: 1, beat: 2, sixteenth: 1 };
+    },
+    positionAtOffset(offset = 0) {
+      return 0.14 + offset;
+    },
+    quantizeTime(time) {
+      return time < 0.16 ? 0.155 : time;
+    },
+  };
+  const game = {
+    studio,
+    spectraTransport: transport,
+    studioPlayback: { playing: false, position: () => 0, updateMix: () => {} },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: { localId: 'local-1', remotePlayers: new Map() },
+    save: () => {},
+  };
+  const recorder = new SpectraRecorder(game, {});
+
+  recorder.arm();
+  assert.equal(owners.has('spectra-recorder'), true);
+  recorder.captureLocal(
+    { mode: 'synth', stemKind: 'synth', label: 'Piano' },
+    { type: 'midi', midi: 60 },
+    { resourceId: 'upstairs:piano' },
+  );
+  const [stem] = recorder.stop({ commit: true });
+
+  assert.equal(stem.performance.events[0].time, 0.155);
+  assert.equal(owners.has('spectra-recorder'), false);
+});
