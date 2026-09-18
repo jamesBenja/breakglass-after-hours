@@ -62,7 +62,7 @@ export function createGameSpace() {
     prop('side-rack', 185, 742, 0.85, 1.3, 1.7, 0x414f57, {
       kind: 'equipment',
       name: 'Spectra outboard rack',
-      rotationY: Math.PI * 1.5,
+      rotationY: Math.PI / 2,
     }),
     prop('mix-sofa-rear', 252, 706, 3.25, 0.95, 0.82, 0x4b4544, {
       kind: 'equipment',
