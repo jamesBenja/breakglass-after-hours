@@ -5,6 +5,7 @@ import { StudioSession } from '../studio/StudioSession.js';
 const STUDIO_OBJECT = 'shared-studio-playback';
 const ARCHIVE_AUDIO_OBJECT = 'shared-archive-audio';
 const LIVE_ARCHIVE_OBJECT = 'shared-live-archive';
+const HOUSE_DJ_OBJECT = 'shared-house-dj';
 
 const nowEvent = (detail) =>
   typeof CustomEvent === 'function' ? new CustomEvent('breakglass:noop', { detail }) : null;
@@ -32,6 +33,8 @@ export class SharedMediaSync {
     this.applyingStudio = false;
     this.applyingArchiveAudio = false;
     this.applyingVideo = false;
+    this.applyingHouseDj = false;
+    this.houseDjControllerId = null;
     this.activeVideoSessionId = null;
     this.dismissedVideoSessionId = null;
     this.lastStudioSignature = '';
@@ -40,6 +43,7 @@ export class SharedMediaSync {
     this.boundLiveArchive = (event) => this.handleLocalLiveArchive(event?.detail);
     this.patchWorld();
     this.patchStudioPlayback();
+    this.patchHouseDj();
     globalThis.addEventListener?.('breakglass:archive-audio', this.boundArchiveAudio);
     globalThis.addEventListener?.('breakglass:live-archive', this.boundLiveArchive);
   }
@@ -97,7 +101,7 @@ export class SharedMediaSync {
 
   hydrate(objects) {
     if (!objects?.get) return;
-    for (const id of [STUDIO_OBJECT, ARCHIVE_AUDIO_OBJECT, LIVE_ARCHIVE_OBJECT]) {
+    for (const id of [STUDIO_OBJECT, ARCHIVE_AUDIO_OBJECT, LIVE_ARCHIVE_OBJECT, HOUSE_DJ_OBJECT]) {
       const data = objects.get(id);
       if (data) this.handleObjectState(id, data);
     }
@@ -217,6 +221,134 @@ export class SharedMediaSync {
     }
   }
 
+  patchHouseDj() {
+    const houseDj = this.game.partyLife?.houseDj;
+    if (!houseDj || houseDj._sharedMediaPatched) return;
+    houseDj._sharedMediaPatched = true;
+
+    const baseStart = houseDj.start.bind(houseDj);
+    const baseSelect = houseDj.select.bind(houseDj);
+    const baseStop = houseDj.stopHouseAudio.bind(houseDj);
+
+    houseDj.start = async (...args) => {
+      const result = await baseStart(...args);
+      if (!this.applyingHouseDj && houseDj.isHouseAudio()) this.publishHouseDj();
+      return result;
+    };
+    houseDj.select = async (...args) => {
+      const result = await baseSelect(...args);
+      if (!this.applyingHouseDj) this.publishHouseDj();
+      return result;
+    };
+    houseDj.stopHouseAudio = (...args) => {
+      const wasPlaying = houseDj.isHouseAudio();
+      const result = baseStop(...args);
+      if (wasPlaying && !this.applyingHouseDj) this.publishHouseDj();
+      return result;
+    };
+  }
+
+  houseDjPayload() {
+    const houseDj = this.game.partyLife?.houseDj;
+    if (!houseDj) return null;
+    const serverNow = this.serverNow();
+    const elapsed =
+      houseDj.programStartedAtMs > 0
+        ? Math.max(0, Date.now() - houseDj.programStartedAtMs)
+        : 0;
+    return {
+      playing: houseDj.isHouseAudio(),
+      djId: houseDj.selectedId,
+      programIndex: houseDj.programIndex,
+      trackId: houseDj.currentProgramItem?.id ?? null,
+      startedAt: serverNow - elapsed,
+      sentAt: serverNow,
+      controllerId: this.client.localId,
+    };
+  }
+
+  publishHouseDj(force = false) {
+    if (!this.client.joined || this.applyingHouseDj) return false;
+    const current = this.client.world?.objects?.get?.(HOUSE_DJ_OBJECT);
+    if (
+      !force &&
+      current?.controllerId &&
+      current.controllerId !== this.client.localId
+    )
+      return false;
+    const payload = this.houseDjPayload();
+    if (!payload) return false;
+    this.houseDjControllerId = this.client.localId;
+    this.game.partyLife?.houseDj?.setSharedFollower?.(false);
+    return this.sendObject(HOUSE_DJ_OBJECT, payload);
+  }
+
+  async applyHouseDj(data) {
+    const houseDj = this.game.partyLife?.houseDj;
+    if (!houseDj || !data?.djId) return;
+    this.houseDjControllerId =
+      typeof data.controllerId === 'string' ? data.controllerId : null;
+    if (this.houseDjControllerId === this.client.localId) {
+      houseDj.setSharedFollower?.(false);
+      return;
+    }
+
+    this.applyingHouseDj = true;
+    try {
+      houseDj.setSharedFollower?.(true);
+      const offset =
+        data.playing && Number.isFinite(Number(data.startedAt))
+          ? Math.max(0, (this.serverNow() - Number(data.startedAt)) / 1000)
+          : 0;
+      await houseDj.applySharedTransport?.({
+        djId: data.djId,
+        programIndex: data.programIndex,
+        playing: data.playing === true,
+        offset,
+      });
+    } finally {
+      this.applyingHouseDj = false;
+    }
+  }
+
+  updateHouseDjAuthority() {
+    if (!this.client.joined) return;
+    const houseDj = this.game.partyLife?.houseDj;
+    if (!houseDj) return;
+    const data = this.client.world?.objects?.get?.(HOUSE_DJ_OBJECT);
+
+    // The player currently holding the actual booth can always silence the house set before
+    // starting a real DJ performance. This transfers house-DJ authority with the booth.
+    if (this.client.world?.owns?.('dj-booth') && this.game.dj?.metrics?.().playing) {
+      if (houseDj.isHouseAudio()) {
+        this.applyingHouseDj = true;
+        try {
+          houseDj.stopHouseAudio(0.18);
+        } finally {
+          this.applyingHouseDj = false;
+        }
+      }
+      if (data?.playing) this.publishHouseDj(true);
+      return;
+    }
+
+    if (!data) {
+      if (houseDj.isHouseAudio()) this.publishHouseDj(true);
+      return;
+    }
+
+    const controllerId = data.controllerId;
+    const controllerAlive =
+      controllerId === this.client.localId ||
+      (typeof controllerId === 'string' && this.client.remotePlayers?.has?.(controllerId));
+    if (!controllerAlive) {
+      houseDj.setSharedFollower?.(false);
+      this.publishHouseDj(true);
+    } else if (controllerId === this.client.localId) {
+      houseDj.setSharedFollower?.(false);
+    }
+  }
+
   handleLocalArchiveAudio(detail) {
     if (!detail || this.applyingArchiveAudio || !this.client.joined) return;
     if (detail.action === 'stop') {
@@ -316,11 +448,13 @@ export class SharedMediaSync {
     if (objectId === STUDIO_OBJECT) void this.applyStudio(data);
     else if (objectId === ARCHIVE_AUDIO_OBJECT) void this.applyArchiveAudio(data);
     else if (objectId === LIVE_ARCHIVE_OBJECT) this.applyLiveArchive(data);
+    else if (objectId === HOUSE_DJ_OBJECT) void this.applyHouseDj(data);
   }
 
   update() {
     const objects = this.client.world?.objects;
     if (!objects?.get) return;
+    this.updateHouseDjAuthority();
 
     // Shared transport state remains canonical even when this listener cannot hear the source.
     // Leaving a floor stops the local decoder only; returning restarts at the server-derived
@@ -383,4 +517,5 @@ export const SHARED_MEDIA_OBJECTS = {
   studio: STUDIO_OBJECT,
   archiveAudio: ARCHIVE_AUDIO_OBJECT,
   liveArchive: LIVE_ARCHIVE_OBJECT,
+  houseDj: HOUSE_DJ_OBJECT,
 };
