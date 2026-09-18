@@ -86,7 +86,13 @@ function enhanceSession(session) {
     for (let index = session.stems.length - 1; index >= 0; index -= 1) {
       const stem = session.stems[index];
       if (
-        ['keyboard-performance', 'browser-microphone', 'modular-synth', 'spectra-live-capture', 'spectra-collaborative-capture'].includes(stem.source)
+        [
+          'keyboard-performance',
+          'browser-microphone',
+          'modular-synth',
+          'spectra-live-capture',
+          'spectra-collaborative-capture',
+        ].includes(stem.source)
       ) {
         session.recordings.delete(stem.id);
         session.stems.splice(index, 1);
@@ -310,11 +316,24 @@ function buildLoopPanel(game, ui) {
   const { studio, studioPlayback } = game;
   enhanceSession(studio);
   const recorder = game.spectraRecorder;
-  const recordStatus = recorder?.status?.() ?? { armed: false, recording: false, lanes: 0, events: 0 };
-  const status = `${studio.loopEnabled ? 'LOOP ON' : 'LOOP OFF'} · ${studio.loopBars} bars · ${studio.quantize} grid · swing ${Math.round(studio.swing * 100)}% · ${recordStatus.armed ? (recordStatus.recording ? `RECORDING ${recordStatus.lanes} live track${recordStatus.lanes === 1 ? '' : 's'}` : 'ARMED · waiting for first note') : 'live recorder idle'}`;
+  const recordStatus = recorder?.status?.() ?? {
+    armed: false,
+    recording: false,
+    lanes: 0,
+    events: 0,
+  };
+  const status = `${studio.loopEnabled ? 'LOOP ON' : 'LOOP OFF'} · ${studio.loopBars} bars · ${studio.quantize} grid · swing ${Math.round(studio.swing * 100)}% · ${
+    recordStatus.armed
+      ? recordStatus.recording
+        ? `RECORDING ${recordStatus.lanes} live track${recordStatus.lanes === 1 ? '' : 's'}`
+        : 'ARMED · waiting for first note'
+      : 'live recorder idle'
+  }`;
   const actions = [
     [
-      recordStatus.armed ? '■ FINISH LIVE MULTITRACK + BUILD STEMS' : '● ARM LIVE MULTITRACK RECORDING',
+      recordStatus.armed
+        ? '■ FINISH LIVE MULTITRACK + BUILD STEMS'
+        : '● ARM LIVE MULTITRACK RECORDING',
       () => {
         if (recorder?.armed) {
           const stems = recorder.stop({ commit: true });
@@ -325,7 +344,9 @@ function buildLoopPanel(game, ui) {
           );
         } else {
           recorder?.arm?.();
-          ui.warning?.('Spectra is armed. Recording begins on the first instrument note from any player.');
+          ui.warning?.(
+            'Spectra is armed. Recording begins on the first instrument note from any player.',
+          );
         }
         game.save();
         buildLoopPanel(game, ui);
@@ -339,7 +360,9 @@ function buildLoopPanel(game, ui) {
               studio.setLoopEnabled(true);
               recorder?.arm?.();
               await studioPlayback.play(studio);
-              ui.warning?.('Loop is rolling. Spectra will punch in on the first live instrument note.');
+              ui.warning?.(
+                'Loop is rolling. Spectra will punch in on the first live instrument note.',
+              );
               buildLoopPanel(game, ui);
             },
           ],
