@@ -5,8 +5,7 @@ function loopSeconds(session) {
   if (!session?.loopEnabled) return 0;
   return Math.max(
     0.25,
-    ((Number(session.loopBars) || 4) * 4 * 60) /
-      Math.max(1, Number(session.bpm) || 118),
+    ((Number(session.loopBars) || 4) * 4 * 60) / Math.max(1, Number(session.bpm) || 118),
   );
 }
 
@@ -98,17 +97,15 @@ export class SpectraRecorder {
     return Math.max(0, (clockNow() - this.startedAt) / 1000 + offset);
   }
 
-  capture(
-    {
-      playerId = 'local',
-      playerName = 'Player',
-      resourceId = 'instrument',
-      config = {},
-      event = {},
-      offsetSeconds = 0,
-      source = 'spectra-live-capture',
-    } = {},
-  ) {
+  capture({
+    playerId = 'local',
+    playerName = 'Player',
+    resourceId = 'instrument',
+    config = {},
+    event = {},
+    offsetSeconds = 0,
+    source = 'spectra-live-capture',
+  } = {}) {
     if (!this.armed) return false;
     this.beginOnFirstEvent(offsetSeconds);
     const laneId = [playerId || 'local', resourceId || config.mode || 'instrument']
