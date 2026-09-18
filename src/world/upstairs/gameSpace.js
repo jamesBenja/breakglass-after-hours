@@ -107,7 +107,10 @@ export function createGameSpace() {
       kind: 'equipment',
       rotationY: Math.PI,
     }),
-    prop('neve-side-rack', 461, 821, 0.72, 0.72, 1.72, 0x34383a, { kind: 'equipment' }),
+    prop('neve-side-rack', 461, 821, 0.72, 0.72, 1.72, 0x34383a, {
+      kind: 'equipment',
+      rotationY: Math.PI,
+    }),
     prop('neve-tape-machine', 396, 880, 1.02, 0.82, 1.62, 0x5a5d5d, { kind: 'equipment' }),
 
     // Storage archive shelving. Reel labels/content remain intentionally generic until
