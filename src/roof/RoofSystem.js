@@ -174,8 +174,8 @@ export class RoofSystem {
       this.acKickAge += dt;
       const ac = this.sceneObject('roof-ac-unit');
       if (ac) {
-        ac.rotation.z = Math.sin(this.acKickAge * 38) * Math.max(0, 0.055 - this.acKickAge * 0.04);
-        ac.position.x += Math.sin(this.acKickAge * 31) * 0.002;
+        ac.rotation.z =
+          Math.sin(this.acKickAge * 38) * Math.max(0, 0.055 - this.acKickAge * 0.04);
       }
       if (this.acKickAge > 1.3) {
         if (ac) ac.rotation.z = 0;
