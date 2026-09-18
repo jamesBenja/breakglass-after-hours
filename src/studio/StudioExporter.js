@@ -583,6 +583,7 @@ function sessionMetadata(session, duration) {
       fx: stem.fx,
       mute: stem.mute,
       solo: stem.solo,
+      clipActive: stem.clipActive !== false,
       source: stem.source,
       processing: stem.processing,
     })),
@@ -637,7 +638,11 @@ export class StudioExporter {
 
     for (const stem of session.stems) {
       if (selected && !selected.has(stem.id)) continue;
-      if (respectMuteSolo && (stem.mute || (anySolo && !stem.solo))) continue;
+      if (
+        respectMuteSolo &&
+        (stem.clipActive === false || stem.mute || (anySolo && !stem.solo))
+      )
+        continue;
       const input = createChannel(context, stem, master);
       const recording = session.recordings?.get?.(stem.id);
       const buffer = recording ?? buffers.get(stem.id);
