@@ -2,7 +2,6 @@ const TOKEN_STORAGE_KEY = 'breakglass.invitation.token';
 const TYPE_STORAGE_KEY = 'breakglass.invitation.type';
 const DEFAULT_SERVER = 'https://multiplayer-phase2-webrtc-production.up.railway.app';
 
-
 export const GOD_MODE_INVITATION_PROFILE = Object.freeze({
   id: 'godmode',
   label: 'THEY WHO REMAIN',
