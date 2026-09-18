@@ -1,3 +1,4 @@
+import { SpectraClipEngine } from '../studio/SpectraClipEngine.js';
 import { SpectraRecorder } from '../studio/SpectraRecorder.js';
 import { StudioExporter } from '../studio/StudioExporter.js';
 import { StudioSession } from '../studio/StudioSession.js';
@@ -316,6 +317,64 @@ function buildSongLibraryPanel(game, ui, location = 'HOUSE PLAYBACK') {
   );
 }
 
+function buildClipPanel(game, ui) {
+  const { studio, studioPlayback, spectraClipEngine } = game;
+  const clips = spectraClipEngine?.clips?.() ?? [];
+  const transport = game.spectraTransport?.snapshot?.();
+  const clock = transport?.running
+    ? `bar ${transport.bar} · beat ${transport.beat} · ${Math.round(transport.bpm)} BPM`
+    : 'clock stopped';
+
+  const actions = [
+    [
+      studioPlayback.playing ? '■ STOP CLIP PLAYBACK' : '▶ PLAY CURRENT CLIPS',
+      async () => {
+        if (studioPlayback.playing) studioPlayback.stop();
+        else await studioPlayback.play(studio);
+        buildClipPanel(game, ui);
+      },
+    ],
+    ...clips.map((clip) => {
+      const queued =
+        clip.queued == null ? '' : clip.queued ? ' · QUEUED TO START' : ' · QUEUED TO STOP';
+      const label =
+        clip.queued == null
+          ? clip.active
+            ? `■ STOP NEXT BAR · ${clip.label}`
+            : `▶ LAUNCH NEXT BAR · ${clip.label}`
+          : `CANCEL / FLIP QUEUE · ${clip.label}`;
+      return [
+        `${label}${queued}`,
+        () => {
+          spectraClipEngine.toggle(clip.id);
+          buildClipPanel(game, ui);
+        },
+      ];
+    }),
+    [
+      '▶ LAUNCH ALL NEXT BAR',
+      () => {
+        spectraClipEngine?.queueAll?.(true);
+        buildClipPanel(game, ui);
+      },
+    ],
+    [
+      '■ STOP ALL NEXT BAR',
+      () => {
+        spectraClipEngine?.queueAll?.(false);
+        buildClipPanel(game, ui);
+      },
+    ],
+    ['Back to loop / song builder', () => buildLoopPanel(game, ui)],
+  ];
+
+  ui.panel(
+    'SPECTRA · QUANTIZED CLIP LAUNCHER',
+    `${clock}. Every console stem is also a Spectra clip. Step sequences, live performances and audio/sample loops launch or stop together on bar boundaries while retaining their own mixer channel.`,
+    actions,
+  );
+}
+
 function buildLoopPanel(game, ui) {
   const { studio, studioPlayback } = game;
   enhanceSession(studio);
@@ -338,6 +397,10 @@ function buildLoopPanel(game, ui) {
       : 'live recorder idle'
   }`;
   const actions = [
+    [
+      'OPEN QUANTIZED CLIP LAUNCHER',
+      () => buildClipPanel(game, ui),
+    ],
     [
       transportStatus?.running ? '■ STOP SPECTRA MASTER CLOCK' : '▶ START SPECTRA MASTER CLOCK',
       () => {
@@ -525,6 +588,7 @@ export function installStudioLoopEnhancements(game, ui) {
   game.studio.swing = clamp(saved.swing, 0, 0.45);
   enhanceSession(game.studio);
   game.spectraTransport ??= new SpectraTransport(game.audio, game.studio);
+  game.spectraClipEngine ??= new SpectraClipEngine(game);
   game.studioPlayback.spectraTransport = game.spectraTransport;
   game.keyboardPerformance.spectraTransport = game.spectraTransport;
   enhancePlayback(game.studioPlayback, game.studio);
