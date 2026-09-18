@@ -109,8 +109,16 @@ export class NpcNavigator {
     const cacheKey = `${Math.round(point.x * 100)},${Math.round(point.z * 100)},${Math.round(y * 100)}`;
     if (this.walkableCache.has(cacheKey)) return this.walkableCache.get(cacheKey);
 
-    const position = { x: point.x, y, z: point.z };
-    const valid = this.collision?.isValidPosition?.(position) === true;
+    // NPCs use the same low-step support rule as the player. A waypoint beside a 28 cm
+    // listening deck is still walkable even though the authored route itself says y=0:
+    // CollisionWorld.move will step the character up onto that support as it approaches.
+    const support = this.collision?.supportAt?.(point.x, point.z, y + 0.34);
+    const standY = support?.height;
+    const valid =
+      Number.isFinite(standY) &&
+      !this.collision.blocked(point.x, standY, point.z) &&
+      (!this.collision.boundary ||
+        this.collision.surfaceAt(point.x, point.z, standY + 0.01) != null);
     this.walkableCache.set(cacheKey, valid);
     return valid;
   }
