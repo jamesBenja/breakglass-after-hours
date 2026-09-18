@@ -65,6 +65,10 @@ function floorLabel(sceneId) {
   return sceneId === 'roof' ? 'ROOF' : 'ALLEY';
 }
 
+export function freightLandingTapeLabel(floorPosition) {
+  return Number(floorPosition) >= 50 ? 'ALLEY TAPE' : 'ROOF TAPE';
+}
+
 export class FreightElevatorSystem {
   constructor(game, ui) {
     this.game = game;
@@ -223,10 +227,10 @@ export class FreightElevatorSystem {
     gauge.className = 'freight-tape-gauge';
     const fixedTape = this.ui.document.createElement('span');
     fixedTape.className = 'freight-tape fixed';
-    fixedTape.textContent = 'SANDOR';
+    fixedTape.textContent = freightLandingTapeLabel(targetFloor);
     const movingTape = this.ui.document.createElement('span');
     movingTape.className = 'freight-tape moving';
-    movingTape.textContent = 'CAGE';
+    movingTape.textContent = 'ELEVATOR TAPE';
     gauge.append(fixedTape, movingTape);
 
     const alignment = this.ui.document.createElement('div');
@@ -271,7 +275,7 @@ export class FreightElevatorSystem {
         'OLD BREAKGLASS FREIGHT ELEVATOR',
         cageAtLanding
           ? `The grey freight cage is sitting at ${floorLabel(this.activeScene)}. The gate is manual and the two scraps of white electrical tape still mark the only reliable stopping point.`
-          : `The cage is somewhere else in the shaft. There is no automatic levelling: hold the call direction until Sandor's two pieces of white electrical tape line up exactly.`,
+          : `The cage is somewhere else in the shaft. There is no automatic levelling: hold the call direction until the ELEVATOR TAPE lines up exactly with the ${freightLandingTapeLabel(sceneFloor)}.`,
       );
       this.buildShaftVisual(sceneFloor);
 
@@ -343,7 +347,9 @@ export class FreightElevatorSystem {
   enterCabin() {
     const currentFloor = this.floorPosition(this.activeScene);
     if (!freightAligned(this.position, currentFloor)) {
-      this.ui.warning?.("The landing gate is jammed. Sandor's tape marks are not lined up.");
+      this.ui.warning?.(
+        'The landing gate is jammed. The ELEVATOR TAPE is not lined up with the ${freightLandingTapeLabel(currentFloor)}.',
+      );
       this.render();
       return;
     }
@@ -374,7 +380,9 @@ export class FreightElevatorSystem {
     const targetScene = this.targetScene();
     const targetFloor = this.targetPosition();
     if (!this.gateClosed || !freightAligned(this.position, targetFloor)) {
-      this.ui.warning?.("The door will not clear the sill. Line up Sandor's white tape first.");
+      this.ui.warning?.(
+        'The door will not clear the sill. Line up the ELEVATOR TAPE with the ${freightLandingTapeLabel(targetFloor)} first.',
+      );
       this.render();
       return;
     }

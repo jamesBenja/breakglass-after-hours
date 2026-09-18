@@ -4,12 +4,13 @@ import {
   FREIGHT_ALIGNMENT_TOLERANCE,
   FREIGHT_FLOORS,
   freightAligned,
+  freightLandingTapeLabel,
   historicalLayerAt,
   stepFreightPosition,
 } from '../src/gameplay/FreightElevatorSystem.js';
 import { createGameSpace } from '../src/world/upstairs/gameSpace.js';
 
-test('manual freight can overshoot a floor and must be corrected back to Sandor tape', () => {
+test('manual freight can overshoot a floor and must be corrected back to the landing tape', () => {
   let position = FREIGHT_FLOORS.roof;
   for (let i = 0; i < 160; i++) position = stepFreightPosition(position, 1, 0.68);
   assert.ok(position > FREIGHT_FLOORS.alley);
@@ -36,4 +37,9 @@ test('Spectra rear couch faces back toward the console', () => {
   const couch = space.fixtures.find((fixture) => fixture.id === 'mix-sofa-rear');
   assert.ok(couch);
   assert.equal(couch.rotationY, Math.PI);
+});
+
+test('freight tape labels distinguish the moving elevator from each landing', () => {
+  assert.equal(freightLandingTapeLabel(FREIGHT_FLOORS.roof), 'ROOF TAPE');
+  assert.equal(freightLandingTapeLabel(FREIGHT_FLOORS.alley), 'ALLEY TAPE');
 });

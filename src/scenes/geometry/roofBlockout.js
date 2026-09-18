@@ -132,9 +132,11 @@ export function buildRoofBlockout(root) {
   const braceB = box(freight, 0.06, 2.35, 0.06, freightRust, 0.42, 1.28, -0.88);
   braceB.rotation.z = 0.53;
 
-  // Sandor's alignment marks: one on the fixed jamb, one on the moving cage gate.
-  box(freight, 0.42, 0.08, 0.04, tape, -1.1, 1.04, -0.9);
+  // Alignment marks: one fixed to the roof landing, one moving with the elevator cage.
+  box(root, 0.42, 0.08, 0.04, tape, -7.55, 1.04, 2.72);
+  label(root, 'ROOF TAPE', -7.55, 1.24, 2.72, 0.13, '#f5f2e7');
   box(freight, 0.42, 0.08, 0.04, tape, -0.72, 1.04, -0.94);
+  label(freight, 'ELEVATOR TAPE', -0.72, 1.24, -0.94, 0.12, '#f5f2e7');
   const control = box(freight, 0.34, 0.62, 0.16, freightDark, 0.7, 1.15, -0.96);
   control.rotation.x = -0.03;
   cyl(freight, 0.055, 0.035, mat(0x6f8c68, 0.58, 0.16), 0.7, 1.31, -1.06).rotation.x = Math.PI / 2;

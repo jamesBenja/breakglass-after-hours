@@ -83,7 +83,9 @@ export function buildAlleyBlockout(root) {
   const freightBrace = box(root, 0.06, 2.45, 0.05, freightRust, 22.2, 1.3, -1.95);
   freightBrace.rotation.z = 0.55;
   box(root, 0.42, 0.08, 0.04, tape, 21.12, 1.02, -1.92);
+  label(root, 'ALLEY TAPE', 21.12, 1.22, -1.92, 0.13, '#f5f2e7');
   box(root, 0.42, 0.08, 0.04, tape, 21.5, 1.02, -1.9);
+  label(root, 'ELEVATOR TAPE', 21.5, 1.22, -1.9, 0.12, '#f5f2e7');
   label(root, 'OLD FREIGHT', 22.2, 3.18, -2.02, 0.25, '#c9ceca');
 
   // Planters / trees create the narrow garden rhythm visible from De Castelnau.
