@@ -450,3 +450,16 @@ canvas:focus {
     font-size: 10px;
   }
 }
+
+
+/* Portrait phone HUD: reserve a clean top row for presence, then keep the
+   main HUD and social controls in separate vertical bands. Landscape is unchanged. */
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  #hud {
+    top: calc(max(8px, env(safe-area-inset-top)) + 36px);
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    max-width: none;
+    box-sizing: border-box;
+  }
+}
