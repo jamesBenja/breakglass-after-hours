@@ -157,3 +157,53 @@ test('DJ STOP cancels a PLAY that is still waiting for the iPhone audio unlock',
   await game.dispose();
   globalThis.window = originalWindow;
 });
+
+test('iOS interrupted WebAudio does not block house-DJ media from resuming', async () => {
+  let resumeCalls = 0;
+  const context = {
+    state: 'interrupted',
+    currentTime: 0,
+    async resume() {
+      resumeCalls += 1;
+      if (resumeCalls === 1) throw new Error('Failed to start the audio device');
+      this.state = 'running';
+    },
+  };
+  const audio = new AudioEngine({ contextFactory: () => context });
+  audio.context = context;
+
+  let mediaPlayCalls = 0;
+  const element = {
+    paused: true,
+    volume: 0,
+    async play() {
+      mediaPlayCalls += 1;
+      this.paused = false;
+    },
+  };
+  audio.nativeMedia.set('house-dj', {
+    element,
+    baseVolume: 0.8,
+    owner: 'house-dj',
+    resumeAfterSuspend: true,
+  });
+
+  assert.equal(
+    await audio.resume(),
+    false,
+    'device recovery can remain pending after visibility return',
+  );
+  assert.equal(audio._contextResumePending, true);
+  assert.equal(audio._nativeMediaResumePending, false);
+  assert.equal(mediaPlayCalls, 1, 'native house-DJ media still restarts despite WebAudio failure');
+  assert.equal(element.paused, false);
+
+  assert.equal(
+    await audio.resume(),
+    true,
+    'a later gesture can recover the interrupted AudioContext',
+  );
+  assert.equal(context.state, 'running');
+  assert.equal(audio._contextResumePending, false);
+  assert.equal(resumeCalls, 2);
+});
