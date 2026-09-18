@@ -73,3 +73,15 @@ test('Spectra outboard rack sits beside and faces with the console', () => {
   assert.equal(rackFixture.rotationY ?? 0, consoleFixture.rotationY ?? 0);
   assert.ok(!tapeBank || tapeBank.x2 <= rackFixture.x1, 'rack should not overlap the tape bank');
 });
+
+
+test('Neve outboard rack faces with the Neve console', () => {
+  const definition = createUpstairsDefinition('B');
+  const consoleFixture = definition.fixtures.find((fixture) => fixture.id === 'neve-console');
+  const rackFixture = definition.fixtures.find((fixture) => fixture.id === 'neve-side-rack');
+
+  assert.ok(consoleFixture, 'expected Neve console fixture');
+  assert.ok(rackFixture, 'expected Neve outboard rack fixture');
+  assert.equal(rackFixture.rotationY ?? 0, Math.PI);
+  assert.equal(rackFixture.rotationY ?? 0, consoleFixture.rotationY ?? 0);
+});
