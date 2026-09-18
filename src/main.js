@@ -72,48 +72,50 @@ const liveBuild = await ensureCanonicalLiveBuild({
   buildSha: import.meta.env.VITE_BUILD_SHA,
 });
 let game;
-if (!liveBuild.reloading) try {
-  game = new Game(ui, {
-    spatialPass: resolveEntrySpatialPass({
-      search: location.search,
-      production: import.meta.env.PROD,
-    }),
-    saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : invitationSaveKey(invitation),
-  });
-  applyInvitationAccess(game, invitation);
-  if (godMode.enabled) {
-    applyGodMode(game, ui);
-    mountGodModeControls(document);
+if (!liveBuild.reloading) {
+  try {
+    game = new Game(ui, {
+      spatialPass: resolveEntrySpatialPass({
+        search: location.search,
+        production: import.meta.env.PROD,
+      }),
+      saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : invitationSaveKey(invitation),
+    });
+    applyInvitationAccess(game, invitation);
+    if (godMode.enabled) {
+      applyGodMode(game, ui);
+      mountGodModeControls(document);
+    }
+    installMusicEnhancements(game, ui);
+    installPartyPressureEnhancements(game, ui);
+    installPartyLifeEnhancements(game, ui);
+    installDjSyncEnhancements(game, ui);
+    installDjPerformanceRealism(game, ui);
+    installDjAccuracyEnhancements(game, ui);
+    installStudioLoopEnhancements(game, ui);
+    installClubBathroomSystem(game, ui);
+    installModularSynthSystem(game, ui);
+    installRoofEndgameSystem(game, ui);
+    installFreightElevatorSystem(game, ui);
+    installPerformanceRealismSystems(game, ui);
+    installDjLessonSystem(game, ui);
+    installCrowdDoorEnhancements(game, ui);
+    installEntryEnhancements(game, ui);
+    installGuestlistDoorEnhancements(game, ui);
+    installRoomExperienceEnhancements(game, ui);
+    installGameStatsEnhancements(game, ui);
+    installBelowAlleyWorldSystem(game, ui);
+    installAudioReliabilityEnhancements(game, ui);
+    installMultiplayerEnhancements(game, ui);
+    installInvitationAccess(game, ui, invitation);
+    installClubRegressionFixes(game, ui);
+    telemetry.attach(game, ui);
+    await game.initialize();
+  } catch (error) {
+    console.error('Breakglass startup failed', error);
+    await game?.dispose();
+    ui.fatal(error);
   }
-  installMusicEnhancements(game, ui);
-  installPartyPressureEnhancements(game, ui);
-  installPartyLifeEnhancements(game, ui);
-  installDjSyncEnhancements(game, ui);
-  installDjPerformanceRealism(game, ui);
-  installDjAccuracyEnhancements(game, ui);
-  installStudioLoopEnhancements(game, ui);
-  installClubBathroomSystem(game, ui);
-  installModularSynthSystem(game, ui);
-  installRoofEndgameSystem(game, ui);
-  installFreightElevatorSystem(game, ui);
-  installPerformanceRealismSystems(game, ui);
-  installDjLessonSystem(game, ui);
-  installCrowdDoorEnhancements(game, ui);
-  installEntryEnhancements(game, ui);
-  installGuestlistDoorEnhancements(game, ui);
-  installRoomExperienceEnhancements(game, ui);
-  installGameStatsEnhancements(game, ui);
-  installBelowAlleyWorldSystem(game, ui);
-  installAudioReliabilityEnhancements(game, ui);
-  installMultiplayerEnhancements(game, ui);
-  installInvitationAccess(game, ui, invitation);
-  installClubRegressionFixes(game, ui);
-  telemetry.attach(game, ui);
-  await game.initialize();
-} catch (error) {
-  console.error('Breakglass startup failed', error);
-  await game?.dispose();
-  ui.fatal(error);
 }
 
 if (import.meta.hot) {
