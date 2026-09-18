@@ -7,8 +7,10 @@ import {
   plungeToilet,
 } from '../src/gameplay/ClubBathroomSystem.js';
 import {
+  ModularSynthSystem,
   createModularPerformance,
   modularPatchIsAudible,
+  modularStepEvent,
   normalizeModularPatchState,
 } from '../src/gameplay/ModularSynthSystem.js';
 import { levels } from '../src/world/levels.js';
@@ -61,4 +63,137 @@ test('modular patch creates console-compatible performance events and respects b
   patch.vcfToVca = false;
   assert.equal(modularPatchIsAudible(patch), false);
   assert.equal(createModularPerformance(patch, 120, 1).events.length, 0);
+});
+
+test('live modular step reads the current patch on every pass', () => {
+  const patch = normalizeModularPatchState({
+    baseMidi: 48,
+    steps: [
+      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ],
+  });
+  const first = modularStepEvent(patch, 0);
+  patch.steps[0] = 7;
+  const edited = modularStepEvent(patch, 0);
+  assert.equal(first.midi, 48);
+  assert.equal(edited.midi, 55);
+  assert.notEqual(first.frequency, edited.frequency);
+
+  patch.vcfToVca = false;
+  assert.equal(modularStepEvent(patch, 0), null);
+});
+
+test('step grid can be edited while live playback remains running', () => {
+  const tones = [];
+  const game = {
+    state: {
+      data: {
+        modularSynth: normalizeModularPatchState({
+          steps: [
+            0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+          ],
+        }),
+      },
+    },
+    studio: { bpm: 120, swing: 0, loopEnabled: false, loopBars: 1 },
+    audio: { tone: (...args) => tones.push(args) },
+    save: () => {},
+  };
+  const ui = { panel: () => {}, warning: () => {}, document: null, buttons: null };
+  const modular = new ModularSynthSystem(game, ui);
+  modular.playing = true;
+
+  assert.equal(modular.triggerStep(0), true);
+  const originalFrequency = tones.at(-1)[0];
+
+  modular.selectedStepValue = 7;
+  modular.editStep(0);
+  assert.equal(modular.playing, true);
+  assert.equal(modular.patch.steps[0], 7);
+  assert.equal(modular.triggerStep(0), true);
+  assert.notEqual(tones.at(-1)[0], originalFrequency);
+
+  modular.editStep(0);
+  assert.equal(modular.patch.steps[0], null);
+  assert.equal(modular.triggerStep(0), false);
+
+  modular.adjustTempo(5);
+  assert.equal(modular.playing, true);
+  assert.equal(game.studio.bpm, 125);
+});
+
+test('live modular transport starts a repeating scheduler and stops cleanly', async () => {
+  const tones = [];
+  const cleared = [];
+  let intervalCallback = null;
+  const timers = {
+    setInterval: (callback) => {
+      intervalCallback = callback;
+      return 17;
+    },
+    clearInterval: (id) => cleared.push(id),
+  };
+  const audio = {
+    timers,
+    context: { state: 'running', currentTime: 0 },
+    init: async () => {},
+    tone: (...args) => tones.push(args),
+    stop: () => {},
+    setExternalTransport: () => {},
+    clearExternalTransport: () => {},
+  };
+  const game = {
+    state: { data: { modularSynth: normalizeModularPatchState() } },
+    studio: { bpm: 120, loopEnabled: false, loopBars: 1 },
+    studioPlayback: { stop: () => {} },
+    dj: { stop: () => {} },
+    audio,
+    save: () => {},
+  };
+  const ui = { panel: () => {}, warning: () => {}, document: null, buttons: null };
+  const modular = new ModularSynthSystem(game, ui);
+
+  await modular.startLoop();
+  assert.equal(modular.playing, true);
+  assert.equal(modular.scheduler, 17);
+  assert.equal(typeof intervalCallback, 'function');
+  assert.ok(tones.length >= 1);
+
+  audio.context.currentTime = 0.2;
+  intervalCallback();
+  assert.ok(modular.currentStep >= 1);
+
+  modular.stopLoop(false);
+  assert.equal(modular.playing, false);
+  assert.deepEqual(cleared, [17]);
 });

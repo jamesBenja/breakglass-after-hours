@@ -504,6 +504,7 @@ export class Game {
     this.renderer.domElement.removeEventListener('webglcontextlost', this.onContextLost);
     this.arcade.dispose();
     this.input.dispose();
+    this.modularSynth?.dispose?.();
     this.keyboardPerformance.dispose();
     this.micRecorder.dispose();
     this.studioPlayback.dispose();
