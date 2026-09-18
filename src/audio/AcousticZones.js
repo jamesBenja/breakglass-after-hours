@@ -102,7 +102,12 @@ export function acousticEnvironmentFor(
   if (owner === 'dj' || owner === 'house-dj') {
     if (sceneId === 'downstairs') return downstairsDj(surfaceId, installationFocus);
     if (sceneId === 'alley')
-      return environment(0.075, 520, 'quiet low-end club bleed through exterior wall / stair door', true);
+      return environment(
+        0.075,
+        520,
+        'quiet low-end club bleed through exterior wall / stair door',
+        true,
+      );
     if (sceneId === 'upstairs') return upstairsDj(surfaceId);
     return SILENT;
   }

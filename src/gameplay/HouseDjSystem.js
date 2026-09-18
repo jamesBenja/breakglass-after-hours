@@ -2,10 +2,7 @@ import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial } fro
 import { poseLightweightHuman } from '../avatar/LightweightHuman.js';
 import { NPC_DJ_PROGRAMS, RUNTIME_DJ_LIBRARY } from '../audio/musicLibrary.js';
 import { createNpcCharacter } from '../npcs/NpcSystem.js';
-import {
-  houseDjProfile,
-  transitionSecondsForHouseDj,
-} from './houseDjFeeder.js';
+import { houseDjProfile, transitionSecondsForHouseDj } from './houseDjFeeder.js';
 
 export const HOUSE_DJS = [
   { id: 'lunice', name: 'Lunice', trackId: 'atrakar', accent: 0x53b7ff },
@@ -177,11 +174,7 @@ export class HouseDjSystem {
     for (const voice of [...this.programVoices]) {
       const parameter = voice.gain?.gain;
       if (parameter?.cancelScheduledValues) parameter.cancelScheduledValues(now);
-      if (
-        fade > 0 &&
-        parameter?.setValueAtTime &&
-        parameter?.exponentialRampToValueAtTime
-      ) {
+      if (fade > 0 && parameter?.setValueAtTime && parameter?.exponentialRampToValueAtTime) {
         parameter.setValueAtTime(Math.max(0.0001, parameter.value || 0.0001), now);
         parameter.exponentialRampToValueAtTime(0.0001, now + fade);
       }
@@ -221,7 +214,9 @@ export class HouseDjSystem {
           vibe: profile.vibe,
           baseVolume: 0.88,
         });
-        this.programRunning = Boolean(started && !item.continuous && this.fallbackProgram.length > 1);
+        this.programRunning = Boolean(
+          started && !item.continuous && this.fallbackProgram.length > 1,
+        );
         this.nextMixAt = Infinity;
         return;
       }

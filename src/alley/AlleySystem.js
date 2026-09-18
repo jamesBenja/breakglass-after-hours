@@ -1,4 +1,11 @@
-import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshStandardMaterial, PointLight } from 'three';
+import {
+  BoxGeometry,
+  CylinderGeometry,
+  Group,
+  Mesh,
+  MeshStandardMaterial,
+  PointLight,
+} from 'three';
 import { poseLightweightHuman } from '../avatar/LightweightHuman.js';
 import { createNpcCharacter } from '../npcs/NpcSystem.js';
 

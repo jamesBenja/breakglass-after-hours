@@ -226,6 +226,10 @@ test('police arrival offers James or self response and James can resolve shared 
   assert.ok(police, 'James should offer the visible police-response sequence');
   police[1]();
   assert.equal(f.counts().toldJames, 1);
-  assert.equal(f.counts().resolvedPolice, 0, 'James must not resolve police instantly from the club');
+  assert.equal(
+    f.counts().resolvedPolice,
+    0,
+    'James must not resolve police instantly from the club',
+  );
   assert.equal(f.game.state.data.policePlan, 'james');
 });

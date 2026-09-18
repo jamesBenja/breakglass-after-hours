@@ -138,7 +138,9 @@ export class PoliceResponseSystem {
         resolvedAt: this.game.multiplayer?.serverNow?.() ?? Date.now(),
       });
       if (repeatVisit) {
-        this.ui.warning?.('James talks to the officers. This time they are shutting the party down.');
+        this.ui.warning?.(
+          'James talks to the officers. This time they are shutting the party down.',
+        );
       } else {
         this.ui.warning?.('James talks to the officers. They leave after the first warning.');
       }

@@ -34,7 +34,13 @@ test('house DJ feeder covers every current house DJ with overlap transitions', (
 test('transition timing stays inside each DJs feeder range', () => {
   for (const id of EXPECTED_HOUSE_DJS) {
     const profile = houseDjProfile(id);
-    assert.equal(transitionSecondsForHouseDj(id, () => 0), profile.transitionSeconds[0]);
-    assert.equal(transitionSecondsForHouseDj(id, () => 1), profile.transitionSeconds[1]);
+    assert.equal(
+      transitionSecondsForHouseDj(id, () => 0),
+      profile.transitionSeconds[0],
+    );
+    assert.equal(
+      transitionSecondsForHouseDj(id, () => 1),
+      profile.transitionSeconds[1],
+    );
   }
 });

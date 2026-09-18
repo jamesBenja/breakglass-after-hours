@@ -254,9 +254,7 @@ export class SharedMediaSync {
     if (!houseDj) return null;
     const serverNow = this.serverNow();
     const elapsed =
-      houseDj.programStartedAtMs > 0
-        ? Math.max(0, Date.now() - houseDj.programStartedAtMs)
-        : 0;
+      houseDj.programStartedAtMs > 0 ? Math.max(0, Date.now() - houseDj.programStartedAtMs) : 0;
     return {
       playing: houseDj.isHouseAudio(),
       djId: houseDj.selectedId,
@@ -271,11 +269,7 @@ export class SharedMediaSync {
   publishHouseDj(force = false) {
     if (!this.client.joined || this.applyingHouseDj) return false;
     const current = this.client.world?.objects?.get?.(HOUSE_DJ_OBJECT);
-    if (
-      !force &&
-      current?.controllerId &&
-      current.controllerId !== this.client.localId
-    )
+    if (!force && current?.controllerId && current.controllerId !== this.client.localId)
       return false;
     const payload = this.houseDjPayload();
     if (!payload) return false;
@@ -296,8 +290,7 @@ export class SharedMediaSync {
     ].join(':');
     if (signature === this.lastHouseDjSignature) return;
     this.lastHouseDjSignature = signature;
-    this.houseDjControllerId =
-      typeof data.controllerId === 'string' ? data.controllerId : null;
+    this.houseDjControllerId = typeof data.controllerId === 'string' ? data.controllerId : null;
     if (this.houseDjControllerId === this.client.localId) {
       houseDj.setSharedFollower?.(false);
       return;
