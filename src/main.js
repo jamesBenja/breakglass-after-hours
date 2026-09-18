@@ -46,6 +46,7 @@ import {
 import {
   applyInvitationAccess,
   installInvitationAccess,
+  GOD_MODE_INVITATION_PROFILE,
   invitationSaveKey,
   mountInvitationLetter,
   resolveInvitationAccess,
@@ -62,7 +63,7 @@ clearRememberedGodModeForInvitation(invitation);
 const godMode = await resolveGodModeAccess();
 const telemetry = new PlaytestTelemetry({ invitation, godMode: godMode.enabled });
 const ui = new Hud(document);
-mountInvitationLetter(document, invitation);
+mountInvitationLetter(document, godMode.enabled ? GOD_MODE_INVITATION_PROFILE : invitation);
 telemetry.mountNotice(document);
 let game;
 try {
