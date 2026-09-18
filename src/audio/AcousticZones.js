@@ -1,6 +1,6 @@
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, Number(value) || 0));
 
-export const SPATIAL_TRANSPORT_OWNERS = Object.freeze(['dj', 'studio', 'archive']);
+export const SPATIAL_TRANSPORT_OWNERS = Object.freeze(['dj', 'house-dj', 'studio', 'archive']);
 
 const environment = (gain, lowpassHz, label, portal = false) => ({
   gain: clamp(gain, 0, 1.2),
@@ -97,7 +97,7 @@ export function acousticEnvironmentFor(
     return upstairsStudio(surfaceId);
   }
 
-  if (owner === 'dj') {
+  if (owner === 'dj' || owner === 'house-dj') {
     if (sceneId === 'downstairs') return downstairsDj(surfaceId, installationFocus);
     if (sceneId === 'alley')
       return environment(0.14, 760, 'club through exterior wall / stair door', true);
