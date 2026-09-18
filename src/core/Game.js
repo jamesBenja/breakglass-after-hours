@@ -85,13 +85,44 @@ export class Game {
     this.input.bindCamera(this.renderer.domElement);
     this.input.bindTouchControls(document);
 
-    // iOS/Safari may suspend WebAudio until a direct gesture. Capture every genuine gameplay
-    // gesture until the one shared context is running so instruments, DJ decks and cabinet SFX
-    // do not silently fail after the title gate has already been dismissed.
+    this.audioPlaybackRecoveryPending = false;
+    this.audioPlaybackResumePromise = null;
+    this.prepareAudioPlaybackForBackground = () => {
+      const houseDjWasPlaying = this.partyLife?.houseDj?.prepareForBackground?.() === true;
+      const playerDjWasPlaying = this.dj.prepareForBackground?.() === true;
+      this.audioPlaybackRecoveryPending = houseDjWasPlaying || playerDjWasPlaying;
+      return this.audioPlaybackRecoveryPending;
+    };
+    this.resumeAudioPlayback = () => {
+      if (this.audioPlaybackResumePromise) return this.audioPlaybackResumePromise;
+      this.audioPlaybackResumePromise = (async () => {
+        const deviceRecovered = await this.audio.resume();
+        if (this.audio.context?.state !== 'running') return false;
+
+        const houseDj = this.partyLife?.houseDj;
+        if (houseDj?.backgroundSnapshot) await houseDj.recoverAfterBackground?.();
+        if (this.dj.backgroundSnapshot?.length) await this.dj.recoverAfterBackground?.();
+
+        this.audioPlaybackRecoveryPending = Boolean(
+          houseDj?.backgroundSnapshot || this.dj.backgroundSnapshot?.length,
+        );
+        return deviceRecovered !== false && !this.audioPlaybackRecoveryPending;
+      })().finally(() => {
+        this.audioPlaybackResumePromise = null;
+      });
+      return this.audioPlaybackResumePromise;
+    };
+
+    // iOS/Safari can revive the AudioContext but leave old AudioBufferSourceNodes silent. Capture
+    // every genuine gameplay gesture until both the device and the recreated playback transports
+    // are running again.
     this.onAudioGesture = () => {
-      const audioRunning = this.audio.context?.state === 'running';
-      if (audioRunning && this.audio._nativeMediaResumePending !== true) return;
-      void this.audio.resume().catch(() => {});
+      const recoveryPending =
+        this.audioPlaybackRecoveryPending ||
+        this.audio._nativeMediaResumePending === true ||
+        this.audio._contextResumePending === true;
+      if (this.audio.context?.state === 'running' && !recoveryPending) return;
+      void this.resumeAudioPlayback().catch(() => {});
     };
     window.addEventListener('pointerdown', this.onAudioGesture, true);
     window.addEventListener('touchend', this.onAudioGesture, true);
@@ -343,10 +374,13 @@ export class Game {
     };
     this.onVisibility = () => {
       this.input.clear();
-      if (document.hidden) this.keyboardPerformance.stop(false);
+      if (document.hidden) {
+        this.keyboardPerformance.stop(false);
+        this.prepareAudioPlaybackForBackground();
+      }
       this.lastTime = null;
       this.save();
-      const request = document.hidden ? this.audio.suspend() : this.audio.resume();
+      const request = document.hidden ? this.audio.suspend() : this.resumeAudioPlayback();
       request.catch((error) => ui.warning(`Audio: ${error.message}`));
     };
     this.onPageHide = () => this.save();
