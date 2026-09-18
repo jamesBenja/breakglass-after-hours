@@ -42,6 +42,7 @@ export const roofLevel = {
     start: HATCH_APPROACH,
     hatch: HATCH_APPROACH,
     stairs: HATCH_APPROACH,
+    freightElevator: [-6.0, 0, 3.05],
   },
   intro: [
     'THE ROOF',
@@ -88,7 +89,12 @@ export const roofLevel = {
       1.4,
       'gentrificationTrigger',
     ),
-    escapeHatch: anchor('Sealed escape hatch', [-6.45, 0, 3.75], 1.45, 'roofEscape'),
+    escapeHatch: anchor(
+      'Old freight elevator hatch',
+      [-6.45, 0, 3.35],
+      1.6,
+      'freightElevator',
+    ),
   },
   maddox: {
     name: 'Maddox',
