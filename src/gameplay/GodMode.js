@@ -1,8 +1,12 @@
 import { MIXING_CHALLENGE_IDS } from '../studio/MixingChallenge.js';
+import {
+  CANONICAL_MULTIPLAYER_SERVER,
+  liveVerificationServer,
+} from '../runtime/LiveBackendPolicy.js';
 
 export const GOD_MODE_SAVE_KEY = 'breakglass.after-hours.god.v1';
 const TOKEN_STORAGE_KEY = 'breakglass.god.token';
-const DEFAULT_SERVER = 'https://multiplayer-phase2-webrtc-production.up.railway.app';
+const DEFAULT_SERVER = CANONICAL_MULTIPLAYER_SERVER;
 
 function tokenFromLocation() {
   const search = new URLSearchParams(location.search);
@@ -51,8 +55,10 @@ function forgetToken(token) {
 }
 
 function verificationServer() {
-  const params = new URLSearchParams(location.search);
-  const configured = params.get('server') || DEFAULT_SERVER;
+  const configured = liveVerificationServer({
+    search: location.search,
+    production: import.meta.env?.PROD === true,
+  });
   try {
     const url = new URL(configured, location.href);
     if (url.protocol === 'wss:') url.protocol = 'https:';
