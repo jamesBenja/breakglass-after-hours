@@ -31,3 +31,29 @@ test('free-time records cannot be falsely beat-synced to a fixed-grid master', (
   assert.equal(mixer.snapshot().decks.A.freeTime, true);
   assert.equal(mixer.sync('A'), false);
 });
+
+
+test('active player DJ decks are recreated from their transport position after backgrounding', async () => {
+  const mixer = mixerHarness();
+  mixer.context.currentTime = 15;
+  mixer.decks.A.playing = true;
+  mixer.decks.A.transportOffset = 12;
+  mixer.decks.A.transportStartedAt = 10;
+
+  assert.equal(mixer.prepareForBackground(), true);
+  assert.equal(mixer.decks.A.playing, false);
+  assert.equal(mixer.backgroundSnapshot.length, 1);
+  assert.ok(mixer.backgroundSnapshot[0].position > 16.9);
+
+  let restarted = null;
+  mixer.playDeck = async (deckId, position) => {
+    restarted = { deckId, position };
+    mixer.decks[deckId].playing = true;
+    return true;
+  };
+
+  assert.equal(await mixer.recoverAfterBackground(), true);
+  assert.equal(restarted.deckId, 'A');
+  assert.equal(restarted.position, mixer.decks.A.transportOffset);
+  assert.equal(mixer.backgroundSnapshot.length, 0);
+});
