@@ -111,6 +111,9 @@ export function buildRoofBlockout(root) {
   );
   escapePanel.name = 'roof-freight-hatch-cover';
   box(root, 1.3, 0.035, 0.08, mat(0xe8e6dc, 0.75, 0.01), -6.45, 0.12, 3.34);
+  const shaftMouth = box(root, 1.82, 0.035, 1.62, mat(0x080a0a, 0.98, 0.0), -6.45, 0.045, 3.72);
+  shaftMouth.name = 'roof-freight-shaft-mouth';
+  shaftMouth.visible = false;
 
   const freight = new Group();
   freight.name = 'roof-freight-elevator';
