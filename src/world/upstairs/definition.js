@@ -158,6 +158,12 @@ export function createUpstairsDefinition(pass = 'B') {
         radius: 1.8,
         action: 'console',
       },
+      drumMachine: {
+        name: 'Spectra 808 / 909 / DMX / Linn drum machine',
+        position: at(320, 803, pass === 'B' ? 0.28 : 0),
+        radius: 1.55,
+        action: 'drumMachine',
+      },
       modularSynth: {
         name: 'Patchable modular synth + sequencer',
         position: at(195, 777),
