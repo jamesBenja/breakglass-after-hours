@@ -1,6 +1,6 @@
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial } from 'three';
 import { poseLightweightHuman } from '../avatar/LightweightHuman.js';
-import { NPC_DJ_PROGRAMS } from '../audio/musicLibrary.js';
+import { NPC_DJ_PROGRAMS, RUNTIME_DJ_LIBRARY } from '../audio/musicLibrary.js';
 import { createNpcCharacter } from '../npcs/NpcSystem.js';
 
 export const HOUSE_DJS = [
@@ -86,7 +86,14 @@ export class HouseDjSystem {
   get fallbackProgram() {
     const configured = this.programDefinition?.fallback;
     if (Array.isArray(configured) && configured.length) return configured;
-    return [{ id: this.selected.trackId, label: 'Breakglass selection' }];
+
+    const crate = RUNTIME_DJ_LIBRARY.map(({ id, label }) => ({ id, label }));
+    if (!crate.length) return [{ id: this.selected.trackId, label: 'Breakglass selection' }];
+    const start = Math.max(
+      0,
+      crate.findIndex((track) => track.id === this.selected.trackId),
+    );
+    return [...crate.slice(start), ...crate.slice(0, start)];
   }
 
   get currentProgramItem() {
@@ -144,6 +151,8 @@ export class HouseDjSystem {
   }
 
   isHouseAudio() {
+    const transports = this.game.audio.externalTransports;
+    if (typeof transports?.has === 'function') return transports.has('house-dj');
     return this.game.audio.activeExternalTransport?.owner === 'house-dj';
   }
 
