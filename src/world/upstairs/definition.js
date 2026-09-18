@@ -312,12 +312,7 @@ export function createUpstairsDefinition(pass = 'B') {
         name: 'Boogaloo',
         role: 'artist',
         position: waypoints.live,
-        route: [
-          waypoints.live,
-          waypoints.synthApproach,
-          waypoints.deadDoor,
-          waypoints.live,
-        ],
+        route: [waypoints.live, waypoints.synthApproach, waypoints.deadDoor, waypoints.live],
         speed: 0.48,
       },
       {
