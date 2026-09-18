@@ -109,6 +109,58 @@ test('James NPC programme advances outside Below when a track naturally ends', a
   assert.equal(system.programRunning, true);
 });
 
+test('house DJ uses the same spatial club zones as the player DJ', async () => {
+  const { acousticEnvironmentFor } = await import('../src/audio/AcousticZones.js');
+  const playerDj = acousticEnvironmentFor('dj', 'downstairs', 'lounge');
+  const houseDj = acousticEnvironmentFor('house-dj', 'downstairs', 'lounge');
+  assert.deepEqual(houseDj, playerDj);
+  assert.ok(houseDj.gain <= 0.05);
+  assert.ok(houseDj.lowpassHz <= 800);
+});
+
+test('James house DJ continues while an unrelated upstairs source is active', async () => {
+  const calls = [];
+  const audio = {
+    context: {},
+    activeExternalTransport: { owner: 'archive', label: 'Neve tape' },
+    assets: { entry: () => null },
+    async playAsset(id, options) {
+      calls.push({ id, options });
+      this.activeExternalTransport = { owner: options.owner, label: options.label };
+      return true;
+    },
+    stopAsset(owner) {
+      if (this.activeExternalTransport?.owner === owner) this.activeExternalTransport = null;
+    },
+  };
+  Object.defineProperty(audio, 'playing', {
+    get() {
+      return this.activeExternalTransport !== null;
+    },
+  });
+  const game = {
+    state: { data: { houseDjId: 'james-benjamin' } },
+    started: true,
+    audio,
+    dj: { metrics: () => ({ playing: false }), stop() {} },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    scenes: { get: () => null },
+    evacuationStarted: false,
+    save() {},
+  };
+  const system = new HouseDjSystem(game, { panel() {} });
+
+  await system.start();
+  assert.equal(calls[0].id, 'got-you-dancin');
+  system.programRunning = true;
+  audio.activeExternalTransport = { owner: 'archive', label: 'Neve tape' };
+  system.update(0.1);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].id, 'in-flux-just-be');
+});
+
 test('runtime DJ catalogue exposes the newly ingested James and Boogieman masters', () => {
   for (const id of ['team-break', 'gairage', 'drop-in', 'rotations-fences']) {
     assert.ok(RUNTIME_DJ_LIBRARY.some((track) => track.id === id));
