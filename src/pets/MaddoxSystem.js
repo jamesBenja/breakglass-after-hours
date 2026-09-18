@@ -181,6 +181,7 @@ export class MaddoxSystem {
     this.leadIndex = 0;
     this.arrivedAtLeadTarget = false;
     this.nextNapAfter = 22;
+    this.moving = false;
   }
 
   positionOf() {
@@ -330,6 +331,12 @@ export class MaddoxSystem {
       }
     }
 
+    this.moving = moving;
+    this.animatePose(dt, moving);
+  }
+
+  animatePose(dt, moving = false) {
+    this.elapsed += 0;
     const belly = this.state === 'belly';
     const gait = Math.sin(this.elapsed * 9.2);
     for (let i = 0; i < this.legPivots.length; i++) {
@@ -369,6 +376,8 @@ export class MaddoxSystem {
       leadIndex: this.leadIndex,
       petPulse: clamp(this.petPulse / 1.6),
       bellyRubPulse: clamp(this.bellyRubPulse / 1.6),
+      moving: this.moving,
+      rotationY: this.root.rotation.y,
     };
   }
 
