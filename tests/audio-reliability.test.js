@@ -195,11 +195,7 @@ test('iOS interrupted WebAudio does not block house-DJ media from resuming', asy
   );
   assert.equal(audio._contextResumePending, true);
   assert.equal(audio._nativeMediaResumePending, false);
-  assert.equal(
-    mediaPlayCalls,
-    1,
-    'native house-DJ media still restarts despite WebAudio failure',
-  );
+  assert.equal(mediaPlayCalls, 1, 'native house-DJ media still restarts despite WebAudio failure');
   assert.equal(element.paused, false);
 
   assert.equal(
