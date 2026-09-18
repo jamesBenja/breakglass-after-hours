@@ -21,17 +21,12 @@ export function liveBackendSelection({
   const params = new URLSearchParams(search);
   const offline = params.get('offline') === '1';
   const room =
-    (params.get('room') || CANONICAL_MULTIPLAYER_ROOM)
-      .replace(/[^a-z0-9-_]/gi, '')
-      .slice(0, 48) || CANONICAL_MULTIPLAYER_ROOM;
+    (params.get('room') || CANONICAL_MULTIPLAYER_ROOM).replace(/[^a-z0-9-_]/gi, '').slice(0, 48) ||
+    CANONICAL_MULTIPLAYER_ROOM;
   const queryServer = params.get('server');
   return {
     server:
-      queryServer ||
-      globalServer ||
-      envServer ||
-      storedServer ||
-      CANONICAL_MULTIPLAYER_SERVER,
+      queryServer || globalServer || envServer || storedServer || CANONICAL_MULTIPLAYER_SERVER,
     room,
     offline,
     queryServer,
