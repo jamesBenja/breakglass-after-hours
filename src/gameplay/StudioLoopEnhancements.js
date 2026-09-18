@@ -1,3 +1,4 @@
+import { SpectraRecorder } from '../studio/SpectraRecorder.js';
 import { StudioSession } from '../studio/StudioSession.js';
 
 const GRID_DIVISIONS = {
@@ -84,7 +85,9 @@ function enhanceSession(session) {
   session.removeLatestTake = () => {
     for (let index = session.stems.length - 1; index >= 0; index -= 1) {
       const stem = session.stems[index];
-      if (stem.source === 'keyboard-performance' || stem.source === 'browser-microphone') {
+      if (
+        ['keyboard-performance', 'browser-microphone', 'modular-synth', 'spectra-live-capture', 'spectra-collaborative-capture'].includes(stem.source)
+      ) {
         session.recordings.delete(stem.id);
         session.stems.splice(index, 1);
         return stem;
@@ -306,8 +309,50 @@ function buildSongLibraryPanel(game, ui, location = 'HOUSE PLAYBACK') {
 function buildLoopPanel(game, ui) {
   const { studio, studioPlayback } = game;
   enhanceSession(studio);
-  const status = `${studio.loopEnabled ? 'LOOP ON' : 'LOOP OFF'} · ${studio.loopBars} bars · ${studio.quantize} grid · swing ${Math.round(studio.swing * 100)}%`;
+  const recorder = game.spectraRecorder;
+  const recordStatus = recorder?.status?.() ?? { armed: false, recording: false, lanes: 0, events: 0 };
+  const status = `${studio.loopEnabled ? 'LOOP ON' : 'LOOP OFF'} · ${studio.loopBars} bars · ${studio.quantize} grid · swing ${Math.round(studio.swing * 100)}% · ${recordStatus.armed ? (recordStatus.recording ? `RECORDING ${recordStatus.lanes} live track${recordStatus.lanes === 1 ? '' : 's'}` : 'ARMED · waiting for first note') : 'live recorder idle'}`;
   const actions = [
+    [
+      recordStatus.armed ? '■ FINISH LIVE MULTITRACK + BUILD STEMS' : '● ARM LIVE MULTITRACK RECORDING',
+      () => {
+        if (recorder?.armed) {
+          const stems = recorder.stop({ commit: true });
+          ui.warning?.(
+            stems.length
+              ? `Spectra built ${stems.length} separate live stem${stems.length === 1 ? '' : 's'} from the jam.`
+              : 'No instrument events were captured, so no stems were added.',
+          );
+        } else {
+          recorder?.arm?.();
+          ui.warning?.('Spectra is armed. Recording begins on the first instrument note from any player.');
+        }
+        game.save();
+        buildLoopPanel(game, ui);
+      },
+    ],
+    ...(!recordStatus.armed
+      ? [
+          [
+            '● ARM + PLAY LOOP FOR OVERDUB',
+            async () => {
+              studio.setLoopEnabled(true);
+              recorder?.arm?.();
+              await studioPlayback.play(studio);
+              ui.warning?.('Loop is rolling. Spectra will punch in on the first live instrument note.');
+              buildLoopPanel(game, ui);
+            },
+          ],
+        ]
+      : [
+          [
+            'Cancel live multitrack capture',
+            () => {
+              recorder?.cancel?.();
+              buildLoopPanel(game, ui);
+            },
+          ],
+        ]),
     [
       studio.loopEnabled ? 'Disable loop' : 'Enable loop',
       async () => {
@@ -399,6 +444,7 @@ export function installStudioLoopEnhancements(game, ui) {
   game.studio.swing = clamp(saved.swing, 0, 0.45);
   enhanceSession(game.studio);
   enhancePlayback(game.studioPlayback, game.studio);
+  game.spectraRecorder ??= new SpectraRecorder(game, ui);
   game.showStudioLoopBuilder = () => buildLoopPanel(game, ui);
   game.showStudioSongLibrary = (location = 'House playback') =>
     buildSongLibraryPanel(game, ui, location);
