@@ -50,3 +50,25 @@ test('Spectra suite furniture is rendered once, not duplicated by the equipment 
 
   globalThis.document = previousDocument;
 });
+
+
+test('Spectra outboard rack sits beside and faces with the console', () => {
+  const definition = createUpstairsDefinition('B');
+  const consoleFixture = definition.fixtures.find((fixture) => fixture.id === 'spectra-console');
+  const rackFixture = definition.fixtures.find((fixture) => fixture.id === 'side-rack');
+
+  assert.ok(consoleFixture, 'expected Spectra console fixture');
+  assert.ok(rackFixture, 'expected Spectra outboard rack fixture');
+
+  const consoleCenterX = (consoleFixture.x1 + consoleFixture.x2) / 2;
+  const consoleCenterZ = (consoleFixture.z1 + consoleFixture.z2) / 2;
+  const rackCenterX = (rackFixture.x1 + rackFixture.x2) / 2;
+  const rackCenterZ = (rackFixture.z1 + rackFixture.z2) / 2;
+  const consoleRightEdge = consoleFixture.x2;
+  const rackLeftEdge = rackFixture.x1;
+
+  assert.ok(rackCenterX > consoleCenterX, 'rack should sit to the right of the console');
+  assert.ok(rackLeftEdge - consoleRightEdge < 0.8, 'rack should be directly beside the console');
+  assert.ok(Math.abs(rackCenterZ - consoleCenterZ) < 0.05, 'rack should share the console axis');
+  assert.equal(rackFixture.rotationY ?? 0, consoleFixture.rotationY ?? 0);
+});
