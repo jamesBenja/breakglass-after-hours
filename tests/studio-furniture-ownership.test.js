@@ -51,36 +51,29 @@ test('Spectra suite furniture is rendered once, not duplicated by the equipment 
   globalThis.document = previousDocument;
 });
 
-test('Spectra outboard rack sits beside the modular synth without blocking tape machines', () => {
+test('Spectra outboard rack sits against the wall behind the modular synth and faces the opposite direction', () => {
   const definition = createUpstairsDefinition('B');
   const modularFixture = definition.fixtures.find((fixture) => fixture.id === 'patch-rack');
   const rackFixture = definition.fixtures.find((fixture) => fixture.id === 'side-rack');
-  const tapeBank = definition.fixtures.find((fixture) => fixture.id === 'tape-bank');
 
   assert.ok(modularFixture, 'expected modular synth fixture');
   assert.ok(rackFixture, 'expected Spectra outboard rack fixture');
-  assert.ok(tapeBank, 'expected tape machine bank fixture');
 
   const modularCenterX = (modularFixture.x1 + modularFixture.x2) / 2;
   const modularCenterZ = (modularFixture.z1 + modularFixture.z2) / 2;
   const rackCenterX = (rackFixture.x1 + rackFixture.x2) / 2;
   const rackCenterZ = (rackFixture.z1 + rackFixture.z2) / 2;
-  const tapeCenterZ = (tapeBank.z1 + tapeBank.z2) / 2;
 
-  assert.ok(rackCenterX > modularCenterX, 'rack should sit beside the modular synth');
   assert.ok(
-    rackFixture.x1 - modularFixture.x2 < 0.6,
-    'rack should be directly adjacent to the modular synth',
+    Math.abs(rackCenterX - modularCenterX) < 0.05,
+    'rack should share the modular synth wall axis',
   );
+  assert.ok(rackCenterZ < modularCenterZ, 'rack should sit toward the back of the room');
   assert.ok(
-    Math.abs(rackCenterZ - modularCenterZ) < 0.05,
-    'rack should share the modular synth axis',
+    Math.abs(modularFixture.z1 - rackFixture.z2) < 0.05,
+    'rack should sit directly next to the modular synth without overlapping it',
   );
-  assert.equal(rackFixture.rotationY ?? 0, 0, 'rack orientation should remain unchanged');
-  assert.ok(
-    Math.abs(rackCenterZ - tapeCenterZ) > (rackFixture.z2 - rackFixture.z1) / 2,
-    'rack should no longer block the tape machine bank',
-  );
+  assert.equal(rackFixture.rotationY ?? 0, Math.PI, 'rack should face the opposite direction');
 });
 
 test('Neve outboard rack sits beside the tape machine and clear of the console', () => {
