@@ -413,6 +413,9 @@ export class Game {
     } else if (this.djLesson?.mode === 'lesson' || this.djLesson?.mode === 'proficiency') {
       owner = 'dj';
       duck = 0.22;
+    } else if (this.multiplayer?.sharedMedia?.activeVideoSessionId) {
+      owner = 'video';
+      duck = 0.18;
     } else if (this.keyboardPerformance?.active) {
       owner = 'gameplay';
       duck = 0.24;
