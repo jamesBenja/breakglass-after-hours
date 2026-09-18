@@ -150,9 +150,6 @@ export class HouseDjSystem {
   async start() {
     if (this.starting || this.isHouseAudio()) return;
     if (!this.game.started || !this.game.audio.context || this.game.dj.metrics().playing) return;
-    const external = this.game.audio.activeExternalTransport;
-    if (this.game.audio.playing && external?.owner && external.owner !== 'house-dj') return;
-    if (this.game.audio.playing && !external) return;
     this.starting = true;
     try {
       const dj = this.selected;
@@ -176,8 +173,7 @@ export class HouseDjSystem {
 
   stopHouseAudio() {
     this.programRunning = false;
-    if (this.isHouseAudio()) this.game.audio.stop();
-    else this.game.audio.stopAsset?.('house-dj');
+    this.game.audio.stopAsset?.('house-dj');
   }
 
   holdForPlayer(seconds = 25) {
@@ -283,7 +279,7 @@ export class HouseDjSystem {
 
     // A programmed NPC set is building-wide transport: leaving Below must not reset it or create
     // silence when a song ends. Advance even while the player is elsewhere in the building.
-    if (this.programRunning && !this.isHouseAudio() && !this.game.audio.playing) {
+    if (this.programRunning && !this.isHouseAudio()) {
       this.advanceProgram();
       return;
     }
