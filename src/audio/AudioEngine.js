@@ -151,10 +151,7 @@ export class AudioEngine {
     if (media) media.element.volume = clamp(media.baseVolume * this.sourceGain(owner));
   }
 
-  setSourceEnvironment(
-    owner,
-    { gain = 1, lowpassHz = 20000, label = 'local source' } = {},
-  ) {
+  setSourceEnvironment(owner, { gain = 1, lowpassHz = 20000, label = 'local source' } = {}) {
     if (!owner) return;
     this.sourceEnvironments.set(owner, {
       gain: clamp(Number(gain) || 0, 0, 1.2),
@@ -168,8 +165,7 @@ export class AudioEngine {
     this.prioritySource = owner || null;
     this.priorityDuck = clamp(Number(duck) || 0.32, 0.08, 1);
     for (const sourceOwner of this.sourceBuses.keys()) this.applySourceEnvironment(sourceOwner);
-    for (const sourceOwner of this.nativeMedia.keys())
-      this.applySourceEnvironment(sourceOwner);
+    for (const sourceOwner of this.nativeMedia.keys()) this.applySourceEnvironment(sourceOwner);
   }
 
   async init() {
@@ -353,10 +349,7 @@ export class AudioEngine {
     const time = this.context.currentTime + when;
     source.frequency.setValueAtTime(130, time);
     source.frequency.exponentialRampToValueAtTime(45, time + 0.18);
-    gain.gain.setValueAtTime(
-      clamp(Number(volume) || 0.22, 0.001, 0.3),
-      time,
-    );
+    gain.gain.setValueAtTime(clamp(Number(volume) || 0.22, 0.001, 0.3), time);
     gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
     source.connect(gain);
     gain.connect(this.master);
