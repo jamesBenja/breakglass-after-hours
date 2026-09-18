@@ -64,11 +64,13 @@ test('Spectra outboard rack sits beside and faces with the console', () => {
   const consoleCenterZ = (consoleFixture.z1 + consoleFixture.z2) / 2;
   const rackCenterX = (rackFixture.x1 + rackFixture.x2) / 2;
   const rackCenterZ = (rackFixture.z1 + rackFixture.z2) / 2;
-  const consoleRightEdge = consoleFixture.x2;
-  const rackLeftEdge = rackFixture.x1;
+  const consoleLeftEdge = consoleFixture.x1;
+  const rackRightEdge = rackFixture.x2;
+  const tapeBank = definition.fixtures.find((fixture) => fixture.id === 'tape-bank');
 
-  assert.ok(rackCenterX > consoleCenterX, 'rack should sit to the right of the console');
-  assert.ok(rackLeftEdge - consoleRightEdge < 0.8, 'rack should be directly beside the console');
+  assert.ok(rackCenterX < consoleCenterX, 'rack should sit to the left of the console');
+  assert.ok(consoleLeftEdge - rackRightEdge < 0.8, 'rack should be directly beside the console');
   assert.ok(Math.abs(rackCenterZ - consoleCenterZ) < 0.05, 'rack should share the console axis');
   assert.equal(rackFixture.rotationY ?? 0, consoleFixture.rotationY ?? 0);
+  assert.ok(!tapeBank || tapeBank.x2 <= rackFixture.x1, 'rack should not overlap the tape bank');
 });
