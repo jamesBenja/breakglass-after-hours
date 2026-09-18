@@ -101,13 +101,14 @@ export class StudioPlayback {
     low.connect(high);
     high.connect(compressor);
     compressor.connect(fader);
-    fader.connect(pan ?? this.audio.master);
-    pan?.connect(this.audio.master);
+    const destination = this.audio.sourceDestination?.('studio') ?? this.audio.master;
+    fader.connect(pan ?? destination);
+    pan?.connect(destination);
     fxGain.gain.value = 0;
     fxDelay.delayTime.value = 0.18;
     fader.connect(fxGain);
     fxGain.connect(fxDelay);
-    fxDelay.connect(this.audio.master);
+    fxDelay.connect(this.audio.sourceDestination?.('studio') ?? this.audio.master);
     bus = { input, color, low, high, compressor, fader, pan, fxGain, fxDelay };
     this.buses.set(stem.id, bus);
     this.configureProcessing(stem, bus);
@@ -136,7 +137,7 @@ export class StudioPlayback {
   updateNativeMix(session = this.session) {
     if (!session || !this.nativeStems.size) return;
     const anySolo = session.stems.some((stem) => stem.solo);
-    const environment = this.audio.environment?.gain ?? 1;
+    const environment = this.audio.sourceGain?.('studio') ?? this.audio.environment?.gain ?? 1;
     for (const stem of session.stems) {
       const media = this.nativeStems.get(stem.id);
       if (!media) continue;

@@ -53,6 +53,8 @@ import {
 } from './gameplay/InvitationAccess.js';
 import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
+import { resolveEntrySpatialPass } from './runtime/LiveEntryPolicy.js';
+import { ensureCanonicalLiveBuild } from './runtime/LiveVersionGuard.js';
 
 installFaceAvatarEnhancements();
 
@@ -65,46 +67,55 @@ const telemetry = new PlaytestTelemetry({ invitation, godMode: godMode.enabled }
 const ui = new Hud(document);
 mountInvitationLetter(document, godMode.enabled ? GOD_MODE_INVITATION_PROFILE : invitation);
 telemetry.mountNotice(document);
+const liveBuild = await ensureCanonicalLiveBuild({
+  production: import.meta.env.PROD,
+  buildSha: import.meta.env.VITE_BUILD_SHA,
+});
 let game;
-try {
-  game = new Game(ui, {
-    spatialPass: new URLSearchParams(location.search).get('pass') ?? undefined,
-    saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : invitationSaveKey(invitation),
-  });
-  applyInvitationAccess(game, invitation);
-  if (godMode.enabled) {
-    applyGodMode(game, ui);
-    mountGodModeControls(document);
+if (!liveBuild.reloading) {
+  try {
+    game = new Game(ui, {
+      spatialPass: resolveEntrySpatialPass({
+        search: location.search,
+        production: import.meta.env.PROD,
+      }),
+      saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : invitationSaveKey(invitation),
+    });
+    applyInvitationAccess(game, invitation);
+    if (godMode.enabled) {
+      applyGodMode(game, ui);
+      mountGodModeControls(document);
+    }
+    installMusicEnhancements(game, ui);
+    installPartyPressureEnhancements(game, ui);
+    installPartyLifeEnhancements(game, ui);
+    installDjSyncEnhancements(game, ui);
+    installDjPerformanceRealism(game, ui);
+    installDjAccuracyEnhancements(game, ui);
+    installStudioLoopEnhancements(game, ui);
+    installClubBathroomSystem(game, ui);
+    installModularSynthSystem(game, ui);
+    installRoofEndgameSystem(game, ui);
+    installFreightElevatorSystem(game, ui);
+    installPerformanceRealismSystems(game, ui);
+    installDjLessonSystem(game, ui);
+    installCrowdDoorEnhancements(game, ui);
+    installEntryEnhancements(game, ui);
+    installGuestlistDoorEnhancements(game, ui);
+    installRoomExperienceEnhancements(game, ui);
+    installGameStatsEnhancements(game, ui);
+    installBelowAlleyWorldSystem(game, ui);
+    installAudioReliabilityEnhancements(game, ui);
+    installMultiplayerEnhancements(game, ui);
+    installInvitationAccess(game, ui, invitation);
+    installClubRegressionFixes(game, ui);
+    telemetry.attach(game, ui);
+    await game.initialize();
+  } catch (error) {
+    console.error('Breakglass startup failed', error);
+    await game?.dispose();
+    ui.fatal(error);
   }
-  installMusicEnhancements(game, ui);
-  installPartyPressureEnhancements(game, ui);
-  installPartyLifeEnhancements(game, ui);
-  installDjSyncEnhancements(game, ui);
-  installDjPerformanceRealism(game, ui);
-  installDjAccuracyEnhancements(game, ui);
-  installStudioLoopEnhancements(game, ui);
-  installClubBathroomSystem(game, ui);
-  installModularSynthSystem(game, ui);
-  installRoofEndgameSystem(game, ui);
-  installFreightElevatorSystem(game, ui);
-  installPerformanceRealismSystems(game, ui);
-  installDjLessonSystem(game, ui);
-  installCrowdDoorEnhancements(game, ui);
-  installEntryEnhancements(game, ui);
-  installGuestlistDoorEnhancements(game, ui);
-  installRoomExperienceEnhancements(game, ui);
-  installGameStatsEnhancements(game, ui);
-  installBelowAlleyWorldSystem(game, ui);
-  installAudioReliabilityEnhancements(game, ui);
-  installMultiplayerEnhancements(game, ui);
-  installInvitationAccess(game, ui, invitation);
-  installClubRegressionFixes(game, ui);
-  telemetry.attach(game, ui);
-  await game.initialize();
-} catch (error) {
-  console.error('Breakglass startup failed', error);
-  await game?.dispose();
-  ui.fatal(error);
 }
 
 if (import.meta.hot) {

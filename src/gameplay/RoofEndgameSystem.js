@@ -149,6 +149,7 @@ export class RoofEndgameSystem {
     this.ui = ui;
     this.acAlignment = 2;
     this.acStage = 0;
+    this.acRepairActive = false;
     this.acAudioSignature = '';
     this.syncVisuals();
   }
@@ -367,6 +368,7 @@ export class RoofEndgameSystem {
   }
 
   startAcRepair() {
+    this.acRepairActive = true;
     this.acStage = 0;
     this.acAlignment = 2;
     this.acPointTone({
@@ -500,6 +502,7 @@ export class RoofEndgameSystem {
       wave: 'sine',
       when: 0.08,
     });
+    this.acRepairActive = false;
     this.data().roofAcFixed = true;
     this.data().roofAcRepairs = Math.min(999, (this.data().roofAcRepairs ?? 0) + 1);
     this.save();
@@ -587,6 +590,7 @@ export class RoofEndgameSystem {
   }
 
   dispose() {
+    this.acRepairActive = false;
     this.game.spatialAudio?.stopPointMachine?.('roof-ac', 0);
     this.acAudioSignature = '';
   }

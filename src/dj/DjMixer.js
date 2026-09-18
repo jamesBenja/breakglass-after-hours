@@ -272,7 +272,7 @@ export class DjMixer {
     low.connect(high);
     high.connect(level);
     level.connect(cross);
-    cross.connect(this.audio.master);
+    cross.connect(this.audio.sourceDestination?.('dj') ?? this.audio.master);
     deck.nodes = { input, low, high, level, cross };
     this.updateDeckNodes(deck);
     this.updateCrossfader();
@@ -285,7 +285,7 @@ export class DjMixer {
   }
 
   updateNativeDeckLevels() {
-    const environment = this.audio.environment?.gain ?? 1;
+    const environment = this.audio.sourceGain?.('dj') ?? this.audio.environment?.gain ?? 1;
     for (const [deckId, deck] of Object.entries(this.decks)) {
       if (!deck.media) continue;
       deck.media.volume = clamp(deck.level * this.nativeCrossGain(deckId) * environment * 0.92);

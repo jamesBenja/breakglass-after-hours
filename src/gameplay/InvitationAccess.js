@@ -1,6 +1,11 @@
+import {
+  CANONICAL_MULTIPLAYER_SERVER,
+  liveVerificationServer,
+} from '../runtime/LiveBackendPolicy.js';
+
 const TOKEN_STORAGE_KEY = 'breakglass.invitation.token';
 const TYPE_STORAGE_KEY = 'breakglass.invitation.type';
-const DEFAULT_SERVER = 'https://multiplayer-phase2-webrtc-production.up.railway.app';
+const DEFAULT_SERVER = CANONICAL_MULTIPLAYER_SERVER;
 
 export const GOD_MODE_INVITATION_PROFILE = Object.freeze({
   id: 'godmode',
@@ -138,8 +143,10 @@ function forgetInvitation() {
 }
 
 function verificationServer(locationRef = globalThis.location) {
-  const params = new URLSearchParams(locationRef?.search || '');
-  const configured = params.get('server') || DEFAULT_SERVER;
+  const configured = liveVerificationServer({
+    search: locationRef?.search || '',
+    production: import.meta.env?.PROD === true,
+  });
   try {
     const url = new URL(configured, locationRef?.href || DEFAULT_SERVER);
     if (url.protocol === 'wss:') url.protocol = 'https:';
