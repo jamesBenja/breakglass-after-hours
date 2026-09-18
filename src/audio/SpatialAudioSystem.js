@@ -4,7 +4,10 @@ import {
   acousticEnvironmentFor,
   acousticEnvironmentKey,
 } from './AcousticZones.js';
-import { TAKE_A_BREAK_SPEAKERS } from '../gameplay/TakeABreakImmersiveSystem.js';
+import {
+  TAKE_A_BREAK_SPEAKERS,
+  isTakeABreakPosition,
+} from '../gameplay/TakeABreakImmersiveSystem.js';
 import {
   DEFAULT_INSTALLATION_PROGRAM_ID,
   INSTALLATION_PROGRAMS,
@@ -629,6 +632,24 @@ export class SpatialAudioSystem {
     } else listener.setOrientation?.(this.forward.x, this.forward.y, this.forward.z, 0, 1, 0);
   }
 
+  listenerSurfaceId(level, player) {
+    if (!level) return '';
+    const sceneId = level.definition?.id ?? '';
+    const position = player?.position;
+    const ground =
+      position && level.collision?.surfaceAt?.(position.x, position.z, position.y + 0.3);
+    let surfaceId = ground?.surface?.id ?? sceneId;
+
+    // Take A Break is a physical acoustic room, not merely a navigation-surface label.
+    // Multiplayer entry profiles, God Mode and future navigation passes can all alter how the
+    // collision graph reports a listener without changing where that listener actually is.
+    // Keep the room's real bounds authoritative so the eight-speaker installation and the
+    // heavily filtered club bleed can never split apart again.
+    if (sceneId === 'downstairs' && position && isTakeABreakPosition(position)) surfaceId = 'lounge';
+
+    return surfaceId;
+  }
+
   sourceEnvironmentFor(owner, level, surfaceId) {
     return acousticEnvironmentFor(owner, level?.definition?.id ?? '', surfaceId, {
       installationFocus: this.installationFocus,
@@ -647,12 +668,7 @@ export class SpatialAudioSystem {
     this.elapsed += 1 / 60;
     this.ensureInstallation();
     this.updateListener(player, camera);
-    const ground = level.collision.surfaceAt(
-      player.position.x,
-      player.position.z,
-      player.position.y + 0.3,
-    );
-    const surfaceId = ground?.surface?.id ?? level.definition.id;
+    const surfaceId = this.listenerSurfaceId(level, player);
     const inLounge =
       level.definition.id === 'downstairs' &&
       (surfaceId === 'lounge' || surfaceId === 'lounge-door');
