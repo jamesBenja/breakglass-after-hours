@@ -350,8 +350,7 @@ export class ModularSynthSystem {
       },
       { type: 'midi', midi: event.midi },
       {
-        resourceId:
-          this.game.multiplayer?.instrumentSync?.activeResourceId ?? 'modular-live',
+        resourceId: this.game.multiplayer?.instrumentSync?.activeResourceId ?? 'modular-live',
         offsetSeconds: delay,
       },
     );
