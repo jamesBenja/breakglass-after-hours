@@ -99,6 +99,13 @@ export class KeyboardPerformance {
       volume: clamp(Number(config.volume) || 0.065, 0.01, 0.22),
       duration: clamp(Number(config.duration) || 0.42, 0.06, 1.5),
       octaveLayer: config.octaveLayer === true,
+      stemKind: config.stemKind ?? config.mode ?? 'synth',
+      processing:
+        config.processing && typeof config.processing === 'object'
+          ? { ...config.processing }
+          : null,
+      instrumentVoice: config.instrumentVoice,
+      ampCharacter: config.ampCharacter,
     };
     this.active = true;
     this.recording = !!record;
