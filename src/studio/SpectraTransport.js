@@ -161,10 +161,6 @@ export class SpectraTransport {
     if (this.timer != null) this.timers.clearInterval(this.timer);
     this.schedule();
     this.timer = this.timers.setInterval(() => this.schedule(), 20);
-    this.audio?.setExternalTransport?.('spectra-clock', 'Spectra master transport', stepDuration, {
-      vibe: 0.34,
-      mixQuality: 0.96,
-    });
     return true;
   }
 
@@ -178,7 +174,7 @@ export class SpectraTransport {
     this.generation += 1;
     if (this.timer != null) this.timers.clearInterval(this.timer);
     this.timer = null;
-    this.audio?.clearExternalTransport?.('spectra-clock');
+    this.owners.clear();
     return true;
   }
 
