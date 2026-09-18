@@ -200,17 +200,21 @@ function broadcast(roomId, payload, except = null) {
   }
 }
 
-function sanitizeJson(value, depth = 0) {
-  if (depth > 4) return null;
+function sanitizeJson(value, depth = 0, maxDepth = 4, maxArray = 64) {
+  if (depth > maxDepth) return null;
   if (value == null || typeof value === 'boolean') return value;
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
   if (typeof value === 'string') return sanitizeText(value, 500);
-  if (Array.isArray(value)) return value.slice(0, 64).map((item) => sanitizeJson(item, depth + 1));
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, maxArray)
+      .map((item) => sanitizeJson(item, depth + 1, maxDepth, maxArray));
+  }
   if (typeof value === 'object') {
     const output = {};
     for (const [key, item] of Object.entries(value).slice(0, 64)) {
       const safeKey = sanitizeText(key, 64).replace(/[^a-z0-9_.:-]/gi, '');
-      if (safeKey) output[safeKey] = sanitizeJson(item, depth + 1);
+      if (safeKey) output[safeKey] = sanitizeJson(item, depth + 1, maxDepth, maxArray);
     }
     return output;
   }
@@ -401,10 +405,13 @@ function updateObject(socket, message) {
     const controller = room.resources.get('led-wall-controller');
     if (!controller || controller.ownerId !== player.id) return;
   }
+  const isStudioSession = objectId === 'shared-studio-playback';
   const data =
-    objectId === 'dj-led-wall' ? sanitizeLedWall(message.data) : sanitizeJson(message.data);
+    objectId === 'dj-led-wall'
+      ? sanitizeLedWall(message.data)
+      : sanitizeJson(message.data, 0, isStudioSession ? 7 : 4, isStudioSession ? 512 : 64);
   const serialized = JSON.stringify(data);
-  const maxBytes = objectId === 'dj-led-wall' ? 150_000 : 16_000;
+  const maxBytes = objectId === 'dj-led-wall' ? 150_000 : isStudioSession ? 180_000 : 16_000;
   if (serialized.length > maxBytes) return;
   const entry = { data, by: player.id, updatedAt: Date.now() };
   room.objects.set(objectId, entry);
