@@ -59,11 +59,7 @@ export class SharedMediaSync {
     if (!level) return { level: null, surfaceId: '' };
     const player = this.game.player;
     const ground = player
-      ? level.collision?.surfaceAt?.(
-          player.position.x,
-          player.position.z,
-          player.position.y + 0.3,
-        )
+      ? level.collision?.surfaceAt?.(player.position.x, player.position.z, player.position.y + 0.3)
       : null;
     return {
       level,
@@ -74,11 +70,7 @@ export class SharedMediaSync {
   sourceAudible(owner) {
     const { level, surfaceId } = this.listenerSurface();
     if (!level) return false;
-    const environment = this.game.spatialAudio?.sourceEnvironmentFor?.(
-      owner,
-      level,
-      surfaceId,
-    );
+    const environment = this.game.spatialAudio?.sourceEnvironmentFor?.(owner, level, surfaceId);
     return (environment?.gain ?? 1) > 0.001;
   }
 
@@ -301,10 +293,7 @@ export class SharedMediaSync {
     if (level?.definition?.id !== 'upstairs' || surfaceId !== 'live-room') return;
     const session = liveArchiveById(data.sessionId);
     if (!session?.youtubeId) return;
-    if (
-      this.activeVideoSessionId === session.id ||
-      this.dismissedVideoSessionId === session.id
-    )
+    if (this.activeVideoSessionId === session.id || this.dismissedVideoSessionId === session.id)
       return;
     this.applyingVideo = true;
     try {
@@ -380,8 +369,7 @@ export class SharedMediaSync {
         'The shared screening is now out of earshot.',
       );
     }
-    if (video?.playing && inLiveRoom && !this.activeVideoSessionId)
-      this.applyLiveArchive(video);
+    if (video?.playing && inLiveRoom && !this.activeVideoSessionId) this.applyLiveArchive(video);
   }
 
   dispose() {
