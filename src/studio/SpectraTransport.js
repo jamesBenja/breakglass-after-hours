@@ -226,7 +226,7 @@ export class SpectraTransport {
     if (!wasRunning) return this.snapshot();
 
     const newPosition = musicalStep * this.stepDuration;
-    this.restart(newPosition, context.currentTime + 0.04);
+    this.restart(newPosition, context.currentTime);
     return this.snapshot();
   }
 
