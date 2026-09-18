@@ -1,5 +1,6 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
 const midiToFrequency = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
+const MODULAR_RESOURCE_ID = 'upstairs:modularSynth';
 
 const STEP_VALUES = [null, 0, 3, 5, 7, 10, 12];
 const PLAYABLE_STEP_VALUES = STEP_VALUES.filter((value) => value != null);
@@ -350,7 +351,7 @@ export class ModularSynthSystem {
       },
       { type: 'midi', midi: event.midi },
       {
-        resourceId: this.game.multiplayer?.instrumentSync?.activeResourceId ?? 'modular-live',
+        resourceId: MODULAR_RESOURCE_ID,
         offsetSeconds: delay,
       },
     );
