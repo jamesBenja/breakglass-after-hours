@@ -35,6 +35,7 @@ export class SharedMediaSync {
     this.applyingVideo = false;
     this.applyingHouseDj = false;
     this.houseDjControllerId = null;
+    this.lastHouseDjSignature = '';
     this.activeVideoSessionId = null;
     this.dismissedVideoSessionId = null;
     this.lastStudioSignature = '';
@@ -286,6 +287,15 @@ export class SharedMediaSync {
   async applyHouseDj(data) {
     const houseDj = this.game.partyLife?.houseDj;
     if (!houseDj || !data?.djId) return;
+    const signature = [
+      data.djId,
+      Number(data.programIndex) || 0,
+      data.playing === true,
+      data.trackId ?? '',
+      Math.round((Number(data.startedAt) || 0) / 250),
+    ].join(':');
+    if (signature === this.lastHouseDjSignature) return;
+    this.lastHouseDjSignature = signature;
     this.houseDjControllerId =
       typeof data.controllerId === 'string' ? data.controllerId : null;
     if (this.houseDjControllerId === this.client.localId) {
