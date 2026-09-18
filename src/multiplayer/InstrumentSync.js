@@ -86,12 +86,7 @@ export class InstrumentSync {
       resourceId: resourceId ?? 'local-instrument',
       offsetSeconds,
     });
-    if (
-      this.disposed ||
-      !this.client.joined ||
-      !resourceId ||
-      !this.world.owns(resourceId)
-    )
+    if (this.disposed || !this.client.joined || !resourceId || !this.world.owns(resourceId))
       return false;
     const claim = this.world.localClaims?.get?.(resourceId);
     const playerPosition = this.game.player?.position;
