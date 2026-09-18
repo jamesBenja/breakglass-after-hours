@@ -13,6 +13,7 @@ export const DRUM_MACHINE_TRACKS = [
   { id: 'rim', label: 'RIM' },
 ];
 
+// Stable shared-world id keeps live overdubs attached to the physical Spectra machine.
 const DRUM_MACHINE_RESOURCE_ID = 'upstairs:drumMachine';
 
 const emptyLane = () => Array(16).fill(0);
