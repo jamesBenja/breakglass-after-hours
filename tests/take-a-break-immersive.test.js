@@ -37,7 +37,6 @@ test('installation makes club audio quiet filtered bleed inside the room', () =>
   assert.match(environment.label, /immersive installation/i);
 });
 
-
 test('Take A Break physical bounds override a stale or generic collision surface', () => {
   const spatial = new SpatialAudioSystem({ environment: {} });
   const level = {
