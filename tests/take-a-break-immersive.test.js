@@ -37,6 +37,33 @@ test('installation makes club audio quiet filtered bleed inside the room', () =>
   assert.match(environment.label, /immersive installation/i);
 });
 
+
+test('Take A Break physical bounds override a stale or generic collision surface', () => {
+  const spatial = new SpatialAudioSystem({ environment: {} });
+  const level = {
+    definition: { id: 'downstairs' },
+    collision: {
+      surfaceAt() {
+        return { surface: { id: 'club' } };
+      },
+    },
+  };
+
+  const inside = { position: new Vector3(7.6, 0, 4.4) };
+  const outside = { position: new Vector3(0, 0, 0) };
+
+  assert.equal(spatial.listenerSurfaceId(level, inside), 'lounge');
+  assert.equal(spatial.listenerSurfaceId(level, outside), 'club');
+
+  const clubBleed = spatial.sourceEnvironmentFor(
+    'dj',
+    level,
+    spatial.listenerSurfaceId(level, inside),
+  );
+  assert.ok(clubBleed.gain <= 0.05);
+  assert.ok(clubBleed.lowpassHz <= 800);
+});
+
 test('cosmic breach remains a moving visual system without a second audio engine', () => {
   const root = new Group();
   const system = new TakeABreakImmersiveSystem(root);
