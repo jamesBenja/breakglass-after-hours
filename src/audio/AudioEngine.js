@@ -167,10 +167,7 @@ export class AudioEngine {
     };
   }
 
-  startContinuousHum(
-    owner,
-    { frequency = 124, volume = 0.022, type = 'triangle' } = {},
-  ) {
+  startContinuousHum(owner, { frequency = 124, volume = 0.022, type = 'triangle' } = {}) {
     if (!owner || !this.context || !this.master) return false;
     this.stopContinuousHum(owner, 0);
 

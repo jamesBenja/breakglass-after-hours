@@ -45,7 +45,6 @@ test('freight tape labels distinguish the moving elevator from each landing', ()
   assert.equal(freightLandingTapeLabel(FREIGHT_FLOORS.alley), 'ALLEY TAPE');
 });
 
-
 test('freight motor hum runs only while an UP or DOWN hold is active', () => {
   const starts = [];
   const stops = [];
