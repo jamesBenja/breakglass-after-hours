@@ -183,9 +183,6 @@ export class FreightElevatorSystem {
     };
     button.onpointerup = release;
     button.onpointercancel = release;
-    button.onlostpointercapture = () => {
-      if (this.holdTimer != null) this.stopHold({ save: true, rerender: true });
-    };
     return button;
   }
 
@@ -272,8 +269,8 @@ export class FreightElevatorSystem {
       const controls = this.ui.document.createElement('div');
       controls.className = 'row freight-controls';
       controls.append(
-        this.createHoldButton('HOLD ↑ UP', -1),
-        this.createHoldButton('HOLD ↓ DOWN', 1),
+        this.createHoldButton('HOLD ↑ UP', -1, cageAtLanding),
+        this.createHoldButton('HOLD ↓ DOWN', 1, cageAtLanding),
       );
       this.ui.buttons.appendChild(controls);
 
