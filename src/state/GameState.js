@@ -2,6 +2,7 @@ import { ARCHIVE_TAPE_IDS } from '../archive/tapeArchive.js';
 import { LIVE_ARCHIVE_IDS } from '../archive/liveArchive.js';
 import { normalizeAvatar } from '../avatar/profile.js';
 import { normalizeDifficulty } from '../gameplay/guidance.js';
+import { normalizeDrumMachineState } from '../gameplay/DrumMachineSystem.js';
 import { normalizeModularPatchState } from '../gameplay/ModularSynthSystem.js';
 import { ROOF_STORY_IDS } from '../gameplay/RoofEndgameSystem.js';
 import { MIXING_CHALLENGE_IDS } from '../studio/MixingChallenge.js';
