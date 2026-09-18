@@ -181,8 +181,14 @@ export class RoofEndgameSystem {
       if (object) object.visible = false;
     }
 
-    const ladder = this.sceneObject('roof', 'roof-escape-ladder');
-    if (ladder) ladder.visible = fullGameComplete(data, this.context());
+    const freightUnlocked =
+      this.game.godMode === true ||
+      data.roofEscapeUnlocked === true ||
+      fullGameComplete(data, this.context());
+    const freight = this.sceneObject('roof', 'roof-freight-elevator');
+    if (freight) freight.visible = freightUnlocked;
+    const freightCover = this.sceneObject('roof', 'roof-freight-hatch-cover');
+    if (freightCover) freightCover.visible = !freightUnlocked;
   }
 
   collectGentrificationKey() {
@@ -388,39 +394,15 @@ export class RoofEndgameSystem {
   }
 
   escapePanel() {
-    const checklist = endgameChecklist(this.data(), this.context());
-    const missing = checklist.filter((item) => !item.complete);
-    if (missing.length) {
-      this.ui.panel(
-        'SEALED ROOF PANEL',
-        `There is something under this hatch, but it will not open yet. The scratched message says: FINISH THE BUILDING. Remaining: ${missing.map((item) => item.label).join(' · ')}.`,
-      );
-      return;
-    }
-    this.syncVisuals();
+    if (this.game.freightElevator?.open) return this.game.freightElevator.open();
+    const missing = endgameChecklist(this.data(), this.context()).filter((item) => !item.complete);
     this.ui.panel(
-      'ESCAPE HATCH · PAST / FUTURE',
-      'The panel releases. A ladder drops down the outside of the building toward the yard, but the opening also seems to contain two versions of the same place: the yard as memory and the yard after everything changes.',
-      [
-        ['Climb down into the yard · PAST', () => this.escape('past')],
-        ['Climb down into whatever comes next · FUTURE', () => this.escape('future')],
-      ],
+      'SEALED FREIGHT HATCH',
+      missing.length
+        ? `The old roof freight hatch is still locked. Remaining: ${missing.map((item) => item.label).join(' · ')}.`
+        : "The hatch has released, but the old freight controls have not initialized yet.",
     );
-  }
-
-  escape(era) {
-    this.data().roofEscapeEra = era;
-    this.data().roofEscapeUnlocked = true;
-    this.data().roofEscapeVisits = Math.min(999, (this.data().roofEscapeVisits ?? 0) + 1);
-    this.save();
-    Promise.resolve(this.game.sceneManager.request('alley@roofEscape')).then(() => {
-      this.ui.panel(
-        era === 'past' ? 'THE YARD · MEMORY' : 'THE YARD · AFTER',
-        era === 'past'
-          ? 'You climb down into the Breakglass yard as a memory-space: picnic tables, smoke breaks, load-ins and all the nights that already happened layered on top of one another.'
-          : 'You climb down into the same yard facing forward. The building may change, the address may change, but you have carried the archive and every completed path out with you.',
-      );
-    });
+    return true;
   }
 
   handle(target) {
