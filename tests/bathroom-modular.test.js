@@ -152,6 +152,33 @@ test('step grid can be edited while live playback remains running', () => {
   assert.equal(game.studio.bpm, 125);
 });
 
+test('live modular steps publish into the shared instrument stream for Spectra capture', () => {
+  const published = [];
+  const game = {
+    state: { data: { modularSynth: normalizeModularPatchState() } },
+    studio: { bpm: 120, loopEnabled: true, loopBars: 2 },
+    audio: { tone: () => {} },
+    multiplayer: {
+      instrumentSync: {
+        activeResourceId: 'upstairs:modular-synth',
+        publishExternal: (...args) => published.push(args),
+      },
+    },
+    save: () => {},
+  };
+  const ui = { panel: () => {}, warning: () => {}, document: null, buttons: null };
+  const modular = new ModularSynthSystem(game, ui);
+
+  assert.equal(modular.triggerStep(0, 0.03), true);
+  assert.equal(published.length, 1);
+  assert.equal(published[0][0].label, 'Spectra modular sequencer');
+  assert.equal(published[0][0].stemKind, 'synth');
+  assert.equal(published[0][1].type, 'midi');
+  assert.equal(published[0][1].midi, 48);
+  assert.equal(published[0][2].resourceId, 'upstairs:modular-synth');
+  assert.equal(published[0][2].offsetSeconds, 0.03);
+});
+
 test('live modular transport starts a repeating scheduler and stops cleanly', async () => {
   const tones = [];
   const cleared = [];
@@ -163,20 +190,33 @@ test('live modular transport starts a repeating scheduler and stops cleanly', as
     },
     clearInterval: (id) => cleared.push(id),
   };
+  let globalStops = 0;
+  let studioStops = 0;
+  let djStops = 0;
   const audio = {
     timers,
     context: { state: 'running', currentTime: 0 },
     init: async () => {},
     tone: (...args) => tones.push(args),
-    stop: () => {},
+    stop: () => {
+      globalStops += 1;
+    },
     setExternalTransport: () => {},
     clearExternalTransport: () => {},
   };
   const game = {
     state: { data: { modularSynth: normalizeModularPatchState() } },
     studio: { bpm: 120, loopEnabled: false, loopBars: 1 },
-    studioPlayback: { stop: () => {} },
-    dj: { stop: () => {} },
+    studioPlayback: {
+      stop: () => {
+        studioStops += 1;
+      },
+    },
+    dj: {
+      stop: () => {
+        djStops += 1;
+      },
+    },
     audio,
     save: () => {},
   };
@@ -188,6 +228,9 @@ test('live modular transport starts a repeating scheduler and stops cleanly', as
   assert.equal(modular.scheduler, 17);
   assert.equal(typeof intervalCallback, 'function');
   assert.ok(tones.length >= 1);
+  assert.equal(globalStops, 0);
+  assert.equal(studioStops, 0);
+  assert.equal(djStops, 0);
 
   audio.context.currentTime = 0.2;
   intervalCallback();
