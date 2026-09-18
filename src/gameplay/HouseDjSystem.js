@@ -348,8 +348,11 @@ export class HouseDjSystem {
 
   async applySharedTransport({ djId, programIndex = 0, playing = false, offset = 0 } = {}) {
     if (!HOUSE_DJ_IDS.includes(djId)) return false;
+    const sameDj = this.selectedId === djId;
+    const wasPlaying = this.isHouseAudio();
+    const previousIndex = this.programIndex;
     this.sharedFollower = true;
-    this.stopHouseAudio(0);
+    if (!sameDj || !playing) this.stopHouseAudio(0);
     this.selectedId = djId;
     this.game.state.data.houseDjId = djId;
     this.programIndex =
@@ -358,7 +361,10 @@ export class HouseDjSystem {
     this.nextMixAt = Infinity;
     this.applyLook();
     this.game.save();
-    if (playing) await this.start({ offset });
+    if (playing) {
+      const sharedTransition = sameDj && wasPlaying && previousIndex !== this.programIndex;
+      await this.start({ transition: sharedTransition, offset });
+    }
     return true;
   }
 
