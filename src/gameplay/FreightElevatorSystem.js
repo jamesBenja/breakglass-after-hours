@@ -129,6 +129,7 @@ export class FreightElevatorSystem {
       this.holdTimer = null;
     }
     this.holdDirection = 0;
+    this.game.audio?.stopContinuousHum?.('freight-elevator');
     if (save) this.save();
     if (rerender) this.render();
   }
@@ -348,7 +349,7 @@ export class FreightElevatorSystem {
     const currentFloor = this.floorPosition(this.activeScene);
     if (!freightAligned(this.position, currentFloor)) {
       this.ui.warning?.(
-        'The landing gate is jammed. The ELEVATOR TAPE is not lined up with the ${freightLandingTapeLabel(currentFloor)}.',
+        `The landing gate is jammed. The ELEVATOR TAPE is not lined up with the ${freightLandingTapeLabel(currentFloor)}.`,
       );
       this.render();
       return;
@@ -366,6 +367,11 @@ export class FreightElevatorSystem {
     this.stopHold({ save: false });
     this.holdDirection = direction > 0 ? 1 : -1;
     this.game.audio?.tone?.(58, 0.18, 'sawtooth', 0.018);
+    this.game.audio?.startContinuousHum?.('freight-elevator', {
+      frequency: this.holdDirection > 0 ? 118 : 126,
+      volume: 0.024,
+      type: 'triangle',
+    });
 
     const tick = () => {
       this.position = stepFreightPosition(this.position, this.holdDirection);
@@ -381,7 +387,7 @@ export class FreightElevatorSystem {
     const targetFloor = this.targetPosition();
     if (!this.gateClosed || !freightAligned(this.position, targetFloor)) {
       this.ui.warning?.(
-        'The door will not clear the sill. Line up the ELEVATOR TAPE with the ${freightLandingTapeLabel(targetFloor)} first.',
+        `The door will not clear the sill. Line up the ELEVATOR TAPE with the ${freightLandingTapeLabel(targetFloor)} first.`,
       );
       this.render();
       return;
