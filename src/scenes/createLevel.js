@@ -53,7 +53,7 @@ export async function createLevel(definition, builders, assets) {
   const progressionGates = definition.progressionGates?.length
     ? new ProgressionGateSystem(gameplay, collision, definition.progressionGates)
     : null;
-  const npcs = new NpcSystem(gameplay, definition);
+  const npcs = new NpcSystem(gameplay, definition, collision);
   const crowd = definition.crowd ? new CrowdSystem(gameplay, definition.crowd) : null;
   const lighting = definition.lightingRig ? new LightingRig(scene, definition.lightingRig) : null;
   const alley = definition.alleySystem ? new AlleySystem(gameplay, definition.alleySystem) : null;
