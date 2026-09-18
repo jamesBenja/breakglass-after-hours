@@ -83,6 +83,8 @@ export class SpatialAudioSystem {
     this.lastEnvironmentKey = '';
     this.forward = new Vector3();
     this.elapsed = 0;
+    this.pointMachines = new Map();
+    this.pointShots = new Set();
   }
 
   setParam(parameter, value, timeConstant = 0.08) {
@@ -90,6 +92,220 @@ export class SpatialAudioSystem {
     if (typeof parameter.setTargetAtTime === 'function')
       parameter.setTargetAtTime(value, this.audio.context.currentTime, timeConstant);
     else parameter.value = value;
+  }
+
+  setPannerPosition(panner, position = [0, 0, 0]) {
+    if (!panner) return;
+    const [x = 0, y = 0, z = 0] = position;
+    if (panner.positionX) {
+      this.setParam(panner.positionX, x, 0.015);
+      this.setParam(panner.positionY, y, 0.015);
+      this.setParam(panner.positionZ, z, 0.015);
+    } else panner.setPosition?.(x, y, z);
+  }
+
+  createPointPanner(
+    position,
+    { refDistance = 1.25, maxDistance = 18, rolloffFactor = 1.1 } = {},
+  ) {
+    const context = this.audio.context;
+    if (!context || typeof context.createPanner !== 'function') return null;
+    const panner = context.createPanner();
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'inverse';
+    panner.refDistance = refDistance;
+    panner.maxDistance = maxDistance;
+    panner.rolloffFactor = rolloffFactor;
+    this.setPannerPosition(panner, position);
+    return panner;
+  }
+
+  setPointMachine(
+    owner,
+    {
+      position = [0, 0, 0],
+      baseFrequency = 96,
+      secondaryFrequency = 151,
+      volume = 0.024,
+      pulseRate = 7.6,
+      pulseDepth = 0.005,
+      wave = 'triangle',
+      refDistance = 1.3,
+      maxDistance = 18,
+      rolloffFactor = 1.05,
+    } = {},
+  ) {
+    const context = this.audio.context;
+    if (!context || !this.audio.master || !owner) return false;
+    let machine = this.pointMachines.get(owner);
+
+    if (!machine) {
+      const base = context.createOscillator();
+      const secondary = context.createOscillator();
+      const baseGain = context.createGain();
+      const secondaryGain = context.createGain();
+      const bus = context.createGain();
+      const lfo = context.createOscillator();
+      const lfoDepth = context.createGain();
+      const panner = this.createPointPanner(position, {
+        refDistance,
+        maxDistance,
+        rolloffFactor,
+      });
+
+      baseGain.gain.value = 0.78;
+      secondaryGain.gain.value = 0.22;
+      bus.gain.value = 0.0001;
+      lfoDepth.gain.value = 0;
+      lfo.type = 'sine';
+
+      base.connect(baseGain);
+      secondary.connect(secondaryGain);
+      baseGain.connect(bus);
+      secondaryGain.connect(bus);
+      lfo.connect(lfoDepth);
+      lfoDepth.connect(bus.gain);
+      if (panner) {
+        bus.connect(panner);
+        panner.connect(this.audio.master);
+      } else bus.connect(this.audio.master);
+
+      base.start();
+      secondary.start();
+      lfo.start();
+      machine = {
+        base,
+        secondary,
+        baseGain,
+        secondaryGain,
+        bus,
+        lfo,
+        lfoDepth,
+        panner,
+      };
+      this.pointMachines.set(owner, machine);
+    }
+
+    machine.base.type = wave;
+    machine.secondary.type = 'sine';
+    this.setParam(machine.base.frequency, Math.max(35, Number(baseFrequency) || 96), 0.08);
+    this.setParam(
+      machine.secondary.frequency,
+      Math.max(50, Number(secondaryFrequency) || 151),
+      0.08,
+    );
+    this.setParam(machine.bus.gain, Math.max(0.0001, Number(volume) || 0.024), 0.12);
+    this.setParam(machine.lfo.frequency, Math.max(0.05, Number(pulseRate) || 7.6), 0.08);
+    this.setParam(machine.lfoDepth.gain, Math.max(0, Number(pulseDepth) || 0), 0.08);
+    this.setPannerPosition(machine.panner, position);
+    return true;
+  }
+
+  stopPointMachine(owner, fade = 0.12) {
+    const machine = this.pointMachines.get(owner);
+    if (!machine) return false;
+    this.pointMachines.delete(owner);
+    const context = this.audio.context;
+    const now = context?.currentTime ?? 0;
+    const duration = Math.max(0, Number(fade) || 0);
+
+    if (machine.bus?.gain) {
+      if (machine.bus.gain.cancelScheduledValues) machine.bus.gain.cancelScheduledValues(now);
+      if (
+        duration > 0 &&
+        machine.bus.gain.setValueAtTime &&
+        machine.bus.gain.exponentialRampToValueAtTime
+      ) {
+        machine.bus.gain.setValueAtTime(
+          Math.max(0.0001, machine.bus.gain.value || 0.0001),
+          now,
+        );
+        machine.bus.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      } else machine.bus.gain.value = 0.0001;
+    }
+
+    for (const source of [machine.base, machine.secondary, machine.lfo]) {
+      try {
+        source.stop(now + duration + 0.02);
+      } catch {
+        // Already stopped.
+      }
+    }
+    const cleanup = () => {
+      machine.base.disconnect?.();
+      machine.secondary.disconnect?.();
+      machine.lfo.disconnect?.();
+      machine.baseGain.disconnect?.();
+      machine.secondaryGain.disconnect?.();
+      machine.lfoDepth.disconnect?.();
+      machine.bus.disconnect?.();
+      machine.panner?.disconnect?.();
+    };
+    if (duration <= 0) cleanup();
+    else this.audio.timers?.setTimeout?.(cleanup, (duration + 0.04) * 1000);
+    return true;
+  }
+
+  pointTone(
+    position,
+    {
+      frequency = 180,
+      duration = 0.12,
+      volume = 0.08,
+      wave = 'triangle',
+      when = 0,
+      refDistance = 1.2,
+      maxDistance = 16,
+      rolloffFactor = 1.15,
+      endFrequency = null,
+    } = {},
+  ) {
+    const context = this.audio.context;
+    if (!context || !this.audio.master) return false;
+    const source = context.createOscillator();
+    const gain = context.createGain();
+    const panner = this.createPointPanner(position, {
+      refDistance,
+      maxDistance,
+      rolloffFactor,
+    });
+    const time = context.currentTime + Math.max(0, Number(when) || 0);
+    const length = Math.max(0.025, Number(duration) || 0.12);
+    source.type = wave;
+    source.frequency.setValueAtTime?.(Math.max(30, Number(frequency) || 180), time);
+    if (source.frequency.value != null && !source.frequency.setValueAtTime)
+      source.frequency.value = Math.max(30, Number(frequency) || 180);
+    if (endFrequency != null && source.frequency.exponentialRampToValueAtTime)
+      source.frequency.exponentialRampToValueAtTime(
+        Math.max(30, Number(endFrequency) || frequency),
+        time + length,
+      );
+
+    gain.gain.setValueAtTime?.(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime?.(
+      Math.max(0.0002, Number(volume) || 0.08),
+      time + 0.008,
+    );
+    gain.gain.exponentialRampToValueAtTime?.(0.0001, time + length);
+    if (!gain.gain.setValueAtTime) gain.gain.value = Number(volume) || 0.08;
+
+    source.connect(gain);
+    if (panner) {
+      gain.connect(panner);
+      panner.connect(this.audio.master);
+    } else gain.connect(this.audio.master);
+
+    const shot = { source, gain, panner };
+    this.pointShots.add(shot);
+    source.onended = () => {
+      source.disconnect?.();
+      gain.disconnect?.();
+      panner?.disconnect?.();
+      this.pointShots.delete(shot);
+    };
+    source.start(time);
+    source.stop(time + length + 0.03);
+    return true;
   }
 
   installationProgram() {
@@ -542,6 +758,18 @@ export class SpatialAudioSystem {
   }
 
   dispose() {
+    for (const owner of [...this.pointMachines.keys()]) this.stopPointMachine(owner, 0);
+    for (const shot of this.pointShots) {
+      try {
+        shot.source.stop();
+      } catch {
+        // Already ended.
+      }
+      shot.source.disconnect?.();
+      shot.gain.disconnect?.();
+      shot.panner?.disconnect?.();
+    }
+    this.pointShots.clear();
     for (const emitter of this.emitters) {
       try {
         emitter.toneSource.stop();
