@@ -54,6 +54,8 @@ function downstairsDj(surfaceId, installationFocus = false) {
     return environment(0.62, 5600, 'bar / service room');
   if (surfaceId === 'storage') return environment(0.42, 3100, 'downstairs storage');
   if (surfaceId === 'coat-check') return environment(0.46, 3300, 'coat check / alley stair');
+  if (surfaceId === 'bathroom')
+    return environment(0.105, 900, 'muffled club low end through bathroom walls');
   if (
     surfaceId === 'stair-landing' ||
     surfaceId === 'studio-stair-top' ||
@@ -100,7 +102,7 @@ export function acousticEnvironmentFor(
   if (owner === 'dj' || owner === 'house-dj') {
     if (sceneId === 'downstairs') return downstairsDj(surfaceId, installationFocus);
     if (sceneId === 'alley')
-      return environment(0.14, 760, 'club through exterior wall / stair door', true);
+      return environment(0.075, 520, 'quiet low-end club bleed through exterior wall / stair door', true);
     if (sceneId === 'upstairs') return upstairsDj(surfaceId);
     return SILENT;
   }
