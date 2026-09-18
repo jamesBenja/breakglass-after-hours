@@ -33,6 +33,7 @@ export class SharedMediaSync {
     this.applyingArchiveAudio = false;
     this.applyingVideo = false;
     this.activeVideoSessionId = null;
+    this.dismissedVideoSessionId = null;
     this.lastStudioSignature = '';
     this.studioPublishTimer = null;
     this.boundArchiveAudio = (event) => this.handleLocalArchiveAudio(event?.detail);
@@ -287,6 +288,7 @@ export class SharedMediaSync {
     if (!data.playing || !data.sessionId) {
       if (this.activeVideoSessionId) {
         this.activeVideoSessionId = null;
+        this.dismissedVideoSessionId = null;
         this.ui.clearPanel?.('LIVE ROOM · LIVE FROM BREAKGLASS', 'The shared screening stopped.');
       }
       return;
@@ -295,18 +297,17 @@ export class SharedMediaSync {
     if (level?.definition?.id !== 'upstairs' || surfaceId !== 'live-room') return;
     const session = liveArchiveById(data.sessionId);
     if (!session?.youtubeId) return;
-    if (this.activeVideoSessionId === session.id) return;
+    if (this.activeVideoSessionId === session.id || this.dismissedVideoSessionId === session.id)
+      return;
     this.applyingVideo = true;
     try {
-      this.game.studioPlayback?.stop?.();
-      this.game.dj?.stop?.();
-      this.game.audio?.stop?.();
       this.activeVideoSessionId = session.id;
       showLiveArchivePlayer(
         this.ui,
         session,
         () => {
           this.activeVideoSessionId = null;
+          this.dismissedVideoSessionId = session.id;
         },
         { remote: true, startSeconds: this.expectedPosition(data) },
       );
@@ -357,10 +358,22 @@ export class SharedMediaSync {
       }
     }
 
-    // Shared screenings are a Live Room source, not an upstairs-wide modal. A player who was
-    // elsewhere catches the synchronized screening only after physically entering the room.
+    // Shared screenings are a Live Room source, not an upstairs-wide modal. Leaving the room
+    // closes only this listener's iframe; the shared screening keeps advancing for people still
+    // in the room and resumes at the correct timeline if this player comes back.
     const video = objects.get(LIVE_ARCHIVE_OBJECT);
-    if (video?.playing && !this.activeVideoSessionId) this.applyLiveArchive(video);
+    const { level: listenerLevel, surfaceId: listenerSurfaceId } = this.listenerSurface();
+    const inLiveRoom =
+      listenerLevel?.definition?.id === 'upstairs' && listenerSurfaceId === 'live-room';
+    if (this.activeVideoSessionId && !inLiveRoom) {
+      this.activeVideoSessionId = null;
+      this.dismissedVideoSessionId = null;
+      this.ui.clearPanel?.(
+        'LIVE ROOM · LIVE FROM BREAKGLASS',
+        'The shared screening is now out of earshot.',
+      );
+    }
+    if (video?.playing && inLiveRoom && !this.activeVideoSessionId) this.applyLiveArchive(video);
   }
 
   dispose() {
