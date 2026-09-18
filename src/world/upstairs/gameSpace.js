@@ -67,14 +67,6 @@ export function createGameSpace() {
       camera: false,
       surface: false,
     }),
-    prop('mix-sofa-side', 292, 770, 0.86, 2.15, 0.8, 0x60514b, {
-      kind: 'equipment',
-      name: 'Spectra control-room loveseat',
-      rotationY: Math.PI / 2,
-      player: false,
-      camera: false,
-      surface: false,
-    }),
     prop('mix-coffee-table', 260, 765, 1.45, 0.72, 0.38, 0x6f543f, {
       kind: 'equipment',
       name: 'Control-room coffee table',
