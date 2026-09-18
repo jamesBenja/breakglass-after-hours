@@ -1,4 +1,5 @@
-const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, Number(value) || 0));
+const clamp = (value, min = 0, max = 1) =>
+  Math.max(min, Math.min(max, Number(value) || 0));
 
 export const SPATIAL_TRANSPORT_OWNERS = Object.freeze(['dj', 'studio', 'archive']);
 
@@ -18,7 +19,11 @@ function upstairsArchive(surfaceId) {
     return environment(0.28, 3200, 'tape through studio walls');
   if (surfaceId === 'mixing-suite')
     return environment(0.22, 2700, 'tape through control-room walls');
-  if (surfaceId === 'circulation' || surfaceId === 'east-hall' || surfaceId === 'emergency-hall')
+  if (
+    surfaceId === 'circulation' ||
+    surfaceId === 'east-hall' ||
+    surfaceId === 'emergency-hall'
+  )
     return environment(0.075, 1500, 'tape through doorway / hall');
   if (surfaceId === 'storage' || surfaceId === 'bar-kitchen')
     return environment(0.035, 900, 'distant tape through walls');
@@ -36,7 +41,11 @@ function upstairsStudio(surfaceId) {
     return environment(0.46, 6800, 'dead room');
   if (surfaceId === 'neve-suite')
     return environment(0.28, 3600, 'studio playback through walls');
-  if (surfaceId === 'circulation' || surfaceId === 'east-hall' || surfaceId === 'emergency-hall')
+  if (
+    surfaceId === 'circulation' ||
+    surfaceId === 'east-hall' ||
+    surfaceId === 'emergency-hall'
+  )
     return environment(0.15, 2200, 'studio playback in hallway');
   if (surfaceId === 'storage' || surfaceId === 'bar-kitchen')
     return environment(0.06, 1200, 'studio playback through walls');
@@ -49,8 +58,16 @@ function downstairsDj(surfaceId, installationFocus = false) {
   if (surfaceId === 'club') return environment(1, 20000, 'club floor');
   if (surfaceId === 'lounge' || surfaceId === 'lounge-door') {
     if (installationFocus)
-      return environment(0.018, 480, 'Take A Break immersive installation focus · club through wall');
-    return environment(0.045, 780, 'Take A Break immersive installation · club through wall');
+      return environment(
+        0.018,
+        480,
+        'Take A Break immersive installation focus · club through wall',
+      );
+    return environment(
+      0.045,
+      780,
+      'Take A Break immersive installation · club through wall',
+    );
   }
   if (surfaceId === 'service' || surfaceId === 'bar-door')
     return environment(0.62, 5600, 'bar / service room');
@@ -114,7 +131,14 @@ export function acousticEnvironmentFor(
 
 export function acousticEnvironmentKey(owner, sceneId, surfaceId, options = {}) {
   const env = acousticEnvironmentFor(owner, sceneId, surfaceId, options);
-  return [owner, sceneId, surfaceId, env.gain, env.lowpassHz, options.installationFocus ? 1 : 0].join(':');
+  return [
+    owner,
+    sceneId,
+    surfaceId,
+    env.gain,
+    env.lowpassHz,
+    options.installationFocus ? 1 : 0,
+  ].join(':');
 }
 
 export function sourceIsAudible(environmentValue, threshold = 0.001) {
