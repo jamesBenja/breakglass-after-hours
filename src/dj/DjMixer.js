@@ -251,6 +251,7 @@ export class DjMixer {
     };
     this.crossfader = -0.72;
     this.elapsed = 0;
+    this.backgroundSnapshot = [];
   }
 
   get context() {
@@ -562,6 +563,35 @@ export class DjMixer {
     }
     this.updateVibe();
     return true;
+  }
+
+  prepareForBackground() {
+    const active = Object.entries(this.decks)
+      .filter(([, deck]) => deck.playing)
+      .map(([deckId]) => ({
+        deckId,
+        position: this.deckPosition(deckId),
+      }));
+    if (!active.length) {
+      this.backgroundSnapshot = [];
+      return false;
+    }
+
+    this.backgroundSnapshot = active;
+    for (const { deckId } of active) this.stopDeck(deckId);
+    return true;
+  }
+
+  async recoverAfterBackground() {
+    if (!this.backgroundSnapshot.length || this.context?.state !== 'running') return false;
+    const snapshot = this.backgroundSnapshot;
+    this.backgroundSnapshot = [];
+
+    let recovered = false;
+    for (const { deckId, position } of snapshot) {
+      recovered = (await this.playDeck(deckId, position)) || recovered;
+    }
+    return recovered;
   }
 
   async restartDeckAt(deckId, position = 0) {
