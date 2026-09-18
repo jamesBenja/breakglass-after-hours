@@ -36,6 +36,7 @@ export class AudioEngine {
     this.prioritySource = null;
     this.priorityDuck = 0.32;
     this._nativeMediaResumePending = false;
+    this._contextResumePending = false;
   }
 
   get activeExternalTransport() {
@@ -195,7 +196,9 @@ export class AudioEngine {
         this.environmentGain.connect(this.context.destination);
       }
     }
-    if (this.context.state === 'suspended') await this.context.resume();
+    if (this.context.state !== 'running' && this.context.state !== 'closed') {
+      await this.context.resume();
+    }
   }
 
   /** Serializable signal snapshot for lighting, crowd energy and future multiplayer sync. */
@@ -550,10 +553,12 @@ export class AudioEngine {
     }
     this.externalTransports.clear();
     this._nativeMediaResumePending = false;
+    this._contextResumePending = false;
   }
 
   async suspend() {
     this._nativeMediaResumePending = false;
+    this._contextResumePending = false;
     for (const media of this.nativeMedia.values()) {
       media.resumeAfterSuspend = media.element.paused !== true;
       if (media.resumeAfterSuspend) media.element.volume = 0;
@@ -575,10 +580,26 @@ export class AudioEngine {
   }
 
   async resume() {
-    if (this.context?.state === 'suspended') await this.context.resume();
-    this.setParam(this.environmentGain?.gain, this.environment.gain, 0.06);
+    let contextRetryNeeded = false;
+    const context = this.context;
+    if (context && context.state !== 'running' && context.state !== 'closed') {
+      try {
+        // Safari can report an iOS-specific `interrupted` state after backgrounding. Calling
+        // resume() from visibilitychange may fail until the next real user gesture, but that must
+        // not prevent native media from being restarted in the meantime.
+        await context.resume();
+      } catch {
+        contextRetryNeeded = true;
+      }
+    }
 
-    let retryNeeded = false;
+    if (context?.state === 'running') {
+      this.setParam(this.environmentGain?.gain, this.environment.gain, 0.06);
+    } else if (context && context.state !== 'closed') {
+      contextRetryNeeded = true;
+    }
+
+    let mediaRetryNeeded = false;
     for (const [owner, media] of this.nativeMedia) {
       if (media.resumeAfterSuspend !== true) continue;
       try {
@@ -587,13 +608,15 @@ export class AudioEngine {
         media.resumeAfterSuspend = false;
         this.applySourceEnvironment(owner);
       } catch {
-        // iOS can reject the visibilitychange resume because it is not a gesture. Keep the intent
-        // armed so the next touch/pointer/key gesture retries the same media instead of losing it.
-        retryNeeded = true;
+        // iOS can also require a gesture for HTMLMediaElement playback. Preserve that playback
+        // intent so touchstart/pointerdown can retry instead of silently losing the house DJ.
+        mediaRetryNeeded = true;
       }
     }
-    this._nativeMediaResumePending = retryNeeded;
-    return !retryNeeded;
+
+    this._nativeMediaResumePending = mediaRetryNeeded;
+    this._contextResumePending = contextRetryNeeded;
+    return !(contextRetryNeeded || mediaRetryNeeded);
   }
 
   async dispose() {
