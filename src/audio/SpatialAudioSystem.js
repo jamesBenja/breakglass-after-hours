@@ -104,10 +104,7 @@ export class SpatialAudioSystem {
     } else panner.setPosition?.(x, y, z);
   }
 
-  createPointPanner(
-    position,
-    { refDistance = 1.25, maxDistance = 18, rolloffFactor = 1.1 } = {},
-  ) {
+  createPointPanner(position, { refDistance = 1.25, maxDistance = 18, rolloffFactor = 1.1 } = {}) {
     const context = this.audio.context;
     if (!context || typeof context.createPanner !== 'function') return null;
     const panner = context.createPanner();
@@ -216,10 +213,7 @@ export class SpatialAudioSystem {
         machine.bus.gain.setValueAtTime &&
         machine.bus.gain.exponentialRampToValueAtTime
       ) {
-        machine.bus.gain.setValueAtTime(
-          Math.max(0.0001, machine.bus.gain.value || 0.0001),
-          now,
-        );
+        machine.bus.gain.setValueAtTime(Math.max(0.0001, machine.bus.gain.value || 0.0001), now);
         machine.bus.gain.exponentialRampToValueAtTime(0.0001, now + duration);
       } else machine.bus.gain.value = 0.0001;
     }
