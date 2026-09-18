@@ -19,11 +19,7 @@ test('Neve tape is local to the upstairs studio floor', () => {
 
 test('DJ bleed only crosses floors through intentional acoustic paths', () => {
   const club = acousticEnvironmentFor('dj', 'downstairs', 'club');
-  const downstairsStair = acousticEnvironmentFor(
-    'dj',
-    'downstairs',
-    'studio-stairs',
-  );
+  const downstairsStair = acousticEnvironmentFor('dj', 'downstairs', 'studio-stairs');
   const upstairsStair = acousticEnvironmentFor('dj', 'upstairs', 'below-step-2');
   const upstairsRoom = acousticEnvironmentFor('dj', 'upstairs', 'mixing-suite');
   const roof = acousticEnvironmentFor('dj', 'roof', 'roof-deck');
