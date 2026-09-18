@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  ROOF_STORIES,
   ROOF_STORY_IDS,
   endgameChecklist,
   fullGameComplete,
@@ -27,13 +28,13 @@ const completeState = () => ({
   gentrificationTransformed: true,
 });
 
-test('roof exposes throwables, AC, skyline lock and endgame hatch', () => {
+test('roof exposes throwables, AC, skyline lock and manual freight elevator hatch', () => {
   assert.equal(roofLevel.anchors.throwChair.action, 'roofThrow');
   assert.equal(roofLevel.anchors.throwBox.throwKind, 'box');
   assert.equal(roofLevel.anchors.throwLumber.throwKind, 'lumber');
   assert.equal(roofLevel.anchors.roofAc.action, 'roofAc');
   assert.equal(roofLevel.anchors.gentrificationTrigger.action, 'gentrificationTrigger');
-  assert.equal(roofLevel.anchors.escapeHatch.action, 'roofEscape');
+  assert.equal(roofLevel.anchors.escapeHatch.action, 'freightElevator');
 });
 
 test('gold condo key lives on the high Live Room overlook and disappears after pickup', () => {
@@ -44,8 +45,19 @@ test('gold condo key lives on the high Live Room overlook and disappears after p
   assert.equal(key.requiresNot, 'gentrificationKey');
 });
 
-test('roof escape lands in the yard/alley garden', () => {
-  assert.deepEqual(alleyLevel.spawns.roofEscape, [22.2, 0, 0.4]);
+test('freight elevator connects the roof to the yard/alley landing', () => {
+  assert.deepEqual(alleyLevel.spawns.freightElevator, [22.2, 0, -1.18]);
+  assert.equal(alleyLevel.anchors.freightElevator.action, 'freightElevator');
+  assert.deepEqual(roofLevel.spawns.freightElevator, [-6.0, 0, 3.05]);
+});
+
+test("Dave's corrected load-in story is about Sandor's manual freight elevator", () => {
+  const story = ROOF_STORIES.dave.find((item) => item.id === 'dave-loadins');
+  assert.ok(story);
+  assert.match(story.title, /Sandor/i);
+  assert.match(story.text, /white electrical tape/i);
+  assert.match(story.text, /hold.*UP or DOWN/i);
+  assert.doesNotMatch(story.text, /look at the stairs/i);
 });
 
 test('all founder stories are required for the roof story session', () => {
@@ -91,6 +103,8 @@ test('new roof progression survives save validation', () => {
     roofEscapeUnlocked: true,
     roofEscapeEra: 'future',
     roofEscapeVisits: 2,
+    freightElevatorPosition: 101.2,
+    freightElevatorTrips: 4,
   });
   assert.equal(saved.djLessonCompleted, true);
   assert.equal(saved.gentrificationKey, true);
@@ -103,4 +117,6 @@ test('new roof progression survives save validation', () => {
   assert.equal(saved.roofEscapeUnlocked, true);
   assert.equal(saved.roofEscapeEra, 'future');
   assert.equal(saved.roofEscapeVisits, 2);
+  assert.equal(saved.freightElevatorPosition, 101.2);
+  assert.equal(saved.freightElevatorTrips, 4);
 });
