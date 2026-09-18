@@ -89,8 +89,12 @@ export class Game {
     // gesture until the one shared context is running so instruments, DJ decks and cabinet SFX
     // do not silently fail after the title gate has already been dismissed.
     this.onAudioGesture = () => {
-      if (this.audio.context?.state === 'running') return;
-      void this.audio.init().catch(() => {});
+      if (
+        this.audio.context?.state === 'running' &&
+        this.audio._nativeMediaResumePending !== true
+      )
+        return;
+      void this.audio.resume().catch(() => {});
     };
     window.addEventListener('pointerdown', this.onAudioGesture, true);
     window.addEventListener('touchend', this.onAudioGesture, true);
@@ -183,6 +187,7 @@ export class Game {
     this.lightingControl = new LightingControlSystem({
       ui,
       sceneManager: this.sceneManager,
+      audio: this.audio,
     });
 
     this.maddoxInteraction = new MaddoxInteractionSystem({
@@ -276,6 +281,26 @@ export class Game {
       return true;
     };
 
+    const openAlleyJamesDialogue = () => {
+      const level = this.sceneManager.current;
+      const alley = level?.alley;
+      if (
+        level?.definition?.id !== 'alley' ||
+        !alley?.policePresent ||
+        alley?.evacuationRequired
+      )
+        return false;
+      const dialogue = level.npcs?.dialogue?.('james');
+      if (!dialogue) return false;
+      this.state.meet('james');
+      this.save();
+      ui.panel(dialogue.title, dialogue.text, [
+        ['The police are here', () => this.policeResponse?.tellJames?.()],
+        ['Dance', () => this.player.dance(80 / 60)],
+      ]);
+      return true;
+    };
+
     const canAct = () => this.started && !this.sceneManager.changing && !document.hidden;
     const baseActions = createActions({
       audio: this.audio,
@@ -295,6 +320,12 @@ export class Game {
       canAct,
     });
     this.interactions = new InteractionSystem((target) => {
+      if (
+        target?.action === 'dialogue' &&
+        (target.npcId ?? target.id) === 'james' &&
+        openAlleyJamesDialogue()
+      )
+        return;
       if (
         target?.action === 'dialogue' &&
         (target.npcId ?? target.id) === 'devin' &&
@@ -474,6 +505,7 @@ export class Game {
       const currentLevel = this.sceneManager.current;
       this.syncMaddoxPresence(currentLevel);
       currentLevel.update(dt, this.audio, this.player.position);
+      this.lightingControl.update(dt);
       const alleyLevel = this.scenes.get('alley');
       if (alleyLevel && alleyLevel !== currentLevel) {
         alleyLevel.alley?.update(dt, this.audio.metrics?.() ?? { playing: this.audio.playing });
