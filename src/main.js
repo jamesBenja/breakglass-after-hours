@@ -32,6 +32,8 @@ import { installRoomExperienceEnhancements } from './gameplay/roomExperienceEnha
 import { installGameStatsEnhancements } from './gameplay/GameStatsSystem.js';
 import { installBelowAlleyWorldSystem } from './gameplay/BelowAlleyWorldSystem.js';
 import { installAudioReliabilityEnhancements } from './gameplay/audioReliabilityEnhancements.js';
+import { installEnvironmentalAudioSystem } from './gameplay/EnvironmentalAudioSystem.js';
+import { installPoliceResponseSystem } from './gameplay/PoliceResponseSystem.js';
 import { PlaytestTelemetry } from './gameplay/PlaytestTelemetry.js';
 import {
   clearRememberedGodModeForInvitation,
@@ -106,6 +108,8 @@ if (!liveBuild.reloading) {
     installGameStatsEnhancements(game, ui);
     installBelowAlleyWorldSystem(game, ui);
     installAudioReliabilityEnhancements(game, ui);
+    installEnvironmentalAudioSystem(game);
+    installPoliceResponseSystem(game, ui);
     installMultiplayerEnhancements(game, ui);
     installInvitationAccess(game, ui, invitation);
     installClubRegressionFixes(game, ui);

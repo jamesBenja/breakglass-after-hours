@@ -596,9 +596,20 @@ function applyPartyAction(room, player, message) {
   } else if (action === 'police-argue' && party.policePresent) {
     party.lastPoliceOutcome = 'argued';
     party.evacuationRequired = true;
+  } else if (action === 'police-ticket' && party.policePresent) {
+    party.lastPoliceOutcome = 'ticket';
+    party.evacuationRequired = true;
   } else if (action === 'set-strictness') {
     const mode = sanitizeText(message.value, 16);
     if (POLICE_MODES[mode]) party.policeStrictness = mode;
+  } else if (action === 'restart-party') {
+    const visits = Math.max(1, Number(party.policeVisits) || 1);
+    const strictness = party.policeStrictness;
+    room.party = defaultPartyState();
+    room.party.policeStrictness = POLICE_MODES[strictness] ? strictness : 'normal';
+    room.party.policeVisits = visits;
+    room.party.policeCooldown = 10;
+    room.party.lastPoliceOutcome = 'party-restarted';
   } else if (action === 'reset-party') {
     room.party = defaultPartyState();
     room.party.policeStrictness = POLICE_MODES[party.policeStrictness]

@@ -2,6 +2,7 @@ import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial } fro
 import { poseLightweightHuman } from '../avatar/LightweightHuman.js';
 import { NPC_DJ_PROGRAMS, RUNTIME_DJ_LIBRARY } from '../audio/musicLibrary.js';
 import { createNpcCharacter } from '../npcs/NpcSystem.js';
+import { houseDjProfile, transitionSecondsForHouseDj } from './houseDjFeeder.js';
 
 export const HOUSE_DJS = [
   { id: 'lunice', name: 'Lunice', trackId: 'atrakar', accent: 0x53b7ff },
@@ -73,6 +74,12 @@ export class HouseDjSystem {
     this.elapsed = 0;
     this.programIndex = 0;
     this.programRunning = false;
+    this.programVoices = new Set();
+    this.currentProgramVoice = null;
+    this.nextMixAt = Infinity;
+    this.programTrackDuration = 0;
+    this.programStartedAtMs = 0;
+    this.sharedFollower = false;
   }
 
   get selected() {
@@ -81,6 +88,10 @@ export class HouseDjSystem {
 
   get programDefinition() {
     return NPC_DJ_PROGRAMS[this.selected.programId ?? this.selected.id] ?? null;
+  }
+
+  get feederProfile() {
+    return houseDjProfile(this.selected.id);
   }
 
   get fallbackProgram() {
@@ -156,33 +167,129 @@ export class HouseDjSystem {
     return this.game.audio.activeExternalTransport?.owner === 'house-dj';
   }
 
-  async start() {
-    if (this.starting || this.isHouseAudio()) return;
+  stopProgramVoices(fadeSeconds = 0) {
+    const context = this.game.audio.context;
+    const now = context?.currentTime ?? 0;
+    const fade = Math.max(0, Number(fadeSeconds) || 0);
+    for (const voice of [...this.programVoices]) {
+      const parameter = voice.gain?.gain;
+      if (parameter?.cancelScheduledValues) parameter.cancelScheduledValues(now);
+      if (fade > 0 && parameter?.setValueAtTime && parameter?.exponentialRampToValueAtTime) {
+        parameter.setValueAtTime(Math.max(0.0001, parameter.value || 0.0001), now);
+        parameter.exponentialRampToValueAtTime(0.0001, now + fade);
+      }
+      try {
+        voice.source.stop(now + fade + 0.03);
+      } catch {
+        voice.source.disconnect?.();
+        voice.gain?.disconnect?.();
+        this.programVoices.delete(voice);
+      }
+    }
+    this.currentProgramVoice = null;
+  }
+
+  async start({ transition = false, offset = 0 } = {}) {
+    if (this.starting || (!transition && this.isHouseAudio())) return;
     if (!this.game.started || !this.game.audio.context || this.game.dj.metrics().playing) return;
     this.starting = true;
     try {
       const dj = this.selected;
+      const profile = this.feederProfile;
       const longformId = this.availableLongformId();
       const item = longformId
         ? { id: longformId, label: 'continuous archived set', continuous: true }
         : this.currentProgramItem;
-      const sequential = !item.continuous && this.fallbackProgram.length > 1;
-      const started = await this.game.audio.playAsset(item.id, {
-        owner: 'house-dj',
-        label: `House DJ · ${dj.name} · ${item.label}`,
-        loop: !sequential,
-        vibe: 0.78,
-        baseVolume: 0.88,
-      });
-      this.programRunning = Boolean(started && sequential);
+      const context = this.game.audio.context;
+      const buffer = await this.game.audio.assets?.audio?.(item.id, context);
+
+      // A long-form source is already a performed DJ mix. Keep it intact. Individual runtime
+      // tracks use overlapping decoded voices below so the house DJ never creates a dead-air gap.
+      if (!buffer || item.continuous) {
+        if (transition) this.game.audio.stopAsset?.('house-dj');
+        const started = await this.game.audio.playAsset(item.id, {
+          owner: 'house-dj',
+          label: `House DJ · ${dj.name} · ${item.label}`,
+          loop: item.continuous === true,
+          vibe: profile.vibe,
+          baseVolume: 0.88,
+        });
+        this.programRunning = Boolean(
+          started && !item.continuous && this.fallbackProgram.length > 1,
+        );
+        this.nextMixAt = Infinity;
+        return;
+      }
+
+      const overlap = Math.min(
+        Math.max(2.5, transitionSecondsForHouseDj(dj.id)),
+        Math.max(2.5, buffer.duration * 0.28),
+      );
+      const now = context.currentTime;
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      source.loop = false;
+      source.connect(gain);
+      gain.connect(this.game.audio.sourceDestination('house-dj'));
+
+      const oldVoices = [...this.programVoices];
+      const fadeIn = oldVoices.length ? overlap : Math.min(0.9, overlap);
+      gain.gain.setValueAtTime?.(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime?.(0.88, now + fadeIn);
+      if (!gain.gain.setValueAtTime) gain.gain.value = 0.88;
+
+      for (const old of oldVoices) {
+        const oldGain = old.gain?.gain;
+        oldGain?.cancelScheduledValues?.(now);
+        oldGain?.setValueAtTime?.(Math.max(0.0001, oldGain.value || 0.0001), now);
+        oldGain?.exponentialRampToValueAtTime?.(0.0001, now + overlap);
+        try {
+          old.source.stop(now + overlap + 0.04);
+        } catch {
+          // An already-ended outgoing voice will clean itself up through onended.
+        }
+      }
+
+      const voice = { source, gain, itemId: item.id };
+      this.programVoices.add(voice);
+      this.currentProgramVoice = voice;
+      source.onended = () => {
+        source.disconnect?.();
+        gain.disconnect?.();
+        this.programVoices.delete(voice);
+        if (this.currentProgramVoice === voice) {
+          this.currentProgramVoice = null;
+          if (!this.programVoices.size && !this.starting)
+            this.game.audio.clearExternalTransport?.('house-dj');
+        }
+      };
+      const startOffset =
+        buffer.duration > 0 ? Math.max(0, Number(offset) || 0) % buffer.duration : 0;
+      source.start(0, startOffset);
+
+      this.game.audio.setExternalTransport(
+        'house-dj',
+        `House DJ · ${dj.name} · ${item.label}`,
+        0.25,
+        { vibe: profile.vibe, mixQuality: profile.mixQuality },
+      );
+      this.programTrackDuration = buffer.duration;
+      this.programStartedAtMs = Date.now() - startOffset * 1000;
+      this.programRunning = this.fallbackProgram.length > 1;
+      const remaining = Math.max(0, buffer.duration - startOffset);
+      this.nextMixAt = now + Math.max(2, remaining - overlap);
     } finally {
       this.starting = false;
     }
   }
 
-  stopHouseAudio() {
+  stopHouseAudio(fadeSeconds = 0.12) {
     this.programRunning = false;
+    this.nextMixAt = Infinity;
+    this.stopProgramVoices(fadeSeconds);
     this.game.audio.stopAsset?.('house-dj');
+    this.game.audio.clearExternalTransport?.('house-dj');
   }
 
   holdForPlayer(seconds = 25) {
@@ -197,6 +304,7 @@ export class HouseDjSystem {
     this.game.state.data.houseDjId = id;
     this.programIndex = 0;
     this.programRunning = false;
+    this.nextMixAt = Infinity;
     this.game.dj.stop();
     if (wasPlaying) this.stopHouseAudio();
     this.rotationTimer = 160 + Math.random() * 100;
@@ -229,15 +337,40 @@ export class HouseDjSystem {
     const program = this.fallbackProgram;
     if (!this.programRunning || this.starting || program.length < 2) return false;
     this.programIndex = (this.programIndex + 1) % program.length;
-    this.programRunning = false;
-    void this.start();
+    void this.start({ transition: true });
     return true;
+  }
+
+  async applySharedTransport({ djId, programIndex = 0, playing = false, offset = 0 } = {}) {
+    if (!HOUSE_DJ_IDS.includes(djId)) return false;
+    const sameDj = this.selectedId === djId;
+    const wasPlaying = this.isHouseAudio();
+    const previousIndex = this.programIndex;
+    this.sharedFollower = true;
+    if (!sameDj || !playing) this.stopHouseAudio(0);
+    this.selectedId = djId;
+    this.game.state.data.houseDjId = djId;
+    this.programIndex =
+      Math.max(0, Math.floor(Number(programIndex) || 0)) % Math.max(1, this.fallbackProgram.length);
+    this.programRunning = false;
+    this.nextMixAt = Infinity;
+    this.applyLook();
+    this.game.save();
+    if (playing) {
+      const sharedTransition = sameDj && wasPlaying && previousIndex !== this.programIndex;
+      await this.start({ transition: sharedTransition, offset });
+    }
+    return true;
+  }
+
+  setSharedFollower(active) {
+    this.sharedFollower = active === true;
   }
 
   panel() {
     this.ui.panel(
       'HOUSE DJ · PRODUCTION DESK',
-      `${this.selected.name} is assigned to the booth. House DJs keep Below moving whenever you are not on the decks.`,
+      `${this.selected.name} is assigned to the booth. ${this.feederProfile.style}. House DJs keep Below moving whenever you are not on the decks, with overlapping transitions instead of dead air.`,
       HOUSE_DJS.map((dj) => [
         `${dj.id === this.selectedId ? '✓ ' : ''}${dj.name}`,
         () => void this.select(dj.id),
@@ -249,20 +382,21 @@ export class HouseDjSystem {
     this.elapsed += dt;
     const downstairs = this.game.sceneManager.current?.definition?.id === 'downstairs';
     const playerDj = this.game.dj.metrics().playing;
-    const studioPlaybackDownstairs =
-      downstairs && this.game.audio.activeExternalTransport?.owner === 'studio';
     if (this.game.evacuationStarted) {
       this.stopHouseAudio();
       if (this.performer) this.performer.group.visible = false;
       return;
     }
     if (this.performer) {
-      this.performer.group.visible = !playerDj && !studioPlaybackDownstairs;
+      this.performer.group.visible = !playerDj;
       const malaika = this.game.scenes.get('downstairs')?.npcs?.get?.('malaika');
       if (malaika?.group)
         malaika.group.visible = !(this.selectedId === 'malaika' && this.performer.group.visible);
       const metrics = this.game.dj.metrics?.() ?? {};
-      const energy = Math.max(0.25, Number(metrics.energy) || 0.62);
+      const energy = Math.max(
+        0.25,
+        (Number(metrics.energy) || 0.62) * this.feederProfile.animationEnergy,
+      );
       poseLightweightHuman(this.performer, {
         time: this.elapsed,
         phase: 0.7,
@@ -279,32 +413,52 @@ export class HouseDjSystem {
       this.performer.rightForearm.rotation.x = -0.76 - Math.max(0, -phrase) * 0.24;
       this.performer.head.rotation.y += Math.sin(this.elapsed * 0.8) * 0.055;
     }
-    if (playerDj || studioPlaybackDownstairs) {
+    if (playerDj) {
       this.playerHold = 8;
       return;
     }
     this.playerHold = Math.max(0, this.playerHold - dt);
     if (this.playerHold > 0) return;
 
-    // A programmed NPC set is building-wide transport: leaving Below must not reset it or create
-    // silence when a song ends. Advance even while the player is elsewhere in the building.
-    if (this.programRunning && !this.isHouseAudio()) {
+    // A programmed NPC set is building-wide transport. Begin the incoming track before the
+    // outgoing track ends so the overlap is a real mix on one spatial house-dj source bus.
+    if (
+      !this.sharedFollower &&
+      this.programRunning &&
+      Number.isFinite(this.nextMixAt) &&
+      this.game.audio.context?.currentTime >= this.nextMixAt
+    ) {
+      this.nextMixAt = Infinity;
+      this.advanceProgram();
+    } else if (
+      !this.sharedFollower &&
+      this.programRunning &&
+      !Number.isFinite(this.nextMixAt) &&
+      !this.isHouseAudio()
+    ) {
+      // Native/fallback media cannot be pre-scheduled as decoded WebAudio. Preserve the old
+      // end-of-track continuation behavior as a compatibility fallback, still using the same bus.
       this.advanceProgram();
       return;
     }
 
+    // The house set exists as a building-wide transport, not only after someone enters Below.
+    // Starting it here lets a fresh alley arrival hear the intentionally filtered low-end bleed,
+    // while unrelated studio/archive sources remain free to play at the same time.
+    if (!this.sharedFollower && !this.isHouseAudio()) void this.start();
+
     if (!downstairs) return;
     this.rotationTimer -= dt;
-    if (this.rotationTimer <= 0 && this.isHouseAudio()) {
+    if (!this.sharedFollower && this.rotationTimer <= 0 && this.isHouseAudio()) {
       void this.select(this.next());
       return;
     }
-    if (!this.game.audio.playing) void this.start();
   }
 
   dispose() {
     this.performer?.group.removeFromParent();
     this.desk?.removeFromParent();
+    this.stopHouseAudio(0);
     this.performer = null;
     this.desk = null;
   }

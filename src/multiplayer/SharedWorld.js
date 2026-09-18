@@ -144,6 +144,8 @@ export class SharedWorld {
     if (world.party) this.applyParty(world.party);
     const installation = this.objects.get('take-a-break-installation');
     if (installation) this.applyInstallation(installation);
+    const jamesResponse = this.objects.get('police-james-response');
+    if (jamesResponse) this.game.policeResponse?.applySharedJamesResponse?.(jamesResponse);
     const ledWall = this.objects.get('dj-led-wall');
     if (ledWall) this.game.ledWall?.apply?.(ledWall, { remote: true });
   }
@@ -356,7 +358,13 @@ export class SharedWorld {
     alley.resolvePolice = (response) => {
       if (!this.client.joined || !this.authoritativeParty) return baseResolvePolice(response);
       const suffix =
-        response === 'cooperate' ? 'cooperate' : response === 'brushOff' ? 'brushOff' : 'argue';
+        response === 'cooperate'
+          ? 'cooperate'
+          : response === 'brushOff'
+            ? 'brushOff'
+            : response === 'ticket'
+              ? 'ticket'
+              : 'argue';
       this.send({ type: 'party_action', action: `police-${suffix}` });
       return 'Your response is sent to the officers. Everyone in the live room will see what happens next.';
     };
@@ -449,6 +457,8 @@ export class SharedWorld {
     if (!message.objectId) return;
     this.objects.set(message.objectId, message.data);
     if (message.objectId === 'take-a-break-installation') this.applyInstallation(message.data);
+    if (message.objectId === 'police-james-response')
+      this.game.policeResponse?.applySharedJamesResponse?.(message.data);
     if (message.objectId === 'dj-led-wall')
       this.game.ledWall?.apply?.(message.data, { remote: true });
   }

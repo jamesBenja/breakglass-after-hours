@@ -2,6 +2,7 @@ export class Hud {
   constructor(document) {
     this.document = document;
     this.status = document.getElementById('status');
+    this.panelElement = document.getElementById('panel');
     this.title = document.getElementById('pTitle');
     this.text = document.getElementById('pText');
     this.buttons = document.getElementById('buttons');
@@ -11,6 +12,14 @@ export class Hud {
     this.enter = document.getElementById('enter');
     this.debug = document.getElementById('debug');
     this.notice = document.getElementById('notice');
+    this.closeButton = document.createElement('button');
+    this.closeButton.type = 'button';
+    this.closeButton.className = 'panel-close';
+    this.closeButton.setAttribute('aria-label', 'Close');
+    this.closeButton.title = 'Close';
+    this.closeButton.textContent = '×';
+    this.closeButton.onclick = () => this.closePanel();
+    this.panelElement?.appendChild(this.closeButton);
     this.avatar = {
       displayName: document.getElementById('avatarName'),
       identity: document.getElementById('avatarIdentity'),
@@ -54,7 +63,13 @@ export class Hud {
     };
   }
 
+  closePanel() {
+    if (this.panelElement) this.panelElement.hidden = true;
+    this.document.querySelector('canvas')?.focus();
+  }
+
   clearPanel(title, text) {
+    if (this.panelElement) this.panelElement.hidden = false;
     this.title.textContent = title;
     this.text.textContent = text;
     this.buttons.replaceChildren();
@@ -398,6 +413,8 @@ export class Hud {
 
   dispose() {
     this.enter.onclick = null;
+    if (this.closeButton) this.closeButton.onclick = null;
+    this.closeButton?.remove?.();
     this.buttons.replaceChildren();
   }
 }

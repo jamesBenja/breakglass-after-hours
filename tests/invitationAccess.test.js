@@ -81,6 +81,7 @@ function fixture(profileId = 'participant') {
   let baseDispatches = 0;
   let saved = 0;
   let resolvedPolice = 0;
+  let toldJames = 0;
   let policePresent = false;
   const panels = [];
   const warnings = [];
@@ -135,6 +136,12 @@ function fixture(profileId = 'participant') {
         baseDispatches += 1;
       },
     },
+    policeResponse: {
+      tellJames() {
+        toldJames += 1;
+        return true;
+      },
+    },
     update() {},
     save() {
       saved += 1;
@@ -155,7 +162,7 @@ function fixture(profileId = 'participant') {
       policePresent = value;
     },
     counts() {
-      return { baseDispatches, saved, resolvedPolice };
+      return { baseDispatches, saved, resolvedPolice, toldJames };
     },
   };
 }
@@ -215,9 +222,14 @@ test('police arrival offers James or self response and James can resolve shared 
 
   f.game.interactions.dispatch({ id: 'james', action: 'dialogue' });
   const james = f.panels.at(-1);
-  const police = james.actions.find(([label]) => label.includes('Police are outside'));
-  assert.ok(police, 'James should offer to deal with police');
+  const police = james.actions.find(([label]) => label === 'The police are here');
+  assert.ok(police, 'James should offer the visible police-response sequence');
   police[1]();
-  assert.equal(f.counts().resolvedPolice, 1);
+  assert.equal(f.counts().toldJames, 1);
+  assert.equal(
+    f.counts().resolvedPolice,
+    0,
+    'James must not resolve police instantly from the club',
+  );
   assert.equal(f.game.state.data.policePlan, 'james');
 });

@@ -51,3 +51,17 @@ test('Take A Break focus locally ducks the club bus further', () => {
   assert.ok(focus.gain < normal.gain);
   assert.ok(focus.lowpassHz < normal.lowpassHz);
 });
+
+test('alley and bathroom hear quiet muffled club bleed without muting the club source', () => {
+  const club = acousticEnvironmentFor('house-dj', 'downstairs', 'club');
+  const bathroom = acousticEnvironmentFor('house-dj', 'downstairs', 'bathroom');
+  const circulation = acousticEnvironmentFor('house-dj', 'downstairs', 'circulation');
+  const alley = acousticEnvironmentFor('house-dj', 'alley', 'alley');
+
+  assert.equal(club.gain, 1);
+  assert.ok(bathroom.gain < circulation.gain);
+  assert.ok(bathroom.lowpassHz <= 1000);
+  assert.ok(alley.gain < 0.1);
+  assert.ok(alley.lowpassHz <= 600);
+  assert.equal(alley.portal, true);
+});
