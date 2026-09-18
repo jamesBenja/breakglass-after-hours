@@ -73,7 +73,11 @@ test('Spectra outboard rack sits against the wall behind the modular synth and f
     Math.abs(modularFixture.z1 - rackFixture.z2) < 0.05,
     'rack should sit directly next to the modular synth without overlapping it',
   );
-  assert.equal(rackFixture.rotationY ?? 0, Math.PI / 2, 'rack should be rotated 90 degrees counter-clockwise');
+  assert.equal(
+    rackFixture.rotationY ?? 0,
+    Math.PI / 2,
+    'rack should be rotated 90 degrees counter-clockwise',
+  );
 });
 
 test('Neve outboard rack sits beside the tape machine and clear of the console', () => {
