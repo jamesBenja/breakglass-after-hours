@@ -50,3 +50,26 @@ test('Spectra suite furniture is rendered once, not duplicated by the equipment 
 
   globalThis.document = previousDocument;
 });
+
+test('Spectra outboard rack sits beside and faces with the console', () => {
+  const definition = createUpstairsDefinition('B');
+  const consoleFixture = definition.fixtures.find((fixture) => fixture.id === 'spectra-console');
+  const rackFixture = definition.fixtures.find((fixture) => fixture.id === 'side-rack');
+
+  assert.ok(consoleFixture, 'expected Spectra console fixture');
+  assert.ok(rackFixture, 'expected Spectra outboard rack fixture');
+
+  const consoleCenterX = (consoleFixture.x1 + consoleFixture.x2) / 2;
+  const consoleCenterZ = (consoleFixture.z1 + consoleFixture.z2) / 2;
+  const rackCenterX = (rackFixture.x1 + rackFixture.x2) / 2;
+  const rackCenterZ = (rackFixture.z1 + rackFixture.z2) / 2;
+  const consoleLeftEdge = consoleFixture.x1;
+  const rackRightEdge = rackFixture.x2;
+  const tapeBank = definition.fixtures.find((fixture) => fixture.id === 'tape-bank');
+
+  assert.ok(rackCenterX < consoleCenterX, 'rack should sit to the left of the console');
+  assert.ok(consoleLeftEdge - rackRightEdge < 0.8, 'rack should be directly beside the console');
+  assert.ok(Math.abs(rackCenterZ - consoleCenterZ) < 0.05, 'rack should share the console axis');
+  assert.equal(rackFixture.rotationY ?? 0, consoleFixture.rotationY ?? 0);
+  assert.ok(!tapeBank || tapeBank.x2 <= rackFixture.x1, 'rack should not overlap the tape bank');
+});
