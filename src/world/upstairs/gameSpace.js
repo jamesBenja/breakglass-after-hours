@@ -62,6 +62,7 @@ export function createGameSpace() {
     prop('mix-sofa-rear', 252, 706, 3.25, 0.95, 0.82, 0x4b4544, {
       kind: 'equipment',
       name: 'Spectra control-room couch',
+      rotationY: Math.PI,
       player: false,
       camera: false,
       surface: false,
