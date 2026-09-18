@@ -36,6 +36,23 @@ export const alleyLevel = {
     disturbance: 0.14,
     neighborTolerance: 0.55,
   },
+  crowd: {
+    max: 46,
+    min: 3,
+    idle: 7,
+    start: 7,
+    zones: [
+      { kind: 'social', x1: -18.5, x2: -6.2, z1: -1.72, z2: 1.72, weight: 1.25 },
+      { kind: 'social', x1: 2.2, x2: 13.8, z1: -1.72, z2: 1.72, weight: 1.0 },
+      { kind: 'social', x1: 16.8, x2: 27.5, z1: -1.72, z2: 1.72, weight: 0.72 },
+    ],
+    avoid: [
+      { x1: -5.5, x2: -2.3, z1: -2.1, z2: 0.15 },
+      { x1: 4.3, x2: 6.8, z1: 0.45, z2: 1.7 },
+      { x1: 10.1, x2: 12.5, z1: -0.55, z2: 0.8 },
+      { x1: -25.5, x2: -18.5, z1: -1.8, z2: 1.8 },
+    ],
+  },
   spawns: {
     start: [-27.5, 0, 0],
     stairs: [-3.7, 0, -1.0],
