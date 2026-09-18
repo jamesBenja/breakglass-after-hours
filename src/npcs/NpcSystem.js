@@ -2,6 +2,7 @@ import { BoxGeometry, Mesh, MeshStandardMaterial, SphereGeometry, Vector3 } from
 import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
 import { createWorldNameplate } from '../ui/WorldNameplate.js';
 import { dialogues } from './dialogues.js';
+import { NpcNavigator } from './NpcNavigator.js';
 
 export const CHARACTER_LOOKS = {
   nora: {
@@ -365,8 +366,10 @@ export function createNpcCharacter(npc) {
 }
 
 export class NpcSystem {
-  constructor(root, definition) {
+  constructor(root, definition, collision = null) {
     this.definition = definition;
+    this.collision = collision;
+    this.navigator = collision ? new NpcNavigator(collision) : null;
     this.npcs = (definition.npcs ?? []).map((npc, index) => {
       const model = createNpcCharacter(npc);
       const position = npc.anchor ? definition.anchors[npc.anchor].position : npc.position;
@@ -404,6 +407,11 @@ export class NpcSystem {
         handoffPulse: 0,
         handoffKind: null,
         moving: false,
+        navPath: [],
+        navPathIndex: 0,
+        navGoal: null,
+        navStuckTime: 0,
+        navFailures: 0,
       };
     });
     this.elapsed = 0;
@@ -460,6 +468,132 @@ export class NpcSystem {
     return dialogues[id] ?? null;
   }
 
+  resetNavigation(npc) {
+    npc.navPath = [];
+    npc.navPathIndex = 0;
+    npc.navGoal = null;
+    npc.navStuckTime = 0;
+  }
+
+  planNavigation(npc, target) {
+    if (!this.navigator) {
+      npc.navPath = [target.clone ? target.clone() : new Vector3(target.x, target.y ?? 0, target.z)];
+      npc.navPathIndex = 0;
+      npc.navGoal = target.clone ? target.clone() : new Vector3(target.x, target.y ?? 0, target.z);
+      return true;
+    }
+
+    this.navigator.clearCache();
+    const path = this.navigator.plan(npc.group.position, target);
+    if (!path.length) {
+      npc.navFailures += 1;
+      this.resetNavigation(npc);
+      return false;
+    }
+
+    npc.navPath = path.map((point) => new Vector3(point.x, point.y ?? npc.group.position.y, point.z));
+    npc.navPathIndex = 0;
+    npc.navGoal = target.clone ? target.clone() : new Vector3(target.x, target.y ?? 0, target.z);
+    npc.navFailures = 0;
+    npc.navStuckTime = 0;
+    return true;
+  }
+
+  navigationGoalChanged(npc, target, tolerance = 0.2) {
+    if (!npc.navGoal) return true;
+    return Math.hypot(npc.navGoal.x - target.x, npc.navGoal.z - target.z) > tolerance;
+  }
+
+  moveNpc(npc, target, speed, dt) {
+    const dx = target.x - npc.group.position.x;
+    const dz = target.z - npc.group.position.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance < 1e-5) return 0;
+
+    const amount = Math.min(distance, speed * dt);
+    const beforeX = npc.group.position.x;
+    const beforeZ = npc.group.position.z;
+    const moveX = (dx / distance) * amount;
+    const moveZ = (dz / distance) * amount;
+
+    if (this.collision) {
+      this.collision.move(npc.group.position, moveX, moveZ, { grounded: true });
+    } else {
+      npc.group.position.x += moveX;
+      npc.group.position.z += moveZ;
+    }
+
+    npc.group.rotation.y = Math.atan2(dx, dz);
+    const moved = Math.hypot(
+      npc.group.position.x - beforeX,
+      npc.group.position.z - beforeZ,
+    );
+    npc.moving = moved > 0.001;
+    return moved;
+  }
+
+  followNavigation(npc, target, dt, { dynamic = false, speedMultiplier = 1 } = {}) {
+    const arrival = dynamic ? 0.72 : 0.18;
+    if (
+      !dynamic &&
+      Math.hypot(target.x - npc.group.position.x, target.z - npc.group.position.z) <= arrival
+    ) {
+      this.resetNavigation(npc);
+      return true;
+    }
+
+    if (
+      !npc.navPath.length ||
+      npc.navPathIndex >= npc.navPath.length ||
+      this.navigationGoalChanged(npc, target, dynamic ? 0.7 : 0.12)
+    ) {
+      if (!this.planNavigation(npc, target)) return false;
+    }
+
+    while (npc.navPathIndex < npc.navPath.length) {
+      const waypoint = npc.navPath[npc.navPathIndex];
+      const distance = Math.hypot(
+        waypoint.x - npc.group.position.x,
+        waypoint.z - npc.group.position.z,
+      );
+      if (distance > 0.18) break;
+      npc.navPathIndex += 1;
+    }
+
+    if (npc.navPathIndex >= npc.navPath.length) {
+      this.resetNavigation(npc);
+      return true;
+    }
+
+    const waypoint = npc.navPath[npc.navPathIndex];
+    const moved = this.moveNpc(npc, waypoint, npc.speed * speedMultiplier, dt);
+    const remaining = Math.hypot(
+      waypoint.x - npc.group.position.x,
+      waypoint.z - npc.group.position.z,
+    );
+
+    if (remaining > 0.22 && moved < Math.max(0.0015, npc.speed * dt * 0.12)) {
+      npc.navStuckTime += dt;
+    } else {
+      npc.navStuckTime = Math.max(0, npc.navStuckTime - dt * 2);
+    }
+
+    if (npc.navStuckTime > 0.65) {
+      npc.navFailures += 1;
+      this.resetNavigation(npc);
+      if (this.navigator) this.navigator.clearCache();
+      return false;
+    }
+
+    return false;
+  }
+
+  advanceRoute(npc) {
+    if (!npc.route.length) return;
+    npc.routeIndex = (npc.routeIndex + 1) % npc.route.length;
+    this.resetNavigation(npc);
+  }
+
   update(dt, audioState) {
     this.elapsed += dt;
     const metrics =
@@ -476,40 +610,42 @@ export class NpcSystem {
       if (npc.handoffPulse <= 0) npc.handoffKind = null;
       npc.moving = false;
       const companion = npc.companionId ? this.get(npc.companionId) : null;
-      if (companion && npc.photoPulse <= 0 && npc.servePulse <= 0 && npc.handoffPulse <= 0) {
+      const canWalk = npc.photoPulse <= 0 && npc.servePulse <= 0 && npc.handoffPulse <= 0;
+      if (companion && canWalk) {
         const target = companion.group.position.clone().add(npc.companionOffset);
-        const dx = target.x - npc.group.position.x;
-        const dz = target.z - npc.group.position.z;
-        const distance = Math.hypot(dx, dz);
+        const distance = Math.hypot(
+          target.x - npc.group.position.x,
+          target.z - npc.group.position.z,
+        );
         if (distance > 0.78) {
-          const amount = Math.min(Math.max(0, distance - 0.64), npc.speed * 1.18 * dt);
-          npc.group.position.x += (dx / distance) * amount;
-          npc.group.position.z += (dz / distance) * amount;
-          npc.group.position.y += (target.y - npc.group.position.y) * (1 - Math.exp(-5 * dt));
-          npc.group.rotation.y = Math.atan2(dx, dz);
-          npc.moving = amount > 0.001;
+          this.followNavigation(npc, target, dt, { dynamic: true, speedMultiplier: 1.18 });
         } else {
+          this.resetNavigation(npc);
           npc.group.rotation.y = companion.group.rotation.y;
         }
-      } else if (
-        npc.route.length > 1 &&
-        npc.photoPulse <= 0 &&
-        npc.servePulse <= 0 &&
-        npc.handoffPulse <= 0
-      ) {
-        const target = npc.route[npc.routeIndex % npc.route.length];
-        const dx = target.x - npc.group.position.x;
-        const dz = target.z - npc.group.position.z;
-        const distance = Math.hypot(dx, dz);
-        if (distance < 0.16) npc.routeIndex = (npc.routeIndex + 1) % npc.route.length;
-        else {
-          const amount = Math.min(distance, npc.speed * dt);
-          npc.group.position.x += (dx / distance) * amount;
-          npc.group.position.z += (dz / distance) * amount;
-          npc.group.position.y += (target.y - npc.group.position.y) * (1 - Math.exp(-5 * dt));
-          npc.group.rotation.y = Math.atan2(dx, dz);
-          npc.moving = true;
+      } else if (npc.route.length > 1 && canWalk) {
+        let attempts = 0;
+        while (attempts < npc.route.length) {
+          const target = npc.route[npc.routeIndex % npc.route.length];
+          const reached = this.followNavigation(npc, target, dt);
+          if (reached) {
+            this.advanceRoute(npc);
+            attempts += 1;
+            continue;
+          }
+
+          // A route point may sit behind a currently locked progression gate. If pathfinding
+          // cannot reach it, skip that leg rather than having the character walk into the wall
+          // forever. Once the gate changes, later laps can use the point normally.
+          if (!npc.navPath.length && npc.navFailures > 0) {
+            this.advanceRoute(npc);
+            attempts += 1;
+            continue;
+          }
+          break;
         }
+      } else if (!canWalk) {
+        this.resetNavigation(npc);
       }
 
       const clubDance =
