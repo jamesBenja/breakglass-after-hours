@@ -637,7 +637,8 @@ export class SpatialAudioSystem {
     const sceneId = level.definition?.id ?? '';
     const position = player?.position;
     const ground =
-      position && level.collision?.surfaceAt?.(position.x, position.z, position.y + 0.3);
+      position &&
+      level.collision?.surfaceAt?.(position.x, position.z, position.y + 0.3);
     let surfaceId = ground?.surface?.id ?? sceneId;
 
     // Take A Break is a physical acoustic room, not merely a navigation-surface label.
@@ -645,7 +646,8 @@ export class SpatialAudioSystem {
     // collision graph reports a listener without changing where that listener actually is.
     // Keep the room's real bounds authoritative so the eight-speaker installation and the
     // heavily filtered club bleed can never split apart again.
-    if (sceneId === 'downstairs' && position && isTakeABreakPosition(position)) surfaceId = 'lounge';
+    if (sceneId === 'downstairs' && position && isTakeABreakPosition(position))
+      surfaceId = 'lounge';
 
     return surfaceId;
   }
