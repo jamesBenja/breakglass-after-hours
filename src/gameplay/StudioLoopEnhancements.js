@@ -387,8 +387,8 @@ function buildLoopPanel(game, ui) {
   };
   const transportStatus = game.spectraTransport?.snapshot?.();
   const clockLabel = transportStatus?.running
-    ? `CLOCK BAR ${transportStatus.bar} · BEAT ${transportStatus.beat} · STEP ${transportStatus.sixteenth}`
-    : 'CLOCK STOPPED';
+    ? `CLOCK BAR ${transportStatus.bar} · BEAT ${transportStatus.beat} · STEP ${transportStatus.sixteenth} · ${Math.round(transportStatus.bpm)} BPM`
+    : `CLOCK STOPPED · ${Math.round(studio.bpm)} BPM`;
   const status = `${clockLabel} · ${studio.loopEnabled ? 'LOOP ON' : 'LOOP OFF'} · ${studio.loopBars} bars · ${studio.quantize} grid · swing ${Math.round(studio.swing * 100)}% · ${
     recordStatus.armed
       ? recordStatus.recording
@@ -416,6 +416,22 @@ function buildLoopPanel(game, ui) {
       '↺ RESTART CLOCK AT BAR 1',
       () => {
         game.spectraTransport?.restart?.(0);
+        buildLoopPanel(game, ui);
+      },
+    ],
+    [
+      'BPM −5',
+      () => {
+        game.spectraTransport?.setTempo?.(studio.bpm - 5);
+        game.save();
+        buildLoopPanel(game, ui);
+      },
+    ],
+    [
+      'BPM +5',
+      () => {
+        game.spectraTransport?.setTempo?.(studio.bpm + 5);
+        game.save();
         buildLoopPanel(game, ui);
       },
     ],
