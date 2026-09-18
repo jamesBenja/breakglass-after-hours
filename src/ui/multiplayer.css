@@ -434,8 +434,8 @@ body.ui-minimal .live-social-dock {
 }
 
 
-/* Portrait phone social HUD: do not stack LIVE / CHAT / PHONE on the game HUD. */
-@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+/* Portrait phone HUD: one explicit top stack. Landscape remains unchanged. */
+@media (orientation: portrait) and (max-width: 720px) {
   #multiplayerPresence {
     top: max(7px, env(safe-area-inset-top));
     right: max(8px, env(safe-area-inset-right));
@@ -444,7 +444,7 @@ body.ui-minimal .live-social-dock {
   .live-social-dock {
     left: 50%;
     right: auto;
-    top: calc(max(8px, env(safe-area-inset-top)) + 142px);
+    top: calc(max(8px, env(safe-area-inset-top)) + 128px);
     bottom: auto;
     width: min(94vw, 330px);
     transform: translateX(-50%);
