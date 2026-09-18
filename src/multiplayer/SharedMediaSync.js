@@ -49,7 +49,37 @@ export class SharedMediaSync {
 
   sendObject(objectId, data) {
     if (!this.client.joined) return false;
+    this.client.world?.objects?.set?.(objectId, data);
     return this.client.send({ type: 'object_update', objectId, data });
+  }
+
+  listenerSurface() {
+    const level = this.game.sceneManager.current;
+    if (!level) return { level: null, surfaceId: '' };
+    const player = this.game.player;
+    const ground = player
+      ? level.collision?.surfaceAt?.(
+          player.position.x,
+          player.position.z,
+          player.position.y + 0.3,
+        )
+      : null;
+    return {
+      level,
+      surfaceId: ground?.surface?.id ?? level.definition.id,
+    };
+  }
+
+  sourceAudible(owner) {
+    const { level, surfaceId } = this.listenerSurface();
+    if (!level) return false;
+    const environment = this.game.spatialAudio?.sourceEnvironmentFor?.(owner, level, surfaceId);
+    return (environment?.gain ?? 1) > 0.001;
+  }
+
+  localAssetPlaying(owner) {
+    const audio = this.game.audio;
+    return audio?.assetVoices?.has?.(owner) || audio?.nativeMedia?.has?.(owner);
   }
 
   patchWorld() {
@@ -164,6 +194,11 @@ export class SharedMediaSync {
         this.lastStudioSignature = '';
         return;
       }
+      if (!this.sourceAudible('studio')) {
+        if (playback.playing) playback.stop();
+        this.lastStudioSignature = sessionSignature(data.session);
+        return;
+      }
       const remoteSession = new StudioSession(data.session);
       const remoteSignature = sessionSignature(remoteSession);
       const expected = this.expectedPosition(data, remoteSession);
@@ -212,6 +247,10 @@ export class SharedMediaSync {
         this.game.audio?.stopAsset?.('archive');
         return;
       }
+      if (!this.sourceAudible('archive')) {
+        this.game.audio?.stopAsset?.('archive');
+        return;
+      }
       const offset = this.expectedPosition(data);
       await this.game.audio?.playAsset?.(data.assetId, {
         owner: 'archive',
@@ -252,7 +291,8 @@ export class SharedMediaSync {
       }
       return;
     }
-    if (this.game.sceneManager.current?.definition?.id !== 'upstairs') return;
+    const { level, surfaceId } = this.listenerSurface();
+    if (level?.definition?.id !== 'upstairs' || surfaceId !== 'live-room') return;
     const session = liveArchiveById(data.sessionId);
     if (!session?.youtubeId) return;
     if (this.activeVideoSessionId === session.id) return;
@@ -282,9 +322,44 @@ export class SharedMediaSync {
   }
 
   update() {
-    // If a shared screening began while a player was on another floor, start it when they enter
-    // the studio rather than opening the video UI over an unrelated room.
-    const video = this.client.world?.objects?.get?.(LIVE_ARCHIVE_OBJECT);
+    const objects = this.client.world?.objects;
+    if (!objects?.get) return;
+
+    // Shared transport state remains canonical even when this listener cannot hear the source.
+    // Leaving a floor stops the local decoder only; returning restarts at the server-derived
+    // timeline position instead of turning the physical source off for everybody else.
+    const archive = objects.get(ARCHIVE_AUDIO_OBJECT);
+    if (archive?.playing) {
+      if (this.sourceAudible('archive')) {
+        if (!this.localAssetPlaying('archive')) void this.applyArchiveAudio(archive);
+      } else if (this.localAssetPlaying('archive')) {
+        this.applyingArchiveAudio = true;
+        try {
+          this.game.audio?.stopAsset?.('archive');
+        } finally {
+          this.applyingArchiveAudio = false;
+        }
+      }
+    }
+
+    const studio = objects.get(STUDIO_OBJECT);
+    const playback = this.game.studioPlayback;
+    if (studio?.playing && studio.session) {
+      if (this.sourceAudible('studio')) {
+        if (!playback?.playing) void this.applyStudio(studio);
+      } else if (playback?.playing) {
+        this.applyingStudio = true;
+        try {
+          playback.stop();
+        } finally {
+          this.applyingStudio = false;
+        }
+      }
+    }
+
+    // Shared screenings are a Live Room source, not an upstairs-wide modal. A player who was
+    // elsewhere catches the synchronized screening only after physically entering the room.
+    const video = objects.get(LIVE_ARCHIVE_OBJECT);
     if (video?.playing && !this.activeVideoSessionId) this.applyLiveArchive(video);
   }
 
