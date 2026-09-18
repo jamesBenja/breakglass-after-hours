@@ -1,0 +1,26 @@
+name: Format Audio Recovery Debug
+
+on:
+  push:
+    branches:
+      - fix/ios-background-audio-device-recovery
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --write tests/audio-reliability.test.js
+      - run: git diff -- tests/audio-reliability.test.js
