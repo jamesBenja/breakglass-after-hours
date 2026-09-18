@@ -546,7 +546,10 @@ export class StudioPlayback {
   startAlignedAssets(session, buffers, offset = 0) {
     const start = this.audio.context.currentTime + 0.06;
     const safeOffset = Math.max(0, Number(offset) || 0);
-    this.transportOffset = safeOffset;
+    const phaseOffset = this.spectraTransport?.running
+      ? this.spectraTransport.positionAtOffset(start - this.audio.context.currentTime)
+      : safeOffset;
+    this.transportOffset = phaseOffset;
     this.transportStartedAt = start;
     for (const stem of session.stems) {
       if (!stem.assetId) continue;
@@ -561,7 +564,7 @@ export class StudioPlayback {
         this.sources.delete(source);
       };
       this.sources.add(source);
-      const startOffset = buffer.duration > 0 ? safeOffset % buffer.duration : 0;
+      const startOffset = buffer.duration > 0 ? phaseOffset % buffer.duration : 0;
       source.start(start, startOffset);
     }
     this.realSessionPlaying = true;
