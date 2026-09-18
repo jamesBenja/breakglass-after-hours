@@ -80,6 +80,7 @@ export class HouseDjSystem {
     this.programTrackDuration = 0;
     this.programStartedAtMs = 0;
     this.sharedFollower = false;
+    this.backgroundSnapshot = null;
   }
 
   get selected() {
@@ -167,6 +168,62 @@ export class HouseDjSystem {
     return this.game.audio.activeExternalTransport?.owner === 'house-dj';
   }
 
+  currentPlaybackOffset() {
+    const media = this.game.audio.nativeMedia?.get?.('house-dj')?.element;
+    if (media && Number.isFinite(media.currentTime)) return Math.max(0, media.currentTime);
+
+    const duration = Math.max(0, Number(this.programTrackDuration) || 0);
+    const startedAt = Math.max(0, Number(this.programStartedAtMs) || 0);
+    if (duration > 0 && startedAt > 0) {
+      const elapsed = Math.max(0, (Date.now() - startedAt) / 1000);
+      return elapsed % duration;
+    }
+    return 0;
+  }
+
+  prepareForBackground() {
+    if (!this.isHouseAudio()) {
+      this.backgroundSnapshot = null;
+      return false;
+    }
+
+    this.backgroundSnapshot = {
+      selectedId: this.selectedId,
+      programIndex: this.programIndex,
+      offset: this.currentPlaybackOffset(),
+      duration: Math.max(0, Number(this.programTrackDuration) || 0),
+      capturedAtMs: Date.now(),
+    };
+
+    // Safari can return a resumed AudioContext whose pre-background AudioBufferSourceNodes never
+    // become audible again. Tear the active house set down before suspension so foreground
+    // recovery creates fresh source nodes instead of trusting iOS to revive the old ones.
+    this.stopHouseAudio(0.03);
+    return true;
+  }
+
+  async recoverAfterBackground() {
+    const snapshot = this.backgroundSnapshot;
+    if (!snapshot || this.game.audio.context?.state !== 'running') return false;
+    this.backgroundSnapshot = null;
+
+    this.selectedId = snapshot.selectedId;
+    this.game.state.data.houseDjId = snapshot.selectedId;
+    this.programIndex =
+      Math.max(0, Math.floor(Number(snapshot.programIndex) || 0)) %
+      Math.max(1, this.fallbackProgram.length);
+    this.programRunning = false;
+    this.nextMixAt = Infinity;
+
+    const awaySeconds = Math.max(0, (Date.now() - snapshot.capturedAtMs) / 1000);
+    const duration = Math.max(0, Number(snapshot.duration) || 0);
+    const offset =
+      duration > 0 ? (Math.max(0, snapshot.offset) + awaySeconds) % duration : snapshot.offset;
+
+    await this.start({ transition: true, offset });
+    return this.isHouseAudio();
+  }
+
   stopProgramVoices(fadeSeconds = 0) {
     const context = this.game.audio.context;
     const now = context?.currentTime ?? 0;
@@ -207,13 +264,19 @@ export class HouseDjSystem {
       // tracks use overlapping decoded voices below so the house DJ never creates a dead-air gap.
       if (!buffer || item.continuous) {
         if (transition) this.game.audio.stopAsset?.('house-dj');
+        const safeOffset = Math.max(0, Number(offset) || 0);
         const started = await this.game.audio.playAsset(item.id, {
           owner: 'house-dj',
           label: `House DJ · ${dj.name} · ${item.label}`,
           loop: item.continuous === true,
           vibe: profile.vibe,
           baseVolume: 0.88,
+          offset: safeOffset,
         });
+        if (started) {
+          this.programTrackDuration = Math.max(0, Number(buffer?.duration) || 0);
+          this.programStartedAtMs = Date.now() - safeOffset * 1000;
+        }
         this.programRunning = Boolean(
           started && !item.continuous && this.fallbackProgram.length > 1,
         );
@@ -445,7 +508,13 @@ export class HouseDjSystem {
     // The house set exists as a building-wide transport, not only after someone enters Below.
     // Starting it here lets a fresh alley arrival hear the intentionally filtered low-end bleed,
     // while unrelated studio/archive sources remain free to play at the same time.
-    if (!this.sharedFollower && !this.isHouseAudio()) void this.start();
+    if (
+      !this.sharedFollower &&
+      !this.backgroundSnapshot &&
+      this.game.audio.context?.state === 'running' &&
+      !this.isHouseAudio()
+    )
+      void this.start();
 
     if (!downstairs) return;
     this.rotationTimer -= dt;
