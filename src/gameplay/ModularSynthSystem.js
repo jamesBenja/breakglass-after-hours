@@ -106,9 +106,7 @@ export class ModularSynthSystem {
     this.selectedStepValue = 0;
     this.playing = false;
     this.currentStep = -1;
-    this.nextStepIndex = 0;
-    this.nextStepTime = 0;
-    this.scheduler = null;
+    this.transportUnsubscribe = null;
     this.stepButtons = [];
     this.persist();
   }
@@ -317,12 +315,10 @@ export class ModularSynthSystem {
 
   adjustTempo(delta) {
     if (!this.game.studio) return;
-    this.game.studio.bpm = clamp(this.transportBpm() + Number(delta || 0), 50, 220);
+    const next = clamp(this.transportBpm() + Number(delta || 0), 50, 220);
+    if (this.game.spectraTransport) this.game.spectraTransport.setTempo(next);
+    else this.game.studio.bpm = next;
     this.save();
-    if (this.playing)
-      this.game.audio?.updateExternalTransport?.('modular-live', {
-        interval: this.stepDuration(),
-      });
     this.open();
   }
 
@@ -358,20 +354,6 @@ export class ModularSynthSystem {
     return true;
   }
 
-  scheduleLiveSteps() {
-    const context = this.game.audio?.context;
-    if (!this.playing || !context || context.state !== 'running') return;
-    const horizon = context.currentTime + 0.045;
-    this.nextStepTime = Math.max(this.nextStepTime, context.currentTime);
-    while (this.nextStepTime <= horizon) {
-      const step = this.nextStepIndex;
-      this.triggerStep(step, this.nextStepTime - context.currentTime);
-      this.updatePlayhead(step);
-      this.nextStepTime += this.stepDuration();
-      this.nextStepIndex = (step + 1) % 16;
-    }
-  }
-
   async startLoop() {
     if (this.playing) return;
     try {
@@ -386,36 +368,32 @@ export class ModularSynthSystem {
       return;
     }
 
-    // The modular is another live studio source. Do not stop the shared studio transport,
-    // club playback, or the global audio engine when it starts; that would tear down unrelated
-    // spatial/zone-owned sources and makes collaborative overdubbing impossible.
+    // The modular joins the shared Spectra clock. It never starts/stops the building audio
+    // engine or any spatial zone; only this instrument's musical callbacks are registered here.
+    const transport = this.game.spectraTransport;
+    if (!transport) {
+      this.ui.warning?.('Spectra master transport is unavailable.');
+      return;
+    }
     this.playing = true;
     this.currentStep = -1;
-    this.nextStepIndex = 0;
-    this.nextStepTime = context.currentTime + 0.025;
-    this.game.audio?.setExternalTransport?.(
-      'modular-live',
-      'Live modular sequencer',
-      this.stepDuration(),
-      {
-        vibe: 0.38,
-        mixQuality: 0.9,
-      },
-    );
-    this.scheduleLiveSteps();
-    const timers = this.game.audio?.timers ?? globalThis;
-    this.scheduler = timers.setInterval(() => this.scheduleLiveSteps(), 20);
+    this.transportUnsubscribe?.();
+    this.transportUnsubscribe = transport.subscribe('modular-synth', (event) => {
+      if (!this.playing) return;
+      const step = event.loopStep % 16;
+      this.triggerStep(step, event.when);
+      this.updatePlayhead(step);
+    });
+    transport.acquire('modular-synth', { position: 0 });
     this.open();
   }
 
   stopLoop(refresh = true) {
-    const timers = this.game.audio?.timers ?? globalThis;
-    if (this.scheduler != null) timers.clearInterval(this.scheduler);
-    this.scheduler = null;
+    this.transportUnsubscribe?.();
+    this.transportUnsubscribe = null;
+    this.game.spectraTransport?.release?.('modular-synth');
     this.playing = false;
     this.currentStep = -1;
-    this.nextStepIndex = 0;
-    this.game.audio?.clearExternalTransport?.('modular-live');
     this.updatePlayhead(-1);
     if (refresh) this.open();
   }
