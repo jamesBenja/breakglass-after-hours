@@ -426,9 +426,7 @@ function buildLoopPanel(game, ui) {
         try {
           ui.warning?.('Rendering Spectra mix offline…');
           const result = await game.studioExporter.exportMix(studio);
-          ui.warning?.(
-            `Exported ${result.filename} · ${result.duration.toFixed(1)} seconds.`,
-          );
+          ui.warning?.(`Exported ${result.filename} · ${result.duration.toFixed(1)} seconds.`);
         } catch (error) {
           ui.warning?.(`Track export failed: ${error?.message || 'unknown export error'}`);
         }
