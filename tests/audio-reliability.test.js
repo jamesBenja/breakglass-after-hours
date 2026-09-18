@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AudioEngine } from '../src/audio/AudioEngine.js';
-import { installAudioReliabilityEnhancements } from '../src/gameplay/audioReliabilityEnhancements.js';
+import {
+  createIOSForegroundAudioWake,
+  installAudioReliabilityEnhancements,
+} from '../src/gameplay/audioReliabilityEnhancements.js';
 
 function createHarness() {
   const params = () => ({
@@ -206,4 +209,80 @@ test('iOS interrupted WebAudio does not block house-DJ media from resuming', asy
   assert.equal(context.state, 'running');
   assert.equal(audio._contextResumePending, false);
   assert.equal(resumeCalls, 2);
+});
+
+test('iOS foreground wake deliberately cycles a running-but-inaudible audio route', async () => {
+  const documentListeners = new Map();
+  const windowListeners = new Map();
+  const documentTarget = {
+    hidden: false,
+    addEventListener(type, callback) {
+      documentListeners.set(type, callback);
+    },
+    removeEventListener(type) {
+      documentListeners.delete(type);
+    },
+  };
+  const windowTarget = {
+    addEventListener(type, callback) {
+      windowListeners.set(type, callback);
+    },
+    removeEventListener(type) {
+      windowListeners.delete(type);
+    },
+  };
+  const timers = {
+    next: null,
+    setTimeout(callback) {
+      this.next = callback;
+      return 1;
+    },
+    clearTimeout() {
+      this.next = null;
+    },
+  };
+
+  let suspendCalls = 0;
+  let resumeCalls = 0;
+  const audio = {
+    context: { state: 'running' },
+    async suspend() {
+      suspendCalls += 1;
+      this.context.state = 'suspended';
+    },
+    async resume() {
+      resumeCalls += 1;
+      this.context.state = 'running';
+      return true;
+    },
+  };
+  const recovery = createIOSForegroundAudioWake({
+    game: { audio },
+    ui: { warning() {} },
+    windowTarget,
+    documentTarget,
+    navigatorTarget: {
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_5 like Mac OS X) AppleWebKit Safari',
+      platform: 'iPhone',
+      maxTouchPoints: 5,
+    },
+    timers,
+  });
+
+  documentTarget.hidden = true;
+  documentListeners.get('visibilitychange')();
+  assert.equal(recovery.armed, true);
+
+  documentTarget.hidden = false;
+  documentListeners.get('visibilitychange')();
+  windowListeners.get('focus')();
+  assert.ok(timers.next, 'foreground focus schedules the extra Safari wake cycle');
+
+  assert.equal(await recovery.wake(), true);
+  assert.equal(suspendCalls, 1, 'wake deliberately suspends the falsely-running output route');
+  assert.equal(resumeCalls, 1, 'wake immediately resumes the global output route');
+  assert.equal(audio.context.state, 'running');
+  assert.equal(recovery.armed, false);
+
+  recovery.dispose();
 });
