@@ -140,3 +140,36 @@ test('NPC route failures back off instead of rerunning A* every frame behind loc
   assert.equal(plans, 2, 'navigation should retry after the backoff window');
   system.dispose();
 });
+
+
+test('failed NPC route searches are cached until the collision revision changes', () => {
+  const world = new CollisionWorld({
+    surfaces: [{ id: 'floor', x1: -4, x2: 4, z1: -4, z2: 4, y: 0 }],
+    obstacles: [{ id: 'locked-gate', x1: -0.2, x2: 0.2, z1: -4, z2: 4, y1: 0, y2: 3 }],
+  });
+  const navigator = new NpcNavigator(world);
+  const start = { x: -2, y: 0, z: 0 };
+  const goal = { x: 2, y: 0, z: 0 };
+
+  let walkableCalls = 0;
+  const baseWalkable = navigator.walkable.bind(navigator);
+  navigator.walkable = (...args) => {
+    walkableCalls += 1;
+    return baseWalkable(...args);
+  };
+
+  assert.deepEqual(navigator.plan(start, goal), []);
+  const firstSearchCalls = walkableCalls;
+  assert.ok(firstSearchCalls > 0, 'first blocked route should perform a real navigation search');
+
+  walkableCalls = 0;
+  assert.deepEqual(navigator.plan(start, goal), []);
+  assert.equal(walkableCalls, 0, 'unchanged locked route should return from the failed-plan cache');
+
+  world.obstacles[0].player = false;
+  world.markNavigationChanged();
+  walkableCalls = 0;
+  const reopenedPath = navigator.plan(start, goal);
+  assert.ok(reopenedPath.length > 0, 'opening the gate should invalidate the failed-route cache');
+  assert.ok(walkableCalls > 0, 'gate change should trigger a fresh route evaluation');
+});
