@@ -141,7 +141,6 @@ test('NPC route failures back off instead of rerunning A* every frame behind loc
   system.dispose();
 });
 
-
 test('failed NPC route searches are cached until the collision revision changes', () => {
   const world = new CollisionWorld({
     surfaces: [{ id: 'floor', x1: -4, x2: 4, z1: -4, z2: 4, y: 0 }],
