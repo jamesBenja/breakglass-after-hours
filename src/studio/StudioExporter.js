@@ -41,8 +41,7 @@ function safeName(value, fallback = 'breakglass-track') {
 
 function loopSeconds(session) {
   return (
-    (Math.max(1, Number(session.loopBars) || 4) * 4 * 60) /
-    Math.max(1, Number(session.bpm) || 118)
+    (Math.max(1, Number(session.loopBars) || 4) * 4 * 60) / Math.max(1, Number(session.bpm) || 118)
   );
 }
 
@@ -359,17 +358,11 @@ function schedulePerformance(context, stem, destination, duration) {
       drum(context, destination, event.drum, when);
       continue;
     }
-    oscillator(
-      context,
-      destination,
-      event.frequency || 440,
-      performance.noteDuration || 0.42,
-      {
-        type: performance.wave || 'triangle',
-        volume: performance.volume || 0.065,
-        when,
-      },
-    );
+    oscillator(context, destination, event.frequency || 440, performance.noteDuration || 0.42, {
+      type: performance.wave || 'triangle',
+      volume: performance.volume || 0.065,
+      when,
+    });
     if (performance.octaveLayer) {
       oscillator(
         context,
@@ -413,10 +406,7 @@ function schedulePrototype(context, session, stem, destination, duration) {
           when,
         });
       }
-    } else if (
-      ['synth', 'keys', 'vocal'].includes(stem.kind) &&
-      step % 8 === 0
-    ) {
+    } else if (['synth', 'keys', 'vocal'].includes(stem.kind) && step % 8 === 0) {
       const root = step % 16 === 0 ? NOTE.C4 : NOTE.A3;
       for (const ratio of [1, 1.25, 1.5]) {
         oscillator(context, destination, root * ratio, 0.7, {
