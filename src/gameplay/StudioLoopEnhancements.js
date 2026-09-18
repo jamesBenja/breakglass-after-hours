@@ -1,36 +1,30 @@
 import { SpectraRecorder } from '../studio/SpectraRecorder.js';
 import { StudioExporter } from '../studio/StudioExporter.js';
 import { StudioSession } from '../studio/StudioSession.js';
+import {
+  SPECTRA_GRID_DIVISIONS,
+  SpectraTransport,
+  quantizeSpectraTime,
+  spectraLoopSeconds,
+} from '../studio/SpectraTransport.js';
 
-const GRID_DIVISIONS = {
-  '1/4': 1,
-  '1/8': 2,
-  '1/16': 4,
-};
+const GRID_DIVISIONS = SPECTRA_GRID_DIVISIONS;
 const LOOP_BARS = [1, 2, 4, 8, 16];
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
 
 function loopSeconds(session) {
-  return Math.max(0.25, (session.loopBars * 4 * 60) / Math.max(1, session.bpm));
+  return spectraLoopSeconds(session);
 }
 
 function quantizePerformance(session, performance) {
   if (!performance?.events?.length) return performance;
-  const divisions = GRID_DIVISIONS[session.quantize] ?? 4;
-  const beat = 60 / Math.max(1, session.bpm);
-  const grid = beat / divisions;
   const length = loopSeconds(session);
-  const swing = clamp(session.swing, 0, 0.45);
   performance.bpm = session.bpm;
   performance.duration = length;
-  performance.events = performance.events.map((event) => {
-    const raw = Math.max(0, Number(event.time) || 0);
-    let step = Math.round(raw / grid);
-    let time = step * grid;
-    if (step % 2 === 1) time += grid * swing;
-    time = ((time % length) + length) % length;
-    return { ...event, time };
-  });
+  performance.events = performance.events.map((event) => ({
+    ...event,
+    time: quantizeSpectraTime(session, event.time, { wrap: true, includeSwing: true }),
+  }));
   return performance;
 }
 
@@ -324,7 +318,11 @@ function buildLoopPanel(game, ui) {
     lanes: 0,
     events: 0,
   };
-  const status = `${studio.loopEnabled ? 'LOOP ON' : 'LOOP OFF'} · ${studio.loopBars} bars · ${studio.quantize} grid · swing ${Math.round(studio.swing * 100)}% · ${
+  const transportStatus = game.spectraTransport?.snapshot?.();
+  const clockLabel = transportStatus?.running
+    ? `CLOCK BAR ${transportStatus.bar} · BEAT ${transportStatus.beat} · STEP ${transportStatus.sixteenth}`
+    : 'CLOCK STOPPED';
+  const status = `${clockLabel} · ${studio.loopEnabled ? 'LOOP ON' : 'LOOP OFF'} · ${studio.loopBars} bars · ${studio.quantize} grid · swing ${Math.round(studio.swing * 100)}% · ${
     recordStatus.armed
       ? recordStatus.recording
         ? `RECORDING ${recordStatus.lanes} live track${recordStatus.lanes === 1 ? '' : 's'}`
@@ -332,6 +330,24 @@ function buildLoopPanel(game, ui) {
       : 'live recorder idle'
   }`;
   const actions = [
+    [
+      transportStatus?.running ? '■ STOP SPECTRA MASTER CLOCK' : '▶ START SPECTRA MASTER CLOCK',
+      () => {
+        if (game.spectraTransport?.running) {
+          game.spectraTransport.stop();
+        } else {
+          game.spectraTransport?.acquire?.('manual-transport', { position: 0 });
+        }
+        buildLoopPanel(game, ui);
+      },
+    ],
+    [
+      '↺ RESTART CLOCK AT BAR 1',
+      () => {
+        game.spectraTransport?.restart?.(0);
+        buildLoopPanel(game, ui);
+      },
+    ],
     [
       recordStatus.armed
         ? '■ FINISH LIVE MULTITRACK + BUILD STEMS'
@@ -382,6 +398,7 @@ function buildLoopPanel(game, ui) {
       studio.loopEnabled ? 'Disable loop' : 'Enable loop',
       async () => {
         studio.setLoopEnabled(!studio.loopEnabled);
+        game.spectraTransport?.reconfigure?.();
         if (studioPlayback.playing) await studioPlayback.play(studio);
         game.save();
         buildLoopPanel(game, ui);
@@ -390,7 +407,8 @@ function buildLoopPanel(game, ui) {
     ...LOOP_BARS.map((bars) => [
       `${studio.loopBars === bars ? '✓ ' : ''}${bars} bar${bars === 1 ? '' : 's'}`,
       async () => {
-        studio.setLoopBars(bars);
+        if (game.spectraTransport) game.spectraTransport.setLoopBars(bars);
+        else studio.setLoopBars(bars);
         studio.setLoopEnabled(true);
         if (studioPlayback.playing) await studioPlayback.play(studio);
         game.save();
@@ -470,7 +488,8 @@ function buildLoopPanel(game, ui) {
     const button = ui.document.createElement('button');
     button.textContent = `${studio.quantize === grid ? '✓ ' : ''}${grid}`;
     button.onclick = () => {
-      studio.setQuantize(grid);
+      if (game.spectraTransport) game.spectraTransport.setQuantize(grid);
+      else studio.setQuantize(grid);
       game.save();
       buildLoopPanel(game, ui);
     };
@@ -480,7 +499,8 @@ function buildLoopPanel(game, ui) {
     const button = ui.document.createElement('button');
     button.textContent = `${Math.round(swing * 100)}% SWING`;
     button.onclick = () => {
-      studio.setSwing(swing);
+      if (game.spectraTransport) game.spectraTransport.setSwing(swing);
+      else studio.setSwing(swing);
       game.save();
       buildLoopPanel(game, ui);
     };
@@ -496,6 +516,9 @@ export function installStudioLoopEnhancements(game, ui) {
   game.studio.quantize = GRID_DIVISIONS[saved.quantize] ? saved.quantize : '1/16';
   game.studio.swing = clamp(saved.swing, 0, 0.45);
   enhanceSession(game.studio);
+  game.spectraTransport ??= new SpectraTransport(game.audio, game.studio);
+  game.studioPlayback.spectraTransport = game.spectraTransport;
+  game.keyboardPerformance.spectraTransport = game.spectraTransport;
   enhancePlayback(game.studioPlayback, game.studio);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
   game.studioExporter ??= new StudioExporter(game);
