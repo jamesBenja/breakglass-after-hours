@@ -20,10 +20,8 @@ export function buildRoofBlockout(root) {
   box(root, 2.8, 2.5, 2.45, brick, -5.7, 1.25, -3.45);
   box(root, 1.15, 2.0, 0.08, mat(0x303234, 0.8, 0.08), -5.7, 1.0, -2.19);
   box(root, 1.32, 0.11, 1.22, metal, -5.7, 0.07, -3.65);
-  for (let i = 0; i < 6; i++)
-    box(root, 0.72, 0.045, 0.06, metal, -5.7, 0.42 + i * 0.31, -2.08);
-  for (const x of [-6.05, -5.35])
-    box(root, 0.055, 1.9, 0.055, metal, x, 1.18, -2.08);
+  for (let i = 0; i < 6; i++) box(root, 0.72, 0.045, 0.06, metal, -5.7, 0.42 + i * 0.31, -2.08);
+  for (const x of [-6.05, -5.35]) box(root, 0.055, 1.9, 0.055, metal, x, 1.18, -2.08);
 
   // Founders' hangout.
   box(root, 2.2, 0.11, 0.95, wood, 0, 0.78, 0.35);
@@ -107,10 +105,8 @@ export function buildRoofBlockout(root) {
   escapeLadder.visible = false;
   escapeLadder.position.set(-6.45, 0, 4.25);
   root.add(escapeLadder);
-  for (let i = 0; i < 7; i++)
-    box(escapeLadder, 0.84, 0.05, 0.06, metal, 0, -0.08 - i * 0.32, 0);
-  for (const x of [-0.39, 0.39])
-    box(escapeLadder, 0.055, 2.15, 0.055, metal, x, -0.98, 0);
+  for (let i = 0; i < 7; i++) box(escapeLadder, 0.84, 0.05, 0.06, metal, 0, -0.08 - i * 0.32, 0);
+  for (const x of [-0.39, 0.39]) box(escapeLadder, 0.055, 2.15, 0.055, metal, x, -0.98, 0);
 
   // Alley-facing dumpster, below the parapet.
   box(root, 2.1, 1.25, 1.25, mat(0x365847, 0.88, 0.03), 1.4, -2.55, 6.85);

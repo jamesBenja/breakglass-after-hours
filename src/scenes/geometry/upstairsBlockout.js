@@ -324,7 +324,7 @@ function buildLandmarks(root, definition) {
     box(gentrificationKey, 0.07, 0.09, 0.015, mat(0xfff1a8, 0.25, 0.05), x, y, -0.068);
   label(gentrificationKey, 'GOLD KEY', 0, 1.05, 0, 0.18, '#ffd861');
 
-    const [entryX, , entryZ] = at(544, 1110);
+  const [entryX, , entryZ] = at(544, 1110);
   label(root, 'MAIN ENTRY — STUDIOS', entryX, 2.68, entryZ, 0.4, '#d8f0df');
 
   const [belowX, , belowZ] = at(720, 1004);

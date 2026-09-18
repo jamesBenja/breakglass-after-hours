@@ -15,60 +15,51 @@ const STORIES = {
     {
       id: 'jace-built',
       title: 'Building a studio one problem at a time',
-      text:
-        'Jace remembers the early Breakglass years as less of a grand opening than a long sequence of rooms becoming useful: wiring, patching, moving gear, rebuilding things and learning the building by solving whatever broke next. The place accumulated character because people kept making it work.',
+      text: 'Jace remembers the early Breakglass years as less of a grand opening than a long sequence of rooms becoming useful: wiring, patching, moving gear, rebuilding things and learning the building by solving whatever broke next. The place accumulated character because people kept making it work.',
     },
     {
       id: 'jace-sessions',
       title: 'The nights that turned into mornings',
-      text:
-        'Jace talks about the long studio nights: somebody arrives to track one thing, another person drops in, a session expands, and suddenly the sun is coming up. The memory is less one famous night than years of musicians overlapping in the same rooms.',
+      text: 'Jace talks about the long studio nights: somebody arrives to track one thing, another person drops in, a session expands, and suddenly the sun is coming up. The memory is less one famous night than years of musicians overlapping in the same rooms.',
     },
     {
       id: 'jace-building',
       title: 'The building is part of the instrument',
-      text:
-        'Jace points out that a twenty-year studio history is also a history of repairs, leaks, strange noises, improvised solutions and learning what every wall and room can do. Breakglass never existed separately from the stubborn old building around it.',
+      text: 'Jace points out that a twenty-year studio history is also a history of repairs, leaks, strange noises, improvised solutions and learning what every wall and room can do. Breakglass never existed separately from the stubborn old building around it.',
     },
   ],
   dave: [
     {
       id: 'dave-loadins',
       title: 'Everything somehow made it upstairs',
-      text:
-        'Dave remembers years of impossible-looking load-ins: amps, drums, consoles, lighting, cases and whatever else a project needed. Someone would look at the stairs, look at the gear, and then everybody would start carrying.',
+      text: 'Dave remembers years of impossible-looking load-ins: amps, drums, consoles, lighting, cases and whatever else a project needed. Someone would look at the stairs, look at the gear, and then everybody would start carrying.',
     },
     {
       id: 'dave-roof',
       title: 'Roof breaks',
-      text:
-        'Dave says the roof was the pressure valve. Sessions, construction, parties and long days could all stop for ten minutes up here. You could look over the neighbourhood, smoke, complain about whatever was broken and then go back downstairs.',
+      text: 'Dave says the roof was the pressure valve. Sessions, construction, parties and long days could all stop for ten minutes up here. You could look over the neighbourhood, smoke, complain about whatever was broken and then go back downstairs.',
     },
     {
       id: 'dave-neighbourhood',
       title: 'Watching the blocks change',
-      text:
-        'Dave remembers that the view never stayed completely the same. Businesses vanished, new buildings arrived and the neighbourhood slowly started speaking a different visual language. The roof made those changes unusually easy to notice.',
+      text: 'Dave remembers that the view never stayed completely the same. Businesses vanished, new buildings arrived and the neighbourhood slowly started speaking a different visual language. The roof made those changes unusually easy to notice.',
     },
   ],
   james: [
     {
       id: 'james-records',
       title: 'A place people kept bringing music to',
-      text:
-        'James remembers the studio less as a list of credits than as a stream of people bringing unfinished music through the door. Records, rehearsals, mixes, experiments and strange one-off ideas all passed through the same building and left a little residue behind.',
+      text: 'James remembers the studio less as a list of credits than as a stream of people bringing unfinished music through the door. Records, rehearsals, mixes, experiments and strange one-off ideas all passed through the same building and left a little residue behind.',
     },
     {
       id: 'james-below',
       title: 'When the building became more than a studio',
-      text:
-        'James talks about Breakglass gradually becoming a place where recording, DJ culture, live broadcasts, parties and community started overlapping. Below changed what the whole building could be: the music could move from a session to a room full of people and back again.',
+      text: 'James talks about Breakglass gradually becoming a place where recording, DJ culture, live broadcasts, parties and community started overlapping. Below changed what the whole building could be: the music could move from a session to a room full of people and back again.',
     },
     {
       id: 'james-future',
       title: 'The end of one address is not the end of the idea',
-      text:
-        'James looks across the roof and says the useful question was never how to freeze Breakglass exactly as it was. The interesting part is what survives when the rooms change: the records, the relationships, the knowledge, the stories and whatever gets built next.',
+      text: 'James looks across the roof and says the useful question was never how to freeze Breakglass exactly as it was. The interesting part is what survives when the rooms change: the records, the relationships, the knowledge, the stories and whatever gets built next.',
     },
   ],
 };
@@ -196,10 +187,7 @@ export class RoofEndgameSystem {
 
   collectGentrificationKey() {
     if (this.data().gentrificationKey) {
-      this.ui.panel(
-        'GENTRIFICATION KEY',
-        'The little gold condominium is already in your pocket.',
-      );
+      this.ui.panel('GENTRIFICATION KEY', 'The little gold condominium is already in your pocket.');
       return;
     }
     this.data().gentrificationKey = true;
@@ -281,7 +269,8 @@ export class RoofEndgameSystem {
       return;
     }
     if (this.acStage === 1) {
-      const meter = this.acAlignment === 0 ? 'CENTERED' : this.acAlignment < 0 ? '◀ OFF' : 'OFF ▶';
+      const meter =
+        this.acAlignment === 0 ? 'CENTERED' : this.acAlignment < 0 ? '◀ OFF' : 'OFF ▶';
       this.ui.panel(
         'AC PUZZLE · BALANCE THE FAN',
         `Vibration meter: ${meter}. Nudge the virtual mount until the fan sits in the centre zone.`,
@@ -390,16 +379,12 @@ export class RoofEndgameSystem {
     this.save();
     const stories = STORIES[founderId] ?? [];
     const remaining = stories.filter((item) => !heard.has(item.id));
-    this.ui.panel(
-      `${founderId.toUpperCase()} · ${story.title.toUpperCase()}`,
-      story.text,
-      [
-        ...(remaining.length
-          ? [['Tell me another one', () => this.hearStory(founderId, remaining[0])]]
-          : []),
-        ['Back to the roof stories', () => this.storyPanel(founderId)],
-      ],
-    );
+    this.ui.panel(`${founderId.toUpperCase()} · ${story.title.toUpperCase()}`, story.text, [
+      ...(remaining.length
+        ? [['Tell me another one', () => this.hearStory(founderId, remaining[0])]]
+        : []),
+      ['Back to the roof stories', () => this.storyPanel(founderId)],
+    ]);
   }
 
   escapePanel() {
