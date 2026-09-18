@@ -1,4 +1,11 @@
-const INSTRUMENT_ACTIONS = new Set(['drums', 'piano', 'synth', 'instruments', 'amps', 'modularSynth']);
+const INSTRUMENT_ACTIONS = new Set([
+  'drums',
+  'piano',
+  'synth',
+  'instruments',
+  'amps',
+  'modularSynth',
+]);
 const midiToFrequency = (midi) => 440 * Math.pow(2, (Number(midi) - 69) / 12);
 
 function playDrum(audio, name, gain = 1) {
