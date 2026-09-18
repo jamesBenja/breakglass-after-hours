@@ -139,7 +139,11 @@ export class FreightElevatorSystem {
       return true;
     }
     if (this.activeScene === 'alley' && !this.data().roofEscapeUnlocked && !this.game.godMode) {
-      return false;
+      this.ui.panel(
+        'OLD FREIGHT ELEVATOR',
+        'The grey alley gate is here, but the freight system is still locked from somewhere above. The controls are dead.',
+      );
+      return true;
     }
 
     this.position = clamp(
