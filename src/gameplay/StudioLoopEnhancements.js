@@ -159,8 +159,16 @@ function enhancePlayback(playback, session) {
       if (activeSession.loopEnabled && leader.currentTime >= duration) {
         for (const element of media) element.currentTime %= duration;
       }
-      const target = leader.currentTime;
-      for (const element of media.slice(1)) {
+      const transportPosition = playback.spectraTransport?.running
+        ? playback.spectraTransport.position()
+        : null;
+      const target =
+        transportPosition == null
+          ? leader.currentTime
+          : activeSession.loopEnabled
+            ? transportPosition % duration
+            : transportPosition;
+      for (const element of media) {
         if (Math.abs(element.currentTime - target) > 0.035) element.currentTime = target;
       }
     }, 120);
