@@ -495,7 +495,7 @@ export class Game {
     this.player.object.visible = !this.camera.isFirstPerson;
     if (this.started) {
       this.spatialAudio.update(level, this.player, this.camera);
-      this.studioPlayback.updateNativeMix?.(this.studio);
+      this.studioPlayback.updateNativeMix?.(this.studioPlayback.session ?? this.studio);
     }
     this.ui.update({
       level,
