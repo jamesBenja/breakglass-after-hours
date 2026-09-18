@@ -13,10 +13,24 @@ function kindFor(config = {}) {
   return 'synth';
 }
 
-function eventForCapture(event = {}) {
-  if (event.type === 'drum' && typeof event.name === 'string') return { drum: event.name.slice(0, 24) };
-  const midi = clamp(Math.round(Number(event.midi) || 60), 24, 96);
-  return { midi, frequency: 440 * Math.pow(2, (midi - 69) / 12) };
+function midiEvent(midi) {
+  const safeMidi = clamp(Math.round(Number(midi) || 60), 24, 96);
+  return { midi: safeMidi, frequency: 440 * Math.pow(2, (safeMidi - 69) / 12) };
+}
+
+function eventsForCapture(event = {}) {
+  if (event.type === 'drum' && typeof event.name === 'string') {
+    return [{ drum: event.name.slice(0, 24), delay: 0 }];
+  }
+  if (event.type === 'chord' && Array.isArray(event.midis)) {
+    const notes =
+      event.direction === 'up' ? [...event.midis].reverse() : [...event.midis];
+    return notes.slice(0, 8).map((midi, index) => ({
+      ...midiEvent(midi),
+      delay: index * 0.021,
+    }));
+  }
+  return [{ ...midiEvent(event.midi), delay: 0 }];
 }
 
 export class SpectraRecorder {
@@ -107,7 +121,11 @@ export class SpectraRecorder {
       };
       this.lanes.set(laneId, lane);
     }
-    lane.events.push({ time: this.eventTime(offsetSeconds), ...eventForCapture(event) });
+    const eventTime = this.eventTime(offsetSeconds);
+    for (const captured of eventsForCapture(event)) {
+      const { delay = 0, ...performanceEvent } = captured;
+      lane.events.push({ time: eventTime + delay, ...performanceEvent });
+    }
     if (lane.events.length > 512) lane.events.splice(0, lane.events.length - 512);
     return true;
   }
