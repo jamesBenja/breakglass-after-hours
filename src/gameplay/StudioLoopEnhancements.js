@@ -91,6 +91,7 @@ function enhanceSession(session) {
           'keyboard-performance',
           'browser-microphone',
           'modular-synth',
+          'spectra-drum-machine',
           'spectra-live-capture',
           'spectra-collaborative-capture',
         ].includes(stem.source)

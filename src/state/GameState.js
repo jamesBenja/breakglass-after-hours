@@ -2,6 +2,7 @@ import { ARCHIVE_TAPE_IDS } from '../archive/tapeArchive.js';
 import { LIVE_ARCHIVE_IDS } from '../archive/liveArchive.js';
 import { normalizeAvatar } from '../avatar/profile.js';
 import { normalizeDifficulty } from '../gameplay/guidance.js';
+import { normalizeDrumMachineState } from '../gameplay/DrumMachineSystem.js';
 import { normalizeModularPatchState } from '../gameplay/ModularSynthSystem.js';
 import { ROOF_STORY_IDS } from '../gameplay/RoofEndgameSystem.js';
 import { MIXING_CHALLENGE_IDS } from '../studio/MixingChallenge.js';
@@ -188,6 +189,7 @@ const defaults = () => ({
   bathroomUses: 0,
   handsWashed: 0,
   modularSynth: normalizeModularPatchState(),
+  spectraDrumMachine: normalizeDrumMachineState(),
   gentrificationKey: false,
   gentrificationTransformed: false,
   roofThrownItems: [],
@@ -284,6 +286,7 @@ export function validateSave(value) {
   state.bathroomUses = Math.max(0, Math.min(999, Math.floor(Number(value.bathroomUses) || 0)));
   state.handsWashed = Math.max(0, Math.min(999, Math.floor(Number(value.handsWashed) || 0)));
   state.modularSynth = normalizeModularPatchState(value.modularSynth);
+  state.spectraDrumMachine = normalizeDrumMachineState(value.spectraDrumMachine);
   state.gentrificationKey = value.gentrificationKey === true;
   state.gentrificationTransformed = value.gentrificationTransformed === true;
   if (Array.isArray(value.roofThrownItems)) {

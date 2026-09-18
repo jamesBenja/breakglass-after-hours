@@ -113,6 +113,34 @@ export function buildStudioEquipment(root, definition) {
             -d / 2 - 0.04,
           ).rotation.x = Math.PI / 2;
       }
+    } else if (fixture.id === 'spectra-drum-machine') {
+      const machine = mat(0x303339, 0.55, 0.18);
+      const face = mat(0xc2a46e, 0.42, 0.2);
+      const stepOn = mat(0xe18b55, 0.5, 0.12);
+      const stepOff = mat(0x4a4d50, 0.58, 0.12);
+      for (const x of [-w / 2 + 0.12, w / 2 - 0.12])
+        for (const z of [-d / 2 + 0.1, d / 2 - 0.1])
+          box(group, 0.06, 0.78, 0.06, MAT.metal, x, 0.39, z);
+      box(group, w, 0.12, d, wood, 0, 0.82, 0);
+      const deck = box(group, w - 0.08, 0.15, d - 0.08, machine, 0, 0.94, 0);
+      deck.rotation.x = -0.08;
+      box(group, 0.34, 0.035, 0.13, face, -0.34, 1.03, -0.18);
+      for (let i = 0; i < 16; i++) {
+        const col = i % 8;
+        const row = Math.floor(i / 8);
+        box(
+          group,
+          0.085,
+          0.035,
+          0.075,
+          i % 4 === 0 ? stepOn : stepOff,
+          -0.4 + col * 0.115,
+          1.035,
+          0.01 + row * 0.115,
+        );
+      }
+      for (let i = 0; i < 4; i++) cyl(group, 0.035, 0.04, cream, 0.19 + i * 0.12, 1.035, -0.2);
+      label(root, 'RHYTHM', group.position.x, 1.55, group.position.z, 0.22, '#ffd99e');
     } else if (fixture.id === 'piano-body') {
       box(group, w, 0.62, d, wood, 0, 0.74, 0);
       for (const x of [-w / 2 + 0.12, w / 2 - 0.12])

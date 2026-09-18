@@ -5,6 +5,7 @@ const INSTRUMENT_ACTIONS = new Set([
   'instruments',
   'amps',
   'modularSynth',
+  'drumMachine',
 ]);
 const midiToFrequency = (midi) => 440 * Math.pow(2, (Number(midi) - 69) / 12);
 
@@ -185,7 +186,12 @@ export class InstrumentSync {
     const remoteGain = this.remoteGain(data);
     if (!(remoteGain > 0)) return;
     if (event.type === 'drum') {
-      playDrum(audio, event.name, remoteGain);
+      const machineVoice = /^(808|909|dmx|linn)-/i.test(String(event.name || ''));
+      if (machineVoice && this.game.studioPlayback?.playDrumEvent) {
+        this.game.studioPlayback.playDrumEvent(event.name, 0, remoteGain);
+      } else {
+        playDrum(audio, event.name, remoteGain);
+      }
       return;
     }
 

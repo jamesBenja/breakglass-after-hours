@@ -64,6 +64,13 @@ export function createGameSpace() {
       name: 'Spectra outboard rack',
       rotationY: Math.PI / 2,
     }),
+    prop('spectra-drum-machine', 320, 826, 1.3, 0.78, 1.04, 0x554a3c, {
+      kind: 'equipment',
+      name: 'Spectra rhythm programmer',
+      player: false,
+      camera: false,
+      surface: false,
+    }),
     prop('mix-sofa-rear', 252, 706, 3.25, 0.95, 0.82, 0x4b4544, {
       kind: 'equipment',
       name: 'Spectra control-room couch',

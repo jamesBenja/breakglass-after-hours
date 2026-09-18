@@ -599,6 +599,7 @@ export class Game {
     this.renderer.domElement.removeEventListener('webglcontextlost', this.onContextLost);
     this.arcade.dispose();
     this.input.dispose();
+    this.drumMachine?.dispose?.();
     this.modularSynth?.dispose?.();
     this.freightElevator?.dispose?.();
     this.roofEndgame?.dispose?.();
