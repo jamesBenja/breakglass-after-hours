@@ -447,13 +447,17 @@ export class HouseDjSystem {
       return;
     }
 
+    // The house set exists as a building-wide transport, not only after someone enters Below.
+    // Starting it here lets a fresh alley arrival hear the intentionally filtered low-end bleed,
+    // while unrelated studio/archive sources remain free to play at the same time.
+    if (!this.sharedFollower && !this.isHouseAudio()) void this.start();
+
     if (!downstairs) return;
     this.rotationTimer -= dt;
     if (!this.sharedFollower && this.rotationTimer <= 0 && this.isHouseAudio()) {
       void this.select(this.next());
       return;
     }
-    if (!this.sharedFollower && !this.game.audio.playing) void this.start();
   }
 
   dispose() {
