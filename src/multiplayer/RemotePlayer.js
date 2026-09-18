@@ -1,6 +1,7 @@
 import { CanvasTexture, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { PlayerController } from '../player/PlayerController.js';
 import { normalizeAvatar } from '../avatar/profile.js';
+import { RemoteMaddox } from './RemoteMaddox.js';
 
 const shortestAngle = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
 
@@ -50,6 +51,7 @@ export class RemotePlayer {
     this.seated = false;
     this.grounded = true;
     this.lastPacketAt = performance.now();
+    this.maddox = null;
 
     const label = makeNameSprite(this.avatar.displayName);
     this.nameSprite = label.sprite;
@@ -88,6 +90,14 @@ export class RemotePlayer {
     this.seated = state.seated === true;
     this.grounded = state.grounded !== false;
     this.lastPacketAt = performance.now();
+    if (!this.maddox && state.maddox?.unlocked === true) {
+      this.maddox = new RemoteMaddox({
+        ownerId: this.id,
+        ownerName: this.avatar.displayName,
+        scenes: this.scenes,
+      });
+    }
+    this.maddox?.applyState(state.maddox, sceneId, { immediate: immediate || changedScene });
     if (immediate || changedScene) {
       // Scene transitions are intentional teleports between different coordinate systems. Snap
       // them instead of interpolating a remote avatar through every wall between the two rooms.
@@ -148,6 +158,7 @@ export class RemotePlayer {
     if (this.dancing)
       this.controller.danceRemaining = Math.max(this.controller.danceRemaining, 0.18);
     this.controller.animate(dt);
+    this.maddox?.update(dt);
 
     // If updates stop arriving, do not leave a remote avatar walking forever.
     if (packetAge > 0.8) {
@@ -170,6 +181,7 @@ export class RemotePlayer {
   }
 
   dispose() {
+    this.maddox?.dispose();
     this.nameTexture.dispose();
     this.nameMaterial.dispose();
     this.controller.dispose();
