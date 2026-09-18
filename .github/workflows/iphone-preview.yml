@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - feat/multiplayer-phase-2-shared-world
-  workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
