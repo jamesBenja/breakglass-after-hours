@@ -409,6 +409,11 @@ export class HouseDjSystem {
     ) {
       this.nextMixAt = Infinity;
       this.advanceProgram();
+    } else if (this.programRunning && !Number.isFinite(this.nextMixAt) && !this.isHouseAudio()) {
+      // Native/fallback media cannot be pre-scheduled as decoded WebAudio. Preserve the old
+      // end-of-track continuation behavior as a compatibility fallback, still using the same bus.
+      this.advanceProgram();
+      return;
     }
 
     if (!downstairs) return;
