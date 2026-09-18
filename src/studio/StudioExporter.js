@@ -305,13 +305,37 @@ function noise(context, destination, when, duration = 0.05, volume = 0.05) {
   source.start(Math.max(0, when));
 }
 
-function kick(context, destination, when = 0) {
+function sweptOscillator(
+  context,
+  destination,
+  startFrequency,
+  endFrequency,
+  duration,
+  options = {},
+) {
+  const source = context.createOscillator();
+  const gain = context.createGain();
+  const when = Math.max(0, Number(options.when) || 0);
+  const length = Math.max(0.03, Number(duration) || 0.18);
+  const volume = Math.max(0.0002, Number(options.volume) || 0.12);
+  source.type = options.type || 'sine';
+  source.frequency.setValueAtTime(Math.max(20, startFrequency), when);
+  source.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), when + length);
+  gain.gain.setValueAtTime(volume, when);
+  gain.gain.exponentialRampToValueAtTime(0.001, when + length);
+  source.connect(gain);
+  gain.connect(destination);
+  source.start(when);
+  source.stop(when + length + 0.04);
+}
+
+function kick(context, destination, when = 0, level = 1) {
   const source = context.createOscillator();
   const gain = context.createGain();
   const start = Math.max(0, when);
   source.frequency.setValueAtTime(125, start);
   source.frequency.exponentialRampToValueAtTime(42, start + 0.18);
-  gain.gain.setValueAtTime(0.23, start);
+  gain.gain.setValueAtTime(0.23 * clamp(level, 0, 1.5), start);
   gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
   source.connect(gain);
   gain.connect(destination);
@@ -320,29 +344,108 @@ function kick(context, destination, when = 0) {
 }
 
 function drum(context, destination, name, when) {
-  if (name === 'kick') kick(context, destination, when);
-  else if (name === 'snare') {
+  const raw = String(name || '').toLowerCase();
+  const accent = raw.endsWith('-accent');
+  const normalized = accent ? raw.slice(0, -7) : raw;
+  const match = normalized.match(/^(808|909|dmx|linn)-(.+)$/);
+  const level = accent ? 1.2 : 1;
+
+  if (match) {
+    const kit = match[1];
+    const voice = match[2];
+    const profiles = {
+      '808': { kick: [168, 42, 0.42, 0.23], snare: [172, 0.11, 0.07, 0.075], tom: 104 },
+      '909': { kick: [148, 48, 0.25, 0.245], snare: [196, 0.085, 0.085, 0.095], tom: 118 },
+      dmx: { kick: [122, 52, 0.18, 0.21], snare: [212, 0.075, 0.07, 0.08], tom: 126 },
+      linn: { kick: [112, 54, 0.16, 0.19], snare: [188, 0.095, 0.065, 0.075], tom: 132 },
+    };
+    const profile = profiles[kit];
+
+    if (voice === 'kick') {
+      sweptOscillator(context, destination, profile.kick[0], profile.kick[1], profile.kick[2], {
+        type: kit === 'dmx' ? 'triangle' : 'sine',
+        volume: profile.kick[3] * level,
+        when,
+      });
+      if (kit !== '808') noise(context, destination, when, 0.018, (kit === '909' ? 0.028 : 0.018) * level);
+      return;
+    }
+    if (voice === 'snare') {
+      oscillator(context, destination, profile.snare[0], profile.snare[1], {
+        type: kit === 'dmx' ? 'square' : 'triangle',
+        volume: profile.snare[2] * level,
+        when,
+      });
+      noise(context, destination, when + 0.006, kit === '909' ? 0.11 : 0.085, profile.snare[3] * level);
+      return;
+    }
+    if (voice === 'clap') {
+      const volume = (kit === '909' ? 0.09 : kit === 'dmx' ? 0.075 : 0.065) * level;
+      for (const offset of [0, 0.013, 0.027]) noise(context, destination, when + offset, 0.028, volume);
+      noise(context, destination, when + 0.042, kit === 'linn' ? 0.07 : 0.1, volume * 0.72);
+      return;
+    }
+    if (voice === 'closed-hat') {
+      noise(context, destination, when, kit === '808' ? 0.032 : 0.042, (kit === '909' ? 0.075 : 0.06) * level);
+      return;
+    }
+    if (voice === 'open-hat') {
+      noise(context, destination, when, kit === '909' ? 0.19 : 0.145, (kit === '909' ? 0.08 : 0.067) * level);
+      return;
+    }
+    if (voice === 'low-tom') {
+      sweptOscillator(context, destination, profile.tom * 1.15, profile.tom, kit === '808' ? 0.31 : 0.2, {
+        type: 'sine',
+        volume: 0.1 * level,
+        when,
+      });
+      return;
+    }
+    if (voice === 'cowbell') {
+      const root = kit === '808' ? 540 : kit === '909' ? 610 : kit === 'dmx' ? 585 : 515;
+      oscillator(context, destination, root, 0.11, { type: 'square', volume: 0.045 * level, when });
+      oscillator(context, destination, root * 1.48, 0.09, {
+        type: 'square',
+        volume: 0.03 * level,
+        when: when + 0.002,
+      });
+      return;
+    }
+    if (voice === 'rim') {
+      const frequency = kit === 'linn' ? 1420 : kit === 'dmx' ? 1760 : 1580;
+      oscillator(context, destination, frequency, 0.035, {
+        type: 'triangle',
+        volume: 0.065 * level,
+        when,
+      });
+      noise(context, destination, when, 0.022, 0.025 * level);
+      return;
+    }
+  }
+
+  if (normalized === 'kick') kick(context, destination, when, level);
+  else if (normalized === 'snare') {
     oscillator(context, destination, 185, 0.09, {
       type: 'triangle',
-      volume: 0.075,
+      volume: 0.075 * level,
       when,
     });
-    noise(context, destination, when + 0.008, 0.08, 0.085);
-  } else if (name === 'closed-hat') noise(context, destination, when, 0.035, 0.06);
-  else if (name === 'open-hat') noise(context, destination, when, 0.14, 0.07);
-  else if (name === 'low-tom') {
-    oscillator(context, destination, 112, 0.22, { type: 'sine', volume: 0.1, when });
-  } else if (name === 'high-tom') {
+    noise(context, destination, when + 0.008, 0.08, 0.085 * level);
+  } else if (normalized === 'closed-hat') noise(context, destination, when, 0.035, 0.06 * level);
+  else if (normalized === 'open-hat') noise(context, destination, when, 0.14, 0.07 * level);
+  else if (normalized === 'low-tom') {
+    oscillator(context, destination, 112, 0.22, { type: 'sine', volume: 0.1 * level, when });
+  } else if (normalized === 'high-tom') {
     oscillator(context, destination, 176, 0.18, {
       type: 'sine',
-      volume: 0.085,
+      volume: 0.085 * level,
       when,
     });
-  } else if (name === 'crash') {
-    noise(context, destination, when, 0.42, 0.08);
+  } else if (normalized === 'crash') {
+    noise(context, destination, when, 0.42, 0.08 * level);
     oscillator(context, destination, 420, 0.34, {
       type: 'triangle',
-      volume: 0.035,
+      volume: 0.035 * level,
       when,
     });
   }
