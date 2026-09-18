@@ -2,6 +2,24 @@ const TOKEN_STORAGE_KEY = 'breakglass.invitation.token';
 const TYPE_STORAGE_KEY = 'breakglass.invitation.type';
 const DEFAULT_SERVER = 'https://multiplayer-phase2-webrtc-production.up.railway.app';
 
+
+export const GOD_MODE_INVITATION_PROFILE = Object.freeze({
+  id: 'godmode',
+  label: 'THEY WHO REMAIN',
+  defaultRole: 'explorer',
+  access: { guestlist: true, dj: true, studioFastTrack: true },
+  intro:
+    'This invitation belongs to they who remain. God Mode opens the building as a living archive: doors, rooms, shortcuts and hidden systems are available without normal progression requirements.',
+  accessNote:
+    'All access is open in God Mode. You do not need the guestlist, mission completion, collected keys, NPC approval or progression unlocks.',
+});
+
+export function invitationDisplayProfile(profileInput = null, godMode = false) {
+  if (godMode === true || profileInput?.id === GOD_MODE_INVITATION_PROFILE.id)
+    return GOD_MODE_INVITATION_PROFILE;
+  return invitationProfile(profileInput?.id);
+}
+
 export const INVITATION_PROFILES = {
   participant: {
     id: 'participant',
@@ -218,7 +236,7 @@ function letterHints(profile) {
 
 export function mountInvitationLetter(documentRef = globalThis.document, profileInput = null) {
   if (!documentRef) return null;
-  const profile = invitationProfile(profileInput?.id);
+  const profile = invitationDisplayProfile(profileInput);
   const card = documentRef.querySelector('#gate .avatar-card');
   if (!card || card.dataset.invitationMounted === '1') return card;
   card.dataset.invitationMounted = '1';
