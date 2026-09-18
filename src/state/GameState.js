@@ -3,6 +3,7 @@ import { LIVE_ARCHIVE_IDS } from '../archive/liveArchive.js';
 import { normalizeAvatar } from '../avatar/profile.js';
 import { normalizeDifficulty } from '../gameplay/guidance.js';
 import { normalizeModularPatchState } from '../gameplay/ModularSynthSystem.js';
+import { ROOF_STORY_IDS } from '../gameplay/RoofEndgameSystem.js';
 import { MIXING_CHALLENGE_IDS } from '../studio/MixingChallenge.js';
 import { normalizeStudioSession } from '../studio/StudioSession.js';
 import { LEVEL_IDS } from '../world/levels.js';
@@ -163,6 +164,7 @@ const defaults = () => ({
   storageAccessGranted: false,
   tapeArchiveAccessGranted: false,
   deadRoomAccessGranted: false,
+  djLessonCompleted: false,
   difficulty: 'medium',
   mixingChallengeCompleted: [],
   mixingRewardKey: false,
@@ -183,6 +185,16 @@ const defaults = () => ({
   bathroomUses: 0,
   handsWashed: 0,
   modularSynth: normalizeModularPatchState(),
+  gentrificationKey: false,
+  gentrificationTransformed: false,
+  roofThrownItems: [],
+  roofStoriesHeard: [],
+  roofAcFixed: false,
+  roofAcKicks: 0,
+  roofAcRepairs: 0,
+  roofEscapeUnlocked: false,
+  roofEscapeEra: null,
+  roofEscapeVisits: 0,
   photos: [],
 });
 
@@ -236,6 +248,7 @@ export function validateSave(value) {
   state.storageAccessGranted = value.storageAccessGranted === true;
   state.tapeArchiveAccessGranted = value.tapeArchiveAccessGranted === true;
   state.deadRoomAccessGranted = value.deadRoomAccessGranted === true;
+  state.djLessonCompleted = value.djLessonCompleted === true;
   state.difficulty = normalizeDifficulty(value.difficulty);
   if (Array.isArray(value.mixingChallengeCompleted)) {
     state.mixingChallengeCompleted = [
@@ -264,6 +277,29 @@ export function validateSave(value) {
   state.bathroomUses = Math.max(0, Math.min(999, Math.floor(Number(value.bathroomUses) || 0)));
   state.handsWashed = Math.max(0, Math.min(999, Math.floor(Number(value.handsWashed) || 0)));
   state.modularSynth = normalizeModularPatchState(value.modularSynth);
+  state.gentrificationKey = value.gentrificationKey === true;
+  state.gentrificationTransformed = value.gentrificationTransformed === true;
+  if (Array.isArray(value.roofThrownItems)) {
+    state.roofThrownItems = [
+      ...new Set(value.roofThrownItems.filter((id) => ['chair', 'box', 'lumber'].includes(id))),
+    ];
+  }
+  if (Array.isArray(value.roofStoriesHeard)) {
+    state.roofStoriesHeard = [
+      ...new Set(value.roofStoriesHeard.filter((id) => ROOF_STORY_IDS.includes(id))),
+    ];
+  }
+  state.roofAcFixed = value.roofAcFixed === true;
+  state.roofAcKicks = Math.max(0, Math.min(999, Math.floor(Number(value.roofAcKicks) || 0)));
+  state.roofAcRepairs = Math.max(0, Math.min(999, Math.floor(Number(value.roofAcRepairs) || 0)));
+  state.roofEscapeUnlocked = value.roofEscapeUnlocked === true;
+  state.roofEscapeEra = ['past', 'future'].includes(value.roofEscapeEra)
+    ? value.roofEscapeEra
+    : null;
+  state.roofEscapeVisits = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(value.roofEscapeVisits) || 0)),
+  );
   if (Array.isArray(value.photos)) {
     state.photos = value.photos.map(normalizePhoto).filter(Boolean).slice(-18);
   }

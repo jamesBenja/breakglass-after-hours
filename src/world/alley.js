@@ -41,6 +41,7 @@ export const alleyLevel = {
     stairs: [-3.7, 0, -1.0],
     clubDoor: [-3.7, 0, -1.0],
     studioShortcut: [0, 0, -1.0],
+    roofEscape: [22.2, 0, 0.4],
   },
   intro: [
     'BREAKGLASS ALLEY',

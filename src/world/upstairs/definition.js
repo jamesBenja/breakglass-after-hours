@@ -164,6 +164,13 @@ export function createUpstairsDefinition(pass = 'B') {
         radius: 1.75,
         action: 'modularSynth',
       },
+      gentrificationKey: {
+        name: 'Glowing condominium-shaped key',
+        position: [1.7, 3.1, 1.5],
+        radius: 1.2,
+        action: 'gentrificationKey',
+        requiresNot: 'gentrificationKey',
+      },
       tapeArchive: {
         name: 'Breakglass tape archive',
         position: at(383, 1027),
