@@ -89,11 +89,8 @@ export class Game {
     // gesture until the one shared context is running so instruments, DJ decks and cabinet SFX
     // do not silently fail after the title gate has already been dismissed.
     this.onAudioGesture = () => {
-      if (
-        this.audio.context?.state === 'running' &&
-        this.audio._nativeMediaResumePending !== true
-      )
-        return;
+      const audioRunning = this.audio.context?.state === 'running';
+      if (audioRunning && this.audio._nativeMediaResumePending !== true) return;
       void this.audio.resume().catch(() => {});
     };
     window.addEventListener('pointerdown', this.onAudioGesture, true);
@@ -284,12 +281,8 @@ export class Game {
     const openAlleyJamesDialogue = () => {
       const level = this.sceneManager.current;
       const alley = level?.alley;
-      if (
-        level?.definition?.id !== 'alley' ||
-        !alley?.policePresent ||
-        alley?.evacuationRequired
-      )
-        return false;
+      if (level?.definition?.id !== 'alley') return false;
+      if (!alley?.policePresent || alley.evacuationRequired) return false;
       const dialogue = level.npcs?.dialogue?.('james');
       if (!dialogue) return false;
       this.state.meet('james');
