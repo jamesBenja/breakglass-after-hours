@@ -10,7 +10,7 @@ export const ROOF_STORY_IDS = [
   'james-future',
 ];
 
-const STORIES = {
+export const ROOF_STORIES = {
   jace: [
     {
       id: 'jace-built',
@@ -368,7 +368,7 @@ export class RoofEndgameSystem {
   }
 
   storyPanel(founderId) {
-    const stories = STORIES[founderId];
+    const stories = ROOF_STORIES[founderId];
     if (!stories) return false;
     const heard = new Set(this.data().roofStoriesHeard ?? []);
     const name = founderId === 'jace' ? 'JACE' : founderId === 'dave' ? 'DAVE' : 'JAMES';
@@ -388,7 +388,7 @@ export class RoofEndgameSystem {
     heard.add(story.id);
     this.data().roofStoriesHeard = [...heard];
     this.save();
-    const stories = STORIES[founderId] ?? [];
+    const stories = ROOF_STORIES[founderId] ?? [];
     const remaining = stories.filter((item) => !heard.has(item.id));
     this.ui.panel(`${founderId.toUpperCase()} · ${story.title.toUpperCase()}`, story.text, [
       ...(remaining.length
