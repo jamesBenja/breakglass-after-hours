@@ -80,9 +80,10 @@ function installPrototypeReliability() {
     this._outputPrimed = false;
     const pending = baseResume.call(this);
     primeOutput(this);
-    return Promise.resolve(pending).then(() => {
+    return Promise.resolve(pending).then((result) => {
       primeOutput(this);
       this._audioReady = this.context?.state === 'running' && this._outputPrimed === true;
+      return result;
     });
   };
 
