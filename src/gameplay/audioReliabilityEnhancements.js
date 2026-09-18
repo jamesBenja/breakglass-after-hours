@@ -265,6 +265,7 @@ export function installAudioReliabilityEnhancements(game, ui) {
   game._audioReliabilityInstalled = true;
 
   const audio = game.audio;
+  const foregroundWake = createIOSForegroundAudioWake({ game, ui });
   const arm = () => {
     if (foregroundWake?.armed) {
       void foregroundWake.wake();
