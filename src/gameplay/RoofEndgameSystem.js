@@ -185,10 +185,15 @@ export class RoofEndgameSystem {
       this.game.godMode === true ||
       data.roofEscapeUnlocked === true ||
       fullGameComplete(data, this.context());
+    const freightPosition = Number.isFinite(Number(data.freightElevatorPosition))
+      ? Number(data.freightElevatorPosition)
+      : 0;
     const freight = this.sceneObject('roof', 'roof-freight-elevator');
-    if (freight) freight.visible = freightUnlocked;
+    if (freight) freight.visible = freightUnlocked && Math.abs(freightPosition) <= 2.2;
     const freightCover = this.sceneObject('roof', 'roof-freight-hatch-cover');
     if (freightCover) freightCover.visible = !freightUnlocked;
+    const shaftMouth = this.sceneObject('roof', 'roof-freight-shaft-mouth');
+    if (shaftMouth) shaftMouth.visible = freightUnlocked;
   }
 
   collectGentrificationKey() {
