@@ -160,7 +160,7 @@ test('live modular steps publish into the shared instrument stream for Spectra c
     audio: { tone: () => {} },
     multiplayer: {
       instrumentSync: {
-        activeResourceId: 'upstairs:modular-synth',
+        activeResourceId: 'upstairs:another-instrument',
         publishExternal: (...args) => published.push(args),
       },
     },
@@ -175,7 +175,7 @@ test('live modular steps publish into the shared instrument stream for Spectra c
   assert.equal(published[0][0].stemKind, 'synth');
   assert.equal(published[0][1].type, 'midi');
   assert.equal(published[0][1].midi, 48);
-  assert.equal(published[0][2].resourceId, 'upstairs:modular-synth');
+  assert.equal(published[0][2].resourceId, 'upstairs:modularSynth');
   assert.equal(published[0][2].offsetSeconds, 0.03);
 });
 
