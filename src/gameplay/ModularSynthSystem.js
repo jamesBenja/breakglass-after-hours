@@ -162,10 +162,8 @@ export class ModularSynthSystem {
     return clamp(this.game.studio?.bpm ?? 118, 50, 220);
   }
 
-  stepDuration(index = this.nextStepIndex) {
-    const base = 60 / this.transportBpm() / 4;
-    const swing = clamp(this.game.studio?.swing ?? 0, 0, 0.45);
-    return index % 2 === 0 ? base * (1 + swing) : base * (1 - swing);
+  stepDuration() {
+    return 60 / this.transportBpm() / 4;
   }
 
   patchSummary() {
@@ -223,12 +221,7 @@ export class ModularSynthSystem {
       row,
       'modular-transport-button',
     );
-    this.appendButton(
-      `SWING ${Math.round((this.game.studio?.swing ?? 0) * 100)}%`,
-      () => this.cycleSwing(),
-      row,
-      'modular-transport-button',
-    );
+
   }
 
   renderPatchControls() {
@@ -365,15 +358,6 @@ export class ModularSynthSystem {
     this.open();
   }
 
-  cycleSwing() {
-    if (!this.game.studio) return;
-    const values = [0, 0.1, 0.2, 0.3];
-    const current = values.find((value) => Math.abs(value - this.game.studio.swing) < 0.001) ?? 0;
-    this.game.studio.swing = cycle(values, current);
-    this.save();
-    this.open();
-  }
-
   performance(bars = null) {
     const session = this.game.studio;
     const length =
@@ -386,7 +370,7 @@ export class ModularSynthSystem {
     if (!event) return false;
     this.game.audio?.tone?.(
       event.frequency,
-      this.stepDuration(index) * this.patch.gate,
+      this.stepDuration() * this.patch.gate,
       this.patch.wave,
       0.062,
       Math.max(0, when),
@@ -403,7 +387,7 @@ export class ModularSynthSystem {
       const step = this.nextStepIndex;
       this.triggerStep(step, this.nextStepTime - context.currentTime);
       this.updatePlayhead(step);
-      this.nextStepTime += this.stepDuration(step);
+      this.nextStepTime += this.stepDuration();
       this.nextStepIndex = (step + 1) % 16;
     }
   }
