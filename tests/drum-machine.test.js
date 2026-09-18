@@ -25,7 +25,7 @@ test('Spectra drum machine keeps four independent 16-step pattern memories', () 
 test('every drum-machine model creates style-specific Spectra drum events', () => {
   for (const kit of DRUM_MACHINE_KITS) {
     const state = normalizeDrumMachineState({ kit, selectedPattern: 'A' });
-    state.patterns.A.kick = Array(16).fill(0);
+    for (const lane of Object.values(state.patterns.A)) lane.fill(0);
     state.patterns.A.kick[0] = 2;
     const performance = createDrumMachinePerformance(state, 120, 2, 0.24);
     assert.equal(performance.mode, 'drums');
