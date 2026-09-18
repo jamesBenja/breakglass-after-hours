@@ -670,10 +670,16 @@ export class StudioPlayback {
     const alignedAssets = await this.loadAlignedAssets(session);
     if (alignedAssets) {
       this.assetBuffers = alignedAssets;
-      this.startAlignedAssets(session, alignedAssets, safeOffset);
+      const alignedOffset = this.spectraTransport?.running
+        ? this.spectraTransport.position()
+        : safeOffset;
+      this.startAlignedAssets(session, alignedAssets, alignedOffset);
       return true;
     }
-    if (await this.startNativeAssets(session, safeOffset)) return true;
+    const nativeOffset = this.spectraTransport?.running
+      ? this.spectraTransport.position()
+      : safeOffset;
+    if (await this.startNativeAssets(session, nativeOffset)) return true;
 
     const interval = 60 / this.bpm / 4;
     this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
