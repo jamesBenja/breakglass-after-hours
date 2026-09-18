@@ -47,6 +47,85 @@ test('excluded Dance Shoes session is not selectable while approved stem sources
   assert.ok(STUDIO_SESSION_TEMPLATES.some((session) => session.id === 'in-an-instant-multitrack'));
 });
 
+test('every house DJ gets a multi-track crate instead of a one-song loop', async () => {
+  const calls = [];
+  const externalTransports = new Map();
+  const audio = {
+    context: {},
+    externalTransports,
+    activeExternalTransport: null,
+    assets: { entry: () => null },
+    async playAsset(id, options) {
+      calls.push({ id, options });
+      externalTransports.set(options.owner, { owner: options.owner, label: options.label });
+      this.activeExternalTransport = { owner: options.owner, label: options.label };
+      return true;
+    },
+    stopAsset(owner) {
+      externalTransports.delete(owner);
+      if (this.activeExternalTransport?.owner === owner) this.activeExternalTransport = null;
+    },
+  };
+  Object.defineProperty(audio, 'playing', {
+    get() {
+      return externalTransports.size > 0;
+    },
+  });
+  const game = {
+    state: { data: { houseDjId: 'lunice' } },
+    started: true,
+    audio,
+    dj: { metrics: () => ({ playing: false }), stop() {} },
+    sceneManager: { current: { definition: { id: 'downstairs' } } },
+    scenes: { get: () => null },
+    evacuationStarted: false,
+    save() {},
+  };
+  const system = new HouseDjSystem(game, { panel() {} });
+
+  assert.ok(system.fallbackProgram.length > 1);
+  assert.equal(system.fallbackProgram[0].id, 'atrakar');
+  await system.start();
+  assert.equal(calls[0].options.loop, false);
+
+  externalTransports.delete('house-dj');
+  audio.activeExternalTransport = null;
+  system.update(0.1);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(calls.length, 2);
+  assert.notEqual(calls[1].id, calls[0].id);
+});
+
+test('house DJ ownership survives another active source without false track advancement', async () => {
+  const externalTransports = new Map([
+    ['house-dj', { owner: 'house-dj', label: 'House DJ' }],
+    ['archive', { owner: 'archive', label: 'Neve tape' }],
+  ]);
+  const game = {
+    state: { data: { houseDjId: 'james-benjamin' } },
+    started: true,
+    audio: {
+      context: {},
+      externalTransports,
+      activeExternalTransport: { owner: 'archive', label: 'Neve tape' },
+      assets: { entry: () => null },
+      stopAsset() {},
+    },
+    dj: { metrics: () => ({ playing: false }), stop() {} },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    scenes: { get: () => null },
+    evacuationStarted: false,
+    save() {},
+  };
+  const system = new HouseDjSystem(game, { panel() {} });
+  system.programRunning = true;
+
+  assert.equal(system.isHouseAudio(), true);
+  system.update(0.1);
+  assert.equal(system.programIndex, 0);
+});
+
 test('James house-DJ fallback is a multi-track programme, not a one-song loop', () => {
   const programme = NPC_DJ_PROGRAMS['james-benjamin'];
   assert.ok(programme.fallback.length >= 5);
