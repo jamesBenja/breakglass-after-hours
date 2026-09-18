@@ -49,8 +49,8 @@ function downstairsDj(surfaceId, installationFocus = false) {
   if (surfaceId === 'club') return environment(1, 20000, 'club floor');
   if (surfaceId === 'lounge' || surfaceId === 'lounge-door') {
     if (installationFocus)
-      return environment(0.018, 480, 'Take A Break focus · club through wall');
-    return environment(0.045, 780, 'Take A Break · club through wall');
+      return environment(0.018, 480, 'Take A Break immersive installation focus · club through wall');
+    return environment(0.045, 780, 'Take A Break immersive installation · club through wall');
   }
   if (surfaceId === 'service' || surfaceId === 'bar-door')
     return environment(0.62, 5600, 'bar / service room');
