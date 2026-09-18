@@ -134,9 +134,7 @@ export function installAudioReliabilityEnhancements(game, ui) {
 
     const recovering =
       nativeResumePending || contextResumePending || playbackRecoveryPending || audio.context;
-    const request = recovering
-      ? (game.resumeAudioPlayback?.() ?? audio.resume())
-      : audio.unlock();
+    const request = recovering ? (game.resumeAudioPlayback?.() ?? audio.resume()) : audio.unlock();
     void Promise.resolve(request).catch((error) => ui?.warning?.(`Audio: ${error.message}`));
   };
 
