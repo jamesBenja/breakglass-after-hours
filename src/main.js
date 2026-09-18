@@ -98,6 +98,7 @@ if (!liveBuild.reloading) {
     installStudioLoopEnhancements(game, ui);
     installClubBathroomSystem(game, ui);
     installModularSynthSystem(game, ui);
+    installDrumMachineSystem(game, ui);
     installRoofEndgameSystem(game, ui);
     installFreightElevatorSystem(game, ui);
     installPerformanceRealismSystems(game, ui);
