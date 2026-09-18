@@ -468,7 +468,14 @@ export class StudioPlayback {
   renderStem(stem, step, when) {
     const bus = this.ensureBus(stem).input;
     const recording = this.session?.recordings.get(stem.id);
-    if (recording && step === 0) {
+    const recordingStepDuration = 60 / Math.max(1, Number(this.session?.bpm) || this.bpm) / 4;
+    const recordingLoopSteps = this.session?.loopEnabled
+      ? Math.max(16, Math.max(1, Number(this.session?.loopBars) || 4) * 16)
+      : 256;
+    const recordingStartStep =
+      Math.round(Math.max(0, Number(stem.clipStart) || 0) / recordingStepDuration) %
+      recordingLoopSteps;
+    if (recording && step % recordingLoopSteps === recordingStartStep) {
       const source = this.audio.context.createBufferSource();
       source.buffer = recording;
       source.connect(bus);
