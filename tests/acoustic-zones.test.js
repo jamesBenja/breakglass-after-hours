@@ -1,9 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  acousticEnvironmentFor,
-  sourceIsAudible,
-} from '../src/audio/AcousticZones.js';
+import { acousticEnvironmentFor, sourceIsAudible } from '../src/audio/AcousticZones.js';
 
 test('Neve tape is local to the upstairs studio floor', () => {
   const neve = acousticEnvironmentFor('archive', 'upstairs', 'neve-suite');
@@ -22,7 +19,11 @@ test('Neve tape is local to the upstairs studio floor', () => {
 
 test('DJ bleed only crosses floors through intentional acoustic paths', () => {
   const club = acousticEnvironmentFor('dj', 'downstairs', 'club');
-  const downstairsStair = acousticEnvironmentFor('dj', 'downstairs', 'studio-stairs');
+  const downstairsStair = acousticEnvironmentFor(
+    'dj',
+    'downstairs',
+    'studio-stairs',
+  );
   const upstairsStair = acousticEnvironmentFor('dj', 'upstairs', 'below-step-2');
   const upstairsRoom = acousticEnvironmentFor('dj', 'upstairs', 'mixing-suite');
   const roof = acousticEnvironmentFor('dj', 'roof', 'roof-deck');
