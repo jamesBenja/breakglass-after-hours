@@ -62,7 +62,10 @@ test('every authored studio NPC route leg has a collision-safe walking path', ()
       const [x, y = 0, z] = npc.route[index];
       const goal = { x, y, z };
       const path = navigator.plan(start, goal);
-      assert.ok(path.length > 0 || Math.hypot(start.x - x, start.z - z) < 0.18, `${npc.id} route ${index} has no path`);
+      assert.ok(
+        path.length > 0 || Math.hypot(start.x - x, start.z - z) < 0.18,
+        `${npc.id} route ${index} has no path`,
+      );
       if (path.length) {
         const end = followPath(world, start, path);
         assert.ok(

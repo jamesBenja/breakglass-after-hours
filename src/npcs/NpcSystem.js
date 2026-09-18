@@ -477,7 +477,9 @@ export class NpcSystem {
 
   planNavigation(npc, target) {
     if (!this.navigator) {
-      npc.navPath = [target.clone ? target.clone() : new Vector3(target.x, target.y ?? 0, target.z)];
+      npc.navPath = [
+        target.clone ? target.clone() : new Vector3(target.x, target.y ?? 0, target.z),
+      ];
       npc.navPathIndex = 0;
       npc.navGoal = target.clone ? target.clone() : new Vector3(target.x, target.y ?? 0, target.z);
       return true;
@@ -491,7 +493,9 @@ export class NpcSystem {
       return false;
     }
 
-    npc.navPath = path.map((point) => new Vector3(point.x, point.y ?? npc.group.position.y, point.z));
+    npc.navPath = path.map(
+      (point) => new Vector3(point.x, point.y ?? npc.group.position.y, point.z),
+    );
     npc.navPathIndex = 0;
     npc.navGoal = target.clone ? target.clone() : new Vector3(target.x, target.y ?? 0, target.z);
     npc.navFailures = 0;
@@ -524,10 +528,7 @@ export class NpcSystem {
     }
 
     npc.group.rotation.y = Math.atan2(dx, dz);
-    const moved = Math.hypot(
-      npc.group.position.x - beforeX,
-      npc.group.position.z - beforeZ,
-    );
+    const moved = Math.hypot(npc.group.position.x - beforeX, npc.group.position.z - beforeZ);
     npc.moving = moved > 0.001;
     return moved;
   }

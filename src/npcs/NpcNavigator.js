@@ -1,5 +1,4 @@
-const planarDistance = (a, b) =>
-  Math.hypot((b?.x ?? 0) - (a?.x ?? 0), (b?.z ?? 0) - (a?.z ?? 0));
+const planarDistance = (a, b) => Math.hypot((b?.x ?? 0) - (a?.x ?? 0), (b?.z ?? 0) - (a?.z ?? 0));
 
 const key = (ix, iz) => `${ix},${iz}`;
 
@@ -31,8 +30,7 @@ class MinHeap {
         const right = left + 1;
         if (left >= this.items.length) break;
         const child =
-          right < this.items.length &&
-          this.items[right].priority < this.items[left].priority
+          right < this.items.length && this.items[right].priority < this.items[left].priority
             ? right
             : left;
         if (this.items[child].priority >= last.priority) break;
@@ -156,7 +154,8 @@ export class NpcNavigator {
           const iz = origin.iz + dz;
           const point = this.pointFor(ix, iz, position.y ?? 0);
           if (!this.walkable(point, position.y ?? 0)) continue;
-          if (this.walkable(position, position.y ?? 0) && !this.lineClear(position, point)) continue;
+          if (this.walkable(position, position.y ?? 0) && !this.lineClear(position, point))
+            continue;
           return { ix, iz, point };
         }
       }
@@ -164,7 +163,7 @@ export class NpcNavigator {
     return null;
   }
 
-    reconstruct(cameFrom, currentKey, y) {
+  reconstruct(cameFrom, currentKey, y) {
     const points = [];
     let cursor = currentKey;
     while (cursor) {
@@ -242,10 +241,7 @@ export class NpcNavigator {
         const path = this.smooth(raw, start);
         if (this.lineClear(path.at(-1) ?? start, goal)) {
           if (!path.length || planarDistance(path.at(-1), goal) > 0.1) path.push(goal);
-        } else if (
-          !path.length ||
-          planarDistance(path.at(-1), goalGrid.point) > 0.1
-        ) {
+        } else if (!path.length || planarDistance(path.at(-1), goalGrid.point) > 0.1) {
           path.push(goalGrid.point);
         }
         return path;
