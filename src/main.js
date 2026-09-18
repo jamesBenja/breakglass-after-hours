@@ -54,6 +54,7 @@ import {
 import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
 import { resolveEntrySpatialPass } from './runtime/LiveEntryPolicy.js';
+import { ensureCanonicalLiveBuild } from './runtime/LiveVersionGuard.js';
 
 installFaceAvatarEnhancements();
 
@@ -66,8 +67,12 @@ const telemetry = new PlaytestTelemetry({ invitation, godMode: godMode.enabled }
 const ui = new Hud(document);
 mountInvitationLetter(document, godMode.enabled ? GOD_MODE_INVITATION_PROFILE : invitation);
 telemetry.mountNotice(document);
+const liveBuild = await ensureCanonicalLiveBuild({
+  production: import.meta.env.PROD,
+  buildSha: import.meta.env.VITE_BUILD_SHA,
+});
 let game;
-try {
+if (!liveBuild.reloading) try {
   game = new Game(ui, {
     spatialPass: resolveEntrySpatialPass({
       search: location.search,
