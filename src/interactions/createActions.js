@@ -172,7 +172,11 @@ export function createActions({
     if (!keyboardPerformance) return;
     if (!studio?.loopEnabled) studioPlayback?.stop?.();
     dj?.stop?.();
-    const config = performanceConfig(kind);
+    const config = {
+      ...performanceConfig(kind),
+      stemKind,
+      processing: performanceProcessing(stemKind),
+    };
     keyboardPerformance.start(config, { record });
     const title = record
       ? `${config.label.toUpperCase()} · RECORDING`
