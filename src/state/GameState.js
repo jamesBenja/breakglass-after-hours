@@ -189,6 +189,7 @@ const defaults = () => ({
   bathroomUses: 0,
   handsWashed: 0,
   modularSynth: normalizeModularPatchState(),
+  spectraDrumMachine: normalizeDrumMachineState(),
   gentrificationKey: false,
   gentrificationTransformed: false,
   roofThrownItems: [],
