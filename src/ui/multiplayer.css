@@ -433,7 +433,6 @@ body.ui-minimal .live-social-dock {
   }
 }
 
-
 /* Portrait phone HUD: one explicit top stack. Landscape remains unchanged. */
 @media (orientation: portrait) and (max-width: 720px) {
   #multiplayerPresence {
