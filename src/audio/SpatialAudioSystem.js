@@ -637,8 +637,7 @@ export class SpatialAudioSystem {
     const sceneId = level.definition?.id ?? '';
     const position = player?.position;
     const ground =
-      position &&
-      level.collision?.surfaceAt?.(position.x, position.z, position.y + 0.3);
+      position && level.collision?.surfaceAt?.(position.x, position.z, position.y + 0.3);
     let surfaceId = ground?.surface?.id ?? sceneId;
 
     // Take A Break is a physical acoustic room, not merely a navigation-surface label.
