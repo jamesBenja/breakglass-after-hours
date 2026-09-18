@@ -273,6 +273,10 @@ export class StudioPlayback {
 
   drumPreviewDestination() {
     if (!this.audio.context) return null;
+    if (this.previewDrumInput?.context !== this.audio.context) {
+      this.previewDrumInput?.disconnect?.();
+      this.previewDrumInput = null;
+    }
     if (!this.previewDrumInput) {
       this.previewDrumInput = this.audio.context.createGain();
       this.previewDrumInput.gain.value = 0.82;
