@@ -56,6 +56,7 @@ export const roofLevel = {
       obstacle('roof-east-parapet', 7.88, 8.25, -5.2, 5.2),
       obstacle('roof-bulkhead', -7.1, -4.3, -4.68, -2.22, 0, 2.5),
       obstacle('roof-table', -1.1, 1.1, -0.13, 0.83, 0, 0.9),
+      obstacle('roof-ac-unit', 4.35, 6.35, -3.3, -1.8, 0, 1.25),
     ],
   },
   anchors: {
