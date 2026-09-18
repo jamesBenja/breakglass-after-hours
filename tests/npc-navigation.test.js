@@ -130,7 +130,11 @@ test('NPC route failures back off instead of rerunning A* every frame behind loc
 
   for (let frame = 0; frame < 20; frame++) system.update(0.01, false);
   assert.equal(plans, 1, 'locked gate should not trigger another A* search every frame');
-  assert.equal(system.npcs[0].routeIndex, 1, 'route should not spin through every leg during backoff');
+  assert.equal(
+    system.npcs[0].routeIndex,
+    1,
+    'route should not spin through every leg during backoff',
+  );
 
   system.update(0.5, false);
   assert.equal(plans, 2, 'navigation should retry after the backoff window');
