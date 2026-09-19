@@ -98,6 +98,13 @@ export function createActions({
     saveState();
   };
 
+  const monitorStudio = async (stemId = null) => {
+    if (!studio || !studioPlayback) return false;
+    await audio.init?.();
+    if (stemId) studioPlayback.spectraTransport?.restart?.(0);
+    return studioPlayback.play(studio, 0, stemId ? { stemId } : {});
+  };
+
   const choose = (title, collection, current, onSelect, back) =>
     panel(title, `Current: ${gearById(collection, current).label}`, [
       ...collection.map((item) => [
@@ -185,7 +192,7 @@ export function createActions({
       ? [
           [
             'Finish + add take',
-            () => {
+            async () => {
               const performance = keyboardPerformance.stop();
               if (!performance?.events?.length) {
                 ui.warning?.('No notes were played, so no take was added.');
@@ -200,6 +207,10 @@ export function createActions({
               );
               studio.attachPerformance(stem.id, performance);
               rememberStudio();
+              await monitorStudio(stem.id);
+              ui.warning?.(
+                `Recorded ${performance.events.length} event${performance.events.length === 1 ? '' : 's'} to “${stem.label}”. Auditioning the new stem now.`,
+              );
               back();
             },
           ],
@@ -494,6 +505,7 @@ export function createActions({
                 'Vocal captured, but this browser could not decode it for in-game playback yet.',
               );
             rememberStudio();
+            if (result.buffer) await monitorStudio(stem.id);
             consolePanel();
           },
         ],
@@ -570,8 +582,6 @@ export function createActions({
     const reference = createReferenceMix(activeMixChallengeId);
     if (!challenge || !reference) return;
     studioPlayback.stop();
-    dj?.stop?.();
-    audio.stop();
     await studioPlayback.play(reference);
     panel(
       'REFERENCE MIX · LEVEL ' + challenge.level,
@@ -656,11 +666,10 @@ export function createActions({
         rememberStudio();
       },
       onPlay: async () => {
-        dj?.stop?.();
-        audio.stop();
-        await studioPlayback.play(studio);
+        await monitorStudio();
       },
       onStop: () => studioPlayback.stop(),
+      onAudition: async (stemId) => monitorStudio(stemId),
     });
     if (ui.title) ui.title.textContent = 'SPECTRA MIX CHALLENGE · LEVEL ' + challenge.level;
     if (ui.text) {
@@ -694,12 +703,11 @@ export function createActions({
         rememberStudio();
       },
       onPlay: async () => {
-        dj?.stop?.();
-        audio.stop();
-        await studioPlayback.play(studio);
+        await monitorStudio();
       },
       onStop: () => studioPlayback.stop(),
       onRecordVocal: recordVocal,
+      onAudition: async (stemId) => monitorStudio(stemId),
     });
     appendButton('Spectra mix challenge', mixChallengeMenu);
     appendButton('Load Breakglass session', sessionLibraryPanel);

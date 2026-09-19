@@ -469,7 +469,7 @@ export class DrumMachineSystem {
     }
   }
 
-  recordToConsole() {
+  async recordToConsole() {
     const session = this.game.studio;
     if (!session?.addTake || !session?.attachPerformance) return;
     const performance = this.performance();
@@ -484,7 +484,12 @@ export class DrumMachineSystem {
     );
     session.attachPerformance(take.id, performance);
     this.save();
-    this.game.studioPlayback?.updateMix?.(session);
+    await this.game.audio?.init?.();
+    this.game.spectraTransport?.restart?.(0);
+    await this.game.studioPlayback?.play?.(session, 0, { stemId: take.id });
+    this.ui.warning?.(
+      `Recorded ${performance.events.length} drum event${performance.events.length === 1 ? '' : 's'} to “${take.label}”. Auditioning the new Spectra stem now.`,
+    );
     this.ui.panel(
       'DRUM MACHINE → SPECTRA',
       `${take.label} is now a normal Spectra drum stem. It can be mixed, muted, soloed, looped, overdubbed and exported with the rest of the session.`,

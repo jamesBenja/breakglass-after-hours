@@ -957,13 +957,22 @@ function buildLoopPanel(game, ui) {
       recordStatus.armed
         ? '■ FINISH LIVE MULTITRACK + BUILD STEMS'
         : '● ARM LIVE MULTITRACK RECORDING',
-      () => {
+      async () => {
         if (recorder?.armed) {
           const stems = recorder.stop({ commit: true });
+          const events = stems.reduce(
+            (total, stem) => total + (stem.performance?.events?.length ?? 0),
+            0,
+          );
+          if (stems.length) {
+            await game.audio?.init?.();
+            game.spectraTransport?.restart?.(0);
+            await studioPlayback.play(studio);
+          }
           ui.warning?.(
             stems.length
-              ? `Spectra built ${stems.length} separate live stem${stems.length === 1 ? '' : 's'} from the jam.`
-              : 'No instrument events were captured, so no stems were added.',
+              ? `Spectra committed ${stems.length} live stem${stems.length === 1 ? '' : 's'} containing ${events} event${events === 1 ? '' : 's'} and started console monitoring.`
+              : 'No instrument events reached the Spectra recorder, so no stems were added.',
           );
         } else {
           recorder?.arm?.();
