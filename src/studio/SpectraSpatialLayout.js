@@ -1,3 +1,4 @@
+// Speaker order intentionally mirrors Take A Break channels 1–8 clockwise around the room.
 export const SPECTRA_SPATIAL_SPEAKERS = Object.freeze([
   { id: 'spk-1', label: '1', grid: [0.12, 0.12], world: [-15.25, 1.3, -5.0] },
   { id: 'spk-2', label: '2', grid: [0.5, 0.05], world: [-12.25, 2.35, -6.0] },
