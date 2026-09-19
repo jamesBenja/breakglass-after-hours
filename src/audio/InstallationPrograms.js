@@ -20,12 +20,19 @@ export const INSTALLATION_PROGRAMS = Object.freeze([
   },
   {
     id: 'rainforest-study',
-    label: 'Photo Ambisonic Immersive Rainforest · Digital Study',
+    label: 'Photo Ambisonic Immersive Rainforest · Dawn Field',
     artist: 'James Benjamin',
     available: true,
-    kind: 'procedural',
+    kind: 'ambix-recorded',
+    assetId: 'rainforest-ambix-dawn-loop',
+    ambixFormat: 'ACN/SN3D',
+    ambixOrder: 1,
+    sourceHour: 6,
+    sourceOffsetSeconds: 1800,
     description:
-      'A spatial rainforest study inspired by the Costa Rica Photo Ambisonic installation. This procedural version is a placeholder for the original ambisonic field recordings and is not yet time-of-day accurate.',
+      'A real first-order AmbiX excerpt from the Costa Rica Photo Ambisonic installation, decoded over the eight-speaker Take A Break array. The compact game loop is sourced from the 06:00 hourly master while the full 24-hour installation remains archived in Drive.',
+    // Retained only as a fail-safe if the compact AmbiX media cannot be decoded in a browser.
+    fallbackKind: 'procedural',
     toneFrequencies: [1760, 2330, 1480, 2860, 1980, 3180, 1260, 2480],
     toneWaves: ['sine', 'triangle', 'sine', 'sine', 'triangle', 'sine', 'triangle', 'sine'],
     toneLevel: 0.34,
