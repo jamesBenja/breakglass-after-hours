@@ -137,8 +137,5 @@ test('Spectra listening platform and rug inherit only the mixing-suite acoustic 
 
   assert.equal(listenerSurfaceId.call({}, levelFor(deck), player), 'mixing-suite');
   assert.equal(listenerSurfaceId.call({}, levelFor(rug), player), 'mixing-suite');
-  assert.equal(
-    listenerSurfaceId.call({}, levelFor({ id: 'live-room' }), player),
-    'live-room',
-  );
+  assert.equal(listenerSurfaceId.call({}, levelFor({ id: 'live-room' }), player), 'live-room');
 });
