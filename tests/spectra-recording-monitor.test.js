@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DrumMachineSystem } from '../src/gameplay/DrumMachineSystem.js';
-import { ModularSynthSystem, normalizeModularPatchState } from '../src/gameplay/ModularSynthSystem.js';
+import {
+  ModularSynthSystem,
+  normalizeModularPatchState,
+} from '../src/gameplay/ModularSynthSystem.js';
 import { InstrumentSync } from '../src/multiplayer/InstrumentSync.js';
 
 function recordingSession() {
@@ -53,14 +56,22 @@ test('drum-machine record button creates an eventful Spectra stem and auditions 
     },
     save: () => calls.push('save'),
   };
-  const ui = { panel: () => {}, warning: (message) => calls.push(['warning', message]), document: null, buttons: null };
+  const ui = {
+    panel: () => {},
+    warning: (message) => calls.push(['warning', message]),
+    document: null,
+    buttons: null,
+  };
   const machine = new DrumMachineSystem(game, ui);
 
   await machine.recordToConsole();
 
   assert.equal(session.stems.length, 1);
   assert.ok(session.stems[0].performance.events.length > 0);
-  assert.deepEqual(calls.find((item) => Array.isArray(item) && item[0] === 'restart'), ['restart', 0]);
+  assert.deepEqual(
+    calls.find((item) => Array.isArray(item) && item[0] === 'restart'),
+    ['restart', 0],
+  );
   const play = calls.find((item) => Array.isArray(item) && item[0] === 'play');
   assert.equal(play[1], session);
   assert.equal(play[2], 0);
@@ -83,7 +94,12 @@ test('modular record button creates an eventful Spectra stem and auditions it', 
     },
     save: () => calls.push('save'),
   };
-  const ui = { panel: () => {}, warning: (message) => calls.push(['warning', message]), document: null, buttons: null };
+  const ui = {
+    panel: () => {},
+    warning: (message) => calls.push(['warning', message]),
+    document: null,
+    buttons: null,
+  };
   const modular = new ModularSynthSystem(game, ui);
 
   await modular.recordToConsole();
