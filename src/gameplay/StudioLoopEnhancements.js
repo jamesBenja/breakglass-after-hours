@@ -955,6 +955,13 @@ export function installStudioLoopEnhancements(game, ui) {
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
   game.studioExporter ??= new StudioExporter(game);
   game.spectraProjectStore ??= new SpectraProjectStore();
+  const activeProjectId = game.state.data.activeStudioProjectId;
+  if (activeProjectId) {
+    void game.spectraProjectStore
+      .restoreSession(activeProjectId, game.studio, game.audio?.context)
+      .then(() => game.studioPlayback?.updateMix?.(game.studio))
+      .catch(() => {});
+  }
   game.showStudioLoopBuilder = () => buildLoopPanel(game, ui);
   game.showSpectraSessions = () => buildSessionManagerPanel(game, ui);
   game.showStudioSongLibrary = (location = 'House playback') =>
