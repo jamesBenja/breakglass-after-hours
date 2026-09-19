@@ -1,0 +1,49 @@
+name: Format AmbiX Test Once
+
+on:
+  push:
+    branches:
+      - feat/multiplayer-phase-2-shared-world
+    paths:
+      - .github/workflows/format-ambix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout canonical live branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/multiplayer-phase-2-shared-world
+          fetch-depth: 0
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+
+      - name: Install pnpm
+        run: npm install --global pnpm@11.19.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format AmbiX test with repo Prettier
+        run: pnpm exec prettier --write tests/ambix-installation.test.js
+
+      - name: Commit exact formatter output
+        run: |
+          set -euo pipefail
+          git config user.name "breakglass-format-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tests/ambix-installation.test.js
+          if git diff --cached --quiet; then
+            echo "Already formatted."
+          else
+            git commit -m "Apply repo formatting to AmbiX test"
+            git push origin HEAD:feat/multiplayer-phase-2-shared-world
+          fi
