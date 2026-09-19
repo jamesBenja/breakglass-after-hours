@@ -342,6 +342,12 @@ export const assetManifest = {
     source: 'In an Instant low pulse',
   },
 
+  'rainforest-ambix-dawn-loop': {
+    type: 'audio',
+    url: 'assets/audio/ambient/rainforest/rainforest-ambix-dawn-loop.wav',
+    source:
+      'James Benjamin · Photo Ambisonic Immersive Rainforest · 06.wav · compact first-order AmbiX game derivative',
+  },
   'take-a-break-installation': {
     type: 'audio',
     url: null,
