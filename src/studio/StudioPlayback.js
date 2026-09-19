@@ -53,6 +53,7 @@ export class StudioPlayback {
     this.previewDrumInput = null;
     this.spectraTransport = null;
     this.transportUnsubscribe = null;
+    this.spatialMixer = null;
   }
 
   get playing() {
@@ -113,14 +114,17 @@ export class StudioPlayback {
     high.connect(compressor);
     compressor.connect(fader);
     const destination = this.audio.sourceDestination?.('studio') ?? this.audio.master;
-    fader.connect(pan ?? destination);
+    const dry = context.createGain();
+    dry.gain.value = 1;
+    fader.connect(dry);
+    dry.connect(pan ?? destination);
     pan?.connect(destination);
     fxGain.gain.value = 0;
     fxDelay.delayTime.value = 0.18;
     fader.connect(fxGain);
     fxGain.connect(fxDelay);
     fxDelay.connect(this.audio.sourceDestination?.('studio') ?? this.audio.master);
-    bus = { input, color, low, high, compressor, fader, pan, fxGain, fxDelay };
+    bus = { input, color, low, high, compressor, fader, dry, pan, fxGain, fxDelay };
     this.buses.set(stem.id, bus);
     this.configureProcessing(stem, bus);
     return bus;
@@ -172,12 +176,14 @@ export class StudioPlayback {
       bus.fader.gain.setTargetAtTime(audible ? stem.level : 0, time, 0.025);
       bus.fxGain.gain.setTargetAtTime((stem.fx ?? 0) * 0.38, time, 0.025);
       if (bus.pan) bus.pan.pan.setTargetAtTime(stem.pan ?? 0, time, 0.025);
+      this.spatialMixer?.updateStem?.(stem, bus);
     }
     for (const [id, bus] of this.buses) {
       if (activeIds.has(id)) continue;
       for (const node of Object.values(bus)) node?.disconnect?.();
       this.buses.delete(id);
     }
+    this.spatialMixer?.sync?.(session, this.buses);
     this.updateNativeMix(session);
   }
 
