@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ambixFirstOrderDecodeWeights } from '../src/audio/SpatialAudioSystem.js';
-import { installationProgramById } from '../src/audio/InstallationPrograms.js';
+import {
+  DEFAULT_INSTALLATION_PROGRAM_ID,
+  installationProgramById,
+} from '../src/audio/InstallationPrograms.js';
 import { TAKE_A_BREAK_SPEAKERS } from '../src/gameplay/TakeABreakImmersiveSystem.js';
 
 test('rainforest program uses a real first-order AmbiX runtime asset with procedural fallback', () => {
@@ -10,7 +13,9 @@ test('rainforest program uses a real first-order AmbiX runtime asset with proced
   assert.equal(program.assetId, 'rainforest-ambix-dawn-loop');
   assert.equal(program.ambixFormat, 'ACN/SN3D');
   assert.equal(program.ambixOrder, 1);
+  assert.equal(program.gainDb, 12);
   assert.equal(program.fallbackKind, 'procedural');
+  assert.equal(DEFAULT_INSTALLATION_PROGRAM_ID, 'rainforest-study');
 });
 
 test('first-order AmbiX decoder emits finite W/Y/Z/X coefficients for all eight speakers', () => {
