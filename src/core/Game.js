@@ -603,6 +603,7 @@ export class Game {
     this.modularSynth?.dispose?.();
     this.spectraClipEngine?.dispose?.();
     this.spectraTransport?.dispose?.();
+    this.spectraProjectStore?.dispose?.();
     this.freightElevator?.dispose?.();
     this.roofEndgame?.dispose?.();
     this.keyboardPerformance.dispose();

@@ -1,6 +1,9 @@
+import { normalizeDrumMachineState } from './DrumMachineSystem.js';
+import { normalizeModularPatchState } from './ModularSynthSystem.js';
 import { SpectraClipEngine } from '../studio/SpectraClipEngine.js';
 import { SpectraRecorder } from '../studio/SpectraRecorder.js';
 import { StudioExporter } from '../studio/StudioExporter.js';
+import { SpectraProjectStore } from '../studio/SpectraProjectStore.js';
 import { StudioSession } from '../studio/StudioSession.js';
 import {
   SPECTRA_GRID_DIVISIONS,
@@ -213,6 +216,352 @@ function enhancePlayback(playback, session) {
   };
 }
 
+const cleanProjectName = (value, fallback = 'Untitled Spectra Session') => {
+  const name = String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 64);
+  return name || fallback;
+};
+
+function projectId() {
+  return `spectra-project-${Date.now().toString(36)}-${Math.floor(Math.random() * 0xffff)
+    .toString(36)
+    .padStart(3, '0')}`;
+}
+
+function projectById(game, id) {
+  return (game.state.data.studioProjects ?? []).find((project) => project.id === id) ?? null;
+}
+
+function currentProject(game) {
+  return projectById(game, game.state.data.activeStudioProjectId);
+}
+
+function currentSessionHasMaterial(game) {
+  return (
+    game.studio.takeCounter > 0 ||
+    game.studio.stems.some(
+      (stem) => stem.assetId || stem.performance || game.studio.recordings.has(stem.id),
+    )
+  );
+}
+
+function instrumentProjectSnapshot(game) {
+  return {
+    drumMachine: normalizeDrumMachineState(
+      game.drumMachine?.state ?? game.state.data.spectraDrumMachine,
+    ),
+    modularSynth: normalizeModularPatchState(
+      game.modularSynth?.patch ?? game.state.data.modularSynth,
+    ),
+  };
+}
+
+function stopSpectraWorkspace(game) {
+  game.spectraRecorder?.cancel?.();
+  game.keyboardPerformance?.stop?.(false);
+  game.drumMachine?.stopLoop?.(false);
+  game.modularSynth?.stopLoop?.(false);
+  game.studioPlayback?.stop?.();
+  game.spectraTransport?.stop?.();
+  game.spectraClipEngine?.pending?.clear?.();
+}
+
+async function saveCurrentProject(game, ui, { asNew = false, name = null } = {}) {
+  const projects = game.state.data.studioProjects ?? (game.state.data.studioProjects = []);
+  const active = currentProject(game);
+  const now = Date.now();
+  const id = asNew || !active ? projectId() : active.id;
+  const projectName = cleanProjectName(name ?? active?.name ?? game.studio.name);
+  game.studio.project = true;
+  game.studio.name = projectName;
+  const session = game.studio.snapshot();
+  session.project = true;
+  session.name = projectName;
+  const instruments = instrumentProjectSnapshot(game);
+  const project = {
+    id,
+    name: projectName,
+    createdAt: active && !asNew ? active.createdAt || now : now,
+    updatedAt: now,
+    session,
+    ...instruments,
+  };
+
+  const existingIndex = projects.findIndex((item) => item.id === id);
+  if (existingIndex >= 0) projects[existingIndex] = project;
+  else projects.push(project);
+
+  while (projects.length > 24) {
+    const removed = projects.shift();
+    if (removed?.id) void game.spectraProjectStore?.deleteProject?.(removed.id);
+  }
+
+  game.state.data.activeStudioProjectId = id;
+  game.save();
+
+  let audioResult = { saved: 0, missing: 0 };
+  try {
+    audioResult = (await game.spectraProjectStore?.saveSession?.(id, game.studio)) ?? audioResult;
+  } catch {
+    audioResult.missing += [...game.studio.recordings.keys()].length;
+  }
+
+  const detail = audioResult.missing
+    ? ` Session data is saved, but ${audioResult.missing} in-memory microphone take${audioResult.missing === 1 ? '' : 's'} could not be persisted.`
+    : audioResult.saved
+      ? ` ${audioResult.saved} microphone take${audioResult.saved === 1 ? '' : 's'} saved in this browser too.`
+      : '';
+  ui.warning?.(`Saved Spectra session “${projectName}”.${detail}`);
+  return project;
+}
+
+async function loadProject(game, ui, id) {
+  const project = projectById(game, id);
+  if (!project) return false;
+  stopSpectraWorkspace(game);
+  game.studio.replace({ ...project.session, project: true, name: project.name });
+  enhanceSession(game.studio);
+
+  if (game.drumMachine) {
+    game.drumMachine.state = normalizeDrumMachineState(project.drumMachine);
+    game.drumMachine.persist?.();
+  }
+  if (game.modularSynth) {
+    game.modularSynth.patch = normalizeModularPatchState(project.modularSynth);
+    game.modularSynth.persist?.();
+  }
+
+  game.state.data.activeStudioProjectId = project.id;
+  game.save();
+
+  let restored = { restored: 0, failed: 0 };
+  try {
+    restored =
+      (await game.spectraProjectStore?.restoreSession?.(
+        project.id,
+        game.studio,
+        game.audio?.context,
+      )) ?? restored;
+  } catch {
+    restored.failed += 1;
+  }
+
+  game.studioPlayback?.updateMix?.(game.studio);
+  const detail = restored.restored
+    ? ` · restored ${restored.restored} recorded audio clip${restored.restored === 1 ? '' : 's'}`
+    : restored.failed
+      ? ' · some browser-recorded audio could not be restored'
+      : '';
+  ui.warning?.(`Opened Spectra session “${project.name}”${detail}.`);
+  return true;
+}
+
+function showProjectNameEditor(
+  game,
+  ui,
+  {
+    title,
+    text,
+    initial = '',
+    confirmLabel = 'SAVE',
+    onConfirm,
+    back = () => buildSessionManagerPanel(game, ui),
+  },
+) {
+  ui.panel(title, text, []);
+  const input = ui.document.createElement('input');
+  input.type = 'text';
+  input.maxLength = 64;
+  input.value = initial;
+  input.placeholder = 'Session name';
+  input.className = 'spectra-session-name-input';
+  input.setAttribute('aria-label', 'Spectra session name');
+
+  const row = ui.document.createElement('div');
+  row.className = 'row spectra-session-name-row';
+  const confirm = ui.document.createElement('button');
+  confirm.type = 'button';
+  confirm.textContent = confirmLabel;
+  confirm.onclick = async () => {
+    const value = cleanProjectName(input.value);
+    await onConfirm(value);
+  };
+  const cancel = ui.document.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = 'CANCEL';
+  cancel.onclick = back;
+  row.append(confirm, cancel);
+  ui.buttons.append(input, row);
+  input.onkeydown = (event) => {
+    if (event.key === 'Enter') confirm.click();
+  };
+  input.focus?.();
+}
+
+async function createNewProject(game, ui, name) {
+  stopSpectraWorkspace(game);
+  game.studio.newProject(cleanProjectName(name), 118);
+  game.drumMachine && (game.drumMachine.state = normalizeDrumMachineState());
+  game.drumMachine?.persist?.();
+  game.modularSynth && (game.modularSynth.patch = normalizeModularPatchState());
+  game.modularSynth?.persist?.();
+  game.state.data.activeStudioProjectId = null;
+  game.save();
+  await saveCurrentProject(game, ui, { asNew: true, name });
+  buildLoopPanel(game, ui);
+}
+
+async function duplicateCurrentProject(game, ui) {
+  const active = currentProject(game);
+  if (!active) return false;
+  const copyName = cleanProjectName(`${active.name} copy`);
+  const sourceId = active.id;
+  const copy = await saveCurrentProject(game, ui, { asNew: true, name: copyName });
+  try {
+    if (!game.studio.recordingBlobs?.size) {
+      await game.spectraProjectStore?.copyProject?.(sourceId, copy.id);
+      await game.spectraProjectStore?.restoreSession?.(copy.id, game.studio, game.audio?.context);
+    }
+  } catch {
+    // Metadata/session duplication remains valid even when browser audio storage is unavailable.
+  }
+  return copy;
+}
+
+async function deleteCurrentProject(game, ui) {
+  const active = currentProject(game);
+  if (!active) return false;
+  game.state.data.studioProjects = (game.state.data.studioProjects ?? []).filter(
+    (project) => project.id !== active.id,
+  );
+  game.state.data.activeStudioProjectId = null;
+  try {
+    await game.spectraProjectStore?.deleteProject?.(active.id);
+  } catch {
+    // Deleting the JSON project is still useful if IndexedDB is unavailable.
+  }
+  game.save();
+  ui.warning?.(
+    `Deleted saved Spectra session “${active.name}”. The open working session remains on the console until you load or create another one.`,
+  );
+  return true;
+}
+
+function buildSessionManagerPanel(game, ui) {
+  const projects = game.state.data.studioProjects ?? [];
+  const active = currentProject(game);
+  const unsaved = !active && currentSessionHasMaterial(game);
+  const status = active
+    ? `Current: ${active.name} · ${projects.length} saved session${projects.length === 1 ? '' : 's'}`
+    : unsaved
+      ? `Current working session is not in the named library · ${projects.length} saved session${projects.length === 1 ? '' : 's'}`
+      : `No named session is currently open · ${projects.length} saved session${projects.length === 1 ? '' : 's'}`;
+
+  const actions = [
+    [
+      active ? 'SAVE SESSION' : 'SAVE CURRENT AS SESSION',
+      async () => {
+        if (active) {
+          await saveCurrentProject(game, ui);
+          buildSessionManagerPanel(game, ui);
+        } else {
+          showProjectNameEditor(game, ui, {
+            title: 'SAVE SPECTRA SESSION',
+            text: 'Name the current song/session. It will remain editable when reopened.',
+            initial: game.studio.name === 'Dance Shoes' ? '' : game.studio.name,
+            confirmLabel: 'SAVE SESSION',
+            onConfirm: async (name) => {
+              await saveCurrentProject(game, ui, { asNew: true, name });
+              buildSessionManagerPanel(game, ui);
+            },
+          });
+        }
+      },
+    ],
+    [
+      'SAVE AS NEW SESSION',
+      () =>
+        showProjectNameEditor(game, ui, {
+          title: 'SAVE SPECTRA SESSION AS',
+          text: 'Create a separate editable copy of the current Spectra song.',
+          initial: active ? `${active.name} copy` : game.studio.name,
+          confirmLabel: 'SAVE AS',
+          onConfirm: async (name) => {
+            await saveCurrentProject(game, ui, { asNew: true, name });
+            buildSessionManagerPanel(game, ui);
+          },
+        }),
+    ],
+    [
+      'NEW BLANK SESSION',
+      () =>
+        showProjectNameEditor(game, ui, {
+          title: 'NEW SPECTRA SESSION',
+          text: unsaved
+            ? 'The current working session has not been explicitly saved as a named project. Create a new blank song only if you are ready to replace the working console.'
+            : 'Create a blank Spectra song with an empty console, 118 BPM, four-bar loop and fresh attached instruments.',
+          initial: '',
+          confirmLabel: 'CREATE SESSION',
+          onConfirm: (name) => createNewProject(game, ui, name),
+        }),
+    ],
+    ...(active
+      ? [
+          [
+            'RENAME CURRENT SESSION',
+            () =>
+              showProjectNameEditor(game, ui, {
+                title: 'RENAME SPECTRA SESSION',
+                text: 'Rename the current saved project.',
+                initial: active.name,
+                confirmLabel: 'RENAME',
+                onConfirm: async (name) => {
+                  active.name = name;
+                  active.session.name = name;
+                  active.updatedAt = Date.now();
+                  game.studio.name = name;
+                  game.save();
+                  buildSessionManagerPanel(game, ui);
+                },
+              }),
+          ],
+          [
+            'DUPLICATE CURRENT SESSION',
+            async () => {
+              await duplicateCurrentProject(game, ui);
+              buildSessionManagerPanel(game, ui);
+            },
+          ],
+          [
+            'DELETE SAVED CURRENT SESSION',
+            async () => {
+              await deleteCurrentProject(game, ui);
+              buildSessionManagerPanel(game, ui);
+            },
+          ],
+        ]
+      : []),
+    ...[...projects]
+      .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))
+      .map((project) => [
+        `${project.id === active?.id ? '✓ ' : ''}OPEN · ${project.name}`,
+        async () => {
+          await loadProject(game, ui, project.id);
+          buildLoopPanel(game, ui);
+        },
+      ]),
+    ['Back to loop / song builder', () => buildLoopPanel(game, ui)],
+  ];
+
+  ui.panel(
+    'SPECTRA · SESSIONS',
+    `${status}. Named sessions preserve the editable console arrangement, clip states, mixer settings, tempo/loop grid, programmed drum machine, modular patch and recorded performances. Browser microphone takes are stored locally on this device when IndexedDB is available.`,
+    actions,
+  );
+}
+
 function cloneSongSnapshot(session) {
   const snapshot = session.snapshot();
   const droppedMicTakes = snapshot.stems.filter(
@@ -397,6 +746,7 @@ function buildLoopPanel(game, ui) {
       : 'live recorder idle'
   }`;
   const actions = [
+    ['OPEN SPECTRA SESSIONS', () => buildSessionManagerPanel(game, ui)],
     ['OPEN QUANTIZED CLIP LAUNCHER', () => buildClipPanel(game, ui)],
     [
       transportStatus?.running ? '■ STOP SPECTRA MASTER CLOCK' : '▶ START SPECTRA MASTER CLOCK',
@@ -608,7 +958,16 @@ export function installStudioLoopEnhancements(game, ui) {
   enhancePlayback(game.studioPlayback, game.studio);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
   game.studioExporter ??= new StudioExporter(game);
+  game.spectraProjectStore ??= new SpectraProjectStore();
+  const activeProjectId = game.state.data.activeStudioProjectId;
+  if (activeProjectId) {
+    void game.spectraProjectStore
+      .restoreSession(activeProjectId, game.studio, game.audio?.context)
+      .then(() => game.studioPlayback?.updateMix?.(game.studio))
+      .catch(() => {});
+  }
   game.showStudioLoopBuilder = () => buildLoopPanel(game, ui);
+  game.showSpectraSessions = () => buildSessionManagerPanel(game, ui);
   game.showStudioSongLibrary = (location = 'House playback') =>
     buildSongLibraryPanel(game, ui, location);
 

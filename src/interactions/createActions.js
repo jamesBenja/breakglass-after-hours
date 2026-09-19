@@ -488,7 +488,7 @@ export function createActions({
               },
             );
             stem.clipStart = Math.max(0, Number(result.timelineStart) || 0);
-            if (result.buffer) studio.attachRecording(stem.id, result.buffer);
+            if (result.buffer) studio.attachRecording(stem.id, result.buffer, result.blob);
             else
               ui.warning?.(
                 'Vocal captured, but this browser could not decode it for in-game playback yet.',
