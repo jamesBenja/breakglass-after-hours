@@ -216,6 +216,7 @@ export class SpectraTransport {
     }
   }
 
+  // Preserve musical position when tempo or loop geometry changes.
   reconfigure(mutator = null) {
     const context = this.context;
     const wasRunning = this.running && !!context;
