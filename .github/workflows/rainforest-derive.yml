@@ -1,0 +1,144 @@
+name: Prepare Rainforest AmbiX Derivative
+
+on:
+  push:
+    branches:
+      - feat/multiplayer-phase-2-shared-world
+    paths:
+      - .github/workflows/rainforest-derive.yml
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: rainforest-ambix-one-shot
+  cancel-in-progress: false
+
+jobs:
+  derive-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: github-pages
+    steps:
+      - name: Checkout canonical live branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/multiplayer-phase-2-shared-world
+          fetch-depth: 0
+
+      - name: Install media download helper
+        run: python -m pip install --disable-pip-version-check gdown==5.2.0
+
+      - name: Verify ffmpeg
+        run: |
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+
+      - name: Download public 06:00 rainforest master
+        env:
+          DRIVE_FILE_ID: 1MatoeuV6khOAGFShjgJlRyYZL2ixQpLt
+        run: |
+          set -euo pipefail
+          gdown --id "$DRIVE_FILE_ID" -O /tmp/rainforest-06.wav
+          test -s /tmp/rainforest-06.wav
+
+      - name: Verify source is four-channel
+        run: |
+          set -euo pipefail
+          channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of csv=p=0 /tmp/rainforest-06.wav)"
+          duration="$(ffprobe -v error -show_entries format=duration -of csv=p=0 /tmp/rainforest-06.wav)"
+          echo "Source channels: $channels"
+          echo "Source duration: $duration"
+          test "$channels" = "4"
+
+      - name: Extract compact AmbiX dawn loop without channel remapping
+        run: |
+          set -euo pipefail
+          out="public/assets/audio/ambient/rainforest/rainforest-ambix-dawn-loop.wav"
+          mkdir -p "$(dirname "$out")"
+          # Stream-copy the PCM payload so the source channel order remains untouched.
+          # 1800s into 06.wav corresponds to approximately 06:30 in the original hourly program.
+          ffmpeg -hide_banner -loglevel error             -ss 1800 -i /tmp/rainforest-06.wav             -t 120 -map 0:a:0 -c:a copy -y "$out"
+          channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of csv=p=0 "$out")"
+          bytes="$(stat -c %s "$out")"
+          echo "Derivative channels: $channels"
+          echo "Derivative bytes: $bytes"
+          test "$channels" = "4"
+          test "$bytes" -gt 1000000
+          test "$bytes" -lt 95000000
+
+      - name: Commit compact runtime media
+        run: |
+          set -euo pipefail
+          git config user.name "breakglass-media-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/assets/audio/ambient/rainforest/rainforest-ambix-dawn-loop.wav
+          if git diff --cached --quiet; then
+            echo "Rainforest derivative already present."
+          else
+            git commit -m "Add real rainforest AmbiX dawn loop"
+            git push origin HEAD:feat/multiplayer-phase-2-shared-world
+          fi
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+
+      - name: Install pnpm
+        run: npm install --global pnpm@11.19.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Formatting
+        run: pnpm run format:check
+
+      - name: Production build
+        run: pnpm build
+
+      - name: Stamp live build
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, subprocess
+
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          branch = 'feat/multiplayer-phase-2-shared-world'
+          index = Path('dist/index.html')
+          html = index.read_text()
+          stamp = (
+              '<div id="buildStamp" style="position:fixed;right:8px;bottom:8px;z-index:99999;'
+              'font:10px/1.2 monospace;color:#aaa;background:rgba(0,0,0,.68);padding:4px 6px;'
+              'border-radius:4px;pointer-events:none">LIVE ' + sha[:8] + '</div>'
+          )
+          html = html.replace('</body>', stamp + '</body>')
+          index.write_text(html)
+          Path('dist/latest.html').write_text(html)
+          Path('dist/version.json').write_text(json.dumps({
+              'sha': sha,
+              'branch': branch,
+              'channel': 'canonical-live',
+              'rainforestAmbix': True,
+          }))
+          PY
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload live game
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy live game
+        id: deployment
+        uses: actions/deploy-pages@v4
