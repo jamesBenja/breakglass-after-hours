@@ -672,7 +672,10 @@ export class SpatialAudioSystem {
       INSTALLATION_PROGRAMS.find((candidate) => candidate.id === id);
     if (!program?.available) return null;
     const changed = this.installationProgramId !== program.id;
-    if (changed) this.stopRecordedProgram({ resetIndex: true });
+    if (changed) {
+      this.stopRecordedProgram({ resetIndex: true });
+      this.stopSpectraProgram();
+    }
     this.installationProgramId = program.id;
     this.applyInstallationProgram();
     return program;
