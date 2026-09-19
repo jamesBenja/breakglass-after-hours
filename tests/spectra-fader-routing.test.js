@@ -19,6 +19,7 @@ class FakeParam {
   exponentialRampToValueAtTime(value) {
     this.value = value;
   }
+  cancelScheduledValues() {}
 }
 
 class FakeNode {
@@ -98,13 +99,22 @@ test('recorded Spectra stems are controlled by their actual fader, mute and solo
 
   first.mute = true;
   playback.updateMix(session);
-  assert.equal(playback.buses.get(first.id).fader.gain.value, 0);
+  assert.equal(playback.buses.get(first.id).fader.gain.value, 0.21);
+  assert.equal(playback.buses.get(first.id).gate.gain.value, 0);
+  assert.equal(playback.buses.get(second.id).gate.gain.value, 1);
 
   first.mute = false;
   second.solo = true;
   playback.updateMix(session);
-  assert.equal(playback.buses.get(first.id).fader.gain.value, 0);
+  assert.equal(playback.buses.get(first.id).fader.gain.value, 0.21);
   assert.equal(playback.buses.get(second.id).fader.gain.value, 0.64);
+  assert.equal(playback.buses.get(first.id).gate.gain.value, 0);
+  assert.equal(playback.buses.get(second.id).gate.gain.value, 1);
+
+  second.solo = false;
+  playback.updateMix(session);
+  assert.equal(playback.buses.get(first.id).gate.gain.value, 1);
+  assert.equal(playback.buses.get(second.id).gate.gain.value, 1);
 });
 
 test('starting Spectra mixer playback releases only live Spectra input generators', () => {
