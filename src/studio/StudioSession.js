@@ -1,5 +1,6 @@
 import { AMPS, BASSES, DRUM_KITS, GUITARS, MICS, PROCESSORS, SYNTHS, gearById } from './gear.js';
 import { studioSessionById } from './sessionCatalog.js';
+import { normalizeSpatialPosition } from './SpectraSpatialLayout.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -65,6 +66,7 @@ const normalizeStem = (stem, index) => ({
   solo: stem.solo === true,
   clipActive: stem.clipActive !== false,
   clipStart: clamp(Number(stem.clipStart) || 0, 0, 120),
+  spatial: normalizeSpatialPosition(stem.spatial),
   assetId: typeof stem.assetId === 'string' ? stem.assetId.slice(0, 64) : null,
   source: typeof stem.source === 'string' ? stem.source.slice(0, 100) : 'session',
   performance: normalizePerformance(stem.performance),
@@ -223,6 +225,7 @@ export class StudioSession {
       solo: false,
       clipActive: true,
       clipStart: 0,
+      spatial: normalizeSpatialPosition(),
       assetId: null,
       source,
       performance: null,

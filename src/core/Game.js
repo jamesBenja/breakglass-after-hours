@@ -602,6 +602,7 @@ export class Game {
     this.drumMachine?.dispose?.();
     this.modularSynth?.dispose?.();
     this.spectraClipEngine?.dispose?.();
+    this.spectraSpatialMixer?.dispose?.();
     this.spectraTransport?.dispose?.();
     this.spectraProjectStore?.dispose?.();
     this.freightElevator?.dispose?.();

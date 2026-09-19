@@ -88,6 +88,11 @@ export class SpatialAudioSystem {
     this.recordedGain = null;
     this.recordedProgramIndex = 0;
     this.recordedGeneration = 0;
+    this.spectraPrograms = [];
+    this.spectraProgramProvider = null;
+    this.spectraSource = null;
+    this.spectraSplitter = null;
+    this.spectraGeneration = 0;
     this.lastEnvironmentKey = '';
     this.lastSourceEnvironmentKeys = new Map();
     this.forward = new Vector3();
@@ -312,7 +317,30 @@ export class SpatialAudioSystem {
   }
 
   installationProgram() {
-    return installationProgramById(this.installationProgramId);
+    return (
+      this.spectraPrograms.find((program) => program.id === this.installationProgramId) ??
+      installationProgramById(this.installationProgramId)
+    );
+  }
+
+  setSpectraPrograms(programs = []) {
+    this.spectraPrograms = (Array.isArray(programs) ? programs : [])
+      .filter((program) => program?.id && program?.kind === 'spectra-spatial')
+      .map((program) => ({ ...program, available: true, kind: 'spectra-spatial' }))
+      .slice(-12);
+    if (
+      this.installationProgramId &&
+      !INSTALLATION_PROGRAMS.some((program) => program.id === this.installationProgramId) &&
+      !this.spectraPrograms.some((program) => program.id === this.installationProgramId)
+    ) {
+      this.installationProgramId = DEFAULT_INSTALLATION_PROGRAM_ID;
+    }
+    return this.spectraPrograms;
+  }
+
+  setSpectraProgramProvider(provider) {
+    this.spectraProgramProvider = typeof provider === 'function' ? provider : null;
+    if (this.installationProgram()?.kind === 'spectra-spatial') this.applyInstallationProgram();
   }
 
   ensureInstallation() {
@@ -486,9 +514,83 @@ export class SpatialAudioSystem {
     return true;
   }
 
+  stopSpectraProgram() {
+    this.spectraGeneration += 1;
+    if (this.spectraSource) {
+      this.spectraSource.onended = null;
+      try {
+        this.spectraSource.stop();
+      } catch {
+        // Already stopped.
+      }
+      this.spectraSource.disconnect?.();
+      this.spectraSource = null;
+    }
+    this.spectraSplitter?.disconnect?.();
+    this.spectraSplitter = null;
+  }
+
+  async startSpectraProgram() {
+    const context = this.audio.context;
+    const program = this.installationProgram();
+    if (
+      !context ||
+      program?.kind !== 'spectra-spatial' ||
+      !this.spectraProgramProvider ||
+      typeof context.createChannelSplitter !== 'function'
+    )
+      return false;
+    if (!this.installationBus) this.ensureInstallation();
+    this.stopSpectraProgram();
+    const generation = this.spectraGeneration;
+    const buffer = await this.spectraProgramProvider(program.id, context);
+    if (
+      !buffer ||
+      generation !== this.spectraGeneration ||
+      this.installationProgramId !== program.id
+    )
+      return false;
+
+    const source = context.createBufferSource();
+    const splitter = context.createChannelSplitter(8);
+    source.buffer = buffer;
+    source.loop = true;
+    source.loopStart = 0;
+    source.loopEnd = Math.max(
+      0.05,
+      Math.min(buffer.duration, Number(program.duration) || buffer.duration),
+    );
+    source.connect(splitter);
+    for (let index = 0; index < Math.min(8, this.emitters.length); index += 1) {
+      splitter.connect(this.emitters[index].speakerGain, index, 0);
+    }
+    source.onended = () => {
+      if (this.spectraSource !== source) return;
+      source.disconnect?.();
+      splitter.disconnect?.();
+      this.spectraSource = null;
+      this.spectraSplitter = null;
+    };
+    this.spectraSource = source;
+    this.spectraSplitter = splitter;
+    source.start();
+    return true;
+  }
+
   applyInstallationProgram() {
     if (!this.audio.context) return;
     const program = this.installationProgram();
+    if (program.kind === 'spectra-spatial') {
+      this.stopRecordedProgram({ resetIndex: true });
+      for (const emitter of this.emitters) {
+        this.setParam(emitter.toneGain.gain, 0, 0.12);
+        if (emitter.noiseGain) this.setParam(emitter.noiseGain.gain, 0, 0.12);
+      }
+      if (!this.spectraSource) void this.startSpectraProgram();
+      this.applyInstallationMix();
+      return;
+    }
+    this.stopSpectraProgram();
     if (program.kind === 'recorded-playlist') {
       for (const emitter of this.emitters) {
         this.setParam(emitter.toneGain.gain, 0, 0.18);
@@ -570,10 +672,15 @@ export class SpatialAudioSystem {
   }
 
   setInstallationProgram(id) {
-    const program = INSTALLATION_PROGRAMS.find((candidate) => candidate.id === id);
+    const program =
+      this.spectraPrograms.find((candidate) => candidate.id === id) ??
+      INSTALLATION_PROGRAMS.find((candidate) => candidate.id === id);
     if (!program?.available) return null;
     const changed = this.installationProgramId !== program.id;
-    if (changed) this.stopRecordedProgram({ resetIndex: true });
+    if (changed) {
+      this.stopRecordedProgram({ resetIndex: true });
+      this.stopSpectraProgram();
+    }
     this.installationProgramId = program.id;
     this.applyInstallationProgram();
     return program;
@@ -692,8 +799,14 @@ export class SpatialAudioSystem {
       this.lastEnvironmentKey = key;
     }
     const installationActive = inLounge && this.installationEnabled;
-    const recordedProgram = this.installationProgram().kind === 'recorded-playlist';
-    this.updateInstallationField(installationActive && !recordedProgram);
+    const installationKind = this.installationProgram().kind;
+    const recordedProgram = installationKind === 'recorded-playlist';
+    const spectraProgram = installationKind === 'spectra-spatial';
+    this.updateInstallationField(installationActive && installationKind === 'procedural');
+    if (spectraProgram) {
+      for (const emitter of this.emitters)
+        this.setParam(emitter.speakerGain.gain, installationActive ? 1 : 0.0001, 0.08);
+    }
     if (this.recordedGain)
       this.setParam(
         this.recordedGain.gain,
@@ -731,12 +844,20 @@ export class SpatialAudioSystem {
         artist: program.artist,
         description: program.description,
       },
-      programs: availableInstallationPrograms().map(({ id, label, artist, description }) => ({
-        id,
-        label,
-        artist,
-        description,
-      })),
+      programs: [
+        ...availableInstallationPrograms().map(({ id, label, artist, description }) => ({
+          id,
+          label,
+          artist,
+          description,
+        })),
+        ...this.spectraPrograms.map(({ id, label, artist, description }) => ({
+          id,
+          label,
+          artist,
+          description,
+        })),
+      ],
       catalogSlots: INSTALLATION_PROGRAMS.filter((item) => !item.available).map(
         ({ id, label, artist, description }) => ({ id, label, artist, description }),
       ),
@@ -776,6 +897,7 @@ export class SpatialAudioSystem {
     }
     this.emitters = [];
     this.stopRecordedProgram({ resetIndex: true });
+    this.stopSpectraProgram();
     this.recordedGain?.disconnect();
     this.installationFeedback?.disconnect();
     this.installationWet?.disconnect();

@@ -4,6 +4,13 @@ import { SpectraClipEngine } from '../studio/SpectraClipEngine.js';
 import { SpectraRecorder } from '../studio/SpectraRecorder.js';
 import { StudioExporter } from '../studio/StudioExporter.js';
 import { SpectraProjectStore } from '../studio/SpectraProjectStore.js';
+import { SpectraSpatialMixer } from '../studio/SpectraSpatialMixer.js';
+import {
+  SPECTRA_SPATIAL_SPEAKERS,
+  normalizeSpatialPosition,
+  spatialPositionFromPointer,
+  spatialSpeakerGains,
+} from '../studio/SpectraSpatialLayout.js';
 import { StudioSession } from '../studio/StudioSession.js';
 import {
   SPECTRA_GRID_DIVISIONS,
@@ -666,6 +673,169 @@ function buildSongLibraryPanel(game, ui, location = 'HOUSE PLAYBACK') {
   );
 }
 
+async function sendSpatialMixToTakeABreak(game, ui) {
+  ui.warning?.('Rendering eight-channel Spectra installation mix…');
+  const rendered = await game.studioExporter.renderSpatialWav(game.studio);
+  const active = currentProject(game);
+  const id = active?.id
+    ? `spectra-installation-${active.id}`
+    : `spectra-installation-${Date.now().toString(36)}`;
+  const blob = new Blob([rendered.bytes], { type: 'audio/wav' });
+  await game.spectraProjectStore.put(`installation:${id}`, 'mix', blob);
+
+  const programs =
+    game.state.data.spectraInstallations ?? (game.state.data.spectraInstallations = []);
+  const metadata = {
+    id,
+    label: game.studio.name || active?.name || 'Spectra spatial mix',
+    artist: 'Spectra',
+    description: 'Eight-channel spatial mix authored in the Spectra control room.',
+    sourceProjectId: active?.id ?? null,
+    duration: rendered.duration,
+    updatedAt: Date.now(),
+    kind: 'spectra-spatial',
+  };
+  const index = programs.findIndex((program) => program.id === id);
+  if (index >= 0) programs[index] = metadata;
+  else programs.push(metadata);
+  if (programs.length > 12) {
+    const removed = programs.splice(0, programs.length - 12);
+    for (const program of removed) {
+      void game.spectraProjectStore.deleteProject(`installation:${program.id}`);
+    }
+  }
+
+  game.spatialAudio?.setSpectraPrograms?.(programs);
+  game.spatialAudio?.setInstallationProgram?.(id);
+  game.save();
+  ui.warning?.(
+    `Sent “${metadata.label}” to Take A Break as an eight-channel installation program.`,
+  );
+  return metadata;
+}
+
+function buildSpatialTrackPanel(game, ui, stemId) {
+  const stem = game.studio.stems.find((item) => item.id === stemId);
+  if (!stem) return buildSpatialMixerPanel(game, ui);
+  stem.spatial = normalizeSpatialPosition(stem.spatial);
+  const gains = spatialSpeakerGains(stem.spatial);
+  ui.panel(
+    `SPECTRA · SPATIAL · ${stem.label.toUpperCase()}`,
+    `Drag the track around its own room grid. Speaker energy: ${gains
+      .map((gain, index) => `${index + 1}:${Math.round(gain * 100)}`)
+      .join(' · ')}. Spread controls how broadly the track occupies the eight-speaker array.`,
+    [
+      [
+        stem.spatial.enabled ? 'SPATIAL TRACK ON · DISABLE' : 'SPATIAL TRACK OFF · ENABLE',
+        () => {
+          game.spectraSpatialMixer.updatePosition(stem.id, { enabled: !stem.spatial.enabled });
+          buildSpatialTrackPanel(game, ui, stem.id);
+        },
+      ],
+      [
+        'CENTER TRACK',
+        () => {
+          game.spectraSpatialMixer.updatePosition(stem.id, { x: 0.5, y: 0.5 });
+          buildSpatialTrackPanel(game, ui, stem.id);
+        },
+      ],
+      ['Back to 8-channel mixer', () => buildSpatialMixerPanel(game, ui)],
+    ],
+  );
+
+  const grid = ui.document.createElement('div');
+  grid.className = 'spectra-spatial-grid';
+  grid.setAttribute('aria-label', `${stem.label} spatial position`);
+  for (const speaker of SPECTRA_SPATIAL_SPEAKERS) {
+    const node = ui.document.createElement('div');
+    node.className = 'spectra-spatial-speaker';
+    node.textContent = speaker.label;
+    node.style.left = `${speaker.grid[0] * 100}%`;
+    node.style.top = `${speaker.grid[1] * 100}%`;
+    grid.appendChild(node);
+  }
+  const puck = ui.document.createElement('div');
+  puck.className = 'spectra-spatial-puck';
+  puck.textContent = 'TRACK';
+  const positionPuck = () => {
+    puck.style.left = `${stem.spatial.x * 100}%`;
+    puck.style.top = `${stem.spatial.y * 100}%`;
+  };
+  positionPuck();
+  grid.appendChild(puck);
+
+  const move = (event) => {
+    const rect = grid.getBoundingClientRect();
+    const point = spatialPositionFromPointer(rect, event.clientX, event.clientY);
+    stem.spatial = game.spectraSpatialMixer.updatePosition(stem.id, point) || stem.spatial;
+    positionPuck();
+  };
+  grid.onpointerdown = (event) => {
+    grid.setPointerCapture?.(event.pointerId);
+    move(event);
+  };
+  grid.onpointermove = (event) => {
+    if (grid.hasPointerCapture?.(event.pointerId)) move(event);
+  };
+  ui.buttons.appendChild(grid);
+
+  const spread = ui.document.createElement('label');
+  spread.className = 'spectra-spatial-spread';
+  const readout = ui.document.createElement('span');
+  readout.textContent = `SPREAD · ${Math.round(stem.spatial.spread * 100)}%`;
+  const slider = ui.document.createElement('input');
+  slider.type = 'range';
+  slider.min = '0';
+  slider.max = '100';
+  slider.step = '1';
+  slider.value = String(Math.round(stem.spatial.spread * 100));
+  slider.oninput = () => {
+    stem.spatial =
+      game.spectraSpatialMixer.updatePosition(stem.id, {
+        spread: Number(slider.value) / 100,
+      }) || stem.spatial;
+    readout.textContent = `SPREAD · ${slider.value}%`;
+  };
+  spread.append(readout, slider);
+  ui.buttons.appendChild(spread);
+}
+
+function buildSpatialMixerPanel(game, ui) {
+  const stems = game.studio.stems;
+  const preview = game.spectraSpatialMixer?.previewEnabled === true;
+  ui.panel(
+    'SPECTRA · 8-CHANNEL SPATIAL MIXER',
+    `This room mirrors the eight Take A Break speaker channels. Each track has its own spatial grid and spread. ${preview ? 'Eight-speaker room preview is active.' : 'Stereo monitoring is active.'}`,
+    [
+      [
+        preview ? '■ EXIT 8-SPEAKER PREVIEW' : '▶ MONITOR THROUGH 8 SPEAKERS',
+        async () => {
+          await game.audio?.init?.();
+          game.spectraSpatialMixer?.togglePreview?.();
+          if (!game.studioPlayback.playing) await game.studioPlayback.play(game.studio);
+          buildSpatialMixerPanel(game, ui);
+        },
+      ],
+      ...stems.map((stem) => [
+        `POSITION · ${stem.label}`,
+        () => buildSpatialTrackPanel(game, ui, stem.id),
+      ]),
+      [
+        'SEND 8CH MIX TO TAKE A BREAK',
+        async () => {
+          try {
+            await sendSpatialMixToTakeABreak(game, ui);
+          } catch (error) {
+            ui.warning?.(`Spatial render failed: ${error?.message || 'unknown error'}`);
+          }
+          buildSpatialMixerPanel(game, ui);
+        },
+      ],
+      ['Back to loop / song builder', () => buildLoopPanel(game, ui)],
+    ],
+  );
+}
+
 function buildClipPanel(game, ui) {
   const { studio, studioPlayback, spectraClipEngine } = game;
   const clips = spectraClipEngine?.clips?.() ?? [];
@@ -747,6 +917,7 @@ function buildLoopPanel(game, ui) {
   }`;
   const actions = [
     ['OPEN SPECTRA SESSIONS', () => buildSessionManagerPanel(game, ui)],
+    ['OPEN 8-CHANNEL SPATIAL MIXER', () => buildSpatialMixerPanel(game, ui)],
     ['OPEN QUANTIZED CLIP LAUNCHER', () => buildClipPanel(game, ui)],
     [
       transportStatus?.running ? '■ STOP SPECTRA MASTER CLOCK' : '▶ START SPECTRA MASTER CLOCK',
@@ -959,6 +1130,15 @@ export function installStudioLoopEnhancements(game, ui) {
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
   game.studioExporter ??= new StudioExporter(game);
   game.spectraProjectStore ??= new SpectraProjectStore();
+  game.spectraSpatialMixer ??= new SpectraSpatialMixer(game);
+  game.studioPlayback.spatialMixer = game.spectraSpatialMixer;
+  game.spatialAudio?.setSpectraPrograms?.(game.state.data.spectraInstallations ?? []);
+  game.spatialAudio?.setSpectraProgramProvider?.(async (programId, context) => {
+    const items = await game.spectraProjectStore.list(`installation:${programId}`);
+    const blob = items.find((item) => item.stemId === 'mix')?.blob;
+    if (!blob) return null;
+    return context.decodeAudioData(await blob.arrayBuffer());
+  });
   const activeProjectId = game.state.data.activeStudioProjectId;
   if (activeProjectId) {
     void game.spectraProjectStore
@@ -993,6 +1173,13 @@ export function installStudioLoopEnhancements(game, ui) {
       button.className = 'studio-loop-builder-button';
       button.onclick = () => buildLoopPanel(game, ui);
       ui.buttons?.appendChild(button);
+
+      const spatialButton = ui.document.createElement('button');
+      spatialButton.type = 'button';
+      spatialButton.textContent = '8CH SPATIAL MIXER';
+      spatialButton.className = 'studio-spatial-mixer-button';
+      spatialButton.onclick = () => buildSpatialMixerPanel(game, ui);
+      ui.buttons?.appendChild(spatialButton);
 
       const exportButton = ui.document.createElement('button');
       exportButton.type = 'button';

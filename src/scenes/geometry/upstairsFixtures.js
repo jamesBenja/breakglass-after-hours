@@ -27,7 +27,16 @@ export function buildStudioEquipment(root, definition) {
     root.add(group);
     const w = fixture.x2 - fixture.x1,
       d = fixture.z2 - fixture.z1;
-    if (fixture.id === 'spectra-console') {
+    if (fixture.id.startsWith('spectra-spatial-speaker-')) {
+      const speakerY = Number(fixture.speakerY) || 1.4;
+      const cabinet = mat(0x1d2428, 0.58, 0.14);
+      const coneMat = mat(0x44535b, 0.7, 0.08);
+      box(group, w, 0.58, d, cabinet, 0, speakerY, 0);
+      const woofer = cyl(group, 0.13, 0.035, coneMat, 0, speakerY - 0.08, -d / 2 - 0.012);
+      woofer.rotation.x = Math.PI / 2;
+      const tweeter = cyl(group, 0.045, 0.03, silver, 0, speakerY + 0.13, -d / 2 - 0.015);
+      tweeter.rotation.x = Math.PI / 2;
+    } else if (fixture.id === 'spectra-console') {
       box(group, w, 0.75, d, wood, 0, 0.655, 0);
       const desk = box(group, w - 0.14, 0.15, d - 0.08, blue, 0, 1.1, -0.03);
       desk.rotation.x = -0.14;
