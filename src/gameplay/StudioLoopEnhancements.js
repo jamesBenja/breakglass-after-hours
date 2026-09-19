@@ -966,6 +966,7 @@ function buildLoopPanel(game, ui) {
           );
           if (stems.length) {
             await game.audio?.init?.();
+            game.spectraTransport?.restart?.(0);
             await studioPlayback.play(studio);
           }
           ui.warning?.(
