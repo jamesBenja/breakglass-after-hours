@@ -113,7 +113,13 @@ export class Hud {
 
   studioMixer(
     session,
-    { onMix = () => {}, onPlay = () => {}, onStop = () => {}, onRecordVocal } = {},
+    {
+      onMix = () => {},
+      onPlay = () => {},
+      onStop = () => {},
+      onRecordVocal,
+      onAudition = null,
+    } = {},
   ) {
     this.clearPanel(
       'SPECTRA CONSOLE',
@@ -127,7 +133,16 @@ export class Hud {
       const name = this.document.createElement('strong');
       name.textContent = stem.label;
       const source = this.document.createElement('small');
-      source.textContent = stem.source ? ` · ${stem.source}` : '';
+      const eventCount = stem.performance?.events?.length ?? 0;
+      const recordingSeconds = session.recordings?.get?.(stem.id)?.duration;
+      const material = eventCount
+        ? ` · ${eventCount} event${eventCount === 1 ? '' : 's'}`
+        : Number.isFinite(recordingSeconds)
+          ? ` · ${recordingSeconds.toFixed(1)}s audio`
+          : stem.assetId
+            ? ' · audio asset'
+            : ' · generated';
+      source.textContent = `${stem.source ? ` · ${stem.source}` : ''}${material}`;
       name.appendChild(source);
       strip.appendChild(name);
 
@@ -165,6 +180,7 @@ export class Hud {
       row.className = 'row';
       const mute = this.document.createElement('button');
       const solo = this.document.createElement('button');
+      const audition = onAudition ? this.document.createElement('button') : null;
       const refresh = () => {
         mute.textContent = stem.mute ? 'Unmute' : 'Mute';
         solo.textContent = stem.solo ? 'Unsolo' : 'Solo';
@@ -180,7 +196,12 @@ export class Hud {
         refresh();
         onMix();
       };
-      row.append(mute, solo);
+      if (audition) {
+        audition.textContent = 'Audition';
+        audition.onclick = () =>
+          Promise.resolve(onAudition(stem.id)).catch((error) => this.warning(error.message));
+        row.append(mute, solo, audition);
+      } else row.append(mute, solo);
       strip.appendChild(row);
       grid.appendChild(strip);
     }
