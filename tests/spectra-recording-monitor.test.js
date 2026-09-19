@@ -40,7 +40,7 @@ function recordingSession() {
   };
 }
 
-test('drum-machine record button creates an eventful Spectra stem and auditions it', async () => {
+test('drum-machine record button creates an eventful Spectra stem in the full console mix', async () => {
   const session = recordingSession();
   const calls = [];
   const game = {
@@ -75,10 +75,10 @@ test('drum-machine record button creates an eventful Spectra stem and auditions 
   const play = calls.find((item) => Array.isArray(item) && item[0] === 'play');
   assert.equal(play[1], session);
   assert.equal(play[2], 0);
-  assert.equal(play[3].stemId, session.stems[0].id);
+  assert.equal(play[3], undefined);
 });
 
-test('modular record button creates an eventful Spectra stem and auditions it', async () => {
+test('modular record button creates an eventful Spectra stem in the full console mix', async () => {
   const session = recordingSession();
   const calls = [];
   const game = {
@@ -107,7 +107,7 @@ test('modular record button creates an eventful Spectra stem and auditions it', 
   assert.equal(session.stems.length, 1);
   assert.ok(session.stems[0].performance.events.length > 0);
   const play = calls.find((item) => Array.isArray(item) && item[0] === 'play');
-  assert.equal(play[3].stemId, session.stems[0].id);
+  assert.equal(play[3], undefined);
 });
 
 test('multiplayer instrument publishing always feeds the local Spectra recorder first', () => {
