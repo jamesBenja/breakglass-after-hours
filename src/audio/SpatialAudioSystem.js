@@ -58,6 +58,32 @@ function createNoiseBuffer(context, seconds = 4) {
   return buffer;
 }
 
+const TAKE_A_BREAK_ARRAY_CENTER = Object.freeze(
+  TAKE_A_BREAK_SPEAKERS.reduce(
+    (center, [x, y, z]) => [center[0] + x / 8, center[1] + y / 8, center[2] + z / 8],
+    [0, 0, 0],
+  ),
+);
+
+/**
+ * Decode coefficients for first-order AmbiX (ACN/SN3D) into one virtual loudspeaker.
+ * AmbiX channel order is W, Y, Z, X. The coefficients are energy-normalized for this
+ * eight-speaker array before each decoded speaker feed enters its existing HRTF panner.
+ */
+export function ambixFirstOrderDecodeWeights(position) {
+  const [x = 0, y = 0, z = 0] = position ?? [];
+  const dx = x - TAKE_A_BREAK_ARRAY_CENTER[0];
+  const dy = y - TAKE_A_BREAK_ARRAY_CENTER[1];
+  const dz = z - TAKE_A_BREAK_ARRAY_CENTER[2];
+  const length = Math.max(0.0001, Math.hypot(dx, dy, dz));
+  const nx = dx / length;
+  const ny = dy / length;
+  const nz = dz / length;
+  const omni = 1 / Math.sqrt(TAKE_A_BREAK_SPEAKERS.length);
+  const directional = 0.5;
+  return [omni, directional * nz, directional * ny, directional * nx];
+}
+
 /**
  * Eight-position binaural/spatial installation system for Take A Break.
  *
@@ -88,6 +114,11 @@ export class SpatialAudioSystem {
     this.recordedGain = null;
     this.recordedProgramIndex = 0;
     this.recordedGeneration = 0;
+    this.ambixSource = null;
+    this.ambixSplitter = null;
+    this.ambixDecoderNodes = [];
+    this.ambixGeneration = 0;
+    this.ambixFallback = false;
     this.spectraPrograms = [];
     this.spectraProgramProvider = null;
     this.spectraSource = null;
@@ -514,6 +545,118 @@ export class SpatialAudioSystem {
     return true;
   }
 
+  stopAmbixProgram() {
+    this.ambixGeneration += 1;
+    if (this.ambixSource) {
+      this.ambixSource.onended = null;
+      try {
+        this.ambixSource.stop();
+      } catch {
+        // Already stopped.
+      }
+      this.ambixSource.disconnect?.();
+      this.ambixSource = null;
+    }
+    this.ambixSplitter?.disconnect?.();
+    this.ambixSplitter = null;
+    for (const node of this.ambixDecoderNodes) node.disconnect?.();
+    this.ambixDecoderNodes = [];
+    this.ambixFallback = false;
+  }
+
+  async startAmbixProgram() {
+    const context = this.audio.context;
+    const program = this.installationProgram();
+    if (
+      !context ||
+      program?.kind !== 'ambix-recorded' ||
+      !program.assetId ||
+      !this.audio.assets?.audio ||
+      typeof context.createChannelSplitter !== 'function'
+    )
+      return false;
+    if (!this.installationBus) this.ensureInstallation();
+
+    this.stopAmbixProgram();
+    const generation = this.ambixGeneration;
+    let buffer = null;
+    try {
+      buffer = await this.audio.assets.audio(program.assetId, context);
+    } catch {
+      buffer = null;
+    }
+    if (
+      !buffer ||
+      buffer.numberOfChannels < 4 ||
+      generation !== this.ambixGeneration ||
+      this.installationProgramId !== program.id
+    )
+      return false;
+
+    const source = context.createBufferSource();
+    const splitter = context.createChannelSplitter(4);
+    const decoderNodes = [];
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(splitter);
+
+    for (const emitter of this.emitters) {
+      const weights = ambixFirstOrderDecodeWeights(emitter.config.position);
+      for (let channel = 0; channel < 4; channel += 1) {
+        const gain = context.createGain();
+        gain.gain.value = weights[channel];
+        splitter.connect(gain, channel, 0);
+        gain.connect(emitter.speakerGain);
+        decoderNodes.push(gain);
+      }
+      this.setParam(emitter.toneGain.gain, 0, 0.08);
+      if (emitter.noiseGain) this.setParam(emitter.noiseGain.gain, 0, 0.08);
+    }
+
+    source.onended = () => {
+      if (this.ambixSource !== source) return;
+      source.disconnect?.();
+      splitter.disconnect?.();
+      for (const node of decoderNodes) node.disconnect?.();
+      this.ambixSource = null;
+      this.ambixSplitter = null;
+      this.ambixDecoderNodes = [];
+    };
+    this.ambixSource = source;
+    this.ambixSplitter = splitter;
+    this.ambixDecoderNodes = decoderNodes;
+    this.ambixFallback = false;
+    source.start();
+    return true;
+  }
+
+  applyProceduralProgram(program) {
+    for (const emitter of this.emitters) {
+      const index = emitter.index;
+      const frequency = program.toneFrequencies?.[index] ?? 110;
+      const wave = program.toneWaves?.[index] ?? 'sine';
+      emitter.toneSource.type = wave;
+      this.setParam(emitter.toneSource.frequency, frequency, 0.18);
+      this.setParam(emitter.toneGain.gain, 0.06 * (program.toneLevel ?? 0), 0.22);
+      if (emitter.noiseGain)
+        this.setParam(emitter.noiseGain.gain, 0.055 * (program.noiseLevel ?? 0), 0.22);
+      if (emitter.noiseFilter) {
+        emitter.noiseFilter.type = program.noiseFilter ?? 'lowpass';
+        const spread = program.noiseSpread ?? 0;
+        const offset = (index / Math.max(1, this.emitters.length - 1) - 0.5) * spread;
+        this.setParam(
+          emitter.noiseFilter.frequency,
+          Math.max(120, (program.noiseFrequency ?? 4000) + offset),
+          0.22,
+        );
+        this.setParam(emitter.noiseFilter.Q, program.noiseFilter === 'bandpass' ? 1.4 : 0.7, 0.22);
+      }
+    }
+    if (this.installationFilter)
+      this.setParam(this.installationFilter.frequency, program.lowpassHz ?? 18000, 0.22);
+    this.applyInstallationMix();
+  }
+
   stopSpectraProgram() {
     this.spectraGeneration += 1;
     if (this.spectraSource) {
@@ -582,6 +725,7 @@ export class SpatialAudioSystem {
     const program = this.installationProgram();
     if (program.kind === 'spectra-spatial') {
       this.stopRecordedProgram({ resetIndex: true });
+      this.stopAmbixProgram();
       for (const emitter of this.emitters) {
         this.setParam(emitter.toneGain.gain, 0, 0.12);
         if (emitter.noiseGain) this.setParam(emitter.noiseGain.gain, 0, 0.12);
@@ -590,7 +734,32 @@ export class SpatialAudioSystem {
       this.applyInstallationMix();
       return;
     }
+
     this.stopSpectraProgram();
+    if (program.kind === 'ambix-recorded') {
+      this.stopRecordedProgram({ resetIndex: true });
+      for (const emitter of this.emitters) {
+        this.setParam(emitter.toneGain.gain, 0, 0.12);
+        if (emitter.noiseGain) this.setParam(emitter.noiseGain.gain, 0, 0.12);
+        this.setParam(emitter.speakerGain.gain, 0.0001, 0.08);
+      }
+      if (!this.ambixSource) {
+        void this.startAmbixProgram().then((started) => {
+          if (
+            !started &&
+            this.installationProgramId === program.id &&
+            program.fallbackKind === 'procedural'
+          ) {
+            this.ambixFallback = true;
+            this.applyProceduralProgram(program);
+          }
+        });
+      }
+      this.applyInstallationMix();
+      return;
+    }
+
+    this.stopAmbixProgram();
     if (program.kind === 'recorded-playlist') {
       for (const emitter of this.emitters) {
         this.setParam(emitter.toneGain.gain, 0, 0.18);
@@ -600,31 +769,9 @@ export class SpatialAudioSystem {
       this.applyInstallationMix();
       return;
     }
+
     this.stopRecordedProgram({ resetIndex: true });
-    for (const emitter of this.emitters) {
-      const index = emitter.index;
-      const frequency = program.toneFrequencies?.[index] ?? 110;
-      const wave = program.toneWaves?.[index] ?? 'sine';
-      emitter.toneSource.type = wave;
-      this.setParam(emitter.toneSource.frequency, frequency, 0.18);
-      this.setParam(emitter.toneGain.gain, 0.06 * (program.toneLevel ?? 0), 0.22);
-      if (emitter.noiseGain)
-        this.setParam(emitter.noiseGain.gain, 0.055 * (program.noiseLevel ?? 0), 0.22);
-      if (emitter.noiseFilter) {
-        emitter.noiseFilter.type = program.noiseFilter ?? 'lowpass';
-        const spread = program.noiseSpread ?? 0;
-        const offset = (index / Math.max(1, this.emitters.length - 1) - 0.5) * spread;
-        this.setParam(
-          emitter.noiseFilter.frequency,
-          Math.max(120, (program.noiseFrequency ?? 4000) + offset),
-          0.22,
-        );
-        this.setParam(emitter.noiseFilter.Q, program.noiseFilter === 'bandpass' ? 1.4 : 0.7, 0.22);
-      }
-    }
-    if (this.installationFilter)
-      this.setParam(this.installationFilter.frequency, program.lowpassHz ?? 18000, 0.22);
-    this.applyInstallationMix();
+    this.applyProceduralProgram(program);
   }
 
   applyInstallationMix() {
@@ -679,6 +826,7 @@ export class SpatialAudioSystem {
     const changed = this.installationProgramId !== program.id;
     if (changed) {
       this.stopRecordedProgram({ resetIndex: true });
+      this.stopAmbixProgram();
       this.stopSpectraProgram();
     }
     this.installationProgramId = program.id;
@@ -802,8 +950,11 @@ export class SpatialAudioSystem {
     const installationKind = this.installationProgram().kind;
     const recordedProgram = installationKind === 'recorded-playlist';
     const spectraProgram = installationKind === 'spectra-spatial';
-    this.updateInstallationField(installationActive && installationKind === 'procedural');
-    if (spectraProgram) {
+    const ambixProgram = installationKind === 'ambix-recorded';
+    const proceduralField =
+      installationKind === 'procedural' || (ambixProgram && this.ambixFallback);
+    this.updateInstallationField(installationActive && proceduralField);
+    if (spectraProgram || (ambixProgram && this.ambixSource)) {
       for (const emitter of this.emitters)
         this.setParam(emitter.speakerGain.gain, installationActive ? 1 : 0.0001, 0.08);
     }
@@ -843,6 +994,8 @@ export class SpatialAudioSystem {
         label: program.label,
         artist: program.artist,
         description: program.description,
+        format: program.ambixFormat ?? null,
+        sourceHour: program.sourceHour ?? null,
       },
       programs: [
         ...availableInstallationPrograms().map(({ id, label, artist, description }) => ({
@@ -877,6 +1030,7 @@ export class SpatialAudioSystem {
       shot.panner?.disconnect?.();
     }
     this.pointShots.clear();
+    this.stopAmbixProgram();
     for (const emitter of this.emitters) {
       try {
         emitter.toneSource.stop();
