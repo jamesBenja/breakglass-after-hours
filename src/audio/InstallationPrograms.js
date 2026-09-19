@@ -29,6 +29,7 @@ export const INSTALLATION_PROGRAMS = Object.freeze([
     ambixOrder: 1,
     sourceHour: 6,
     sourceOffsetSeconds: 1800,
+    gainDb: 12,
     description:
       'A real first-order AmbiX excerpt from the Costa Rica Photo Ambisonic installation, decoded over the eight-speaker Take A Break array. The compact game loop is sourced from the 06:00 hourly master while the full 24-hour installation remains archived in Drive.',
     // Retained only as a fail-safe if the compact AmbiX media cannot be decoded in a browser.
@@ -139,7 +140,7 @@ export const INSTALLATION_PROGRAMS = Object.freeze([
   },
 ]);
 
-export const DEFAULT_INSTALLATION_PROGRAM_ID = 'abstract-drift';
+export const DEFAULT_INSTALLATION_PROGRAM_ID = 'rainforest-study';
 
 export function installationProgramById(id) {
   return (
