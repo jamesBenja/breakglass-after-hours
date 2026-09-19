@@ -504,6 +504,7 @@ export function createActions({
                 'Vocal captured, but this browser could not decode it for in-game playback yet.',
               );
             rememberStudio();
+            if (result.buffer) await monitorStudio(stem.id);
             consolePanel();
           },
         ],
