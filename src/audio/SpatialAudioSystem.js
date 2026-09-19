@@ -555,6 +555,8 @@ export class SpatialAudioSystem {
     const splitter = context.createChannelSplitter(8);
     source.buffer = buffer;
     source.loop = true;
+    source.loopStart = 0;
+    source.loopEnd = Math.max(0.05, Math.min(buffer.duration, Number(program.duration) || buffer.duration));
     source.connect(splitter);
     for (let index = 0; index < Math.min(8, this.emitters.length); index += 1) {
       splitter.connect(this.emitters[index].speakerGain, index, 0);
