@@ -1,3 +1,4 @@
+// Large recorded takes live outside the JSON save so song projects remain lightweight.
 const DB_NAME = 'breakglass-spectra-projects';
 const DB_VERSION = 1;
 const STORE = 'recordings';
