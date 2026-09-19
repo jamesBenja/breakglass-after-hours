@@ -207,9 +207,9 @@ export function createActions({
               );
               studio.attachPerformance(stem.id, performance);
               rememberStudio();
-              await monitorStudio(stem.id);
+              await monitorStudio();
               ui.warning?.(
-                `Recorded ${performance.events.length} event${performance.events.length === 1 ? '' : 's'} to “${stem.label}”. Auditioning the new stem now.`,
+                `Recorded ${performance.events.length} event${performance.events.length === 1 ? '' : 's'} to “${stem.label}”. The take is now playing through its Spectra fader in the full mix.`,
               );
               back();
             },
@@ -505,7 +505,7 @@ export function createActions({
                 'Vocal captured, but this browser could not decode it for in-game playback yet.',
               );
             rememberStudio();
-            if (result.buffer) await monitorStudio(stem.id);
+            if (result.buffer) await monitorStudio();
             consolePanel();
           },
         ],
