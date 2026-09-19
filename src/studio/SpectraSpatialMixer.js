@@ -55,18 +55,19 @@ export class SpectraSpatialMixer {
   }
 
   ensureTrackRoute(stem, bus) {
-    if (!this.ensureOutputs() || !stem || !bus?.fader) return null;
+    const source = bus?.spatialPost ?? bus?.fader;
+    if (!this.ensureOutputs() || !stem || !source) return null;
     let route = this.trackRoutes.get(stem.id);
-    if (route?.source !== bus.fader || route.context !== this.context) {
+    if (route?.source !== source || route.context !== this.context) {
       if (route) this.disconnectRoute(route);
       const gains = this.speakerInputs.map((speakerInput) => {
         const gain = this.context.createGain();
         gain.gain.value = 0;
-        bus.fader.connect(gain);
+        source.connect(gain);
         gain.connect(speakerInput);
         return gain;
       });
-      route = { source: bus.fader, gains, context: this.context };
+      route = { source, gains, context: this.context };
       this.trackRoutes.set(stem.id, route);
     }
     return route;
