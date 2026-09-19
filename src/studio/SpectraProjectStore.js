@@ -111,20 +111,37 @@ export class SpectraProjectStore {
     return true;
   }
 
+  async delete(projectId, stemId) {
+    const key = this.key(projectId, stemId);
+    this.memory.delete(key);
+    if (!this.indexedDB) return true;
+    const db = await this.db();
+    const transaction = db.transaction(STORE, 'readwrite');
+    transaction.objectStore(STORE).delete(key);
+    await transactionPromise(transaction);
+    return true;
+  }
+
   async saveSession(projectId, session) {
     if (!projectId || !session) return { saved: 0, missing: 0 };
-    await this.deleteProject(projectId);
+    const micStems = (session.stems ?? []).filter((stem) => stem.source === 'browser-microphone');
+    const currentIds = new Set(micStems.map((stem) => String(stem.id)));
+    const existing = await this.list(projectId);
+    for (const item of existing) {
+      if (!currentIds.has(String(item.stemId))) await this.delete(projectId, item.stemId);
+    }
+
     let saved = 0;
     let missing = 0;
-    for (const stem of session.stems ?? []) {
-      if (stem.source !== 'browser-microphone') continue;
+    for (const stem of micStems) {
       const blob = session.recordingBlobs?.get?.(stem.id);
-      if (!blob) {
-        if (session.recordings?.has?.(stem.id)) missing += 1;
+      if (blob) {
+        await this.put(projectId, stem.id, blob);
+        saved += 1;
         continue;
       }
-      await this.put(projectId, stem.id, blob);
-      saved += 1;
+      const alreadyStored = existing.some((item) => item.stemId === stem.id);
+      if (session.recordings?.has?.(stem.id) && !alreadyStored) missing += 1;
     }
     return { saved, missing };
   }
