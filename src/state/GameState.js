@@ -120,6 +120,31 @@ const normalizeGameStats = (value = {}) => {
   };
 };
 
+const normalizeSpectraInstallation = (program, index) => {
+  if (!program || typeof program !== 'object') return null;
+  return {
+    id:
+      typeof program.id === 'string' && program.id.trim()
+        ? program.id.trim().slice(0, 80)
+        : `spectra-installation-${index + 1}`,
+    label:
+      typeof program.label === 'string' && program.label.trim()
+        ? program.label.trim().slice(0, 80)
+        : `Spectra spatial program ${index + 1}`,
+    artist:
+      typeof program.artist === 'string' && program.artist.trim()
+        ? program.artist.trim().slice(0, 72)
+        : 'Spectra',
+    description:
+      typeof program.description === 'string' ? program.description.slice(0, 220) : '',
+    sourceProjectId:
+      typeof program.sourceProjectId === 'string' ? program.sourceProjectId.slice(0, 72) : null,
+    duration: Math.max(0, Math.min(600, Number(program.duration) || 0)),
+    updatedAt: Math.max(0, Math.floor(Number(program.updatedAt) || 0)),
+    kind: 'spectra-spatial',
+  };
+};
+
 const normalizeStudioProject = (project, index) => {
   if (!project || typeof project !== 'object') return null;
   const session = normalizeStudioSession({ ...(project.session ?? {}), project: true });
@@ -170,6 +195,7 @@ const defaults = () => ({
   studio: normalizeStudioSession(),
   studioProjects: [],
   activeStudioProjectId: null,
+  spectraInstallations: [],
   studioSongs: [],
   gameStats: normalizeGameStats(),
   candy: 0,
@@ -267,6 +293,12 @@ export function validateSave(value) {
     state.activeStudioProjectId = value.activeStudioProjectId;
   }
   state.gameStats = normalizeGameStats(value.gameStats);
+  if (Array.isArray(value.spectraInstallations)) {
+    state.spectraInstallations = value.spectraInstallations
+      .map(normalizeSpectraInstallation)
+      .filter(Boolean)
+      .slice(-12);
+  }
   if (Array.isArray(value.studioSongs)) {
     state.studioSongs = value.studioSongs.map(normalizeStudioSong).filter(Boolean).slice(-8);
   }
