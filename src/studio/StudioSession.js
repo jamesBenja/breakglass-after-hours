@@ -101,14 +101,16 @@ export function normalizeStudioSession(value = {}) {
 
   const defaultTemplate = studioSessionById('dance-shoes');
   const upgrade = isUntouchedPrototype(value);
+  const isProject = value.project === true;
   const sourceStems = upgrade
     ? defaultTemplate.stems
-    : Array.isArray(value.stems) && value.stems.length
+    : Array.isArray(value.stems) && (value.stems.length || isProject)
       ? value.stems
       : defaultTemplate.stems;
   const stems = sourceStems.slice(0, 12).map(normalizeStem);
 
   return {
+    project: isProject,
     name: upgrade
       ? defaultTemplate.name
       : typeof value.name === 'string' && value.name.trim()
@@ -128,6 +130,7 @@ export function normalizeStudioSession(value = {}) {
 export class StudioSession {
   constructor(value) {
     const normalized = normalizeStudioSession(value);
+    this.project = normalized.project;
     this.name = normalized.name;
     this.bpm = normalized.bpm;
     this.setup = normalized.setup;
@@ -138,6 +141,7 @@ export class StudioSession {
     this.quantize = normalized.quantize;
     this.swing = normalized.swing;
     this.recordings = new Map();
+    this.recordingBlobs = new Map();
   }
 
   select(group, id) {
@@ -158,14 +162,48 @@ export class StudioSession {
     return item;
   }
 
+  replace(value = {}) {
+    const normalized = normalizeStudioSession(value);
+    this.project = normalized.project;
+    this.name = normalized.name;
+    this.bpm = normalized.bpm;
+    this.setup = normalized.setup;
+    this.stems = normalized.stems;
+    this.takeCounter = normalized.takeCounter;
+    this.loopEnabled = normalized.loopEnabled;
+    this.loopBars = normalized.loopBars;
+    this.quantize = normalized.quantize;
+    this.swing = normalized.swing;
+    this.recordings.clear();
+    this.recordingBlobs.clear();
+    return this;
+  }
+
+  newProject(name = 'Untitled Spectra Session', bpm = 118) {
+    return this.replace({
+      project: true,
+      name,
+      bpm,
+      stems: [],
+      takeCounter: 0,
+      loopEnabled: true,
+      loopBars: 4,
+      quantize: '1/16',
+      swing: 0,
+      setup: { ...this.setup },
+    });
+  }
+
   loadTemplate(id) {
     const template = studioSessionById(id);
     if (!template) return false;
+    this.project = false;
     this.name = template.name;
     this.bpm = template.bpm;
     this.stems = template.stems.map((stem, index) => normalizeStem(stem, index));
     this.takeCounter = 0;
     this.recordings.clear();
+    this.recordingBlobs.clear();
     return template;
   }
 
@@ -195,8 +233,9 @@ export class StudioSession {
     return stem;
   }
 
-  attachRecording(stemId, audioBuffer) {
+  attachRecording(stemId, audioBuffer, blob = null) {
     if (audioBuffer) this.recordings.set(stemId, audioBuffer);
+    if (blob) this.recordingBlobs.set(stemId, blob);
   }
 
   attachPerformance(stemId, performance) {
@@ -250,6 +289,7 @@ export class StudioSession {
 
   snapshot() {
     return {
+      project: this.project === true,
       name: this.name,
       bpm: this.bpm,
       setup: { ...this.setup },
