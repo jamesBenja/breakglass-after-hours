@@ -128,7 +128,13 @@ function enhanceSession(session) {
   });
 }
 
-function enhancePlayback(playback, session) {
+export function stopSpectraLiveInputsForMix(game) {
+  game?.drumMachine?.stopLoop?.(false);
+  game?.modularSynth?.stopLoop?.(false);
+  game?.keyboardPerformance?.stop?.(false);
+}
+
+function enhancePlayback(playback, session, game) {
   if (playback._loopBuilderEnhanced) return;
   playback._loopBuilderEnhanced = true;
   playback.nativeSyncTimer = null;
@@ -187,9 +193,10 @@ function enhancePlayback(playback, session) {
   };
 
   const basePlay = playback.play.bind(playback);
-  playback.play = async (activeSession, offset = 0) => {
+  playback.play = async (activeSession, offset = 0, options = {}) => {
     enhanceSession(activeSession);
-    const result = await basePlay(activeSession, offset);
+    stopSpectraLiveInputsForMix(game);
+    const result = await basePlay(activeSession, offset, options);
     playback.transportOffset = Math.max(0, Number(offset) || 0);
     playback.transportStartedAt = playback.audio.context?.currentTime ?? 0;
     return result;
@@ -1135,7 +1142,7 @@ export function installStudioLoopEnhancements(game, ui) {
   game.studioPlayback.spectraTransport = game.spectraTransport;
   game.keyboardPerformance.spectraTransport = game.spectraTransport;
   game.micRecorder.spectraTransport = game.spectraTransport;
-  enhancePlayback(game.studioPlayback, game.studio);
+  enhancePlayback(game.studioPlayback, game.studio, game);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
   game.studioExporter ??= new StudioExporter(game);
   game.spectraProjectStore ??= new SpectraProjectStore();

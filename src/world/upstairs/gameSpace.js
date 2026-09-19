@@ -13,9 +13,11 @@ export function createGameSpace() {
     prop('gallery-bench', 394, 739, 1.8, 0.6, 0.28, 0xb68b58, { name: 'Polygon gallery bench' }),
     prop('listening-deck', 260, 828, 4.7, 3.5, 0.28, 0x98724f, {
       name: 'Mixing Suite A · listening platform',
+      acousticSurfaceId: 'mixing-suite',
     }),
     prop('mix-rug', 260, 758, 4.2, 2.4, 0.035, 0x51463f, {
       name: 'Spectra control-room rug',
+      acousticSurfaceId: 'mixing-suite',
     }),
     prop('drum-riser', 583, 606, 3.5, 2.7, 0.28, 0x7a5038, {
       name: 'Live Room · drum riser',

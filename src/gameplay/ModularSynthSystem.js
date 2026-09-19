@@ -464,13 +464,13 @@ export class ModularSynthSystem {
     this.save();
     await this.game.audio?.init?.();
     this.game.spectraTransport?.restart?.(0);
-    await this.game.studioPlayback?.play?.(session, 0, { stemId: take.id });
+    await this.game.studioPlayback?.play?.(session, 0);
     this.ui.warning?.(
-      `Recorded ${performance.events.length} modular event${performance.events.length === 1 ? '' : 's'} to “${take.label}”. Auditioning the new Spectra stem now.`,
+      `Recorded ${performance.events.length} modular event${performance.events.length === 1 ? '' : 's'} to “${take.label}”. The recorded stem is now playing through its Spectra fader.`,
     );
     this.ui.panel(
       'MODULAR LOOP → SPECTRA',
-      `${take.label} is now a console stem. The live sequencer can keep running while you decide whether to build another variation.`,
+      `${take.label} is now a console stem. Playback has handed off from the live sequencer to the recorded Spectra channel so its fader, mute, solo, EQ, FX and spatial position control what you hear.`,
       [
         ...(typeof this.game.showStudioLoopBuilder === 'function'
           ? [['Open loop / song builder', () => this.game.showStudioLoopBuilder()]]
