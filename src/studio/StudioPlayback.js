@@ -51,13 +51,23 @@ export class StudioPlayback {
     this.transportOffset = 0;
     this.transportStartedAt = 0;
     this.previewDrumInput = null;
+    this.spectraTransport = null;
+    this.transportUnsubscribe = null;
   }
 
   get playing() {
-    return this.timer !== null || this.realSessionPlaying || this.nativeStems.size > 0;
+    return (
+      this.timer !== null ||
+      this.transportUnsubscribe !== null ||
+      this.realSessionPlaying ||
+      this.nativeStems.size > 0
+    );
   }
 
   position() {
+    if (this.transportUnsubscribe && this.spectraTransport?.running) {
+      return this.spectraTransport.position();
+    }
     if (this.nativeStems.size) {
       const first = this.nativeStems.values().next().value;
       if (Number.isFinite(first?.currentTime)) return Math.max(0, first.currentTime);
@@ -142,7 +152,7 @@ export class StudioPlayback {
     for (const stem of session.stems) {
       const media = this.nativeStems.get(stem.id);
       if (!media) continue;
-      const audible = !stem.mute && (!anySolo || stem.solo);
+      const audible = stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
       media.volume = clamp((audible ? stem.level : 0) * environment * 0.88);
     }
   }
@@ -158,7 +168,7 @@ export class StudioPlayback {
       this.configureProcessing(stem, bus);
       bus.low.gain.setTargetAtTime((stem.low ?? 0) * 15, time, 0.025);
       bus.high.gain.setTargetAtTime((stem.high ?? 0) * 15, time, 0.025);
-      const audible = !stem.mute && (!anySolo || stem.solo);
+      const audible = stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
       bus.fader.gain.setTargetAtTime(audible ? stem.level : 0, time, 0.025);
       bus.fxGain.gain.setTargetAtTime((stem.fx ?? 0) * 0.38, time, 0.025);
       if (bus.pan) bus.pan.pan.setTargetAtTime(stem.pan ?? 0, time, 0.025);
@@ -457,23 +467,29 @@ export class StudioPlayback {
 
   renderStem(stem, step, when) {
     const bus = this.ensureBus(stem).input;
-    const anySolo = this.session?.stems.some((candidate) => candidate.solo);
-    if (stem.mute || (anySolo && !stem.solo)) return;
     const recording = this.session?.recordings.get(stem.id);
-    if (recording) {
-      if (step === 0) {
-        const source = this.audio.context.createBufferSource();
-        source.buffer = recording;
-        source.connect(bus);
-        source.onended = () => {
-          source.disconnect();
-          this.sources.delete(source);
-        };
-        this.sources.add(source);
-        source.start(this.audio.context.currentTime + when);
-      }
-      return;
+    const recordingStepDuration = 60 / Math.max(1, Number(this.session?.bpm) || this.bpm) / 4;
+    const recordingLoopSteps = this.session?.loopEnabled
+      ? Math.max(16, Math.max(1, Number(this.session?.loopBars) || 4) * 16)
+      : 256;
+    const recordingStartStep =
+      Math.round(Math.max(0, Number(stem.clipStart) || 0) / recordingStepDuration) %
+      recordingLoopSteps;
+    if (recording && step % recordingLoopSteps === recordingStartStep) {
+      const source = this.audio.context.createBufferSource();
+      source.buffer = recording;
+      source.connect(bus);
+      source.onended = () => {
+        source.disconnect();
+        this.sources.delete(source);
+      };
+      this.sources.add(source);
+      source.start(this.audio.context.currentTime + when);
     }
+
+    const anySolo = this.session?.stems.some((candidate) => candidate.solo);
+    if (stem.clipActive === false || stem.mute || (anySolo && !stem.solo)) return;
+    if (recording) return;
     if (this.renderPerformance(stem, step, when)) return;
     if (stem.kind === 'drums') {
       if (step % 4 === 0) this.kick(bus, when);
@@ -536,7 +552,10 @@ export class StudioPlayback {
   startAlignedAssets(session, buffers, offset = 0) {
     const start = this.audio.context.currentTime + 0.06;
     const safeOffset = Math.max(0, Number(offset) || 0);
-    this.transportOffset = safeOffset;
+    const phaseOffset = this.spectraTransport?.running
+      ? this.spectraTransport.positionAtOffset(start - this.audio.context.currentTime)
+      : safeOffset;
+    this.transportOffset = phaseOffset;
     this.transportStartedAt = start;
     for (const stem of session.stems) {
       if (!stem.assetId) continue;
@@ -551,7 +570,7 @@ export class StudioPlayback {
         this.sources.delete(source);
       };
       this.sources.add(source);
-      const startOffset = buffer.duration > 0 ? safeOffset % buffer.duration : 0;
+      const startOffset = buffer.duration > 0 ? phaseOffset % buffer.duration : 0;
       source.start(start, startOffset);
     }
     this.realSessionPlaying = true;
@@ -611,6 +630,17 @@ export class StudioPlayback {
       return false;
     }
     this.nativeStems = new Map(created);
+    if (this.spectraTransport?.running) {
+      const phase = this.spectraTransport.position();
+      for (const media of this.nativeStems.values()) {
+        try {
+          const duration = Number(media.duration);
+          media.currentTime = Number.isFinite(duration) && duration > 0 ? phase % duration : phase;
+        } catch {
+          // The periodic native sync pass retries once the stream becomes seekable.
+        }
+      }
+    }
     this.realSessionPlaying = true;
     this.updateNativeMix(session);
     this.audio.setExternalTransport?.(
@@ -628,26 +658,57 @@ export class StudioPlayback {
   async play(session, offset = 0) {
     if (!this.audio.context) return false;
     this.stop();
-    const safeOffset = Math.max(0, Number(offset) || 0);
+    const requestedOffset = Math.max(0, Number(offset) || 0);
     this.session = session;
     this.bpm = session.bpm ?? 118;
-    this.transportOffset = safeOffset;
-    this.transportStartedAt = this.audio.context.currentTime;
     this.updateMix(session);
+
+    let safeOffset = requestedOffset;
+    if (this.spectraTransport) {
+      safeOffset = this.spectraTransport.running
+        ? this.spectraTransport.position()
+        : requestedOffset;
+      this.transportUnsubscribe = this.spectraTransport.subscribe(
+        'studio-playback',
+        (transportEvent) => {
+          if (this.session !== session || this.realSessionPlaying || this.nativeStems.size) return;
+          this.updateMix(session);
+          for (const stem of session.stems) {
+            this.renderStem(stem, transportEvent.loopStep, transportEvent.when);
+          }
+        },
+      );
+      this.spectraTransport.acquire('studio-playback', { position: safeOffset });
+      this.transportOffset = safeOffset;
+      this.transportStartedAt =
+        this.audio.context.currentTime - Math.max(0, this.spectraTransport.position());
+    } else {
+      this.transportOffset = safeOffset;
+      this.transportStartedAt = this.audio.context.currentTime;
+    }
 
     const alignedAssets = await this.loadAlignedAssets(session);
     if (alignedAssets) {
       this.assetBuffers = alignedAssets;
-      this.startAlignedAssets(session, alignedAssets, safeOffset);
+      const alignedOffset = this.spectraTransport?.running
+        ? this.spectraTransport.position()
+        : safeOffset;
+      this.startAlignedAssets(session, alignedAssets, alignedOffset);
       return true;
     }
-    if (await this.startNativeAssets(session, safeOffset)) return true;
+    const nativeOffset = this.spectraTransport?.running
+      ? this.spectraTransport.position()
+      : safeOffset;
+    if (await this.startNativeAssets(session, nativeOffset)) return true;
 
     const interval = 60 / this.bpm / 4;
+    this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
+
+    if (this.spectraTransport) return true;
+
     this.step = Math.floor(safeOffset / interval) % 256;
     const remainder = safeOffset % interval;
     this.nextTime = this.audio.context.currentTime + (remainder > 0 ? interval - remainder : 0);
-    this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
     const schedule = () => {
       if (!this.audio.context || this.audio.context.state !== 'running') return;
       this.nextTime = Math.max(this.nextTime, this.audio.context.currentTime);
@@ -667,6 +728,9 @@ export class StudioPlayback {
   stop() {
     if (this.timer !== null) this.timers.clearInterval(this.timer);
     this.timer = null;
+    if (this.transportUnsubscribe) this.transportUnsubscribe();
+    this.transportUnsubscribe = null;
+    this.spectraTransport?.release?.('studio-playback');
     this.realSessionPlaying = false;
     for (const source of this.sources) {
       source.onended = null;

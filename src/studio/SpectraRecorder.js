@@ -45,6 +45,7 @@ export class SpectraRecorder {
     this.transportOrigin = 0;
     this.lanes = new Map();
     this.lastCommitted = [];
+    this.transportOwner = 'spectra-recorder';
   }
 
   status() {
@@ -55,6 +56,7 @@ export class SpectraRecorder {
       recording: this.recording,
       lanes: this.lanes.size,
       events,
+      transport: this.game.spectraTransport?.snapshot?.() ?? null,
     };
   }
 
@@ -65,6 +67,7 @@ export class SpectraRecorder {
     this.transportOrigin = 0;
     this.lanes.clear();
     this.lastCommitted = [];
+    this.game.spectraTransport?.acquire?.(this.transportOwner, { position: 0 });
     return this.status();
   }
 
@@ -74,6 +77,7 @@ export class SpectraRecorder {
     this.startedAt = 0;
     this.transportOrigin = 0;
     this.lanes.clear();
+    this.game.spectraTransport?.release?.(this.transportOwner);
     return true;
   }
 
@@ -89,6 +93,14 @@ export class SpectraRecorder {
   eventTime(offsetSeconds = 0) {
     const offset = Math.max(0, Number(offsetSeconds) || 0);
     const session = this.game.studio;
+    const transport = this.game.spectraTransport;
+    if (transport?.running) {
+      const position = transport.positionAtOffset(offset);
+      return transport.quantizeTime(position, {
+        wrap: session?.loopEnabled === true,
+        includeSwing: true,
+      });
+    }
     const loop = loopSeconds(session);
     if (loop > 0 && this.game.studioPlayback?.playing) {
       const position = (this.game.studioPlayback.position?.() ?? this.transportOrigin) + offset;
@@ -175,6 +187,7 @@ export class SpectraRecorder {
     if (!this.armed) return [];
     this.armed = false;
     this.recording = false;
+    this.game.spectraTransport?.release?.(this.transportOwner);
     if (!commit) {
       this.lanes.clear();
       return [];

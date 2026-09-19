@@ -1,36 +1,31 @@
+import { SpectraClipEngine } from '../studio/SpectraClipEngine.js';
 import { SpectraRecorder } from '../studio/SpectraRecorder.js';
 import { StudioExporter } from '../studio/StudioExporter.js';
 import { StudioSession } from '../studio/StudioSession.js';
+import {
+  SPECTRA_GRID_DIVISIONS,
+  SpectraTransport,
+  quantizeSpectraTime,
+  spectraLoopSeconds,
+} from '../studio/SpectraTransport.js';
 
-const GRID_DIVISIONS = {
-  '1/4': 1,
-  '1/8': 2,
-  '1/16': 4,
-};
+const GRID_DIVISIONS = SPECTRA_GRID_DIVISIONS;
 const LOOP_BARS = [1, 2, 4, 8, 16];
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
 
 function loopSeconds(session) {
-  return Math.max(0.25, (session.loopBars * 4 * 60) / Math.max(1, session.bpm));
+  return spectraLoopSeconds(session);
 }
 
 function quantizePerformance(session, performance) {
   if (!performance?.events?.length) return performance;
-  const divisions = GRID_DIVISIONS[session.quantize] ?? 4;
-  const beat = 60 / Math.max(1, session.bpm);
-  const grid = beat / divisions;
   const length = loopSeconds(session);
-  const swing = clamp(session.swing, 0, 0.45);
   performance.bpm = session.bpm;
   performance.duration = length;
-  performance.events = performance.events.map((event) => {
-    const raw = Math.max(0, Number(event.time) || 0);
-    let step = Math.round(raw / grid);
-    let time = step * grid;
-    if (step % 2 === 1) time += grid * swing;
-    time = ((time % length) + length) % length;
-    return { ...event, time };
-  });
+  performance.events = performance.events.map((event) => ({
+    ...event,
+    time: quantizeSpectraTime(session, event.time, { wrap: true, includeSwing: true }),
+  }));
   return performance;
 }
 
@@ -165,8 +160,16 @@ function enhancePlayback(playback, session) {
       if (activeSession.loopEnabled && leader.currentTime >= duration) {
         for (const element of media) element.currentTime %= duration;
       }
-      const target = leader.currentTime;
-      for (const element of media.slice(1)) {
+      const transportPosition = playback.spectraTransport?.running
+        ? playback.spectraTransport.position()
+        : null;
+      const target =
+        transportPosition == null
+          ? leader.currentTime
+          : activeSession.loopEnabled
+            ? transportPosition % duration
+            : transportPosition;
+      for (const element of media) {
         if (Math.abs(element.currentTime - target) > 0.035) element.currentTime = target;
       }
     }, 120);
@@ -314,6 +317,64 @@ function buildSongLibraryPanel(game, ui, location = 'HOUSE PLAYBACK') {
   );
 }
 
+function buildClipPanel(game, ui) {
+  const { studio, studioPlayback, spectraClipEngine } = game;
+  const clips = spectraClipEngine?.clips?.() ?? [];
+  const transport = game.spectraTransport?.snapshot?.();
+  const clock = transport?.running
+    ? `bar ${transport.bar} · beat ${transport.beat} · ${Math.round(transport.bpm)} BPM`
+    : 'clock stopped';
+
+  const actions = [
+    [
+      studioPlayback.playing ? '■ STOP CLIP PLAYBACK' : '▶ PLAY CURRENT CLIPS',
+      async () => {
+        if (studioPlayback.playing) studioPlayback.stop();
+        else await studioPlayback.play(studio);
+        buildClipPanel(game, ui);
+      },
+    ],
+    ...clips.map((clip) => {
+      const queued =
+        clip.queued == null ? '' : clip.queued ? ' · QUEUED TO START' : ' · QUEUED TO STOP';
+      const label =
+        clip.queued == null
+          ? clip.active
+            ? `■ STOP NEXT BAR · ${clip.label}`
+            : `▶ LAUNCH NEXT BAR · ${clip.label}`
+          : `CANCEL / FLIP QUEUE · ${clip.label}`;
+      return [
+        `${label}${queued}`,
+        () => {
+          spectraClipEngine.toggle(clip.id);
+          buildClipPanel(game, ui);
+        },
+      ];
+    }),
+    [
+      '▶ LAUNCH ALL NEXT BAR',
+      () => {
+        spectraClipEngine?.queueAll?.(true);
+        buildClipPanel(game, ui);
+      },
+    ],
+    [
+      '■ STOP ALL NEXT BAR',
+      () => {
+        spectraClipEngine?.queueAll?.(false);
+        buildClipPanel(game, ui);
+      },
+    ],
+    ['Back to loop / song builder', () => buildLoopPanel(game, ui)],
+  ];
+
+  ui.panel(
+    'SPECTRA · QUANTIZED CLIP LAUNCHER',
+    `${clock}. Every console stem is also a Spectra clip. Step sequences, live performances and audio/sample loops launch or stop together on bar boundaries while retaining their own mixer channel.`,
+    actions,
+  );
+}
+
 function buildLoopPanel(game, ui) {
   const { studio, studioPlayback } = game;
   enhanceSession(studio);
@@ -324,7 +385,11 @@ function buildLoopPanel(game, ui) {
     lanes: 0,
     events: 0,
   };
-  const status = `${studio.loopEnabled ? 'LOOP ON' : 'LOOP OFF'} · ${studio.loopBars} bars · ${studio.quantize} grid · swing ${Math.round(studio.swing * 100)}% · ${
+  const transportStatus = game.spectraTransport?.snapshot?.();
+  const clockLabel = transportStatus?.running
+    ? `CLOCK BAR ${transportStatus.bar} · BEAT ${transportStatus.beat} · STEP ${transportStatus.sixteenth} · ${Math.round(transportStatus.bpm)} BPM`
+    : `CLOCK STOPPED · ${Math.round(studio.bpm)} BPM`;
+  const status = `${clockLabel} · ${studio.loopEnabled ? 'LOOP ON' : 'LOOP OFF'} · ${studio.loopBars} bars · ${studio.quantize} grid · swing ${Math.round(studio.swing * 100)}% · ${
     recordStatus.armed
       ? recordStatus.recording
         ? `RECORDING ${recordStatus.lanes} live track${recordStatus.lanes === 1 ? '' : 's'}`
@@ -332,6 +397,41 @@ function buildLoopPanel(game, ui) {
       : 'live recorder idle'
   }`;
   const actions = [
+    ['OPEN QUANTIZED CLIP LAUNCHER', () => buildClipPanel(game, ui)],
+    [
+      transportStatus?.running ? '■ STOP SPECTRA MASTER CLOCK' : '▶ START SPECTRA MASTER CLOCK',
+      () => {
+        if (game.spectraTransport?.running) {
+          game.spectraTransport.stop();
+        } else {
+          game.spectraTransport?.acquire?.('manual-transport', { position: 0 });
+        }
+        buildLoopPanel(game, ui);
+      },
+    ],
+    [
+      '↺ RESTART CLOCK AT BAR 1',
+      () => {
+        game.spectraTransport?.restart?.(0);
+        buildLoopPanel(game, ui);
+      },
+    ],
+    [
+      'BPM −5',
+      () => {
+        game.spectraTransport?.setTempo?.(studio.bpm - 5);
+        game.save();
+        buildLoopPanel(game, ui);
+      },
+    ],
+    [
+      'BPM +5',
+      () => {
+        game.spectraTransport?.setTempo?.(studio.bpm + 5);
+        game.save();
+        buildLoopPanel(game, ui);
+      },
+    ],
     [
       recordStatus.armed
         ? '■ FINISH LIVE MULTITRACK + BUILD STEMS'
@@ -382,6 +482,7 @@ function buildLoopPanel(game, ui) {
       studio.loopEnabled ? 'Disable loop' : 'Enable loop',
       async () => {
         studio.setLoopEnabled(!studio.loopEnabled);
+        game.spectraTransport?.reconfigure?.();
         if (studioPlayback.playing) await studioPlayback.play(studio);
         game.save();
         buildLoopPanel(game, ui);
@@ -390,7 +491,8 @@ function buildLoopPanel(game, ui) {
     ...LOOP_BARS.map((bars) => [
       `${studio.loopBars === bars ? '✓ ' : ''}${bars} bar${bars === 1 ? '' : 's'}`,
       async () => {
-        studio.setLoopBars(bars);
+        if (game.spectraTransport) game.spectraTransport.setLoopBars(bars);
+        else studio.setLoopBars(bars);
         studio.setLoopEnabled(true);
         if (studioPlayback.playing) await studioPlayback.play(studio);
         game.save();
@@ -470,7 +572,8 @@ function buildLoopPanel(game, ui) {
     const button = ui.document.createElement('button');
     button.textContent = `${studio.quantize === grid ? '✓ ' : ''}${grid}`;
     button.onclick = () => {
-      studio.setQuantize(grid);
+      if (game.spectraTransport) game.spectraTransport.setQuantize(grid);
+      else studio.setQuantize(grid);
       game.save();
       buildLoopPanel(game, ui);
     };
@@ -480,7 +583,8 @@ function buildLoopPanel(game, ui) {
     const button = ui.document.createElement('button');
     button.textContent = `${Math.round(swing * 100)}% SWING`;
     button.onclick = () => {
-      studio.setSwing(swing);
+      if (game.spectraTransport) game.spectraTransport.setSwing(swing);
+      else studio.setSwing(swing);
       game.save();
       buildLoopPanel(game, ui);
     };
@@ -496,6 +600,11 @@ export function installStudioLoopEnhancements(game, ui) {
   game.studio.quantize = GRID_DIVISIONS[saved.quantize] ? saved.quantize : '1/16';
   game.studio.swing = clamp(saved.swing, 0, 0.45);
   enhanceSession(game.studio);
+  game.spectraTransport ??= new SpectraTransport(game.audio, game.studio);
+  game.spectraClipEngine ??= new SpectraClipEngine(game);
+  game.studioPlayback.spectraTransport = game.spectraTransport;
+  game.keyboardPerformance.spectraTransport = game.spectraTransport;
+  game.micRecorder.spectraTransport = game.spectraTransport;
   enhancePlayback(game.studioPlayback, game.studio);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
   game.studioExporter ??= new StudioExporter(game);

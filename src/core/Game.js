@@ -601,6 +601,8 @@ export class Game {
     this.input.dispose();
     this.drumMachine?.dispose?.();
     this.modularSynth?.dispose?.();
+    this.spectraClipEngine?.dispose?.();
+    this.spectraTransport?.dispose?.();
     this.freightElevator?.dispose?.();
     this.roofEndgame?.dispose?.();
     this.keyboardPerformance.dispose();
