@@ -338,3 +338,86 @@
     font-size: 8px;
   }
 }
+
+
+/* Spectra eight-channel spatial mixer */
+.spectra-spatial-grid {
+  position: relative;
+  width: min(100%, 430px);
+  aspect-ratio: 1 / 1;
+  margin: 10px auto 8px;
+  border: 1px solid rgba(255, 225, 171, 0.34);
+  border-radius: 14px;
+  background:
+    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+    radial-gradient(circle at center, rgba(113, 92, 70, 0.18), rgba(10, 11, 14, 0.72));
+  background-size: 25% 25%, 25% 25%, auto;
+  touch-action: none;
+  overflow: hidden;
+}
+
+.spectra-spatial-speaker,
+.spectra-spatial-puck {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  user-select: none;
+}
+
+.spectra-spatial-speaker {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(190, 221, 231, 0.44);
+  background: rgba(34, 45, 52, 0.92);
+  color: #d9edf5;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.spectra-spatial-puck {
+  width: 46px;
+  height: 46px;
+  border: 2px solid rgba(255, 219, 158, 0.85);
+  background: rgba(177, 110, 48, 0.88);
+  box-shadow: 0 0 18px rgba(255, 194, 112, 0.22);
+  color: #fff6e6;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.spectra-spatial-spread {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.spectra-spatial-spread input[type='range'] {
+  width: 100%;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .spectra-spatial-grid {
+    width: min(100%, 340px);
+    margin-top: 7px;
+  }
+
+  .spectra-spatial-speaker {
+    width: 25px;
+    height: 25px;
+    font-size: 8px;
+  }
+
+  .spectra-spatial-puck {
+    width: 42px;
+    height: 42px;
+    font-size: 7px;
+  }
+}
