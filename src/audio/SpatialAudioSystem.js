@@ -115,6 +115,7 @@ export class SpatialAudioSystem {
     this.recordedProgramIndex = 0;
     this.recordedGeneration = 0;
     this.ambixSource = null;
+    this.ambixProgramGain = null;
     this.ambixSplitter = null;
     this.ambixDecoderNodes = [];
     this.ambixGeneration = 0;
@@ -557,6 +558,8 @@ export class SpatialAudioSystem {
       this.ambixSource.disconnect?.();
       this.ambixSource = null;
     }
+    this.ambixProgramGain?.disconnect?.();
+    this.ambixProgramGain = null;
     this.ambixSplitter?.disconnect?.();
     this.ambixSplitter = null;
     for (const node of this.ambixDecoderNodes) node.disconnect?.();
@@ -594,11 +597,14 @@ export class SpatialAudioSystem {
       return false;
 
     const source = context.createBufferSource();
+    const programGain = context.createGain();
     const splitter = context.createChannelSplitter(4);
     const decoderNodes = [];
     source.buffer = buffer;
     source.loop = true;
-    source.connect(splitter);
+    programGain.gain.value = Math.pow(10, (Number(program.gainDb) || 0) / 20);
+    source.connect(programGain);
+    programGain.connect(splitter);
 
     for (const emitter of this.emitters) {
       const weights = ambixFirstOrderDecodeWeights(emitter.config.position);
@@ -616,13 +622,16 @@ export class SpatialAudioSystem {
     source.onended = () => {
       if (this.ambixSource !== source) return;
       source.disconnect?.();
+      programGain.disconnect?.();
       splitter.disconnect?.();
       for (const node of decoderNodes) node.disconnect?.();
       this.ambixSource = null;
+      this.ambixProgramGain = null;
       this.ambixSplitter = null;
       this.ambixDecoderNodes = [];
     };
     this.ambixSource = source;
+    this.ambixProgramGain = programGain;
     this.ambixSplitter = splitter;
     this.ambixDecoderNodes = decoderNodes;
     this.ambixFallback = false;
