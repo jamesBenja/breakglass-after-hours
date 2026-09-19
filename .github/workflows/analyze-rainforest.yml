@@ -32,4 +32,6 @@ jobs:
           for c in 0 1 2 3; do
             echo "=== channel $c volumedetect ==="
             ffmpeg -hide_banner -i "$f" -map_channel 0.0.$c -af volumedetect -f null - 2>&1 | grep -E "mean_volume|max_volume"
+            echo "=== channel $c pcm md5 ==="
+            ffmpeg -hide_banner -loglevel error -i "$f" -map_channel 0.0.$c -f md5 -
           done
