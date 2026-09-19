@@ -1,6 +1,6 @@
 import { DJ_TRACKS } from '../dj/DjMixer.js';
 
-const TEMPO_RANGE = 0.125;
+const TEMPO_RANGE = 0.16;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const modulo = (value, divisor) => ((value % divisor) + divisor) % divisor;
 const trackById = (id) => DJ_TRACKS.find((track) => track.id === id) ?? DJ_TRACKS[0];
@@ -24,10 +24,9 @@ export function alignedSourcePosition(
 /**
  * Estimate the quarter-note beat-grid phase of a decoded master.
  *
- * The catalogue already supplies BPM. What was missing was the phase offset between time zero in
- * each exported file and the actual musical beat grid. On real masters that offset is rarely
- * exactly 0 because of encoder padding, silence or pickups. We derive it from low-frequency onset
- * energy so SYNC aligns audible kicks rather than merely aligning file timestamps.
+ * The catalogue supplies BPM. The phase offset between time zero in an exported file and the
+ * audible beat grid can still be non-zero because of encoder padding, silence or pickups. This is
+ * retained as a fallback for tracks without an offline-audited beatOffset.
  */
 export function estimateBeatOffset(buffer, bpm) {
   const sampleRate = Number(buffer?.sampleRate);
@@ -111,11 +110,13 @@ function ensureBeatGrid(mixer, deck) {
     return deck.beatOffset;
   }
 
+  // Offline-audited grid metadata is authoritative. Only estimate in-browser when no audited
+  // value exists; this avoids a different grid being inferred on different devices.
   const buffer = deck.source?.buffer;
-  const offset = buffer
-    ? estimateBeatOffset(buffer, track.bpm)
-    : Number.isFinite(track.beatOffset)
-      ? track.beatOffset
+  const offset = Number.isFinite(track.beatOffset)
+    ? track.beatOffset
+    : buffer
+      ? estimateBeatOffset(buffer, track.bpm)
       : 0;
   deck.beatOffset = offset;
   if (buffer || Number.isFinite(track.beatOffset)) mixer._beatOffsetCache.set(track.id, offset);
@@ -128,6 +129,7 @@ function deckPosition(mixer, deckId) {
   if (!deck) return 0;
   if (deck.media) return Math.max(0, Number(deck.media.currentTime) || 0);
   const track = trackById(deck.trackId);
+  if (track.freeTime) return 0;
   const beat = 60 / Math.max(1, track.bpm);
   return Math.max(0, (deck.step || 0) * beat * 0.25);
 }
@@ -145,9 +147,16 @@ function setWideBpm(mixer, deckId, bpm) {
   if (!deck) return null;
   const track = trackById(deck.trackId);
   const base = track.bpm;
+  const position = deckPosition(mixer, deckId);
   const next = clamp(Number(bpm) || base, base * (1 - TEMPO_RANGE), base * (1 + TEMPO_RANGE));
   deck.bpm = next;
   deck.baseBpm = base;
+  // Rebase the transport at the exact pre-change source position. Without this, changing tempo
+  // retroactively re-scales all elapsed transport time and visibly/audibly jumps the playhead.
+  if (deck.playing && mixer.context && !deck.media) {
+    deck.transportOffset = position;
+    deck.transportStartedAt = mixer.context.currentTime;
+  }
   if (deck.source?.playbackRate) deck.source.playbackRate.value = next / base;
   if (deck.media) deck.media.playbackRate = next / base;
   mixer.updateVibe?.();
@@ -211,7 +220,7 @@ function patchTempoControls(ui, mixer, tracks) {
       mobileTempo.max = String(track.bpm * (1 + TEMPO_RANGE));
       mobileTempo.value = String(state.bpm);
       const caption = mobileTempo.closest('label')?.querySelector('span');
-      if (caption) caption.textContent = `TEMPO ${state.bpm.toFixed(1)} BPM`;
+      if (caption) caption.textContent = `TEMPO ${state.bpm.toFixed(2)} BPM`;
     }
     return;
   }
@@ -228,9 +237,10 @@ function patchTempoControls(ui, mixer, tracks) {
     if (!state || !track || !input) return;
     input.min = String(track.bpm * (1 - TEMPO_RANGE));
     input.max = String(track.bpm * (1 + TEMPO_RANGE));
+    input.step = '0.01';
     input.value = String(state.bpm);
     const caption = label.querySelector('span');
-    if (caption) caption.textContent = `Tempo: ${state.bpm.toFixed(1)}`;
+    if (caption) caption.textContent = `Tempo: ${state.bpm.toFixed(2)}`;
   });
 }
 
@@ -255,14 +265,16 @@ export function installDjSyncEnhancements(game, ui) {
     if (!slave || !master) return false;
 
     const slaveTrack = trackById(slave.trackId);
+    const masterTrack = trackById(master.trackId);
+    if (slaveTrack.freeTime || masterTrack.freeTime) {
+      ui?.warning?.('Free-time recordings do not have a fixed beat grid. Mix this one manually.');
+      return false;
+    }
     const min = slaveTrack.bpm * (1 - TEMPO_RANGE);
     const max = slaveTrack.bpm * (1 + TEMPO_RANGE);
     let sharedTempo = clamp(master.bpm, min, max);
 
-    // If a future track falls outside the slave range, move both decks to the closest shared
-    // tempo instead of leaving the UI saying SYNC while the BPMs are still different.
     if (Math.abs(sharedTempo - master.bpm) > 0.001) {
-      const masterTrack = trackById(master.trackId);
       sharedTempo = clamp(
         sharedTempo,
         masterTrack.bpm * (1 - TEMPO_RANGE),
@@ -277,8 +289,8 @@ export function installDjSyncEnhancements(game, ui) {
     mixer.updateVibe?.();
     ui?.warning?.(
       master.playing
-        ? `Deck ${deckId} synced to ${masterId} at ${sharedTempo.toFixed(1)} BPM · beat grid locked.`
-        : `Deck ${deckId} matched to ${masterId} at ${sharedTempo.toFixed(1)} BPM. Start the master to phase-sync.`,
+        ? `Deck ${deckId} synced to ${masterId} at ${sharedTempo.toFixed(2)} BPM · beat grid locked.`
+        : `Deck ${deckId} matched to ${masterId} at ${sharedTempo.toFixed(2)} BPM. Start the master to phase-sync.`,
     );
     return aligned || true;
   };
@@ -308,10 +320,7 @@ export function installDjSyncEnhancements(game, ui) {
     return result;
   };
 
-  mixer.update = (dt) => {
-    const result = baseUpdate(dt);
-    return result;
-  };
+  mixer.update = (dt) => baseUpdate(dt);
 
   mixer.snapshot = () => {
     const snapshot = baseSnapshot();

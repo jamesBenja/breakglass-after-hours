@@ -55,6 +55,152 @@ export const DJ_TRACKS = [
   },
   { id: 'fakir', label: 'Boogaloo Jones · Fakir', bpm: 124, energy: 0.7, key: 'Em', real: true },
   { id: 'bhab', label: 'Boogaloo Jones · Bhab', bpm: 124, energy: 0.72, key: 'Em', real: true },
+
+  {
+    id: 'team-break',
+    label: 'James Benjamin · Team Break',
+    bpm: 95.7,
+    energy: 0.66,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'ancillary-things',
+    label: 'James Benjamin · Ancillary Things',
+    bpm: 143.55,
+    energy: 0.82,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'gairage',
+    label: 'James Benjamin × Jamvvis · Gairage',
+    bpm: 152,
+    energy: 0.86,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'hit-the-floor',
+    label: 'James Benjamin ft Star Amerasu + Kizaba · Hit the Floor',
+    bpm: 129.2,
+    energy: 0.9,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'chi-town-drop',
+    label: 'James Benjamin ft AmirSaysNothing · Chi Town Drop',
+    bpm: 136,
+    energy: 0.88,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'guestlist-andy-s',
+    label: 'James Benjamin ft Andy S · Guestlist',
+    bpm: 143.55,
+    energy: 0.84,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'drop-in',
+    label: 'James Benjamin · Drop In',
+    bpm: 92.29,
+    energy: 0.72,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'body-check',
+    label: 'James Benjamin · Body Check',
+    bpm: 103.36,
+    energy: 0.76,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'play-ball-people',
+    label: 'James Benjamin · Play Ball (People)',
+    bpm: 143.55,
+    energy: 0.9,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'etcetera',
+    label: 'James Benjamin · Etcetera',
+    bpm: 92.29,
+    energy: 0.72,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'airtime-express',
+    label: 'James Benjamin · Airtime Express',
+    bpm: 99.38,
+    energy: 0.7,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'rotations-the-roll',
+    label: 'Boogieman · The Roll',
+    bpm: 117.45,
+    energy: 0.64,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'rotations-den-naben',
+    label: 'Boogieman · Den Naben',
+    bpm: 107.67,
+    energy: 0.58,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'rotations-water-is-boiling',
+    label: 'Boogieman · Water Is Boiling',
+    bpm: 99.38,
+    energy: 0.62,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'rotations-adjust',
+    label: 'Boogieman · Adjust',
+    bpm: 136,
+    energy: 0.8,
+    key: '—',
+    real: true,
+  },
+  { id: 'rotations-she', label: 'Boogieman · She', bpm: 129.2, energy: 0.72, key: '—', real: true },
+  {
+    id: 'rotations-devils-mountain',
+    label: 'Boogieman · Devils Mountain and Ngorongoro Crater',
+    bpm: 89.1,
+    energy: 0.6,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'rotations-fences',
+    label: 'Boogieman · Fences',
+    bpm: 117.45,
+    energy: 0.66,
+    key: '—',
+    real: true,
+  },
+  {
+    id: 'rotations-water-is-boiling-outro',
+    label: 'Boogieman · Water Is Boiling (Outro)',
+    bpm: 123.05,
+    energy: 0.6,
+    key: '—',
+    real: true,
+  },
   {
     id: 'diet-cake',
     label: 'Beaver Sheppard · Diet Cake · media slot',
@@ -77,6 +223,8 @@ function createDeckState(id, trackId) {
     bpm: trackById(trackId).bpm,
     step: 0,
     nextTime: 0,
+    transportOffset: 0,
+    transportStartedAt: 0,
     timer: null,
     source: null,
     media: null,
@@ -103,6 +251,7 @@ export class DjMixer {
     };
     this.crossfader = -0.72;
     this.elapsed = 0;
+    this.backgroundSnapshot = [];
   }
 
   get context() {
@@ -124,7 +273,7 @@ export class DjMixer {
     low.connect(high);
     high.connect(level);
     level.connect(cross);
-    cross.connect(this.audio.master);
+    cross.connect(this.audio.sourceDestination?.('dj') ?? this.audio.master);
     deck.nodes = { input, low, high, level, cross };
     this.updateDeckNodes(deck);
     this.updateCrossfader();
@@ -137,7 +286,7 @@ export class DjMixer {
   }
 
   updateNativeDeckLevels() {
-    const environment = this.audio.environment?.gain ?? 1;
+    const environment = this.audio.sourceGain?.('dj') ?? this.audio.environment?.gain ?? 1;
     for (const [deckId, deck] of Object.entries(this.decks)) {
       if (!deck.media) continue;
       deck.media.volume = clamp(deck.level * this.nativeCrossGain(deckId) * environment * 0.92);
@@ -174,6 +323,8 @@ export class DjMixer {
     deck.trackId = track.id;
     deck.bpm = track.bpm;
     deck.step = 0;
+    deck.transportOffset = 0;
+    deck.transportStartedAt = this.context?.currentTime ?? 0;
     if (wasPlaying) void this.playDeck(deckId);
     return track;
   }
@@ -201,8 +352,13 @@ export class DjMixer {
   setBpm(deckId, bpm) {
     const deck = this.decks[deckId];
     if (!deck) return;
+    const position = this.deckPosition(deckId);
     const base = trackById(deck.trackId).bpm;
     deck.bpm = clamp(Number(bpm) || base, base * 0.92, base * 1.08);
+    if (deck.playing && this.context) {
+      deck.transportOffset = position;
+      deck.transportStartedAt = this.context.currentTime;
+    }
     if (deck.source?.playbackRate) deck.source.playbackRate.value = deck.bpm / base;
     if (deck.media) deck.media.playbackRate = deck.bpm / base;
     this.updateVibe();
@@ -310,7 +466,23 @@ export class DjMixer {
     }
   }
 
-  async playNativeMedia(deck) {
+  deckPosition(deckId) {
+    const deck = this.decks[deckId];
+    if (!deck) return 0;
+    if (deck.media && Number.isFinite(deck.media.currentTime))
+      return Math.max(0, deck.media.currentTime);
+    const offset = Math.max(0, Number(deck.transportOffset) || 0);
+    if (!deck.playing || !this.context) return offset;
+    const baseBpm = Math.max(1, trackById(deck.trackId).bpm);
+    const rate = Math.max(0.001, deck.bpm / baseBpm);
+    let position =
+      offset + Math.max(0, this.context.currentTime - (deck.transportStartedAt || 0)) * rate;
+    const duration = deck.source?.buffer?.duration;
+    if (Number.isFinite(duration) && duration > 0) position %= duration;
+    return Math.max(0, position);
+  }
+
+  async playNativeMedia(deck, offset = 0) {
     const url = this.audio.assets?.mediaUrl?.(deck.trackId);
     if (!url || typeof Audio === 'undefined') return false;
     const media = new Audio();
@@ -319,10 +491,22 @@ export class DjMixer {
     media.playsInline = true;
     media.src = url;
     media.playbackRate = deck.bpm / trackById(deck.trackId).bpm;
+    const seek = () => {
+      if (!(offset > 0)) return;
+      try {
+        const duration = Number(media.duration);
+        media.currentTime = Number.isFinite(duration) && duration > 0 ? offset % duration : offset;
+      } catch {
+        // Metadata may not be seekable yet; loadedmetadata will try again.
+      }
+    };
+    if (media.readyState >= 1) seek();
+    else media.addEventListener?.('loadedmetadata', seek, { once: true });
     deck.media = media;
     this.updateNativeDeckLevels();
     try {
       await media.play();
+      seek();
       return true;
     } catch {
       deck.media = null;
@@ -333,12 +517,17 @@ export class DjMixer {
     }
   }
 
-  async playDeck(deckId) {
+  async playDeck(deckId, offset = 0) {
     const deck = this.decks[deckId];
     if (!deck || !this.context || deck.playing) return false;
     this.ensureDeckNodes(deck);
+    const safeOffset = Math.max(0, Number(offset) || 0);
+    const baseBpm = Math.max(1, trackById(deck.trackId).bpm);
     deck.playing = true;
-    deck.step = 0;
+    deck.transportOffset = safeOffset;
+    deck.transportStartedAt = this.context.currentTime;
+    const sourceStepSeconds = 60 / baseBpm / 4;
+    deck.step = Math.floor(safeOffset / sourceStepSeconds) % 16;
     deck.nextTime = this.context.currentTime;
 
     const buffer = this.audio.assets
@@ -347,7 +536,6 @@ export class DjMixer {
     if (!deck.playing) return false;
     if (buffer) {
       const source = this.context.createBufferSource();
-      const baseBpm = trackById(deck.trackId).bpm;
       source.buffer = buffer;
       source.loop = true;
       source.playbackRate.value = deck.bpm / baseBpm;
@@ -357,8 +545,9 @@ export class DjMixer {
         if (deck.source === source) deck.source = null;
       };
       deck.source = source;
-      source.start();
-    } else if (!(await this.playNativeMedia(deck))) {
+      const startOffset = buffer.duration > 0 ? safeOffset % buffer.duration : 0;
+      source.start(0, startOffset);
+    } else if (!(await this.playNativeMedia(deck, safeOffset))) {
       const schedule = () => {
         if (!deck.playing || !this.context || this.context.state !== 'running') return;
         deck.nextTime = Math.max(deck.nextTime, this.context.currentTime);
@@ -376,10 +565,53 @@ export class DjMixer {
     return true;
   }
 
+  prepareForBackground() {
+    const active = Object.entries(this.decks)
+      .filter(([, deck]) => deck.playing)
+      .map(([deckId]) => ({
+        deckId,
+        position: this.deckPosition(deckId),
+      }));
+    if (!active.length) {
+      this.backgroundSnapshot = [];
+      return false;
+    }
+
+    this.backgroundSnapshot = active;
+    for (const { deckId } of active) this.stopDeck(deckId);
+    return true;
+  }
+
+  async recoverAfterBackground() {
+    if (!this.backgroundSnapshot.length || this.context?.state !== 'running') return false;
+    const snapshot = this.backgroundSnapshot;
+    this.backgroundSnapshot = [];
+
+    let recovered = false;
+    for (const { deckId, position } of snapshot) {
+      recovered = (await this.playDeck(deckId, position)) || recovered;
+    }
+    return recovered;
+  }
+
+  async restartDeckAt(deckId, position = 0) {
+    const deck = this.decks[deckId];
+    if (!deck) return false;
+    const wasPlaying = deck.playing;
+    this.stopDeck(deckId);
+    deck.transportOffset = Math.max(0, Number(position) || 0);
+    deck.transportStartedAt = this.context?.currentTime ?? 0;
+    if (!wasPlaying) return true;
+    return this.playDeck(deckId, deck.transportOffset);
+  }
+
   stopDeck(deckId) {
     const deck = this.decks[deckId];
     if (!deck) return;
+    const position = this.deckPosition(deckId);
     deck.playing = false;
+    deck.transportOffset = position;
+    deck.transportStartedAt = 0;
     if (deck.timer !== null) this.timers.clearInterval(deck.timer);
     deck.timer = null;
     if (deck.source) {
@@ -412,9 +644,11 @@ export class DjMixer {
   }
 
   phase(deck) {
-    if (!deck.playing || !this.context) return 0;
-    const beat = 60 / deck.bpm;
-    return (((this.context.currentTime % beat) + beat) % beat) / beat;
+    if (!deck?.playing) return 0;
+    const baseBpm = Math.max(1, trackById(deck.trackId).bpm);
+    const beat = 60 / baseBpm;
+    const position = this.deckPosition(deck.id);
+    return (((position % beat) + beat) % beat) / beat;
   }
 
   metrics() {

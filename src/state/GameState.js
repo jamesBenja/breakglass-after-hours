@@ -1,6 +1,11 @@
 import { ARCHIVE_TAPE_IDS } from '../archive/tapeArchive.js';
 import { LIVE_ARCHIVE_IDS } from '../archive/liveArchive.js';
 import { normalizeAvatar } from '../avatar/profile.js';
+import { normalizeDifficulty } from '../gameplay/guidance.js';
+import { normalizeDrumMachineState } from '../gameplay/DrumMachineSystem.js';
+import { normalizeModularPatchState } from '../gameplay/ModularSynthSystem.js';
+import { ROOF_STORY_IDS } from '../gameplay/RoofEndgameSystem.js';
+import { MIXING_CHALLENGE_IDS } from '../studio/MixingChallenge.js';
 import { normalizeStudioSession } from '../studio/StudioSession.js';
 import { LEVEL_IDS } from '../world/levels.js';
 
@@ -32,12 +37,18 @@ const CONTACT_IDS = [
   'courtney',
   'simla',
   'devin',
+  'david',
+  'beaver',
+  'sam',
+  'malaika',
+  'dave',
   'bouncer',
 ];
 const HOUSE_DJ_IDS = [
   'lunice',
   'kaytranada',
   'james-benjamin',
+  'malaika',
   'siren-mars',
   'monib',
   'hydra',
@@ -79,6 +90,97 @@ const normalizePhoto = (photo) => {
   };
 };
 
+const normalizeGameStats = (value = {}) => {
+  const djLongestByName = {};
+  if (value.djLongestByName && typeof value.djLongestByName === 'object') {
+    for (const [rawKey, rawEntry] of Object.entries(value.djLongestByName).slice(0, 32)) {
+      if (typeof rawKey !== 'string' || !rawKey.trim()) continue;
+      const key = rawKey.trim().slice(0, 48);
+      const entry = rawEntry && typeof rawEntry === 'object' ? rawEntry : {};
+      djLongestByName[key] = {
+        label:
+          typeof entry.label === 'string' && entry.label.trim()
+            ? entry.label.trim().slice(0, 32)
+            : key.slice(0, 32),
+        seconds: Math.max(0, Math.min(86400, Number(entry.seconds) || 0)),
+      };
+    }
+  }
+  return {
+    walkingMeters: Math.max(0, Math.min(10000000, Number(value.walkingMeters) || 0)),
+    peakCrowdEngagement: Math.max(
+      0,
+      Math.min(100, Math.round(Number(value.peakCrowdEngagement) || 0)),
+    ),
+    peakDanceFloorCount: Math.max(
+      0,
+      Math.min(999, Math.floor(Number(value.peakDanceFloorCount) || 0)),
+    ),
+    djLongestByName,
+  };
+};
+
+const normalizeSpectraInstallation = (program, index) => {
+  if (!program || typeof program !== 'object') return null;
+  return {
+    id:
+      typeof program.id === 'string' && program.id.trim()
+        ? program.id.trim().slice(0, 80)
+        : `spectra-installation-${index + 1}`,
+    label:
+      typeof program.label === 'string' && program.label.trim()
+        ? program.label.trim().slice(0, 80)
+        : `Spectra spatial program ${index + 1}`,
+    artist:
+      typeof program.artist === 'string' && program.artist.trim()
+        ? program.artist.trim().slice(0, 72)
+        : 'Spectra',
+    description: typeof program.description === 'string' ? program.description.slice(0, 220) : '',
+    sourceProjectId:
+      typeof program.sourceProjectId === 'string' ? program.sourceProjectId.slice(0, 72) : null,
+    duration: Math.max(0, Math.min(600, Number(program.duration) || 0)),
+    updatedAt: Math.max(0, Math.floor(Number(program.updatedAt) || 0)),
+    kind: 'spectra-spatial',
+  };
+};
+
+const normalizeStudioProject = (project, index) => {
+  if (!project || typeof project !== 'object') return null;
+  const session = normalizeStudioSession({ ...(project.session ?? {}), project: true });
+  return {
+    id:
+      typeof project.id === 'string' && project.id.trim()
+        ? project.id.trim().slice(0, 72)
+        : `spectra-project-${index + 1}`,
+    name:
+      typeof project.name === 'string' && project.name.trim()
+        ? project.name.trim().slice(0, 72)
+        : `Spectra Session ${index + 1}`,
+    createdAt: Math.max(0, Math.floor(Number(project.createdAt) || 0)),
+    updatedAt: Math.max(0, Math.floor(Number(project.updatedAt) || 0)),
+    session,
+    drumMachine: normalizeDrumMachineState(project.drumMachine),
+    modularSynth: normalizeModularPatchState(project.modularSynth),
+  };
+};
+
+const normalizeStudioSong = (song, index) => {
+  if (!song || typeof song !== 'object') return null;
+  const session = normalizeStudioSession(song.session);
+  return {
+    id:
+      typeof song.id === 'string' && song.id.trim()
+        ? song.id.trim().slice(0, 64)
+        : `studio-song-${index + 1}`,
+    name:
+      typeof song.name === 'string' && song.name.trim()
+        ? song.name.trim().slice(0, 72)
+        : `Studio song ${index + 1}`,
+    savedAt: Math.max(0, Math.floor(Number(song.savedAt) || 0)),
+    session,
+  };
+};
+
 const defaults = () => ({
   version: 1,
   sceneId: 'upstairs',
@@ -90,6 +192,11 @@ const defaults = () => ({
   avatar: normalizeAvatar(),
   avatarConfigured: false,
   studio: normalizeStudioSession(),
+  studioProjects: [],
+  activeStudioProjectId: null,
+  spectraInstallations: [],
+  studioSongs: [],
+  gameStats: normalizeGameStats(),
   candy: 0,
   devinFavor: 0,
   intoxication: 0,
@@ -98,14 +205,50 @@ const defaults = () => ({
   coffeesMade: 0,
   maddoxAffection: 0,
   maddoxPets: 0,
+  maddoxBellyUnlocked: false,
+  maddoxBellyRubs: 0,
   roofSecretUnlocked: false,
+  studioAccessGranted: false,
+  houseDjDeskIntroduced: false,
+  storageAccessGranted: false,
+  tapeArchiveAccessGranted: false,
+  deadRoomAccessGranted: false,
+  djLessonCompleted: false,
+  difficulty: 'medium',
+  mixingChallengeCompleted: [],
+  mixingRewardKey: false,
+  alleyShortcutUnlocked: false,
+  hotDogsEaten: 0,
+  tacosEaten: 0,
   maddoxCompanion: false,
   arcadeWins: 0,
   archiveTape: null,
   threadedTape: null,
   liveRoomArchive: null,
   houseDjId: null,
+  policeShutdowns: 0,
+  policeTicketReceived: false,
   smokesShared: 0,
+  bathroomClogCleared: false,
+  bathroomFlooded: false,
+  bathroomPlungeWins: 0,
+  bathroomFloods: 0,
+  bathroomUses: 0,
+  handsWashed: 0,
+  modularSynth: normalizeModularPatchState(),
+  spectraDrumMachine: normalizeDrumMachineState(),
+  gentrificationKey: false,
+  gentrificationTransformed: false,
+  roofThrownItems: [],
+  roofStoriesHeard: [],
+  roofAcFixed: false,
+  roofAcKicks: 0,
+  roofAcRepairs: 0,
+  roofEscapeUnlocked: false,
+  roofEscapeEra: null,
+  roofEscapeVisits: 0,
+  freightElevatorPosition: 0,
+  freightElevatorTrips: 0,
   photos: [],
 });
 
@@ -136,6 +279,28 @@ export function validateSave(value) {
   state.avatar = normalizeAvatar(value.avatar);
   state.avatarConfigured = value.avatarConfigured === true;
   state.studio = normalizeStudioSession(value.studio);
+  if (Array.isArray(value.studioProjects)) {
+    state.studioProjects = value.studioProjects
+      .map(normalizeStudioProject)
+      .filter(Boolean)
+      .slice(-24);
+  }
+  if (
+    typeof value.activeStudioProjectId === 'string' &&
+    state.studioProjects.some((project) => project.id === value.activeStudioProjectId)
+  ) {
+    state.activeStudioProjectId = value.activeStudioProjectId;
+  }
+  state.gameStats = normalizeGameStats(value.gameStats);
+  if (Array.isArray(value.spectraInstallations)) {
+    state.spectraInstallations = value.spectraInstallations
+      .map(normalizeSpectraInstallation)
+      .filter(Boolean)
+      .slice(-12);
+  }
+  if (Array.isArray(value.studioSongs)) {
+    state.studioSongs = value.studioSongs.map(normalizeStudioSong).filter(Boolean).slice(-8);
+  }
   state.candy = Math.max(0, Math.min(9, Math.floor(Number(value.candy) || 0)));
   state.devinFavor = Math.max(0, Math.min(99, Math.floor(Number(value.devinFavor) || 0)));
   state.intoxication = Math.max(0, Math.min(1, Number(value.intoxication) || 0));
@@ -144,7 +309,28 @@ export function validateSave(value) {
   state.coffeesMade = Math.max(0, Math.min(999, Math.floor(Number(value.coffeesMade) || 0)));
   state.maddoxAffection = Math.max(0, Math.min(9, Math.floor(Number(value.maddoxAffection) || 0)));
   state.maddoxPets = Math.max(0, Math.min(999, Math.floor(Number(value.maddoxPets) || 0)));
+  state.maddoxBellyUnlocked = value.maddoxBellyUnlocked === true;
+  state.maddoxBellyRubs = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(value.maddoxBellyRubs) || 0)),
+  );
   state.roofSecretUnlocked = value.roofSecretUnlocked === true;
+  state.studioAccessGranted = value.studioAccessGranted === true;
+  state.houseDjDeskIntroduced = value.houseDjDeskIntroduced === true;
+  state.storageAccessGranted = value.storageAccessGranted === true;
+  state.tapeArchiveAccessGranted = value.tapeArchiveAccessGranted === true;
+  state.deadRoomAccessGranted = value.deadRoomAccessGranted === true;
+  state.djLessonCompleted = value.djLessonCompleted === true;
+  state.difficulty = normalizeDifficulty(value.difficulty);
+  if (Array.isArray(value.mixingChallengeCompleted)) {
+    state.mixingChallengeCompleted = [
+      ...new Set(value.mixingChallengeCompleted.filter((id) => MIXING_CHALLENGE_IDS.includes(id))),
+    ];
+  }
+  state.mixingRewardKey = value.mixingRewardKey === true;
+  state.alleyShortcutUnlocked = value.alleyShortcutUnlocked === true || state.mixingRewardKey;
+  state.hotDogsEaten = Math.max(0, Math.min(999, Math.floor(Number(value.hotDogsEaten) || 0)));
+  state.tacosEaten = Math.max(0, Math.min(999, Math.floor(Number(value.tacosEaten) || 0)));
   state.maddoxCompanion = state.roofSecretUnlocked && value.maddoxCompanion === true;
   state.arcadeWins = Math.max(0, Math.min(999, Math.floor(Number(value.arcadeWins) || 0)));
   if (ARCHIVE_TAPE_IDS.includes(value.archiveTape)) state.archiveTape = value.archiveTape;
@@ -152,7 +338,56 @@ export function validateSave(value) {
   if (LIVE_ARCHIVE_IDS.includes(value.liveRoomArchive))
     state.liveRoomArchive = value.liveRoomArchive;
   if (HOUSE_DJ_IDS.includes(value.houseDjId)) state.houseDjId = value.houseDjId;
+  state.policeShutdowns = Math.max(0, Math.min(99, Math.floor(Number(value.policeShutdowns) || 0)));
+  state.policeTicketReceived = value.policeTicketReceived === true;
   state.smokesShared = Math.max(0, Math.min(999, Math.floor(Number(value.smokesShared) || 0)));
+  state.bathroomClogCleared = value.bathroomClogCleared === true;
+  state.bathroomFlooded = value.bathroomFlooded === true;
+  state.bathroomPlungeWins = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(value.bathroomPlungeWins) || 0)),
+  );
+  state.bathroomFloods = Math.max(0, Math.min(999, Math.floor(Number(value.bathroomFloods) || 0)));
+  state.bathroomUses = Math.max(0, Math.min(999, Math.floor(Number(value.bathroomUses) || 0)));
+  state.handsWashed = Math.max(0, Math.min(999, Math.floor(Number(value.handsWashed) || 0)));
+  state.modularSynth = normalizeModularPatchState(value.modularSynth);
+  state.spectraDrumMachine = normalizeDrumMachineState(value.spectraDrumMachine);
+  state.gentrificationKey = value.gentrificationKey === true;
+  state.gentrificationTransformed = value.gentrificationTransformed === true;
+  if (Array.isArray(value.roofThrownItems)) {
+    state.roofThrownItems = [
+      ...new Set(value.roofThrownItems.filter((id) => ['chair', 'box', 'lumber'].includes(id))),
+    ];
+  }
+  if (Array.isArray(value.roofStoriesHeard)) {
+    state.roofStoriesHeard = [
+      ...new Set(value.roofStoriesHeard.filter((id) => ROOF_STORY_IDS.includes(id))),
+    ];
+  }
+  state.roofAcFixed = value.roofAcFixed === true;
+  state.roofAcKicks = Math.max(0, Math.min(999, Math.floor(Number(value.roofAcKicks) || 0)));
+  state.roofAcRepairs = Math.max(0, Math.min(999, Math.floor(Number(value.roofAcRepairs) || 0)));
+  state.roofEscapeUnlocked = value.roofEscapeUnlocked === true;
+  state.roofEscapeEra = ['past', 'future'].includes(value.roofEscapeEra)
+    ? value.roofEscapeEra
+    : null;
+  state.roofEscapeVisits = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(value.roofEscapeVisits) || 0)),
+  );
+  state.freightElevatorPosition = Math.max(
+    -5,
+    Math.min(
+      105,
+      Number.isFinite(Number(value.freightElevatorPosition))
+        ? Number(value.freightElevatorPosition)
+        : 0,
+    ),
+  );
+  state.freightElevatorTrips = Math.max(
+    0,
+    Math.min(999, Math.floor(Number(value.freightElevatorTrips) || 0)),
+  );
   if (Array.isArray(value.photos)) {
     state.photos = value.photos.map(normalizePhoto).filter(Boolean).slice(-18);
   }
@@ -160,13 +395,14 @@ export function validateSave(value) {
 }
 
 export class GameState {
-  constructor(storage, onWarning = () => {}) {
+  constructor(storage, onWarning = () => {}, saveKey = SAVE_KEY) {
     this.storage = storage;
+    this.saveKey = saveKey || SAVE_KEY;
     this.onWarning = onWarning;
     this.warningShown = false;
     this.data = defaults();
     try {
-      this.data = validateSave(JSON.parse(storage?.getItem(SAVE_KEY) ?? 'null'));
+      this.data = validateSave(JSON.parse(storage?.getItem(this.saveKey) ?? 'null'));
     } catch {
       this.warn('Saved progress could not be read. Starting a fresh visit.');
     }
@@ -195,7 +431,7 @@ export class GameState {
     }
     try {
       if (!this.storage) throw new Error('Storage unavailable');
-      this.storage.setItem(SAVE_KEY, JSON.stringify(this.data));
+      this.storage.setItem(this.saveKey, JSON.stringify(this.data));
       return true;
     } catch {
       this.warn('Saving is unavailable in this browser. This visit can continue.');

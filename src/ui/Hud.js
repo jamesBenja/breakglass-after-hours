@@ -2,6 +2,7 @@ export class Hud {
   constructor(document) {
     this.document = document;
     this.status = document.getElementById('status');
+    this.panelElement = document.getElementById('panel');
     this.title = document.getElementById('pTitle');
     this.text = document.getElementById('pText');
     this.buttons = document.getElementById('buttons');
@@ -11,6 +12,14 @@ export class Hud {
     this.enter = document.getElementById('enter');
     this.debug = document.getElementById('debug');
     this.notice = document.getElementById('notice');
+    this.closeButton = document.createElement('button');
+    this.closeButton.type = 'button';
+    this.closeButton.className = 'panel-close';
+    this.closeButton.setAttribute('aria-label', 'Close');
+    this.closeButton.title = 'Close';
+    this.closeButton.textContent = '×';
+    this.closeButton.onclick = () => this.closePanel();
+    this.panelElement?.appendChild(this.closeButton);
     this.avatar = {
       displayName: document.getElementById('avatarName'),
       identity: document.getElementById('avatarIdentity'),
@@ -54,7 +63,13 @@ export class Hud {
     };
   }
 
+  closePanel() {
+    if (this.panelElement) this.panelElement.hidden = true;
+    this.document.querySelector('canvas')?.focus();
+  }
+
   clearPanel(title, text) {
+    if (this.panelElement) this.panelElement.hidden = false;
     this.title.textContent = title;
     this.text.textContent = text;
     this.buttons.replaceChildren();
@@ -98,11 +113,17 @@ export class Hud {
 
   studioMixer(
     session,
-    { onMix = () => {}, onPlay = () => {}, onStop = () => {}, onRecordVocal } = {},
+    {
+      onMix = () => {},
+      onPlay = () => {},
+      onStop = () => {},
+      onRecordVocal,
+      onAudition = null,
+    } = {},
   ) {
     this.clearPanel(
       'SPECTRA CONSOLE',
-      `${session.name} · ${session.stems.length} stems. Fader, pan, shelves, mute and solo all feed the actual WebAudio channel strips.`,
+      `${session.name} · ${session.stems.length} stems. Fader, pan, shelves, FX send, mute and solo all feed the actual WebAudio channel strips.`,
     );
     const grid = this.document.createElement('div');
     grid.className = 'control-grid';
@@ -112,7 +133,16 @@ export class Hud {
       const name = this.document.createElement('strong');
       name.textContent = stem.label;
       const source = this.document.createElement('small');
-      source.textContent = stem.source ? ` · ${stem.source}` : '';
+      const eventCount = stem.performance?.events?.length ?? 0;
+      const recordingSeconds = session.recordings?.get?.(stem.id)?.duration;
+      const material = eventCount
+        ? ` · ${eventCount} event${eventCount === 1 ? '' : 's'}`
+        : Number.isFinite(recordingSeconds)
+          ? ` · ${recordingSeconds.toFixed(1)}s audio`
+          : stem.assetId
+            ? ' · audio asset'
+            : ' · generated';
+      source.textContent = `${stem.source ? ` · ${stem.source}` : ''}${material}`;
       name.appendChild(source);
       strip.appendChild(name);
 
@@ -141,14 +171,25 @@ export class Hud {
         session.setEq(stem.id, 'high', value);
         onMix();
       });
+      this.addMixerRange(strip, 'FX send', 0, 1, 0.01, stem.fx ?? 0, (value) => {
+        session.setFx(stem.id, value);
+        onMix();
+      });
 
       const row = this.document.createElement('div');
       row.className = 'row';
       const mute = this.document.createElement('button');
       const solo = this.document.createElement('button');
+      const audition = onAudition ? this.document.createElement('button') : null;
       const refresh = () => {
-        mute.textContent = stem.mute ? 'Unmute' : 'Mute';
-        solo.textContent = stem.solo ? 'Unsolo' : 'Solo';
+        mute.textContent = stem.mute ? 'MUTED' : 'MUTE';
+        solo.textContent = stem.solo ? 'SOLOED' : 'SOLO';
+        mute.setAttribute('aria-pressed', String(stem.mute === true));
+        solo.setAttribute('aria-pressed', String(stem.solo === true));
+        mute.classList.toggle('mixer-toggle-active', stem.mute === true);
+        solo.classList.toggle('mixer-toggle-active', stem.solo === true);
+        strip.classList.toggle('mixer-strip-muted', stem.mute === true);
+        strip.classList.toggle('mixer-strip-solo', stem.solo === true);
       };
       refresh();
       mute.onclick = () => {
@@ -161,11 +202,43 @@ export class Hud {
         refresh();
         onMix();
       };
-      row.append(mute, solo);
+      if (audition) {
+        audition.textContent = 'Audition';
+        audition.onclick = () =>
+          Promise.resolve(onAudition(stem.id)).catch((error) => this.warning(error.message));
+        row.append(mute, solo, audition);
+      } else row.append(mute, solo);
       strip.appendChild(row);
       grid.appendChild(strip);
     }
     this.buttons.appendChild(grid);
+
+    const mixState = this.document.createElement('div');
+    mixState.className = 'row spectra-mix-state';
+    const clearMutes = this.document.createElement('button');
+    const clearSolos = this.document.createElement('button');
+    const refreshMixState = () => {
+      const muted = session.stems.filter((stem) => stem.mute).length;
+      const soloed = session.stems.filter((stem) => stem.solo).length;
+      clearMutes.textContent = muted ? `CLEAR MUTES · ${muted}` : 'CLEAR MUTES';
+      clearSolos.textContent = soloed ? `CLEAR SOLOS · ${soloed}` : 'CLEAR SOLOS';
+      clearMutes.disabled = muted === 0;
+      clearSolos.disabled = soloed === 0;
+    };
+    clearMutes.onclick = () => {
+      for (const stem of session.stems) stem.mute = false;
+      onMix();
+      this.studioMixer(session, { onMix, onPlay, onStop, onRecordVocal, onAudition });
+    };
+    clearSolos.onclick = () => {
+      for (const stem of session.stems) stem.solo = false;
+      onMix();
+      this.studioMixer(session, { onMix, onPlay, onStop, onRecordVocal, onAudition });
+    };
+    refreshMixState();
+    mixState.append(clearMutes, clearSolos);
+    this.buttons.appendChild(mixState);
+
     const transport = this.document.createElement('div');
     transport.className = 'row';
     for (const [label, action] of [
@@ -394,6 +467,8 @@ export class Hud {
 
   dispose() {
     this.enter.onclick = null;
+    if (this.closeButton) this.closeButton.onclick = null;
+    this.closeButton?.remove?.();
     this.buttons.replaceChildren();
   }
 }

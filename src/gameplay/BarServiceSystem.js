@@ -28,6 +28,7 @@ export class BarServiceSystem {
     this.sceneManager = sceneManager;
     this.saveState = saveState;
     this.elapsedSinceSave = 0;
+    this.interactionProps = null;
     this.syncPlayer();
   }
 
@@ -66,13 +67,19 @@ export class BarServiceSystem {
     );
   }
 
-  serveAnimation(id) {
+  serveAnimation(id, kind = 'mixed') {
     this.sceneManager.current?.npcs?.triggerServe?.(id);
+    this.sceneManager.current?.npcs?.triggerHandoff?.(id, kind);
+  }
+
+  handoff(id, kind) {
+    this.interactionProps?.receiveFromNpc?.(id, kind);
   }
 
   order(id, drink) {
     if (this.level >= 0.82) {
-      this.serveAnimation(id);
+      this.serveAnimation(id, 'water');
+      this.handoff(id, 'water');
       this.panel(
         id,
         `${this.bartenderName(id)} cuts you off for now and puts a water in front of you.`,
@@ -82,14 +89,16 @@ export class BarServiceSystem {
     this.level += drink.strength;
     this.state.data.drinksServed =
       Math.max(0, Math.floor(Number(this.state.data.drinksServed) || 0)) + 1;
-    this.serveAnimation(id);
+    this.serveAnimation(id, drink.id);
+    this.handoff(id, drink.id);
     this.saveState();
     this.panel(id, `${this.bartenderName(id)} serves you a ${drink.label.toLowerCase()}.`);
   }
 
   water(id) {
     this.level -= 0.2;
-    this.serveAnimation(id);
+    this.serveAnimation(id, 'water');
+    this.handoff(id, 'water');
     this.saveState();
     this.panel(id, `${this.bartenderName(id)} hands you a water.`);
   }
@@ -99,6 +108,7 @@ export class BarServiceSystem {
     this.caffeine = Math.min(1, this.caffeine + 0.62);
     this.state.data.coffeesMade =
       Math.max(0, Math.floor(Number(this.state.data.coffeesMade) || 0)) + 1;
+    this.interactionProps?.selfServe?.('coffee');
     this.saveState();
     this.coffeePanel('You make an espresso on the kitchen machine.');
   }
@@ -139,11 +149,15 @@ export class BarServiceSystem {
   }
 
   handle(target) {
-    if (this.sceneManager.current?.definition?.id !== 'downstairs') return false;
+    const sceneId = this.sceneManager.current?.definition?.id;
     if (target?.action === 'coffee') {
-      this.coffeePanel();
+      if (!['downstairs', 'upstairs'].includes(sceneId)) return false;
+      this.coffeePanel(
+        sceneId === 'upstairs' ? 'You use the espresso machine in the studio kitchen.' : '',
+      );
       return true;
     }
+    if (sceneId !== 'downstairs') return false;
     const id = target?.npcId ?? target?.id;
     if (!BARTENDERS.has(id)) return false;
     this.state?.meet?.(id);
