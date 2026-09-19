@@ -217,7 +217,10 @@ function enhancePlayback(playback, session) {
 }
 
 const cleanProjectName = (value, fallback = 'Untitled Spectra Session') => {
-  const name = String(value ?? '').trim().replace(/\s+/g, ' ').slice(0, 64);
+  const name = String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 64);
   return name || fallback;
 };
 
@@ -300,8 +303,7 @@ async function saveCurrentProject(game, ui, { asNew = false, name = null } = {})
 
   let audioResult = { saved: 0, missing: 0 };
   try {
-    audioResult =
-      (await game.spectraProjectStore?.saveSession?.(id, game.studio)) ?? audioResult;
+    audioResult = (await game.spectraProjectStore?.saveSession?.(id, game.studio)) ?? audioResult;
   } catch {
     audioResult.missing += [...game.studio.recordings.keys()].length;
   }
@@ -441,7 +443,9 @@ async function deleteCurrentProject(game, ui) {
     // Deleting the JSON project is still useful if IndexedDB is unavailable.
   }
   game.save();
-  ui.warning?.(`Deleted saved Spectra session “${active.name}”. The open working session remains on the console until you load or create another one.`);
+  ui.warning?.(
+    `Deleted saved Spectra session “${active.name}”. The open working session remains on the console until you load or create another one.`,
+  );
   return true;
 }
 
