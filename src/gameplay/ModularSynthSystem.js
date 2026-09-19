@@ -463,6 +463,7 @@ export class ModularSynthSystem {
     session.attachPerformance(take.id, performance);
     this.save();
     await this.game.audio?.init?.();
+    this.game.spectraTransport?.restart?.(0);
     await this.game.studioPlayback?.play?.(session, 0, { stemId: take.id });
     this.ui.warning?.(
       `Recorded ${performance.events.length} modular event${performance.events.length === 1 ? '' : 's'} to “${take.label}”. Auditioning the new Spectra stem now.`,
