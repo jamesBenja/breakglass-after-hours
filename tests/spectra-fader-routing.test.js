@@ -1,3 +1,4 @@
+// These regressions keep Spectra mixing local to its own channel strips and room surfaces.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SpatialAudioSystem } from '../src/audio/SpatialAudioSystem.js';
