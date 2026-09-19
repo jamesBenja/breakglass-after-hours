@@ -470,7 +470,7 @@ export class ModularSynthSystem {
     );
     this.ui.panel(
       'MODULAR LOOP → SPECTRA',
-      `${take.label} is now a console stem. The live sequencer can keep running while you decide whether to build another variation.`,
+      `${take.label} is now a console stem. Playback has handed off from the live sequencer to the recorded Spectra channel so its fader, mute, solo, EQ, FX and spatial position control what you hear.`,
       [
         ...(typeof this.game.showStudioLoopBuilder === 'function'
           ? [['Open loop / song builder', () => this.game.showStudioLoopBuilder()]]
