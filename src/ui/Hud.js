@@ -182,8 +182,14 @@ export class Hud {
       const solo = this.document.createElement('button');
       const audition = onAudition ? this.document.createElement('button') : null;
       const refresh = () => {
-        mute.textContent = stem.mute ? 'Unmute' : 'Mute';
-        solo.textContent = stem.solo ? 'Unsolo' : 'Solo';
+        mute.textContent = stem.mute ? 'MUTED' : 'MUTE';
+        solo.textContent = stem.solo ? 'SOLOED' : 'SOLO';
+        mute.setAttribute('aria-pressed', String(stem.mute === true));
+        solo.setAttribute('aria-pressed', String(stem.solo === true));
+        mute.classList.toggle('mixer-toggle-active', stem.mute === true);
+        solo.classList.toggle('mixer-toggle-active', stem.solo === true);
+        strip.classList.toggle('mixer-strip-muted', stem.mute === true);
+        strip.classList.toggle('mixer-strip-solo', stem.solo === true);
       };
       refresh();
       mute.onclick = () => {
@@ -206,6 +212,33 @@ export class Hud {
       grid.appendChild(strip);
     }
     this.buttons.appendChild(grid);
+
+    const mixState = this.document.createElement('div');
+    mixState.className = 'row spectra-mix-state';
+    const clearMutes = this.document.createElement('button');
+    const clearSolos = this.document.createElement('button');
+    const refreshMixState = () => {
+      const muted = session.stems.filter((stem) => stem.mute).length;
+      const soloed = session.stems.filter((stem) => stem.solo).length;
+      clearMutes.textContent = muted ? `CLEAR MUTES · ${muted}` : 'CLEAR MUTES';
+      clearSolos.textContent = soloed ? `CLEAR SOLOS · ${soloed}` : 'CLEAR SOLOS';
+      clearMutes.disabled = muted === 0;
+      clearSolos.disabled = soloed === 0;
+    };
+    clearMutes.onclick = () => {
+      for (const stem of session.stems) stem.mute = false;
+      onMix();
+      this.studioMixer(session, { onMix, onPlay, onStop, onRecordVocal, onAudition });
+    };
+    clearSolos.onclick = () => {
+      for (const stem of session.stems) stem.solo = false;
+      onMix();
+      this.studioMixer(session, { onMix, onPlay, onStop, onRecordVocal, onAudition });
+    };
+    refreshMixState();
+    mixState.append(clearMutes, clearSolos);
+    this.buttons.appendChild(mixState);
+
     const transport = this.document.createElement('div');
     transport.className = 'row';
     for (const [label, action] of [

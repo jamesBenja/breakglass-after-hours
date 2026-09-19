@@ -115,19 +115,38 @@ export class StudioPlayback {
     high.connect(compressor);
     compressor.connect(fader);
     const destination = this.audio.sourceDestination?.('studio') ?? this.audio.master;
-    const spatialPost = context.createGain();
+    // Keep level automation separate from the final mute/solo gate so channel state is authoritative.
+    const channelSum = context.createGain();
+    const gate = context.createGain();
+    const spatialPost = gate;
     const dry = context.createGain();
     dry.gain.value = 1;
-    fader.connect(spatialPost);
-    spatialPost.connect(dry);
+    gate.gain.value = 1;
+    fader.connect(channelSum);
+    channelSum.connect(gate);
+    gate.connect(dry);
     dry.connect(pan ?? destination);
     pan?.connect(destination);
     fxGain.gain.value = 0;
     fxDelay.delayTime.value = 0.18;
     fader.connect(fxGain);
     fxGain.connect(fxDelay);
-    fxDelay.connect(spatialPost);
-    bus = { input, color, low, high, compressor, fader, spatialPost, dry, pan, fxGain, fxDelay };
+    fxDelay.connect(channelSum);
+    bus = {
+      input,
+      color,
+      low,
+      high,
+      compressor,
+      fader,
+      channelSum,
+      gate,
+      spatialPost,
+      dry,
+      pan,
+      fxGain,
+      fxDelay,
+    };
     this.buses.set(stem.id, bus);
     this.configureProcessing(stem, bus);
     return bus;
@@ -180,7 +199,10 @@ export class StudioPlayback {
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const audible =
         selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
-      bus.fader.gain.setTargetAtTime(audible ? stem.level : 0, time, 0.025);
+      bus.fader.gain.setTargetAtTime(stem.level, time, 0.025);
+      bus.gate.gain.cancelScheduledValues?.(time);
+      if (bus.gate.gain.setValueAtTime) bus.gate.gain.setValueAtTime(audible ? 1 : 0, time);
+      else bus.gate.gain.value = audible ? 1 : 0;
       bus.fxGain.gain.setTargetAtTime((stem.fx ?? 0) * 0.38, time, 0.025);
       if (bus.pan) bus.pan.pan.setTargetAtTime(stem.pan ?? 0, time, 0.025);
       this.spatialMixer?.updateStem?.(stem, bus);
@@ -481,6 +503,8 @@ export class StudioPlayback {
   renderStem(stem, step, when) {
     if (this.auditionStemId && stem.id !== this.auditionStemId) return;
     const bus = this.ensureBus(stem).input;
+    const anySolo = this.session?.stems.some((candidate) => candidate.solo);
+    if (stem.clipActive === false || stem.mute || (anySolo && !stem.solo)) return;
     const recording = this.session?.recordings.get(stem.id);
     const recordingStepDuration = 60 / Math.max(1, Number(this.session?.bpm) || this.bpm) / 4;
     const recordingLoopSteps = this.session?.loopEnabled
@@ -501,8 +525,6 @@ export class StudioPlayback {
       source.start(this.audio.context.currentTime + when);
     }
 
-    const anySolo = this.session?.stems.some((candidate) => candidate.solo);
-    if (stem.clipActive === false || stem.mute || (anySolo && !stem.solo)) return;
     if (recording) return;
     if (this.renderPerformance(stem, step, when)) return;
     if (stem.kind === 'drums') {
