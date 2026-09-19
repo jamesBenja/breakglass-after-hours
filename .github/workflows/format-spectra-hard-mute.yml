@@ -1,0 +1,32 @@
+name: Format Spectra hard mute mixer
+
+on:
+  push:
+    branches: [fix/spectra-hard-mute-mixer]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.event.head_commit.message != 'Format Spectra hard mute mixer'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/spectra-hard-mute-mixer
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm install --frozen-lockfile
+      - name: Format touched CSS
+        run: |
+          pnpm exec prettier --write src/ui/musicEnhancements.css
+          git rm .github/workflows/format-spectra-hard-mute.yml
+          git config user.name "breakglass-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/ui/musicEnhancements.css
+          git commit -m "Format Spectra hard mute mixer"
+          git push origin HEAD:fix/spectra-hard-mute-mixer
