@@ -115,6 +115,7 @@ export class StudioPlayback {
     high.connect(compressor);
     compressor.connect(fader);
     const destination = this.audio.sourceDestination?.('studio') ?? this.audio.master;
+    // Keep level automation separate from the final mute/solo gate so channel state is authoritative.
     const channelSum = context.createGain();
     const gate = context.createGain();
     const spatialPost = gate;
