@@ -732,10 +732,13 @@ function buildSpatialTrackPanel(game, ui, stemId) {
           buildSpatialTrackPanel(game, ui, stem.id);
         },
       ],
-      ['CENTER TRACK', () => {
-        game.spectraSpatialMixer.updatePosition(stem.id, { x: 0.5, y: 0.5 });
-        buildSpatialTrackPanel(game, ui, stem.id);
-      }],
+      [
+        'CENTER TRACK',
+        () => {
+          game.spectraSpatialMixer.updatePosition(stem.id, { x: 0.5, y: 0.5 });
+          buildSpatialTrackPanel(game, ui, stem.id);
+        },
+      ],
       ['Back to 8-channel mixer', () => buildSpatialMixerPanel(game, ui)],
     ],
   );

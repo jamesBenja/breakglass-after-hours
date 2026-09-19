@@ -339,7 +339,6 @@
   }
 }
 
-
 /* Spectra eight-channel spatial mixer */
 .spectra-spatial-grid {
   position: relative;
@@ -349,10 +348,13 @@
   border: 1px solid rgba(255, 225, 171, 0.34);
   border-radius: 14px;
   background:
-    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
     radial-gradient(circle at center, rgba(113, 92, 70, 0.18), rgba(10, 11, 14, 0.72));
-  background-size: 25% 25%, 25% 25%, auto;
+  background-size:
+    25% 25%,
+    25% 25%,
+    auto;
   touch-action: none;
   overflow: hidden;
 }

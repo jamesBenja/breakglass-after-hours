@@ -90,12 +90,7 @@ export class SpectraSpatialMixer {
     if (!route) return;
     const gains = spatialSpeakerGains(spatial);
     for (let index = 0; index < route.gains.length; index += 1) {
-      setParam(
-        route.gains[index].gain,
-        gains[index] ?? 0,
-        this.context?.currentTime ?? 0,
-        0.015,
-      );
+      setParam(route.gains[index].gain, gains[index] ?? 0, this.context?.currentTime ?? 0, 0.015);
     }
   }
 

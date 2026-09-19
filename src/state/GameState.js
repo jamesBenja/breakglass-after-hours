@@ -135,8 +135,7 @@ const normalizeSpectraInstallation = (program, index) => {
       typeof program.artist === 'string' && program.artist.trim()
         ? program.artist.trim().slice(0, 72)
         : 'Spectra',
-    description:
-      typeof program.description === 'string' ? program.description.slice(0, 220) : '',
+    description: typeof program.description === 'string' ? program.description.slice(0, 220) : '',
     sourceProjectId:
       typeof program.sourceProjectId === 'string' ? program.sourceProjectId.slice(0, 72) : null,
     duration: Math.max(0, Math.min(600, Number(program.duration) || 0)),

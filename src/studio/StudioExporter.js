@@ -710,7 +710,7 @@ export class StudioExporter {
       const gains = spatialSpeakerGains(stem.spatial);
       for (let index = 0; index < speakerInputs.length; index += 1) {
         const gain = context.createGain();
-        gain.gain.value = stem.spatial?.enabled === false ? 1 / Math.sqrt(8) : gains[index] ?? 0;
+        gain.gain.value = stem.spatial?.enabled === false ? 1 / Math.sqrt(8) : (gains[index] ?? 0);
         spatialOutput.connect(gain);
         gain.connect(speakerInputs[index]);
       }
