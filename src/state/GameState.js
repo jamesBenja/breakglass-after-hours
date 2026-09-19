@@ -120,6 +120,26 @@ const normalizeGameStats = (value = {}) => {
   };
 };
 
+const normalizeStudioProject = (project, index) => {
+  if (!project || typeof project !== 'object') return null;
+  const session = normalizeStudioSession({ ...(project.session ?? {}), project: true });
+  return {
+    id:
+      typeof project.id === 'string' && project.id.trim()
+        ? project.id.trim().slice(0, 72)
+        : `spectra-project-${index + 1}`,
+    name:
+      typeof project.name === 'string' && project.name.trim()
+        ? project.name.trim().slice(0, 72)
+        : `Spectra Session ${index + 1}`,
+    createdAt: Math.max(0, Math.floor(Number(project.createdAt) || 0)),
+    updatedAt: Math.max(0, Math.floor(Number(project.updatedAt) || 0)),
+    session,
+    drumMachine: normalizeDrumMachineState(project.drumMachine),
+    modularSynth: normalizeModularPatchState(project.modularSynth),
+  };
+};
+
 const normalizeStudioSong = (song, index) => {
   if (!song || typeof song !== 'object') return null;
   const session = normalizeStudioSession(song.session);
@@ -148,6 +168,8 @@ const defaults = () => ({
   avatar: normalizeAvatar(),
   avatarConfigured: false,
   studio: normalizeStudioSession(),
+  studioProjects: [],
+  activeStudioProjectId: null,
   studioSongs: [],
   gameStats: normalizeGameStats(),
   candy: 0,
@@ -232,6 +254,18 @@ export function validateSave(value) {
   state.avatar = normalizeAvatar(value.avatar);
   state.avatarConfigured = value.avatarConfigured === true;
   state.studio = normalizeStudioSession(value.studio);
+  if (Array.isArray(value.studioProjects)) {
+    state.studioProjects = value.studioProjects
+      .map(normalizeStudioProject)
+      .filter(Boolean)
+      .slice(-24);
+  }
+  if (
+    typeof value.activeStudioProjectId === 'string' &&
+    state.studioProjects.some((project) => project.id === value.activeStudioProjectId)
+  ) {
+    state.activeStudioProjectId = value.activeStudioProjectId;
+  }
   state.gameStats = normalizeGameStats(value.gameStats);
   if (Array.isArray(value.studioSongs)) {
     state.studioSongs = value.studioSongs.map(normalizeStudioSong).filter(Boolean).slice(-8);
