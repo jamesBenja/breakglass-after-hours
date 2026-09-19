@@ -442,7 +442,7 @@ export class ModularSynthSystem {
     }
   }
 
-  recordToConsole() {
+  async recordToConsole() {
     const session = this.game.studio;
     if (!session?.addTake || !session?.attachPerformance) return;
     const performance = this.performance();
@@ -462,6 +462,11 @@ export class ModularSynthSystem {
     );
     session.attachPerformance(take.id, performance);
     this.save();
+    await this.game.audio?.init?.();
+    await this.game.studioPlayback?.play?.(session, 0, { stemId: take.id });
+    this.ui.warning?.(
+      `Recorded ${performance.events.length} modular event${performance.events.length === 1 ? '' : 's'} to “${take.label}”. Auditioning the new Spectra stem now.`,
+    );
     this.ui.panel(
       'MODULAR LOOP → SPECTRA',
       `${take.label} is now a console stem. The live sequencer can keep running while you decide whether to build another variation.`,
