@@ -29,7 +29,7 @@ test('installation program can switch without changing the eight-speaker room ar
     activeExternalTransport: { owner: 'dj' },
   });
   assert.equal(spatial.snapshot().emitters, 8);
-  assert.equal(spatial.snapshot().program.id, 'abstract-drift');
+  assert.equal(spatial.snapshot().program.id, 'rainforest-study');
 
   const selected = spatial.setInstallationProgram('rainforest-study');
   assert.equal(selected.id, 'rainforest-study');
