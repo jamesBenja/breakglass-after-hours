@@ -1,3 +1,5 @@
+import { spatialSpeakerGains } from './SpectraSpatialLayout.js';
+
 const NOTE = {
   C2: 65.41,
   D2: 73.42,
@@ -72,7 +74,7 @@ function writeString(view, offset, value) {
 }
 
 export function encodeWav(audioBuffer) {
-  const channels = Math.max(1, Math.min(2, Number(audioBuffer.numberOfChannels) || 1));
+  const channels = Math.max(1, Math.min(8, Number(audioBuffer.numberOfChannels) || 1));
   const frames = Math.max(0, Number(audioBuffer.length) || 0);
   const sampleRate = Math.max(8_000, Number(audioBuffer.sampleRate) || SAMPLE_RATE);
   const samples = Array.from({ length: channels }, (_, channel) =>
@@ -214,7 +216,13 @@ export function createStoredZip(entries) {
   return concatBytes([...locals, centralDirectory, end]);
 }
 
-function createChannel(context, stem, destination, level = stem.level ?? 0.68) {
+function createChannel(
+  context,
+  stem,
+  destination,
+  level = stem.level ?? 0.68,
+  { panEnabled = true } = {},
+) {
   const input = context.createGain();
   const color = context.createBiquadFilter();
   const low = context.createBiquadFilter();
@@ -222,7 +230,9 @@ function createChannel(context, stem, destination, level = stem.level ?? 0.68) {
   const compressor = context.createDynamicsCompressor();
   const fader = context.createGain();
   const pan =
-    typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
+    panEnabled && typeof context.createStereoPanner === 'function'
+      ? context.createStereoPanner()
+      : null;
   const fxGain = context.createGain();
   const fxDelay = context.createDelay(0.5);
 
@@ -664,6 +674,78 @@ export class StudioExporter {
     return {
       buffer: await context.startRendering(),
       duration,
+    };
+  }
+
+  async renderSpatial(session) {
+    if (!this.OfflineAudioContext) {
+      throw new Error('Offline audio rendering is not supported by this browser.');
+    }
+
+    const probe = new this.OfflineAudioContext(2, SAMPLE_RATE, SAMPLE_RATE);
+    const buffers = await this.assetBuffers(session, probe);
+    const duration = studioExportDuration(session, buffers);
+    const hasFx = session.stems.some((stem) => (stem.fx ?? 0) > 0);
+    const tail = hasFx ? 0.5 : 0.08;
+    const frames = Math.ceil((duration + tail) * SAMPLE_RATE);
+    const context = new this.OfflineAudioContext(8, frames, SAMPLE_RATE);
+    const merger = context.createChannelMerger(8);
+    merger.connect(context.destination);
+
+    const speakerInputs = Array.from({ length: 8 }, (_, index) => {
+      const input = context.createGain();
+      input.gain.value = 1;
+      input.connect(merger, 0, index);
+      return input;
+    });
+
+    const anySolo = session.stems.some((stem) => stem.solo);
+    let rendered = 0;
+    for (const stem of session.stems) {
+      if (stem.clipActive === false || stem.mute || (anySolo && !stem.solo)) continue;
+      const spatialOutput = context.createGain();
+      const input = createChannel(context, stem, spatialOutput, stem.level ?? 0.68, {
+        panEnabled: false,
+      });
+      const gains = spatialSpeakerGains(stem.spatial);
+      for (let index = 0; index < speakerInputs.length; index += 1) {
+        const gain = context.createGain();
+        gain.gain.value = stem.spatial?.enabled === false ? 1 / Math.sqrt(8) : gains[index] ?? 0;
+        spatialOutput.connect(gain);
+        gain.connect(speakerInputs[index]);
+      }
+
+      const recording = session.recordings?.get?.(stem.id);
+      const buffer = recording ?? buffers.get(stem.id);
+      if (buffer) {
+        scheduleBuffer(
+          context,
+          buffer,
+          input,
+          duration,
+          !recording && session.loopEnabled === true,
+          recording ? stem.clipStart : 0,
+        );
+      } else if (!schedulePerformance(context, stem, input, duration)) {
+        schedulePrototype(context, session, stem, input, duration);
+      }
+      rendered += 1;
+    }
+
+    if (!rendered) throw new Error('There are no audible Spectra tracks to spatialize.');
+    return {
+      buffer: await context.startRendering(),
+      duration,
+      channels: 8,
+    };
+  }
+
+  async renderSpatialWav(session) {
+    const result = await this.renderSpatial(session);
+    return {
+      ...result,
+      bytes: encodeWav(result.buffer),
+      filename: `${safeName(session.name)}-take-a-break-8ch.wav`,
     };
   }
 
