@@ -1,4 +1,5 @@
 import { at, trace, footprint, rooms, waypoints } from './plan.js';
+import { SPECTRA_SPATIAL_SPEAKERS } from '../../studio/SpectraSpatialLayout.js';
 import { platform } from './compile.js';
 
 // GAME-only kit. No inferred uses of private suites; all records can be removed
@@ -57,6 +58,28 @@ export function createGameSpace() {
     prop('monitor-left', 219, 852, 0.65, 0.6, 2.1, 0x1f292b, { kind: 'equipment' }),
     prop('monitor-right', 289, 852, 0.65, 0.6, 2.1, 0x1f292b, { kind: 'equipment' }),
     prop('tape-bank', 189, 830, 1, 2.2, 1.8, 0x78604b, { kind: 'equipment' }),
+    ...SPECTRA_SPATIAL_SPEAKERS.map((speaker, index) => {
+      const center = [-12.25, -1.25];
+      const rotationY = Math.atan2(center[0] - speaker.world[0], center[1] - speaker.world[2]);
+      return platform(
+        `spectra-spatial-speaker-${index + 1}`,
+        speaker.world[0],
+        speaker.world[2],
+        0.42,
+        0.26,
+        0.2,
+        0x20282d,
+        {
+          kind: 'equipment',
+          name: `Spectra spatial speaker ${index + 1}`,
+          rotationY,
+          speakerY: speaker.world[1],
+          player: false,
+          camera: false,
+          surface: false,
+        },
+      );
+    }),
     prop('patch-rack', 185, 777, 0.5, 2.2, 2, 0x534c43, { kind: 'equipment' }),
     // Keep this rack on the west wall behind the modular so the synth face stays clear.
     prop('side-rack', 185, 742, 0.85, 1.3, 1.7, 0x414f57, {
