@@ -1,4 +1,4 @@
-import { PerspectiveCamera, Vector3 } from 'three';
+import { Vector3 } from 'three';
 
 const SESSION_OBJECT = 'group-photo-session';
 const JOIN_PREFIX = 'group-photo-join:';
