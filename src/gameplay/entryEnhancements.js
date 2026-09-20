@@ -5,6 +5,12 @@ export function installEntryEnhancements(game, ui) {
   game._entryEnhancementsInstalled = true;
 
   const bouncer = game.crowdDoor?.bouncer;
+  const entranceUnlocked = () => game.state?.data?.clubEntranceUnlocked === true;
+  const rememberEntranceUnlock = () => {
+    if (!game.state?.data) return;
+    game.state.data.clubEntranceUnlocked = true;
+    game.save?.();
+  };
   if (bouncer && !bouncer._securityGateInstalled) {
     bouncer._securityGateInstalled = true;
     const baseHandle = bouncer.handle.bind(bouncer);
@@ -15,6 +21,7 @@ export function installEntryEnhancements(game, ui) {
     bouncer.enter = () => {
       bouncer.admitted = true;
       bouncer.waitUntil = 0;
+      rememberEntranceUnlock();
       ui.panel(
         'DOOR · CLEARED BY SECURITY',
         'Sam gives you the nod. You are cleared to use the club entrance now.',
@@ -50,6 +57,16 @@ export function installEntryEnhancements(game, ui) {
 
       if (!isDoor) return baseHandle(target);
 
+      // Entrance clearance belongs to this saved player/browser, not just the current page load.
+      // Once Sam (or the alternate door route) has admitted the player, future visits should use
+      // the front door immediately without replaying the guestlist/quiz sequence.
+      if (entranceUnlocked()) {
+        bouncer.admitted = true;
+        bouncer.waitUntil = 0;
+        game.sceneManager.request('downstairs@alley');
+        return true;
+      }
+
       if (!bouncer.admitted) {
         const remaining = bouncer.remainingWait?.() ?? 0;
         ui.panel(
@@ -70,6 +87,10 @@ export function installEntryEnhancements(game, ui) {
   const baseInitialize = game.initialize.bind(game);
   game.initialize = async (...args) => {
     bouncer?.reset?.();
+    if (bouncer && entranceUnlocked()) {
+      bouncer.admitted = true;
+      bouncer.waitUntil = 0;
+    }
     const sceneManager = game.sceneManager;
     const originalStart = sceneManager.start.bind(sceneManager);
     const invitationEntry = game.invitation?.entry;

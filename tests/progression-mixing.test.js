@@ -73,6 +73,20 @@ test('all Spectra levels are required for the reward', () => {
   assert.equal(mixingGameComplete(ids), true);
 });
 
+test('door and guestlist progression survives save validation', () => {
+  const state = validateSave({
+    version: 1,
+    clubEntranceUnlocked: true,
+    guestlistApproved: true,
+    guestlistReferralPending: true,
+    guestlistAddedByJames: true,
+  });
+  assert.equal(state.clubEntranceUnlocked, true);
+  assert.equal(state.guestlistApproved, true);
+  assert.equal(state.guestlistReferralPending, false);
+  assert.equal(state.guestlistAddedByJames, true);
+});
+
 test('new progression state survives save validation', () => {
   const firstChallenge = MIXING_CHALLENGES[0].id;
   const state = validateSave({

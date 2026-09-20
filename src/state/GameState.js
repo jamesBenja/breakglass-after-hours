@@ -210,6 +210,10 @@ const defaults = () => ({
   roofSecretUnlocked: false,
   studioAccessGranted: false,
   houseDjDeskIntroduced: false,
+  clubEntranceUnlocked: false,
+  guestlistApproved: false,
+  guestlistReferralPending: false,
+  guestlistAddedByJames: false,
   storageAccessGranted: false,
   tapeArchiveAccessGranted: false,
   deadRoomAccessGranted: false,
@@ -317,6 +321,11 @@ export function validateSave(value) {
   state.roofSecretUnlocked = value.roofSecretUnlocked === true;
   state.studioAccessGranted = value.studioAccessGranted === true;
   state.houseDjDeskIntroduced = value.houseDjDeskIntroduced === true;
+  state.clubEntranceUnlocked = value.clubEntranceUnlocked === true;
+  state.guestlistApproved = value.guestlistApproved === true;
+  state.guestlistReferralPending =
+    value.guestlistReferralPending === true && !state.guestlistApproved;
+  state.guestlistAddedByJames = value.guestlistAddedByJames === true;
   state.storageAccessGranted = value.storageAccessGranted === true;
   state.tapeArchiveAccessGranted = value.tapeArchiveAccessGranted === true;
   state.deadRoomAccessGranted = value.deadRoomAccessGranted === true;
