@@ -1,4 +1,4 @@
-import { PerspectiveCamera, Vector3 } from 'three';
+import { Vector3 } from 'three';
 
 const SESSION_OBJECT = 'group-photo-session';
 const JOIN_PREFIX = 'group-photo-join:';
@@ -325,14 +325,12 @@ export class GroupPhotoSystem {
     const source = this.photographerPosition(session);
     if (!level || !source) return null;
     const target = this.groupCenter(session);
-    const camera = new PerspectiveCamera(58, 4 / 3, 0.08, 90);
-    camera.position.copy(source).add(new Vector3(0, 1.55, 0));
-    const look = target.clone().add(new Vector3(0, 1.02, 0));
-    const direction = look.clone().sub(camera.position);
-    if (direction.length() < 2.5) camera.position.add(direction.normalize().multiplyScalar(-2.7));
-    camera.lookAt(look);
-    camera.updateMatrixWorld(true);
-    return camera;
+    const participantCount = Math.max(1, session.participantIds?.length ?? 1);
+    return this.game.photos.cameraForTarget(level, session.photographerId || 'nora', target, {
+      fov: participantCount > 3 ? 56 : 52,
+      minDistance: Math.min(4.8, 3.0 + Math.max(0, participantCount - 1) * 0.38),
+      targetHeight: 1.02,
+    });
   }
 
   capture(session) {
