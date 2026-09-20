@@ -81,11 +81,13 @@ export function buildTakeABreakFurniture(root) {
   const { box, cyl, mat } = primitives;
 
   // All three couches face toward the middle of Take A Break.
+  // Keep the PHOTO ROOM doorway (x 6.0–7.44) fully clear. This loveseat stays on the east
+  // side of Take A Break instead of visually blocking Nora's exhibit entrance.
   couch(root, primitives, {
-    x: 7.65,
+    x: 8.18,
     z: 1.55,
-    width: 2.18,
-    depth: 0.78,
+    width: 1.2,
+    depth: 0.68,
     color: 0x713e45,
     rotation: Math.PI,
   }).name = 'take-a-break-front-couch';
