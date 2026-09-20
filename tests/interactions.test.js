@@ -84,7 +84,10 @@ test('mobile primary action label explains what the nearby interaction will do',
     'EXIT',
   );
   assert.equal(interactionVerb({ action: 'photoWall', name: 'Nora photo wall' }), 'VIEW');
-  assert.equal(\n    interactionVerb({ action: 'installation', name: 'Immersive installation' }),\n    'CONTROL',\n  );
+  assert.equal(
+    interactionVerb({ action: 'installation', name: 'Immersive installation' }),
+    'CONTROL',
+  );
   assert.equal(interactionVerb({ action: 'dj', name: 'DJ booth' }), 'USE');
 });
 
