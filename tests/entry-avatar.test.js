@@ -178,7 +178,6 @@ test('God Mode opens the club door immediately and never routes Sam through secu
   assert.equal(securityHandles, 0);
 });
 
-
 test('saved front-door clearance survives a new game visit without talking to Sam again', async () => {
   const transitions = [];
   let securityHandles = 0;
@@ -218,10 +217,7 @@ test('saved front-door clearance survives a new game visit without talking to Sa
   await game.initialize();
 
   assert.equal(bouncer.admitted, true);
-  assert.equal(
-    bouncer.handle({ id: 'clubDoor', target: 'downstairs@alley' }),
-    true,
-  );
+  assert.equal(bouncer.handle({ id: 'clubDoor', target: 'downstairs@alley' }), true);
   assert.deepEqual(transitions, ['downstairs@alley']);
   assert.equal(securityHandles, 0);
 });
