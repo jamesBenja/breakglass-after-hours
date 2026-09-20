@@ -278,16 +278,12 @@ export class PartyLifePhotoSystem {
       await delay(170);
       if (this.game.sceneManager.current !== level)
         return { saved: false, reason: 'scene-changed' };
-      const camera = new PerspectiveCamera(56, 4 / 3, 0.08, 90);
-      camera.position.copy(source).add(new Vector3(0, 1.55, 0));
-      const direction = lookAt
-        .clone()
-        .add(new Vector3(0, 1.05, 0))
-        .sub(camera.position);
-      if (direction.length() < 2.2)
-        camera.position.add(direction.clone().normalize().multiplyScalar(-2.3));
-      camera.lookAt(lookAt.clone().add(new Vector3(0, 1.0, 0)));
-      camera.updateMatrixWorld(true);
+      const camera = this.game.photos.cameraForTarget(level, 'nora', lookAt, {
+        fov: 50,
+        minDistance: 3.0,
+        targetHeight: 1.0,
+      });
+      if (!camera) return { saved: false, reason: 'photographer-not-here' };
       return this.saveCapture(level, 'nora', camera, ['autonomous', level.definition.id, ...tags]);
     } finally {
       this.busy = false;
