@@ -56,6 +56,8 @@ export class KeyboardPerformance {
     this.startedAt = 0;
     this.spectraTransport = null;
     this.transportOwner = 'keyboard-performance';
+    this.performanceEventSink = null;
+    this.captureArmed = null;
     this.touchSurface = new TouchPerformanceSurface(document);
     this.onKeyDown = (event) => {
       if (!this.active || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
@@ -77,6 +79,45 @@ export class KeyboardPerformance {
       this.playKey(key);
     };
     target?.addEventListener?.('keydown', this.onKeyDown);
+  }
+
+  get recordingActive() {
+    if (this.recording) return true;
+    try {
+      return this.captureArmed?.() === true;
+    } catch {
+      return false;
+    }
+  }
+
+  setPerformanceEventSink(listener = null) {
+    this.performanceEventSink = typeof listener === 'function' ? listener : null;
+    return this.performanceEventSink;
+  }
+
+  setCaptureArmed(check = null) {
+    this.captureArmed = typeof check === 'function' ? check : null;
+    return this.captureArmed;
+  }
+
+  publishPerformanceEvent(event) {
+    if (!this.active || !this.config || !event || !this.performanceEventSink) return false;
+    try {
+      return (
+        this.performanceEventSink({
+          config: {
+            ...this.config,
+            processing:
+              this.config.processing && typeof this.config.processing === 'object'
+                ? { ...this.config.processing }
+                : null,
+          },
+          event: { ...event },
+        }) !== false
+      );
+    } catch {
+      return false;
+    }
   }
 
   get instructions() {
@@ -172,6 +213,7 @@ export class KeyboardPerformance {
   triggerDrum(name) {
     if (!this.active || this.config?.mode !== 'drums' || !this.playDrum(name)) return false;
     this.record({ drum: name });
+    this.publishPerformanceEvent({ type: 'drum', name });
     return true;
   }
 
@@ -190,6 +232,7 @@ export class KeyboardPerformance {
       );
     }
     this.record({ midi: safeMidi, frequency });
+    this.publishPerformanceEvent({ type: 'midi', midi: safeMidi });
     return true;
   }
 
