@@ -12,7 +12,8 @@ export function interactionVerb(target) {
   }
   if (action === 'storagePassage') return 'ENTER';
   if (action === 'storageExit') return 'EXIT';
-  if (action === 'installation' || name.includes('lighting') || name.includes('visual'))\n    return 'CONTROL';
+  if (action === 'installation' || name.includes('lighting') || name.includes('visual'))
+    return 'CONTROL';
   if (['arcade', 'livePlayback'].includes(action)) return 'PLAY';
   return 'USE';
 }
