@@ -81,12 +81,18 @@ export class InstrumentSync {
     );
   }
 
-  publishWithConfig(config, event, { resourceId = this.activeResourceId, offsetSeconds = 0 } = {}) {
+  publishWithConfig(
+    config,
+    event,
+    { resourceId = this.activeResourceId, offsetSeconds = 0, captureLocal = true } = {},
+  ) {
     if (!config) return false;
-    this.game.spectraRecorder?.captureLocal?.(config, event, {
-      resourceId: resourceId ?? 'local-instrument',
-      offsetSeconds,
-    });
+    if (captureLocal) {
+      this.game.spectraRecorder?.captureLocal?.(config, event, {
+        resourceId: resourceId ?? 'local-instrument',
+        offsetSeconds,
+      });
+    }
     if (this.disposed || !this.client.joined || !resourceId || !this.world.owns(resourceId))
       return false;
     const claim = this.world.localClaims?.get?.(resourceId);
@@ -109,7 +115,10 @@ export class InstrumentSync {
   }
 
   publish(event) {
-    return this.publishWithConfig(this.configSnapshot(), event);
+    return this.publishWithConfig(this.configSnapshot(), event, {
+      resourceId: this.activeResourceId,
+      captureLocal: false,
+    });
   }
 
   publishExternal(config, event, options = {}) {
