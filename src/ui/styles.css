@@ -189,6 +189,38 @@ kbd {
   color: #bbb;
   font-size: 11px;
 }
+
+.photo-review {
+  display: grid;
+  gap: 7px;
+  margin: 4px 0 10px;
+}
+.photo-review img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 56vh;
+  object-fit: contain;
+  border-radius: 9px;
+  background: #080808;
+}
+.photo-review figcaption {
+  color: #aaa;
+  font-size: 11px;
+}
+.photo-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  width: 100%;
+}
+.photo-review-actions button {
+  flex: 1 1 120px;
+}
+.photo-review-actions button:first-child {
+  border-color: #8ed2b5;
+}
+
 .mixer-strip {
   display: grid;
   grid-template-columns: minmax(70px, 1fr) minmax(110px, 1.7fr) auto;
@@ -390,6 +422,12 @@ canvas:focus {
   }
   #floorTag {
     bottom: calc(146px + env(safe-area-inset-bottom));
+  }
+  #panel.photo-review-open {
+    max-height: min(58vh, calc(100vh - 190px - env(safe-area-inset-bottom)));
+  }
+  #panel.photo-review-open .photo-review img {
+    max-height: 38vh;
   }
   #uiToggle {
     left: auto;
