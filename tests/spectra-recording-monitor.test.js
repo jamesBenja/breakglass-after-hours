@@ -6,6 +6,8 @@ import {
   normalizeModularPatchState,
 } from '../src/gameplay/ModularSynthSystem.js';
 import { InstrumentSync } from '../src/multiplayer/InstrumentSync.js';
+import { connectKeyboardPerformanceToSpectra } from '../src/gameplay/StudioLoopEnhancements.js';
+import { KeyboardPerformance } from '../src/studio/KeyboardPerformance.js';
 
 function recordingSession() {
   return {
@@ -108,6 +110,48 @@ test('modular record button creates an eventful Spectra stem in the full console
   assert.ok(session.stems[0].performance.events.length > 0);
   const play = calls.find((item) => Array.isArray(item) && item[0] === 'play');
   assert.equal(play[3], undefined);
+});
+
+test('local keyboard and touch performance feeds an armed Spectra recorder without multiplayer', () => {
+  const captured = [];
+  const keyboard = new KeyboardPerformance(
+    {
+      tone: () => {},
+      kick: () => {},
+      hat: () => {},
+    },
+    null,
+    null,
+  );
+  const game = {
+    keyboardPerformance: keyboard,
+    spectraRecorder: {
+      armed: true,
+      captureLocal: (...args) => {
+        captured.push(args);
+        return true;
+      },
+    },
+  };
+
+  assert.equal(connectKeyboardPerformanceToSpectra(game), true);
+  keyboard.start({
+    mode: 'synth',
+    stemKind: 'synth',
+    label: 'Mobile synth',
+    wave: 'triangle',
+    volume: 0.06,
+    duration: 0.4,
+  });
+
+  assert.equal(keyboard.recordingActive, true);
+  assert.equal(keyboard.playMidi(60), true);
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0][0].label, 'Mobile synth');
+  assert.deepEqual(captured[0][1], { type: 'midi', midi: 60 });
+  assert.match(captured[0][2].resourceId, /^local:synth:/);
+
+  keyboard.stop(false);
 });
 
 test('multiplayer instrument publishing always feeds the local Spectra recorder first', () => {
