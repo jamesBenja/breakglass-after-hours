@@ -122,7 +122,7 @@ export class TouchPerformanceSurface {
     const title = this.document.createElement('strong');
     title.textContent = performance.config?.label ?? 'Instrument';
     const status = this.document.createElement('span');
-    status.textContent = performance.recording ? '● RECORDING' : 'TOUCH TO PLAY';
+    status.textContent = performance.recordingActive ? '● SPECTRA RECORDING' : 'TOUCH TO PLAY';
     header.append(title, status);
     surface.appendChild(header);
 
