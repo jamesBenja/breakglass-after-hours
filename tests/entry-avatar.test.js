@@ -30,10 +30,6 @@ test('normal game boot is forced to the alley start instead of a saved interior 
     request() {},
   };
   const game = {
-    state: { data: { clubEntranceUnlocked: false } },
-    save() {
-      saves += 1;
-    },
     crowdDoor: { bouncer },
     sceneManager,
     async initialize() {
@@ -96,6 +92,10 @@ test('Sam performs security clearance and the club door opens only after that', 
     },
   };
   const game = {
+    state: { data: { clubEntranceUnlocked: false } },
+    save() {
+      saves += 1;
+    },
     crowdDoor: { bouncer },
     sceneManager: {
       current: { definition: { id: ENTRY_SCENE_ID } },
