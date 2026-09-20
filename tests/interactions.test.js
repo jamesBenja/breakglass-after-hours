@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { InteractionSystem } from '../src/interactions/InteractionSystem.js';
 import { createActions } from '../src/interactions/createActions.js';
 import { InputController } from '../src/player/InputController.js';
+import { interactionVerb } from '../src/ui/Hud.js';
 import { levels } from '../src/world/levels.js';
 
 test('only in-range interactions on the active floor are offered', () => {
@@ -69,6 +70,25 @@ test('instrument, console and DJ actions survive extraction; stale panel actions
   assert.deepEqual(calls.at(-1), ['play', '3am-tool']);
   panelActions[2][1]();
   assert.deepEqual(calls.at(-1), ['stop']);
+});
+
+test('mobile primary action label explains what the nearby interaction will do', () => {
+  assert.equal(interactionVerb(null), 'ACTION');
+  assert.equal(interactionVerb({ action: 'dialogue', name: 'Nora' }), 'TALK');
+  assert.equal(
+    interactionVerb({ action: 'travel', name: 'Club entrance', target: 'downstairs@alley' }),
+    'ENTER',
+  );
+  assert.equal(
+    interactionVerb({ action: 'travel', name: 'Emergency exit', target: 'alley@clubDoor' }),
+    'EXIT',
+  );
+  assert.equal(interactionVerb({ action: 'photoWall', name: 'Nora photo wall' }), 'VIEW');
+  assert.equal(
+    interactionVerb({ action: 'installation', name: 'Immersive installation' }),
+    'CONTROL',
+  );
+  assert.equal(interactionVerb({ action: 'dj', name: 'DJ booth' }), 'USE');
 });
 
 test('input is gated, normalizes diagonals, clears on blur, and ignores repeat actions', () => {

@@ -1,3 +1,23 @@
+export function interactionVerb(target) {
+  if (!target) return 'ACTION';
+  const action = String(target.action ?? '');
+  const name = String(target.name ?? target.label ?? '').toLowerCase();
+  const destination = String(target.target ?? '').toLowerCase();
+
+  if (['dialogue', 'alleyGuest', 'remote-player', 'beaverBbq'].includes(action)) return 'TALK';
+  if (['photoWall', 'photoFridge', 'liveArchive'].includes(action)) return 'VIEW';
+  if (action === 'travel' || action === 'progressionDoor') {
+    if (destination.startsWith('alley@') || name.includes('exit')) return 'EXIT';
+    return 'ENTER';
+  }
+  if (action === 'storagePassage') return 'ENTER';
+  if (action === 'storageExit') return 'EXIT';
+  if (action === 'installation' || name.includes('lighting') || name.includes('visual'))
+    return 'CONTROL';
+  if (['arcade', 'livePlayback'].includes(action)) return 'PLAY';
+  return 'USE';
+}
+
 export class Hud {
   constructor(document) {
     this.document = document;
@@ -10,6 +30,7 @@ export class Hud {
     this.transition = document.getElementById('transition');
     this.gate = document.getElementById('gate');
     this.enter = document.getElementById('enter');
+    this.touchPrimary = document.querySelector('[data-action="interact"]');
     this.debug = document.getElementById('debug');
     this.notice = document.getElementById('notice');
     this.closeButton = document.createElement('button');
@@ -64,12 +85,18 @@ export class Hud {
   }
 
   closePanel() {
-    if (this.panelElement) this.panelElement.hidden = true;
+    if (this.panelElement) {
+      this.panelElement.hidden = true;
+      this.panelElement.classList.remove('photo-review-open');
+    }
     this.document.querySelector('canvas')?.focus();
   }
 
   clearPanel(title, text) {
-    if (this.panelElement) this.panelElement.hidden = false;
+    if (this.panelElement) {
+      this.panelElement.hidden = false;
+      this.panelElement.classList.remove('photo-review-open');
+    }
     this.title.textContent = title;
     this.text.textContent = text;
     this.buttons.replaceChildren();
@@ -394,6 +421,64 @@ export class Hud {
     this.buttons.appendChild(grid);
   }
 
+  downloadPhoto(photo) {
+    if (!photo?.dataUrl) return false;
+    const link = this.document.createElement('a');
+    const parsed = photo.timestamp ? new Date(photo.timestamp) : new Date();
+    const stamp = Number.isNaN(parsed.getTime())
+      ? String(Date.now())
+      : parsed.toISOString().replace(/[:.]/g, '-');
+    link.href = photo.dataUrl;
+    link.download = `breakglass-nora-${stamp}.jpg`;
+    link.rel = 'noopener';
+    link.hidden = true;
+    this.document.body.appendChild(link);
+    if ('download' in link) link.click();
+    else globalThis.open?.(photo.dataUrl, '_blank', 'noopener');
+    link.remove();
+    return true;
+  }
+
+  photoReview(photo, { onLove = null, onRetake = null } = {}) {
+    if (!photo?.dataUrl) return;
+    this.clearPanel('NORA · YOUR PHOTO', 'Nora shows you the shot right away.');
+    this.panelElement?.classList.add('photo-review-open');
+
+    const figure = this.document.createElement('figure');
+    figure.className = 'photo-review';
+    const image = this.document.createElement('img');
+    image.src = photo.dataUrl;
+    image.alt = 'Your Breakglass photo taken by Nora';
+    const caption = this.document.createElement('figcaption');
+    const time = photo.timestamp
+      ? new Date(photo.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : '';
+    caption.textContent = `Nora · ${photo.roomId ?? 'Breakglass'}${time ? ` · ${time}` : ''}`;
+    figure.append(image, caption);
+    this.buttons.appendChild(figure);
+
+    const row = this.document.createElement('div');
+    row.className = 'photo-review-actions';
+    const addButton = (label, action) => {
+      const button = this.document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.onclick = () =>
+        Promise.resolve(action?.()).catch((error) => this.warning(error.message));
+      row.appendChild(button);
+    };
+
+    addButton('I love it', () => {
+      this.warning('Nora saved the shot to your Breakglass photos.');
+      if (onLove) return onLove(photo);
+      this.closePanel();
+      return null;
+    });
+    if (onRetake) addButton('Take another one please', () => onRetake(photo));
+    addButton('Download photo', () => this.downloadPhoto(photo));
+    this.buttons.appendChild(row);
+  }
+
   warning(message) {
     this.notice.textContent = message;
     this.notice.hidden = false;
@@ -411,9 +496,20 @@ export class Hud {
       player.position.y + 0.25,
     );
     const room = ground?.surface.name ?? level.definition.id;
+    const verb = interactionVerb(target);
+    const targetName = target?.name ?? target?.label ?? 'interaction';
     const status =
-      room + (target ? ` · E: ${target.name}` : '') + (audio.label ? ` · ${audio.label}` : '');
+      room +
+      (target ? ` · E: ${verb.toLowerCase()} ${targetName}` : '') +
+      (audio.label ? ` · ${audio.label}` : '');
     if (this.status.textContent !== status) this.status.textContent = status;
+    if (this.touchPrimary) {
+      if (this.touchPrimary.textContent !== verb) this.touchPrimary.textContent = verb;
+      this.touchPrimary.setAttribute(
+        'aria-label',
+        target ? `${verb.toLowerCase()} ${targetName}` : 'Action',
+      );
+    }
     this.debug.hidden = !state.debug;
     if (!state.debug) return;
     const lighting = level.lighting?.snapshot();

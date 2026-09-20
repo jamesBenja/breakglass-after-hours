@@ -351,7 +351,12 @@ export class GroupPhotoSystem {
       ['group-photo', level.definition.id, 'multiplayer'],
       session.participantIds ?? [],
     );
-    if (result?.saved) this.ui.warning?.('GROUP PHOTO · got it.');
+    if (result?.saved) {
+      this.ui.warning?.('GROUP PHOTO · got it.');
+      this.ui.photoReview?.(result.photo, {
+        onRetake: () => this.partyPhotos.capturePortrait(session.photographerId || 'nora'),
+      });
+    }
   }
 
   complete(session) {
