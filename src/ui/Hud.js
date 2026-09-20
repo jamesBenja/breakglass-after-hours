@@ -83,12 +83,18 @@ export class Hud {
   }
 
   closePanel() {
-    if (this.panelElement) this.panelElement.hidden = true;
+    if (this.panelElement) {
+      this.panelElement.hidden = true;
+      this.panelElement.classList.remove('photo-review-open');
+    }
     this.document.querySelector('canvas')?.focus();
   }
 
   clearPanel(title, text) {
-    if (this.panelElement) this.panelElement.hidden = false;
+    if (this.panelElement) {
+      this.panelElement.hidden = false;
+      this.panelElement.classList.remove('photo-review-open');
+    }
     this.title.textContent = title;
     this.text.textContent = text;
     this.buttons.replaceChildren();
@@ -434,6 +440,7 @@ export class Hud {
   photoReview(photo, { onLove = null, onRetake = null } = {}) {
     if (!photo?.dataUrl) return;
     this.clearPanel('NORA · YOUR PHOTO', 'Nora shows you the shot right away.');
+    this.panelElement?.classList.add('photo-review-open');
 
     const figure = this.document.createElement('figure');
     figure.className = 'photo-review';
