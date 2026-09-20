@@ -134,6 +134,30 @@ export function stopSpectraLiveInputsForMix(game) {
   game?.keyboardPerformance?.stop?.(false);
 }
 
+export function connectKeyboardPerformanceToSpectra(game) {
+  const performance = game?.keyboardPerformance;
+  if (!performance?.setPerformanceEventSink) return false;
+
+  performance.setCaptureArmed?.(() => game.spectraRecorder?.armed === true);
+  performance.setPerformanceEventSink(({ config = {}, event = {} } = {}) => {
+    const recorder = game.spectraRecorder;
+    if (!recorder?.armed) return false;
+    const kind = String(config.stemKind || config.mode || 'instrument')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '-')
+      .slice(0, 24);
+    const label = String(config.label || kind || 'instrument')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '-')
+      .replace(/-+/g, '-')
+      .slice(0, 48);
+    return recorder.captureLocal(config, event, {
+      resourceId: `local:${kind || 'instrument'}:${label || 'instrument'}`,
+    });
+  });
+  return true;
+}
+
 function enhancePlayback(playback, session, game) {
   if (playback._loopBuilderEnhanced) return;
   playback._loopBuilderEnhanced = true;
@@ -1144,6 +1168,7 @@ export function installStudioLoopEnhancements(game, ui) {
   game.micRecorder.spectraTransport = game.spectraTransport;
   enhancePlayback(game.studioPlayback, game.studio, game);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
+  connectKeyboardPerformanceToSpectra(game);
   game.studioExporter ??= new StudioExporter(game);
   game.spectraProjectStore ??= new SpectraProjectStore();
   game.spectraSpatialMixer ??= new SpectraSpatialMixer(game);
