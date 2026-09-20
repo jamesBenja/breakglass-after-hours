@@ -4,7 +4,6 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
-  PerspectiveCamera,
   PlaneGeometry,
   SRGBColorSpace,
   TextureLoader,
