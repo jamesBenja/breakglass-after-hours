@@ -252,13 +252,19 @@ export class PartyLifePhotoSystem {
         return { saved: false, reason: 'scene-changed' };
       const camera = this.game.photos.cameraFor(level, photographerId);
       if (!camera) return { saved: false, reason: 'photographer-not-here' };
-      return this.saveCapture(
+      const result = this.saveCapture(
         level,
         photographerId,
         camera,
         ['portrait', level.definition.id],
         ['player', ...joined],
       );
+      if (result?.saved) {
+        this.ui.photoReview?.(result.photo, {
+          onRetake: () => this.capturePortrait(photographerId),
+        });
+      }
+      return result;
     } finally {
       this.busy = false;
     }
