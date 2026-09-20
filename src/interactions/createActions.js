@@ -978,7 +978,7 @@ export function createActions({
       );
       return;
     }
-    ui.photoGallery?.(state.data.photos, 'NORA · NEW PHOTO');
+    // PartyLifePhotoSystem presents the fresh photo immediately with keep/retake/download controls.
   };
 
   const alleySocialPanel = () => {
