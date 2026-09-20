@@ -1,6 +1,7 @@
 .performance-surface {
-  flex: 1 0 100%;
+  flex: 0 0 auto;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   display: grid;
   gap: 8px;
@@ -213,6 +214,7 @@
     max-height: 74vh;
     padding: 10px;
     z-index: 14;
+    overscroll-behavior: contain;
   }
 
   body.performance-active #panel h3 {
@@ -226,12 +228,17 @@
 
   body.performance-active #buttons {
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
     gap: 7px;
+    overflow-x: hidden;
   }
 
   body.performance-active #buttons > button {
+    width: 100%;
     min-height: 42px;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+    box-sizing: border-box;
   }
 }
 
