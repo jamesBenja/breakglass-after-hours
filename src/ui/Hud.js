@@ -10,7 +10,8 @@ export function interactionVerb(target) {
     if (destination.startsWith('alley@') || name.includes('exit')) return 'EXIT';
     return 'ENTER';
   }
-  if (['storagePassage', 'storageExit'].includes(action)) return 'ENTER';
+  if (action === 'storagePassage') return 'ENTER';
+  if (action === 'storageExit') return 'EXIT';
   if (action === 'installation' || name.includes('lighting') || name.includes('visual')) return 'CONTROL';
   if (['arcade', 'livePlayback'].includes(action)) return 'PLAY';
   return 'USE';
@@ -495,16 +496,17 @@ export class Hud {
     );
     const room = ground?.surface.name ?? level.definition.id;
     const verb = interactionVerb(target);
+    const targetName = target?.name ?? target?.label ?? 'interaction';
     const status =
       room +
-      (target ? ` · E: ${verb.toLowerCase()} ${target.name}` : '') +
+      (target ? ` · E: ${verb.toLowerCase()} ${targetName}` : '') +
       (audio.label ? ` · ${audio.label}` : '');
     if (this.status.textContent !== status) this.status.textContent = status;
     if (this.touchPrimary) {
       if (this.touchPrimary.textContent !== verb) this.touchPrimary.textContent = verb;
       this.touchPrimary.setAttribute(
         'aria-label',
-        target ? `${verb.toLowerCase()} ${target.name}` : 'Action',
+        target ? `${verb.toLowerCase()} ${targetName}` : 'Action',
       );
     }
     this.debug.hidden = !state.debug;
