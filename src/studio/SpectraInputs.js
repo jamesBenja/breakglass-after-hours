@@ -8,7 +8,7 @@ export function spectraInputKey(config = {}, resourceId = '') {
   if (resource.includes('drummachine') || label.includes('drum machine')) return 'drum-machine';
   if (resource.includes('modularsynth') || label.includes('modular')) return 'synth';
   if (mode === 'piano' || mode === 'keys' || label === 'piano') return 'piano';
-  if (mode === 'guitar') return 'guitar';
+  if (mode === 'guitar' || mode === 'bass') return 'guitar';
   if (mode === 'synth') return 'synth';
   if (mode === 'drums') return 'drum-kit';
   return mode || 'synth';
