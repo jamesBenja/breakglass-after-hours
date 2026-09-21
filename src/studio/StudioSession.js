@@ -115,6 +115,13 @@ const normalizePerformance = (performance) => {
   };
 };
 
+const normalizeFxSettings = (settings = {}) => ({
+  reverbSize: clamp(Number(settings?.reverbSize ?? 0.55), 0, 1),
+  reverbDamping: clamp(Number(settings?.reverbDamping ?? 0.35), 0, 1),
+  delayTime: clamp(Number(settings?.delayTime ?? 0.25), 0.05, 1.2),
+  delayFeedback: clamp(Number(settings?.delayFeedback ?? 0.3), 0, 0.82),
+});
+
 const normalizeStem = (stem, index) => ({
   id: typeof stem.id === 'string' ? stem.id.slice(0, 48) : `stem-${index}`,
   label: typeof stem.label === 'string' ? stem.label.slice(0, 64) : `Stem ${index + 1}`,
@@ -123,7 +130,11 @@ const normalizeStem = (stem, index) => ({
   pan: clamp(Number(stem.pan) || 0, -1, 1),
   low: clamp(Number(stem.low) || 0, -1, 1),
   high: clamp(Number(stem.high) || 0, -1, 1),
+  // Preserve the old single FX value as a migration source, but expose independent sends.
   fx: clamp(Number(stem.fx) || 0, 0, 1),
+  reverb: clamp(Number(stem.reverb ?? (Number(stem.fx) || 0) * 0.55) || 0, 0, 1),
+  delay: clamp(Number(stem.delay ?? stem.fx) || 0, 0, 1),
+  fxSettings: normalizeFxSettings(stem.fxSettings),
   mute: stem.mute === true,
   solo: stem.solo === true,
   monitor: stem.monitor !== false,
@@ -354,6 +365,9 @@ export class StudioSession {
         low: 0,
         high: 0,
         fx: 0,
+        reverb: 0,
+        delay: 0,
+        fxSettings: normalizeFxSettings(),
         mute: false,
         solo: false,
         monitor: true,
@@ -380,6 +394,9 @@ export class StudioSession {
       low: 0,
       high: 0,
       fx: 0,
+      reverb: 0,
+      delay: 0,
+      fxSettings: normalizeFxSettings(),
       mute: false,
       solo: false,
       clipActive: true,
@@ -431,8 +448,41 @@ export class StudioSession {
   setFx(id, value) {
     const stem = this.stems.find((item) => item.id === id);
     if (!stem) return false;
-    stem.fx = clamp(Number(value) || 0, 0, 1);
+    const send = clamp(Number(value) || 0, 0, 1);
+    stem.fx = send;
+    stem.delay = send;
+    stem.reverb = send * 0.55;
     return true;
+  }
+
+  setReverb(id, value) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.reverb = clamp(Number(value) || 0, 0, 1);
+    return true;
+  }
+
+  setDelay(id, value) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.delay = clamp(Number(value) || 0, 0, 1);
+    return true;
+  }
+
+  setFxParam(id, parameter, value) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.fxSettings = normalizeFxSettings(stem.fxSettings);
+    const ranges = {
+      reverbSize: [0, 1],
+      reverbDamping: [0, 1],
+      delayTime: [0.05, 1.2],
+      delayFeedback: [0, 0.82],
+    };
+    const range = ranges[parameter];
+    if (!range) return false;
+    stem.fxSettings[parameter] = clamp(Number(value) || 0, range[0], range[1]);
+    return stem.fxSettings[parameter];
   }
 
   toggleMute(id) {
@@ -473,6 +523,7 @@ export class StudioSession {
           ? { ...stem.performance, events: stem.performance.events.map((event) => ({ ...event })) }
           : null,
         processing: stem.processing ? { ...stem.processing } : null,
+        fxSettings: stem.fxSettings ? { ...stem.fxSettings } : normalizeFxSettings(),
       })),
       takeCounter: this.takeCounter,
       loopEnabled: this.loopEnabled === true,
