@@ -146,6 +146,8 @@ export class Hud {
       onStop = () => {},
       onRecord = null,
       recordStatus = null,
+      onTempo = null,
+      onClick = null,
       onRecordVocal,
       onAudition = null,
     } = {},
@@ -176,6 +178,8 @@ export class Hud {
                 onStop,
                 onRecord,
                 recordStatus,
+                onTempo,
+                onClick,
                 onRecordVocal,
                 onAudition,
               });
@@ -200,6 +204,62 @@ export class Hud {
       transport.appendChild(record);
     }
     toolbar.appendChild(transport);
+
+    const global = this.document.createElement('div');
+    global.className = 'spectra-console-global';
+
+    const tempoLabel = this.document.createElement('span');
+    tempoLabel.className = 'spectra-global-label';
+    tempoLabel.textContent = 'TEMPO';
+
+    const tempoDown = this.document.createElement('button');
+    tempoDown.type = 'button';
+    tempoDown.textContent = '−';
+    tempoDown.className = 'spectra-tempo-step';
+
+    const tempoInput = this.document.createElement('input');
+    tempoInput.type = 'number';
+    tempoInput.min = '50';
+    tempoInput.max = '220';
+    tempoInput.step = '1';
+    tempoInput.value = String(Math.round(Number(session.bpm) || 118));
+    tempoInput.className = 'spectra-tempo-input';
+    tempoInput.setAttribute('aria-label', 'Spectra global tempo');
+
+    const tempoUp = this.document.createElement('button');
+    tempoUp.type = 'button';
+    tempoUp.textContent = '+';
+    tempoUp.className = 'spectra-tempo-step';
+
+    const applyTempo = (next) => {
+      const bpm = Math.max(50, Math.min(220, Math.round(Number(next) || 118)));
+      tempoInput.value = String(bpm);
+      if (onTempo) onTempo(bpm);
+      else session.bpm = bpm;
+    };
+    tempoDown.onclick = () => applyTempo((Number(tempoInput.value) || session.bpm || 118) - 1);
+    tempoUp.onclick = () => applyTempo((Number(tempoInput.value) || session.bpm || 118) + 1);
+    tempoInput.onchange = () => applyTempo(tempoInput.value);
+
+    const bpmUnit = this.document.createElement('span');
+    bpmUnit.className = 'spectra-tempo-unit';
+    bpmUnit.textContent = 'BPM';
+
+    const click = this.document.createElement('button');
+    click.type = 'button';
+    click.className = `spectra-click-toggle${session.clickEnabled ? ' active' : ''}`;
+    click.textContent = session.clickEnabled ? 'CLICK ON' : 'CLICK OFF';
+    click.setAttribute('aria-pressed', String(session.clickEnabled === true));
+    click.onclick = () => {
+      session.clickEnabled = !session.clickEnabled;
+      onClick?.(session.clickEnabled);
+      click.classList.toggle('active', session.clickEnabled);
+      click.textContent = session.clickEnabled ? 'CLICK ON' : 'CLICK OFF';
+      click.setAttribute('aria-pressed', String(session.clickEnabled));
+    };
+
+    global.append(tempoLabel, tempoDown, tempoInput, tempoUp, bpmUnit, click);
+    toolbar.appendChild(global);
 
     const status = this.document.createElement('div');
     status.className = 'spectra-console-status';
@@ -384,6 +444,8 @@ export class Hud {
         onStop,
         onRecord,
         recordStatus,
+        onTempo,
+        onClick,
         onRecordVocal,
         onAudition,
       });
@@ -399,6 +461,8 @@ export class Hud {
         onStop,
         onRecord,
         recordStatus,
+        onTempo,
+        onClick,
         onRecordVocal,
         onAudition,
       });

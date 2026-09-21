@@ -109,6 +109,7 @@ export class SpectraTransport {
       sixteenth: (step % 4) + 1,
       bpm: Math.max(1, Number(this.session?.bpm) || 118),
       swing: clamp(this.session?.swing, 0, 0.45),
+      clickEnabled: this.session?.clickEnabled === true,
       quantize: this.session?.quantize ?? '1/16',
       loopBars: Math.max(1, Number(this.session?.loopBars) || 4),
       owners: [...this.owners],
@@ -203,6 +204,17 @@ export class SpectraTransport {
         position: absoluteStep * stepDuration + swingDelay,
       };
 
+      if (this.session?.clickEnabled === true && absoluteStep % 4 === 0) {
+        const downbeat = loopStep % 16 === 0;
+        this.audio?.tone?.(
+          downbeat ? 1760 : 1320,
+          downbeat ? 0.045 : 0.032,
+          'square',
+          downbeat ? 0.042 : 0.03,
+          event.when,
+        );
+      }
+
       for (const callback of this.subscribers.values()) {
         try {
           callback(event);
@@ -236,6 +248,15 @@ export class SpectraTransport {
     return this.reconfigure((session) => {
       session.bpm = clamp(bpm, 50, 220);
     });
+  }
+
+  setClickEnabled(enabled) {
+    this.session.clickEnabled = enabled === true;
+    return this.snapshot();
+  }
+
+  toggleClick() {
+    return this.setClickEnabled(this.session?.clickEnabled !== true);
   }
 
   setSwing(value) {

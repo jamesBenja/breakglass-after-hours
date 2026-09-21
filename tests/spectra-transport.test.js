@@ -69,6 +69,43 @@ test('Spectra transport gives every attached instrument the same scheduled step 
   assert.equal(externalTransportCalls, 0, 'musical clock must not register in game audio metrics');
 });
 
+test('Spectra click follows the shared transport and does not run when disabled', () => {
+  const clock = fakeClock();
+  const clicks = [];
+  const active = session({ swing: 0, clickEnabled: false });
+  const audio = {
+    context: clock.context,
+    tone: (...args) => clicks.push(args),
+  };
+  const transport = new SpectraTransport(audio, active, clock.timers);
+
+  transport.acquire('recorder', { position: 0 });
+  assert.equal(clicks.length, 0);
+
+  transport.setClickEnabled(true);
+  assert.equal(active.clickEnabled, true);
+
+  clock.context.currentTime = 10.51;
+  transport.schedule();
+  assert.equal(clicks.length, 1);
+  assert.equal(clicks[0][0], 1320);
+
+  clock.context.currentTime = 11.01;
+  transport.schedule();
+  assert.equal(clicks.length, 2);
+  assert.equal(clicks[1][0], 1320);
+
+  transport.restart(0, clock.context.currentTime);
+  transport.schedule();
+  assert.equal(clicks.at(-1)[0], 1760);
+
+  const count = clicks.length;
+  transport.setClickEnabled(false);
+  clock.context.currentTime += 0.51;
+  transport.schedule();
+  assert.equal(clicks.length, count);
+});
+
 test('Spectra transport remains alive until the final instrument owner releases it', () => {
   const clock = fakeClock();
   const transport = new SpectraTransport({ context: clock.context }, session(), clock.timers);

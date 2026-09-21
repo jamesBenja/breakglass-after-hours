@@ -197,6 +197,7 @@ export function normalizeStudioSession(value = {}) {
     loopBars: LOOP_BAR_OPTIONS.includes(Number(value.loopBars)) ? Number(value.loopBars) : 4,
     quantize: QUANTIZE_OPTIONS.includes(value.quantize) ? value.quantize : '1/16',
     swing: clamp(Number(value.swing) || 0, 0, 0.45),
+    clickEnabled: value.clickEnabled === true,
   };
 }
 
@@ -213,6 +214,7 @@ export class StudioSession {
     this.loopBars = normalized.loopBars;
     this.quantize = normalized.quantize;
     this.swing = normalized.swing;
+    this.clickEnabled = normalized.clickEnabled;
     this.recordings = new Map();
     this.recordingBlobs = new Map();
   }
@@ -247,6 +249,7 @@ export class StudioSession {
     this.loopBars = normalized.loopBars;
     this.quantize = normalized.quantize;
     this.swing = normalized.swing;
+    this.clickEnabled = normalized.clickEnabled;
     this.recordings.clear();
     this.recordingBlobs.clear();
     return this;
@@ -391,6 +394,7 @@ export class StudioSession {
       loopBars: LOOP_BAR_OPTIONS.includes(Number(this.loopBars)) ? Number(this.loopBars) : 4,
       quantize: QUANTIZE_OPTIONS.includes(this.quantize) ? this.quantize : '1/16',
       swing: clamp(Number(this.swing) || 0, 0, 0.45),
+      clickEnabled: this.clickEnabled === true,
     };
   }
 }
