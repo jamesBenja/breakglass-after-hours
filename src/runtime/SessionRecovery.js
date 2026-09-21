@@ -123,10 +123,7 @@ export function buildSessionRecoveryCheckpoint(
   };
 }
 
-export function readActiveMusicSession(
-  storage = globalThis.localStorage,
-  now = Date.now(),
-) {
+export function readActiveMusicSession(storage = globalThis.localStorage, now = Date.now()) {
   const marker = safeJsonParse(safeGet(storage, ACTIVE_MUSIC_SESSION_KEY));
   if (!marker?.active || !Number.isFinite(Number(marker.savedAt))) return null;
   if (now - Number(marker.savedAt) > ACTIVE_MARKER_TTL_MS) return null;
