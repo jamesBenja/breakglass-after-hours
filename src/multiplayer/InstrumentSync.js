@@ -66,6 +66,7 @@ export class InstrumentSync {
       octaveLayer: config.octaveLayer === true,
       label: config.label,
       stemKind: config.stemKind,
+      inputKey: config.inputKey,
       processing: config.processing,
       instrumentVoice: config.instrumentVoice,
       ampCharacter: config.ampCharacter,
