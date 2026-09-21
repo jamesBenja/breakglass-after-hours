@@ -92,10 +92,21 @@ export function createActions({
     ui.buttons.appendChild(button);
   };
 
-  const rememberStudio = () => {
+  let studioSaveTimer = null;
+  const rememberStudio = ({ defer = false } = {}) => {
     if (!studio || !state) return;
-    state.data.studio = studio.snapshot();
-    saveState();
+    const write = () => {
+      studioSaveTimer = null;
+      state.data.studio = studio.snapshot();
+      saveState();
+    };
+    if (!defer) {
+      if (studioSaveTimer != null) globalThis.clearTimeout?.(studioSaveTimer);
+      write();
+      return;
+    }
+    if (studioSaveTimer != null) globalThis.clearTimeout?.(studioSaveTimer);
+    studioSaveTimer = globalThis.setTimeout?.(write, 180) ?? null;
   };
 
   const monitorStudio = async (stemId = null) => {
@@ -595,7 +606,7 @@ export function createActions({
       onMix: (stemId = null) => {
         if (stemId) studioPlayback.updateStemMix?.(studio, stemId, { immediate: true });
         else studioPlayback.applyLiveMix?.(studio) ?? studioPlayback.updateMix(studio);
-        rememberStudio();
+        rememberStudio({ defer: true });
       },
       onPlay: async () => {
         await monitorStudio();
@@ -633,7 +644,7 @@ export function createActions({
       onMix: (stemId = null) => {
         if (stemId) studioPlayback.updateStemMix?.(studio, stemId, { immediate: true });
         else studioPlayback.applyLiveMix?.(studio) ?? studioPlayback.updateMix(studio);
-        rememberStudio();
+        rememberStudio({ defer: true });
       },
       onPlay: async () => {
         await monitorStudio();
