@@ -908,6 +908,21 @@ canvas:focus {
   color: #f0ead7;
 }
 
+.spectra-add-track {
+  min-height: 34px;
+  margin: 0 0 8px;
+  padding: 6px 12px;
+  border: 1px solid #666457;
+  background: #25251f;
+  color: #e7e1ce;
+  font:
+    900 9px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.08em;
+}
+
 .spectra-channel-meter {
   position: relative;
   grid-row: 1;
