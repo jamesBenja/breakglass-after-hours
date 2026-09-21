@@ -1224,7 +1224,13 @@ export function installStudioLoopEnhancements(game, ui) {
         if (game.studioPlayback?.playing) await game.studioPlayback.play(session, 0);
         game.save?.();
       };
-      const meterProvider = () => game.studioPlayback?.meterSnapshot?.(session) ?? null;
+      const meterProvider = () => ({
+        ...(game.studioPlayback?.meterSnapshot?.(session) ?? {
+          channels: {},
+          master: { left: 0, right: 0 },
+        }),
+        transport: game.spectraTransport?.snapshot?.() ?? null,
+      });
 
       const result = baseStudioMixer(session, {
         ...options,
