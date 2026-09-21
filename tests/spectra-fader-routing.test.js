@@ -162,7 +162,7 @@ test('Spectra channel and stereo master meters report live post-fader signal', (
   assert.ok(snapshot.master.right > 0);
 });
 
-test('frozen Spectra audio is the sole playback source while retained performance stays editable', () => {
+test('frozen Spectra audio uses one persistent looping source through the live channel strip', () => {
   const createdSources = [];
   const playback = new StudioPlayback(fakeAudio(createdSources));
   const frozen = {
@@ -188,22 +188,31 @@ test('frozen Spectra audio is the sole playback source while retained performanc
   playback.session = session;
   playback.updateMix(session);
 
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
+  assert.equal(createdSources.length, 1);
+  assert.equal(createdSources[0].buffer, audioBuffer);
+  assert.equal(createdSources[0].loop, true);
+  assert.equal(createdSources[0].loopStart, 0);
+  assert.equal(createdSources[0].loopEnd, 2);
+  assert.deepEqual(createdSources[0].startArgs, [0, 0]);
+
   let performanceCalls = 0;
   playback.renderPerformance = () => {
     performanceCalls += 1;
     return true;
   };
-
   playback.renderStem(frozen, 0, 0);
-
+  playback.renderStem(frozen, 8, 0);
   assert.equal(createdSources.length, 1);
-  assert.equal(createdSources[0].buffer, audioBuffer);
-  assert.equal(createdSources[0].startArgs.length, 1);
   assert.equal(performanceCalls, 0);
 
   frozen.mute = true;
-  assert.equal(playback.applyLiveMix(session), true);
+  assert.equal(playback.applyChannelAudibility(session), true);
   assert.equal(playback.buses.get(frozen.id).gate.gain.value, 0);
+  frozen.mute = false;
+  playback.applyChannelAudibility(session);
+  assert.equal(playback.buses.get(frozen.id).gate.gain.value, 1);
+  assert.equal(createdSources.length, 1);
 });
 
 test('live mute and solo hard-gate already playing Spectra channels without transport restart', () => {
@@ -233,6 +242,74 @@ test('live mute and solo hard-gate already playing Spectra channels without tran
   playback.applyChannelAudibility(session);
   assert.equal(aBus.gate.gain.value, 1);
   assert.equal(bBus.gate.gain.value, 1);
+});
+
+test('fully frozen Spectra playback does not subscribe to sixteenth-note render callbacks', async () => {
+  const createdSources = [];
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
+  const frozen = {
+    ...stem('input-drum-machine', 0.72),
+    kind: 'drums',
+    inputKey: 'drum-machine',
+    renderedAudio: true,
+  };
+  const session = {
+    stems: [frozen],
+    recordings: new Map([[frozen.id, { duration: 2 }]]),
+    bpm: 120,
+    loopEnabled: true,
+    loopBars: 1,
+  };
+  let subscriptions = 0;
+  playback.spectraTransport = {
+    running: true,
+    position: () => 0,
+    positionAtOffset: () => 0,
+    subscribe() {
+      subscriptions += 1;
+      return () => {};
+    },
+    acquire: () => true,
+    restart: () => true,
+    release: () => true,
+  };
+
+  assert.equal(await playback.play(session, 0, { restartTransport: true }), true);
+  assert.equal(subscriptions, 0);
+  assert.equal(createdSources.length, 1);
+  assert.equal(playback.frozenSources.size, 1);
+  assert.equal(playback.playing, true);
+});
+
+test('monitored hits reuse the existing Spectra channel graph without a full mixer refresh', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const input = {
+    ...stem('input-synth', 0.5),
+    inputKey: 'synth',
+    performance: null,
+    monitor: true,
+  };
+  const session = { stems: [input], recordings: new Map() };
+  playback.updateMix(session);
+
+  let mixRefreshes = 0;
+  playback.updateMix = () => {
+    mixRefreshes += 1;
+    return true;
+  };
+  playback.oscillator = () => {};
+
+  assert.equal(
+    playback.monitorLiveEvent(
+      session,
+      { mode: 'synth', stemKind: 'synth', wave: 'triangle', volume: 0.08, duration: 0.4 },
+      { type: 'midi', midi: 60 },
+      { resourceId: 'local:synth' },
+    ),
+    true,
+  );
+  assert.equal(mixRefreshes, 0);
 });
 
 test('recorded drum-machine clips restart at bar one and render through the same channel strip', async () => {
