@@ -470,8 +470,14 @@ export class StudioPlayback {
     if (!this.audio.context || !session) return false;
     const stem = spectraInputStem(session, config, resourceId);
     if (!stem || stem.monitor === false) return false;
-    this.updateMix(session, { immediate: true });
-    const bus = this.ensureBus(stem).input;
+    const hadBus = this.buses.has(stem.id);
+    const busObject = this.ensureBus(stem);
+    if (!hadBus) {
+      // Initialize the channel strip once. Subsequent monitored hits go straight through the
+      // existing Web Audio graph; control moves update the graph independently via applyLiveMix.
+      this.updateMix(session, { immediate: true });
+    }
+    const bus = busObject.input;
     const delay = Math.max(0, Number(when) || 0);
 
     if (event.type === 'drum' && event.name) {
