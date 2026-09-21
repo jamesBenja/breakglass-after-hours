@@ -144,7 +144,6 @@ test('closing a performance or mixer panel restores mobile gameplay UI state', (
   }
 });
 
-
 function findByText(root, text) {
   if (!root) return null;
   if (root.textContent === text) return root;
