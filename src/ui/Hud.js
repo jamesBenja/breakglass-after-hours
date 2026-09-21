@@ -576,6 +576,13 @@ export class Hud {
       fader.value = String(stem.level);
       fader.className = 'spectra-fader';
       fader.setAttribute('aria-label', `${stem.label} fader`);
+      const meter = this.document.createElement('div');
+      meter.className = 'spectra-channel-meter';
+      const meterFill = this.document.createElement('span');
+      meterFill.className = 'spectra-channel-meter-fill';
+      meter.appendChild(meterFill);
+      channelMeters.set(stem.id, meterFill);
+
       const readout = this.document.createElement('output');
       readout.className = 'spectra-fader-readout';
       const syncFader = () => {
@@ -587,7 +594,7 @@ export class Hud {
         onMix();
       };
       syncFader();
-      faderSection.append(scale, fader, readout);
+      faderSection.append(scale, fader, meter, readout);
       strip.appendChild(faderSection);
 
       if (onAudition) {
@@ -647,6 +654,7 @@ export class Hud {
     };
     master.append(clearMutes, clearSolos);
     this.buttons.appendChild(master);
+    this.startSpectraMeters(meterProvider, channelMeters, masterMeters);
   }
 
   djMixer(mixer, tracks, { onChange = () => {} } = {}) {
