@@ -4,20 +4,29 @@ import { StudioSession } from '../src/studio/StudioSession.js';
 import { SpectraProjectStore } from '../src/studio/SpectraProjectStore.js';
 import { validateSave } from '../src/state/GameState.js';
 
-test('new Spectra projects start as genuinely blank editable sessions', () => {
+test('new Spectra projects start with five monitored input channels', () => {
   const session = new StudioSession();
   session.newProject('New Song', 124);
 
   assert.equal(session.project, true);
   assert.equal(session.name, 'New Song');
   assert.equal(session.bpm, 124);
-  assert.equal(session.stems.length, 0);
+  assert.deepEqual(
+    session.stems.map((stem) => stem.inputKey),
+    ['drum-machine', 'drum-kit', 'synth', 'guitar', 'piano'],
+  );
+  assert.ok(session.stems.every((stem) => stem.monitor === true));
+  assert.ok(session.stems.every((stem) => stem.recordArm === false));
   assert.equal(session.loopEnabled, true);
   assert.equal(session.loopBars, 4);
 
   const reopened = new StudioSession(session.snapshot());
   assert.equal(reopened.project, true);
-  assert.equal(reopened.stems.length, 0);
+  assert.equal(reopened.stems.length, 5);
+  assert.deepEqual(
+    reopened.stems.map((stem) => stem.inputKey),
+    ['drum-machine', 'drum-kit', 'synth', 'guitar', 'piano'],
+  );
   assert.equal(reopened.name, 'New Song');
 });
 
@@ -44,7 +53,7 @@ test('saved Spectra projects survive normal game-save validation with instrument
   assert.equal(saved.studioProjects.length, 1);
   assert.equal(saved.activeStudioProjectId, 'project-a');
   assert.equal(saved.studioProjects[0].session.project, true);
-  assert.equal(saved.studioProjects[0].session.stems.length, 0);
+  assert.equal(saved.studioProjects[0].session.stems.length, 5);
   assert.equal(saved.studioProjects[0].drumMachine.kit, '909');
   assert.equal(saved.studioProjects[0].modularSynth.wave, 'square');
 });
