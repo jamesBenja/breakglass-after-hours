@@ -153,7 +153,7 @@ export function createActions({
         baseMidi,
         wave: synth.wave,
         duration: synth.id === 'organ' ? 0.78 : 0.46,
-        volume: synth.id === 'mono-bass' ? 0.08 : 0.065,
+        volume: synth.id === 'mono-bass' ? 0.1 : synth.id === 'organ' ? 0.095 : 0.09,
         octaveLayer: synth.id === 'organ',
       };
     }
@@ -474,13 +474,21 @@ export function createActions({
               },
             );
             stem.clipStart = Math.max(0, Number(result.timelineStart) || 0);
-            if (result.buffer) studio.attachRecording(stem.id, result.buffer, result.blob);
-            else
-              ui.warning?.(
-                'Vocal captured, but this browser could not decode it for in-game playback yet.',
-              );
+            studio.attachRecording(stem.id, result.buffer, result.blob);
             rememberStudio();
-            if (result.buffer) await monitorStudio();
+
+            // iOS/Safari can keep the output route attenuated briefly after getUserMedia closes.
+            // Reassert the normal game-audio state before restarting the Spectra mix.
+            await audio.resume?.();
+            audio.setPrioritySource?.(null);
+            audio.setEnvironment?.(audio.environment);
+            audio.applySourceEnvironment?.('studio');
+            if (globalThis.setTimeout) {
+              await new Promise((resolve) => globalThis.setTimeout(resolve, 80));
+            }
+
+            if (result.buffer || result.blob?.size) await monitorStudio();
+            else ui.warning?.('The microphone take was empty and was not added to playback.');
             consolePanel();
           },
         ],
@@ -717,6 +725,27 @@ export function createActions({
       ]);
       return;
     }
+
+    const external = ui._spectraExternalInstruments ?? {};
+    const workspace = ui._spectraWorkspaceNavigation ?? {};
+    const renderConsoleFooter = () => {
+      appendButton('+ ADD TRACK · CHOOSE INPUT', addSpectraTrackPanel);
+      appendButton('DRUM MACHINE', () => external.drumMachine?.());
+      appendButton('DRUM KIT', drumsPanel);
+      appendButton('SYNTH / ORGAN', synthPanel);
+      appendButton('GUITAR', openGuitarPanel);
+      appendButton('BASS', openBassPanel);
+      appendButton('PIANO', pianoPanel);
+      appendButton('MODULAR SYNTH', () => external.modularSynth?.());
+
+      appendButton('SPECTRA SESSIONS · CREATE / SAVE / LOAD', () => workspace.sessions?.());
+      appendButton('ADVANCED SPECTRA SETTINGS', () => workspace.advanced?.());
+      appendButton('8CH SPATIAL MIXER', () => workspace.spatial?.());
+      appendButton('EXPORT TRACK', () => workspace.exportMix?.());
+      appendButton('Spectra mix challenge', mixChallengeMenu);
+      appendButton('Breakglass session templates', sessionLibraryPanel);
+    };
+
     ui.studioMixer(studio, {
       onMix: (stemId = null) => {
         if (stemId) studioPlayback.updateStemMix?.(studio, stemId, { immediate: true });
@@ -728,26 +757,14 @@ export function createActions({
       },
       onStop: () => studioPlayback.stop(),
       onRecordVocal: recordVocal,
-      onAudition: async (stemId) => monitorStudio(stemId),
+      onDeleteTrack: async (stemId) => {
+        const removed =
+          studioPlayback.removeStem?.(studio, stemId) ?? studio.removeTrack?.(stemId) ?? null;
+        if (removed) rememberStudio();
+        return removed;
+      },
+      renderFooter: renderConsoleFooter,
     });
-    const external = ui._spectraExternalInstruments ?? {};
-    const workspace = ui._spectraWorkspaceNavigation ?? {};
-
-    appendButton('+ ADD TRACK · CHOOSE INPUT', addSpectraTrackPanel);
-    appendButton('DRUM MACHINE', () => external.drumMachine?.());
-    appendButton('DRUM KIT', drumsPanel);
-    appendButton('SYNTH / ORGAN', synthPanel);
-    appendButton('GUITAR', openGuitarPanel);
-    appendButton('BASS', openBassPanel);
-    appendButton('PIANO', pianoPanel);
-    appendButton('MODULAR SYNTH', () => external.modularSynth?.());
-
-    appendButton('SPECTRA SESSIONS · CREATE / SAVE / LOAD', () => workspace.sessions?.());
-    appendButton('ADVANCED SPECTRA SETTINGS', () => workspace.advanced?.());
-    appendButton('8CH SPATIAL MIXER', () => workspace.spatial?.());
-    appendButton('EXPORT TRACK', () => workspace.exportMix?.());
-    appendButton('Spectra mix challenge', mixChallengeMenu);
-    appendButton('Breakglass session templates', sessionLibraryPanel);
   };
 
   const djPanel = () => {
