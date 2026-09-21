@@ -210,6 +210,112 @@ test('master console record captures a normally played monitored instrument into
   );
 });
 
+test('master console record captures guitar into the standing Guitar channel', () => {
+  const keyboard = new KeyboardPerformance(
+    {
+      tone: () => {},
+      kick: () => {},
+      hat: () => {},
+    },
+    null,
+    null,
+  );
+  const studio = new StudioSession();
+  const guitar = studio.stems.find((stem) => stem.inputKey === 'guitar');
+  studio.toggleRecordArm(guitar.id);
+
+  const game = {
+    keyboardPerformance: keyboard,
+    studio,
+    studioPlayback: {
+      playing: false,
+      position: () => 0,
+      updateMix: () => {},
+      monitorLiveEvent: () => true,
+    },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: { localId: 'local-1', remotePlayers: new Map() },
+    save: () => {},
+  };
+  game.spectraRecorder = new SpectraRecorder(game, {});
+
+  assert.equal(connectKeyboardPerformanceToSpectra(game), true);
+  assert.ok(game.spectraRecorder.arm());
+
+  keyboard.start({
+    mode: 'guitar',
+    stemKind: 'guitar',
+    inputKey: 'guitar',
+    label: 'Electric guitar',
+    wave: 'sawtooth',
+    volume: 0.06,
+    duration: 0.5,
+  });
+  assert.equal(keyboard.playMidi(43), true);
+  assert.equal(keyboard.playMidi(50), true);
+  keyboard.stop(false);
+
+  const committed = game.spectraRecorder.stop({ commit: true });
+  assert.equal(committed.length, 1);
+  assert.equal(committed[0].id, guitar.id);
+  assert.deepEqual(
+    guitar.performance.events.map((event) => event.midi),
+    [43, 50],
+  );
+});
+
+test('bass performance shares the fixed Guitar-family Spectra input', () => {
+  const keyboard = new KeyboardPerformance(
+    {
+      tone: () => {},
+      kick: () => {},
+      hat: () => {},
+    },
+    null,
+    null,
+  );
+  const studio = new StudioSession();
+  const guitar = studio.stems.find((stem) => stem.inputKey === 'guitar');
+  studio.toggleRecordArm(guitar.id);
+
+  const game = {
+    keyboardPerformance: keyboard,
+    studio,
+    studioPlayback: {
+      playing: false,
+      position: () => 0,
+      updateMix: () => {},
+      monitorLiveEvent: () => true,
+    },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: { localId: 'local-1', remotePlayers: new Map() },
+    save: () => {},
+  };
+  game.spectraRecorder = new SpectraRecorder(game, {});
+
+  connectKeyboardPerformanceToSpectra(game);
+  assert.ok(game.spectraRecorder.arm());
+
+  keyboard.start({
+    mode: 'bass',
+    stemKind: 'bass',
+    inputKey: 'guitar',
+    label: 'Bass',
+    wave: 'sawtooth',
+    volume: 0.08,
+    duration: 0.4,
+  });
+  keyboard.playMidi(31);
+  keyboard.stop(false);
+
+  const committed = game.spectraRecorder.stop({ commit: true });
+  assert.equal(committed.length, 1);
+  assert.equal(committed[0].id, guitar.id);
+  assert.equal(guitar.performance.events[0].midi, 31);
+});
+
 test('multiplayer instrument publishing always feeds the local Spectra recorder first', () => {
   const captured = [];
   const performance = {

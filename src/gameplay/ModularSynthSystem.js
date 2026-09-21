@@ -172,6 +172,9 @@ export class ModularSynthSystem {
           this.playing ? '■ STOP LIVE LOOP' : '▶ START LIVE LOOP',
           () => (this.playing ? this.stopLoop() : this.startLoop()),
         ],
+        ...(typeof this.game.showSpectraMixer === 'function'
+          ? [['SPECTRA MIXER', () => this.game.showSpectraMixer()]]
+          : []),
       ],
     );
     this.renderTransportControls();
@@ -515,6 +518,9 @@ export function installModularSynthSystem(game, ui) {
     if (modular.handle(target)) return;
     baseDispatch(target);
   };
+  ui._spectraExternalInstruments ??= {};
+  ui._spectraExternalInstruments.modularSynth = () => modular.open();
+
   const baseStopAll = game.stopAll?.bind(game);
   if (baseStopAll) {
     game.stopAll = (...args) => {

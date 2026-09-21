@@ -158,6 +158,7 @@ export class KeyboardPerformance {
       duration: clamp(Number(config.duration) || 0.42, 0.06, 1.5),
       octaveLayer: config.octaveLayer === true,
       stemKind: config.stemKind ?? config.mode ?? 'synth',
+      inputKey: config.inputKey ?? null,
       processing:
         config.processing && typeof config.processing === 'object'
           ? { ...config.processing }

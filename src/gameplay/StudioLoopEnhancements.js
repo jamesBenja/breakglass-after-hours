@@ -500,7 +500,7 @@ async function createNewProject(game, ui, name) {
   game.state.data.activeStudioProjectId = null;
   game.save();
   await saveCurrentProject(game, ui, { asNew: true, name });
-  buildLoopPanel(game, ui);
+  game.showSpectraMixer?.();
 }
 
 async function duplicateCurrentProject(game, ui) {
@@ -639,10 +639,10 @@ function buildSessionManagerPanel(game, ui) {
         `${project.id === active?.id ? '✓ ' : ''}OPEN · ${project.name}`,
         async () => {
           await loadProject(game, ui, project.id);
-          buildLoopPanel(game, ui);
+          game.showSpectraMixer?.();
         },
       ]),
-    ['Back to loop / song builder', () => buildLoopPanel(game, ui)],
+    ['BACK TO SPECTRA MIXER', () => game.showSpectraMixer?.()],
   ];
 
   ui.panel(
@@ -915,7 +915,7 @@ function buildSpatialMixerPanel(game, ui) {
           buildSpatialMixerPanel(game, ui);
         },
       ],
-      ['Back to loop / song builder', () => buildLoopPanel(game, ui)],
+      ['Back to advanced Spectra settings', () => buildLoopPanel(game, ui)],
     ],
   );
 }
@@ -968,7 +968,7 @@ function buildClipPanel(game, ui) {
         buildClipPanel(game, ui);
       },
     ],
-    ['Back to loop / song builder', () => buildLoopPanel(game, ui)],
+    ['Back to advanced Spectra settings', () => buildLoopPanel(game, ui)],
   ];
 
   ui.panel(
@@ -1000,7 +1000,7 @@ function buildLoopPanel(game, ui) {
       : 'live recorder idle'
   }`;
   const actions = [
-    ['OPEN SPECTRA SESSIONS', () => buildSessionManagerPanel(game, ui)],
+    ['BACK TO SPECTRA MIXER', () => game.showSpectraMixer?.()],
     ['OPEN 8-CHANNEL SPATIAL MIXER', () => buildSpatialMixerPanel(game, ui)],
     ['OPEN QUANTIZED CLIP LAUNCHER', () => buildClipPanel(game, ui)],
     [
@@ -1128,8 +1128,8 @@ function buildLoopPanel(game, ui) {
     ['Open house song library', () => buildSongLibraryPanel(game, ui, 'Studio')],
   ];
   ui.panel(
-    'STUDIO LOOP / SONG BUILDER',
-    `${status}. Record takes into the console, quantize them to the shared loop, duplicate layers, and keep the backing session running while you overdub.`,
+    'SPECTRA · ADVANCED SETTINGS',
+    `${status}. Advanced loop, clock, quantize, clip-launch, spatial and export controls. Session create/save/load now lives in the dedicated SPECTRA SESSIONS menu directly beneath the mixer.`,
     actions,
   );
 
@@ -1201,10 +1201,27 @@ export function installStudioLoopEnhancements(game, ui) {
       .then(() => game.studioPlayback?.updateMix?.(game.studio))
       .catch(() => {});
   }
-  game.showStudioLoopBuilder = () => buildLoopPanel(game, ui);
+  game.showSpectraMixer = () => ui._spectraStudioNavigation?.mixer?.();
+  game.showSpectraAdvancedSettings = () => buildLoopPanel(game, ui);
+  game.showStudioLoopBuilder = game.showSpectraAdvancedSettings;
   game.showSpectraSessions = () => buildSessionManagerPanel(game, ui);
   game.showStudioSongLibrary = (location = 'House playback') =>
     buildSongLibraryPanel(game, ui, location);
+
+  ui._spectraWorkspaceNavigation = {
+    sessions: () => buildSessionManagerPanel(game, ui),
+    advanced: () => buildLoopPanel(game, ui),
+    spatial: () => buildSpatialMixerPanel(game, ui),
+    exportMix: async () => {
+      try {
+        ui.warning?.('Rendering Spectra mix offline…');
+        const exported = await game.studioExporter.exportMix(game.studio);
+        ui.warning?.(`Exported ${exported.filename}.`);
+      } catch (error) {
+        ui.warning?.(`Track export failed: ${error?.message || 'unknown export error'}`);
+      }
+    },
+  };
 
   if (!game.interactions._studioSongPlayerPatched) {
     const baseDispatch = game.interactions.dispatch.bind(game.interactions);
@@ -1332,34 +1349,6 @@ export function installStudioLoopEnhancements(game, ui) {
         meterProvider,
         onAudibility,
       });
-      const button = ui.document.createElement('button');
-      button.type = 'button';
-      button.textContent = 'LOOP / SONG BUILDER';
-      button.className = 'studio-loop-builder-button';
-      button.onclick = () => buildLoopPanel(game, ui);
-      ui.buttons?.appendChild(button);
-
-      const spatialButton = ui.document.createElement('button');
-      spatialButton.type = 'button';
-      spatialButton.textContent = '8CH SPATIAL MIXER';
-      spatialButton.className = 'studio-spatial-mixer-button';
-      spatialButton.onclick = () => buildSpatialMixerPanel(game, ui);
-      ui.buttons?.appendChild(spatialButton);
-
-      const exportButton = ui.document.createElement('button');
-      exportButton.type = 'button';
-      exportButton.textContent = 'EXPORT TRACK';
-      exportButton.className = 'studio-track-export-button';
-      exportButton.onclick = async () => {
-        try {
-          ui.warning?.('Rendering Spectra mix offline…');
-          const exported = await game.studioExporter.exportMix(session);
-          ui.warning?.(`Exported ${exported.filename}.`);
-        } catch (error) {
-          ui.warning?.(`Track export failed: ${error?.message || 'unknown export error'}`);
-        }
-      };
-      ui.buttons?.appendChild(exportButton);
       return result;
     };
     ui._studioLoopBuilderPatched = true;

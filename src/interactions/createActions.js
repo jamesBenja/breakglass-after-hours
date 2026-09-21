@@ -189,9 +189,18 @@ export function createActions({
   const startPerformance = (kind, { back = () => {}, stemKind = kind } = {}) => {
     if (!keyboardPerformance) return;
     dj?.stop?.();
+    const inputKey =
+      kind === 'drums'
+        ? 'drum-kit'
+        : kind === 'piano' || stemKind === 'keys'
+          ? 'piano'
+          : kind === 'guitar' || kind === 'bass'
+            ? 'guitar'
+            : 'synth';
     const config = {
       ...performanceConfig(kind),
       stemKind,
+      inputKey,
       processing: performanceProcessing(stemKind),
     };
     keyboardPerformance.start(config, { record: false });
@@ -204,6 +213,13 @@ export function createActions({
           () => {
             keyboardPerformance.stop(false);
             back();
+          },
+        ],
+        [
+          'Spectra mixer',
+          () => {
+            keyboardPerformance.stop(false);
+            consolePanel();
           },
         ],
       ],
@@ -276,8 +292,21 @@ export function createActions({
           'Play with keyboard',
           () => startPerformance(type, { back: instrumentPanel, stemKind: type }),
         ],
+        ['Spectra mixer', consolePanel],
       ],
     );
+  };
+
+  const openGuitarPanel = () => {
+    studio.setup.instrumentType = 'guitar';
+    rememberStudio();
+    instrumentPanel();
+  };
+
+  const openBassPanel = () => {
+    studio.setup.instrumentType = 'bass';
+    rememberStudio();
+    instrumentPanel();
   };
 
   const ampPanel = () => {
@@ -302,6 +331,7 @@ export function createActions({
       ],
       ['Quick audition', previewInstrument],
       ['Play current chain', () => startPerformance(type, { back: ampPanel, stemKind: type })],
+      ['Spectra mixer', consolePanel],
     ]);
   };
 
@@ -377,6 +407,7 @@ export function createActions({
           'Play kit with keyboard',
           () => startPerformance('drums', { back: drumsPanel, stemKind: 'drums' }),
         ],
+        ['Spectra mixer', consolePanel],
       ],
     );
   };
@@ -404,6 +435,7 @@ export function createActions({
         'Play with keyboard',
         () => startPerformance('synth', { back: synthPanel, stemKind: 'synth' }),
       ],
+      ['Spectra mixer', consolePanel],
     ]);
   };
 
@@ -411,6 +443,7 @@ export function createActions({
     if (!hasStudio) return audio.chord(220);
     panel('LIVE ROOM · PIANO', 'The piano is playable from the computer keyboard.', [
       ['Play piano', () => startPerformance('piano', { back: pianoPanel, stemKind: 'keys' })],
+      ['Spectra mixer', consolePanel],
     ]);
   };
 
@@ -653,8 +686,23 @@ export function createActions({
       onRecordVocal: recordVocal,
       onAudition: async (stemId) => monitorStudio(stemId),
     });
+    const external = ui._spectraExternalInstruments ?? {};
+    const workspace = ui._spectraWorkspaceNavigation ?? {};
+
+    appendButton('DRUM MACHINE', () => external.drumMachine?.());
+    appendButton('DRUM KIT', drumsPanel);
+    appendButton('SYNTH / ORGAN', synthPanel);
+    appendButton('GUITAR', openGuitarPanel);
+    appendButton('BASS', openBassPanel);
+    appendButton('PIANO', pianoPanel);
+    appendButton('MODULAR SYNTH', () => external.modularSynth?.());
+
+    appendButton('SPECTRA SESSIONS · CREATE / SAVE / LOAD', () => workspace.sessions?.());
+    appendButton('ADVANCED SPECTRA SETTINGS', () => workspace.advanced?.());
+    appendButton('8CH SPATIAL MIXER', () => workspace.spatial?.());
+    appendButton('EXPORT TRACK', () => workspace.exportMix?.());
     appendButton('Spectra mix challenge', mixChallengeMenu);
-    appendButton('Load Breakglass session', sessionLibraryPanel);
+    appendButton('Breakglass session templates', sessionLibraryPanel);
   };
 
   const djPanel = () => {
@@ -1025,6 +1073,16 @@ export function createActions({
         ['Back to installation controls', installationPanel],
       ],
     );
+  };
+
+  ui._spectraStudioNavigation = {
+    mixer: consolePanel,
+    drumKit: drumsPanel,
+    synth: synthPanel,
+    guitar: openGuitarPanel,
+    bass: openBassPanel,
+    piano: pianoPanel,
+    instruments: instrumentPanel,
   };
 
   const actions = {
