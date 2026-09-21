@@ -215,7 +215,6 @@ export class DrumMachineSystem {
           this.playing ? '■ STOP DRUM MACHINE' : '▶ START DRUM MACHINE',
           () => (this.playing ? this.stopLoop() : this.startLoop()),
         ],
-        ['Record current pattern → Spectra', () => this.recordToConsole()],
       ],
     );
     this.renderTransport();

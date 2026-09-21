@@ -994,60 +994,13 @@ function buildLoopPanel(game, ui) {
       },
     ],
     [
-      recordStatus.armed
-        ? '■ FINISH LIVE MULTITRACK + BUILD STEMS'
-        : '● ARM LIVE MULTITRACK RECORDING',
-      async () => {
-        if (recorder?.armed) {
-          const stems = recorder.stop({ commit: true });
-          const events = stems.reduce(
-            (total, stem) => total + (stem.performance?.events?.length ?? 0),
-            0,
-          );
-          if (stems.length) {
-            await game.audio?.init?.();
-            game.spectraTransport?.restart?.(0);
-            await studioPlayback.play(studio);
-          }
-          ui.warning?.(
-            stems.length
-              ? `Spectra committed ${stems.length} live stem${stems.length === 1 ? '' : 's'} containing ${events} event${events === 1 ? '' : 's'} and started console monitoring.`
-              : 'No instrument events reached the Spectra recorder, so no stems were added.',
-          );
-        } else {
-          recorder?.arm?.();
-          ui.warning?.(
-            'Spectra is armed. Recording begins on the first instrument note from any player.',
-          );
-        }
-        game.save();
-        buildLoopPanel(game, ui);
+      'RECORDING IS CONTROLLED FROM THE SPECTRA CONSOLE',
+      () => {
+        ui.warning?.(
+          'Arm channels and use the master RECORD button on the Spectra console. Instruments stay input-monitored automatically.',
+        );
       },
     ],
-    ...(!recordStatus.armed
-      ? [
-          [
-            '● ARM + PLAY LOOP FOR OVERDUB',
-            async () => {
-              studio.setLoopEnabled(true);
-              recorder?.arm?.();
-              await studioPlayback.play(studio);
-              ui.warning?.(
-                'Loop is rolling. Spectra will punch in on the first live instrument note.',
-              );
-              buildLoopPanel(game, ui);
-            },
-          ],
-        ]
-      : [
-          [
-            'Cancel live multitrack capture',
-            () => {
-              recorder?.cancel?.();
-              buildLoopPanel(game, ui);
-            },
-          ],
-        ]),
     [
       studio.loopEnabled ? 'Disable loop' : 'Enable loop',
       async () => {
