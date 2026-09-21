@@ -1309,6 +1309,11 @@ export function installStudioLoopEnhancements(game, ui) {
         }
         game.save?.();
       };
+      const onAudibility = () => {
+        game.studioPlayback?.applyChannelAudibility?.(session);
+        game.save?.();
+      };
+
       const meterProvider = () => ({
         ...(game.studioPlayback?.meterSnapshot?.(session) ?? {
           channels: {},
@@ -1325,6 +1330,7 @@ export function installStudioLoopEnhancements(game, ui) {
         onClick,
         onLoopBars,
         meterProvider,
+        onAudibility,
       });
       const button = ui.document.createElement('button');
       button.type = 'button';
