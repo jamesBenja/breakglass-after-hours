@@ -16,18 +16,28 @@ export function spectraInputKey(config = {}, resourceId = '') {
   return mode || 'synth';
 }
 
+export function spectraInputStems(
+  session,
+  config = {},
+  resourceId = '',
+  { armedOnly = false, monitoredOnly = false } = {},
+) {
+  const key = spectraInputKey(config, resourceId);
+  const stems = session?.stems ?? [];
+  const eligible = stems.filter(
+    (stem) =>
+      (!armedOnly || stem.recordArm === true) && (!monitoredOnly || stem.monitor !== false),
+  );
+  const exact = eligible.filter((stem) => stem.inputKey === key);
+  if (exact.length) return exact;
+  return eligible.filter((stem) => stem.kind === config.stemKind || stem.kind === config.mode);
+}
+
 export function spectraInputStem(
   session,
   config = {},
   resourceId = '',
-  { armedOnly = false } = {},
+  options = {},
 ) {
-  const key = spectraInputKey(config, resourceId);
-  const stems = session?.stems ?? [];
-  const eligible = armedOnly ? stems.filter((stem) => stem.recordArm === true) : stems;
-  return (
-    eligible.find((stem) => stem.inputKey === key) ??
-    eligible.find((stem) => stem.kind === config.stemKind || stem.kind === config.mode) ??
-    null
-  );
+  return spectraInputStems(session, config, resourceId, options)[0] ?? null;
 }
