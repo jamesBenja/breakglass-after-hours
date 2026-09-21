@@ -89,9 +89,13 @@ export class SpectraRecorder {
   beginOnFirstEvent(offsetSeconds = 0) {
     if (!this.armed) return false;
     if (this.recording) return true;
+    const offset = Math.max(0, Number(offsetSeconds) || 0);
     this.recording = true;
-    this.startedAt = clockNow() + Math.max(0, Number(offsetSeconds) || 0) * 1000;
-    this.transportOrigin = this.game.studioPlayback?.position?.() ?? 0;
+    this.startedAt = clockNow() + offset * 1000;
+    const transport = this.game.spectraTransport;
+    this.transportOrigin = transport?.running
+      ? transport.positionAtOffset(offset)
+      : (this.game.studioPlayback?.position?.() ?? 0);
     return true;
   }
 
@@ -101,7 +105,10 @@ export class SpectraRecorder {
     const transport = this.game.spectraTransport;
     if (transport?.running) {
       const position = transport.positionAtOffset(offset);
-      return transport.quantizeTime(position, {
+      const timelinePosition = this.game.studioPlayback?.playing
+        ? position
+        : Math.max(0, position - this.transportOrigin);
+      return transport.quantizeTime(timelinePosition, {
         wrap: session?.loopEnabled === true,
         includeSwing: true,
       });
