@@ -148,6 +148,34 @@ test('recorded Spectra stems are controlled by their actual fader, mute and solo
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 });
 
+test('Spectra exposes independent reverb and delay sends with persistent FX detail settings', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const session = new StudioSession();
+  const synth = session.stems.find((stem) => stem.inputKey === 'synth');
+
+  session.setReverb(synth.id, 0.4);
+  session.setDelay(synth.id, 0.7);
+  session.setFxParam(synth.id, 'reverbSize', 0.8);
+  session.setFxParam(synth.id, 'reverbDamping', 0.5);
+  session.setFxParam(synth.id, 'delayTime', 0.5);
+  session.setFxParam(synth.id, 'delayFeedback', 0.45);
+
+  playback.updateMix(session, { immediate: true });
+  const bus = playback.buses.get(synth.id);
+  assert.equal(bus.reverbSend.gain.value, 0.12);
+  assert.equal(bus.delaySend.gain.value, 0.294);
+  assert.equal(bus.delayNode.delayTime.value, 0.5);
+  assert.equal(bus.delayFeedback.gain.value, 0.45);
+  assert.equal(bus.reverbDampingA.frequency.value, 8250);
+
+  const reopened = new StudioSession(session.snapshot());
+  const restored = reopened.stems.find((stem) => stem.id === synth.id);
+  assert.equal(restored.reverb, 0.4);
+  assert.equal(restored.delay, 0.7);
+  assert.equal(restored.fxSettings.reverbSize, 0.8);
+  assert.equal(restored.fxSettings.delayTime, 0.5);
+});
+
 test('Spectra channel and stereo master meters report live post-fader signal', () => {
   const playback = new StudioPlayback(fakeAudio());
   const first = stem('meter-one', 0.8);
