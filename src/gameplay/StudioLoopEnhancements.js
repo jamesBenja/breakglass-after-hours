@@ -152,10 +152,11 @@ export function connectKeyboardPerformanceToSpectra(game) {
   };
 
   performance.setCaptureArmed?.(() => game.spectraRecorder?.armed === true);
-  performance.setPerformanceMonitor?.(({ config = {}, event = {} } = {}) =>
-    game.studioPlayback?.monitorLiveEvent?.(game.studio, config, event, {
-      resourceId: resourceIdFor(config),
-    }) === true,
+  performance.setPerformanceMonitor?.(
+    ({ config = {}, event = {} } = {}) =>
+      game.studioPlayback?.monitorLiveEvent?.(game.studio, config, event, {
+        resourceId: resourceIdFor(config),
+      }) === true,
   );
   performance.setPerformanceEventSink(({ config = {}, event = {} } = {}) => {
     const recorder = game.spectraRecorder;
@@ -1237,7 +1238,8 @@ export function installStudioLoopEnhancements(game, ui) {
           return committed;
         }
 
-        const armedTracks = session.armedStems?.() ?? session.stems.filter((stem) => stem.recordArm);
+        const armedTracks =
+          session.armedStems?.() ?? session.stems.filter((stem) => stem.recordArm);
         if (!armedTracks.length) {
           ui.warning?.('Arm at least one console channel before pressing RECORD.');
           return false;

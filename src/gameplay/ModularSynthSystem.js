@@ -349,7 +349,8 @@ export class ModularSynthSystem {
       { type: 'midi', midi: event.midi },
       { resourceId: MODULAR_RESOURCE_ID, when: delay },
     );
-    if (!monitored) this.game.audio?.tone?.(event.frequency, duration, this.patch.wave, 0.062, delay);
+    if (!monitored)
+      this.game.audio?.tone?.(event.frequency, duration, this.patch.wave, 0.062, delay);
     const instrumentSync = this.game.multiplayer?.instrumentSync;
     if (instrumentSync?.publishExternal) {
       instrumentSync.publishExternal(

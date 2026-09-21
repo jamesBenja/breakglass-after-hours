@@ -1,10 +1,4 @@
-export const SPECTRA_INPUT_KEYS = [
-  'drum-machine',
-  'drum-kit',
-  'synth',
-  'guitar',
-  'piano',
-];
+export const SPECTRA_INPUT_KEYS = ['drum-machine', 'drum-kit', 'synth', 'guitar', 'piano'];
 
 export function spectraInputKey(config = {}, resourceId = '') {
   const resource = String(resourceId || '').toLowerCase();
@@ -20,7 +14,12 @@ export function spectraInputKey(config = {}, resourceId = '') {
   return mode || 'synth';
 }
 
-export function spectraInputStem(session, config = {}, resourceId = '', { armedOnly = false } = {}) {
+export function spectraInputStem(
+  session,
+  config = {},
+  resourceId = '',
+  { armedOnly = false } = {},
+) {
   const key = spectraInputKey(config, resourceId);
   const stems = session?.stems ?? [];
   const eligible = armedOnly ? stems.filter((stem) => stem.recordArm === true) : stems;

@@ -505,7 +505,6 @@ canvas:focus {
   }
 }
 
-
 /* Spectra console: one physical-style desk with vertical channel strips. */
 #panel.spectra-console-panel {
   width: min(1180px, calc(100vw - 28px));
@@ -553,7 +552,11 @@ canvas:focus {
   flex: 1 1 220px;
   min-width: 180px;
   color: #9fcca8;
-  font: 700 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    700 10px/1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   letter-spacing: 0.08em;
 }
 
@@ -572,8 +575,7 @@ canvas:focus {
   box-sizing: border-box;
   border: 1px solid #343438;
   border-radius: 10px;
-  background:
-    linear-gradient(180deg, #242428 0%, #17171a 38%, #101012 100%);
+  background: linear-gradient(180deg, #242428 0%, #17171a 38%, #101012 100%);
   scrollbar-width: thin;
 }
 
@@ -589,12 +591,18 @@ canvas:focus {
   border: 1px solid #3d3d42;
   border-radius: 7px;
   background: linear-gradient(180deg, #2a2a2e, #171719 62%, #0e0e10);
-  box-shadow: inset 1px 0 rgba(255, 255, 255, 0.035), inset -1px 0 rgba(0, 0, 0, 0.45);
+  box-shadow:
+    inset 1px 0 rgba(255, 255, 255, 0.035),
+    inset -1px 0 rgba(0, 0, 0, 0.45);
 }
 
 .spectra-channel-number {
   color: #777a80;
-  font: 800 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    800 9px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   letter-spacing: 0.12em;
 }
 
@@ -725,7 +733,11 @@ canvas:focus {
   justify-content: space-between;
   align-self: stretch;
   color: #686b70;
-  font: 700 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    700 7px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
 }
 
 .spectra-fader {
@@ -754,7 +766,11 @@ canvas:focus {
   border-radius: 3px;
   color: #d8d2bf;
   background: #0b0c0d;
-  font: 800 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    800 9px/1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   text-align: center;
 }
 

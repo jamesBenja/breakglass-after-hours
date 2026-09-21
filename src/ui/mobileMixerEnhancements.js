@@ -370,7 +370,11 @@ Hud.prototype.studioMixer = function mobileStudioMixer(session, options = {}) {
   const result = baseStudioMixer.call(this, session, options);
   if (isTouchDevice()) {
     clearMobileMixerClasses(this.document);
-    this.document.body?.classList.add('mixer-active', 'studio-mobile-active', 'spectra-console-active');
+    this.document.body?.classList.add(
+      'mixer-active',
+      'studio-mobile-active',
+      'spectra-console-active',
+    );
   }
   return result;
 };

@@ -130,7 +130,10 @@ export class SpectraRecorder {
       : null;
     if (hasTrackArmModel && !targetStem) return false;
     this.beginOnFirstEvent(offsetSeconds);
-    const laneId = [targetStem?.id || resourceId || config.mode || 'instrument', playerId || 'local']
+    const laneId = [
+      targetStem?.id || resourceId || config.mode || 'instrument',
+      playerId || 'local',
+    ]
       .join(':')
       .slice(0, 96);
     let lane = this.lanes.get(laneId);
@@ -211,10 +214,8 @@ export class SpectraRecorder {
       if (!lane.events.length) continue;
       const kind = kindFor(lane.config);
       const target = session.stems.find((stem) => stem.id === lane.targetStemId);
-      const label =
-        target?.label || `${lane.playerName} · ${lane.config.label || kind}`;
-      const stem =
-        target ?? session.addTake(kind, label, lane.source, lane.config.processing);
+      const label = target?.label || `${lane.playerName} · ${lane.config.label || kind}`;
+      const stem = target ?? session.addTake(kind, label, lane.source, lane.config.processing);
       stem.source = lane.source;
       stem.processing = lane.config.processing ? { ...lane.config.processing } : stem.processing;
       stem.monitor = true;

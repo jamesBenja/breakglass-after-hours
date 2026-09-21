@@ -208,7 +208,13 @@ test('empty monitored input channels do not generate canned playback', () => {
     performance: null,
     monitor: true,
   };
-  const session = { stems: [input], recordings: new Map(), bpm: 118, loopEnabled: true, loopBars: 4 };
+  const session = {
+    stems: [input],
+    recordings: new Map(),
+    bpm: 118,
+    loopEnabled: true,
+    loopBars: 4,
+  };
   playback.session = session;
   let generated = 0;
   playback.kick = () => {
