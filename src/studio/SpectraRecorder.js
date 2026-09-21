@@ -1,4 +1,4 @@
-import { spectraInputStem } from './SpectraInputs.js';
+import { spectraInputStems } from './SpectraInputs.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
 const clockNow = () => globalThis.performance?.now?.() ?? Date.now();
@@ -149,49 +149,56 @@ export class SpectraRecorder {
   } = {}) {
     if (!this.armed) return false;
     const hasTrackArmModel = typeof this.game.studio?.armedStems === 'function';
-    const targetStem = hasTrackArmModel
-      ? spectraInputStem(this.game.studio, config, resourceId, { armedOnly: true })
-      : null;
-    if (hasTrackArmModel && !targetStem) return false;
+    const targetStems = hasTrackArmModel
+      ? spectraInputStems(this.game.studio, config, resourceId, { armedOnly: true })
+      : [];
+    if (hasTrackArmModel && !targetStems.length) return false;
     this.beginOnFirstEvent(offsetSeconds);
-    const laneId = [
-      targetStem?.id || resourceId || config.mode || 'instrument',
-      playerId || 'local',
-    ]
-      .join(':')
-      .slice(0, 96);
-    let lane = this.lanes.get(laneId);
-    if (!lane) {
-      lane = {
-        id: laneId,
-        playerId: String(playerId || 'local').slice(0, 64),
-        playerName: String(playerName || 'Player').slice(0, 32),
-        resourceId: String(resourceId || 'instrument').slice(0, 96),
-        config: {
-          mode: config.mode ?? 'synth',
-          stemKind: config.stemKind ?? null,
-          label: config.label ?? config.mode ?? 'Instrument',
-          wave: config.wave ?? 'triangle',
-          volume: clamp(config.volume ?? 0.065, 0.01, 0.22),
-          duration: clamp(config.duration ?? 0.42, 0.06, 1.5),
-          octaveLayer: config.octaveLayer === true,
-          processing:
-            config.processing && typeof config.processing === 'object'
-              ? { ...config.processing }
-              : null,
-        },
-        source,
-        targetStemId: targetStem?.id ?? null,
-        events: [],
-      };
-      this.lanes.set(laneId, lane);
-    }
+
+    const targets = hasTrackArmModel ? targetStems : [null];
     const eventTime = this.eventTime(offsetSeconds);
-    for (const captured of eventsForCapture(event)) {
-      const { delay = 0, ...performanceEvent } = captured;
-      lane.events.push({ time: eventTime + delay, ...performanceEvent });
+    const capturedEvents = eventsForCapture(event);
+
+    for (const targetStem of targets) {
+      const laneId = [
+        targetStem?.id || resourceId || config.mode || 'instrument',
+        playerId || 'local',
+      ]
+        .join(':')
+        .slice(0, 96);
+      let lane = this.lanes.get(laneId);
+      if (!lane) {
+        lane = {
+          id: laneId,
+          playerId: String(playerId || 'local').slice(0, 64),
+          playerName: String(playerName || 'Player').slice(0, 32),
+          resourceId: String(resourceId || 'instrument').slice(0, 96),
+          config: {
+            mode: config.mode ?? 'synth',
+            stemKind: config.stemKind ?? null,
+            inputKey: config.inputKey ?? null,
+            label: config.label ?? config.mode ?? 'Instrument',
+            wave: config.wave ?? 'triangle',
+            volume: clamp(config.volume ?? 0.065, 0.01, 0.22),
+            duration: clamp(config.duration ?? 0.42, 0.06, 1.5),
+            octaveLayer: config.octaveLayer === true,
+            processing:
+              config.processing && typeof config.processing === 'object'
+                ? { ...config.processing }
+                : null,
+          },
+          source,
+          targetStemId: targetStem?.id ?? null,
+          events: [],
+        };
+        this.lanes.set(laneId, lane);
+      }
+      for (const captured of capturedEvents) {
+        const { delay = 0, ...performanceEvent } = captured;
+        lane.events.push({ time: eventTime + delay, ...performanceEvent });
+      }
+      if (lane.events.length > 512) lane.events.splice(0, lane.events.length - 512);
     }
-    if (lane.events.length > 512) lane.events.splice(0, lane.events.length - 512);
     return true;
   }
 
