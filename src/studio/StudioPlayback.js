@@ -309,21 +309,16 @@ export class StudioPlayback {
 
   applyChannelAudibility(session = this.session) {
     if (!session || !this.audio.context) return false;
-    const soloIds = new Set(
-      session.stems.filter((stem) => stem.solo === true).map((stem) => stem.id),
-    );
-    const anySolo = soloIds.size > 0;
-    this.anySolo = anySolo;
+    this.anySolo = session.stems.some((stem) => stem.solo === true);
     for (const stem of session.stems) {
       const bus = this.ensureBus(stem);
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const active = selected && stem.clipActive !== false;
       const time = this.audio.context.currentTime;
 
-      // Keep the user fader authoritative at all times. Mute and solo only operate the final
-      // hard gate: when any channel is soloed, every non-solo channel closes and every soloed
-      // channel stays open at its existing fader level.
-      const gateOpen = anySolo ? active && soloIds.has(stem.id) : active && stem.mute !== true;
+      // SOLO is implemented by StudioSession as derived MUTE state. There is only one live
+      // audibility rule here: the exact same mute path controls manual mute and solo.
+      const gateOpen = active && stem.mute !== true;
 
       const frozenGate = this.frozenGates.get(stem.id);
       if (frozenGate) {
@@ -344,23 +339,13 @@ export class StudioPlayback {
 
   updateNativeMix(session = this.session) {
     if (!session || !this.nativeStems.size) return;
-    const soloIds = new Set(
-      session.stems.filter((stem) => stem.solo === true).map((stem) => stem.id),
-    );
-    const anySolo = soloIds.size > 0;
     const environment = this.audio.sourceGain?.('studio') ?? this.audio.environment?.gain ?? 1;
     for (const stem of session.stems) {
       const media = this.nativeStems.get(stem.id);
       if (!media) continue;
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const active = selected && stem.clipActive !== false;
-      const level = anySolo
-        ? soloIds.has(stem.id) && active
-          ? stem.level
-          : 0
-        : active && stem.mute !== true
-          ? stem.level
-          : 0;
+      const level = active && stem.mute !== true ? stem.level : 0;
       media.volume = clamp(level * environment * 0.88);
     }
   }
@@ -386,17 +371,13 @@ export class StudioPlayback {
     if (!session || !this.audio.context) return;
     const time = this.audio.context.currentTime;
     const activeIds = new Set();
-    const anySolo = session.stems.some((stem) => stem.solo);
-    this.anySolo = anySolo;
+    this.anySolo = session.stems.some((stem) => stem.solo === true);
     for (const stem of session.stems) {
       activeIds.add(stem.id);
       const bus = this.ensureBus(stem);
       this.configureProcessing(stem, bus);
       writeAudioParam(bus.low.gain, (stem.low ?? 0) * 15, time, { immediate });
       writeAudioParam(bus.high.gain, (stem.high ?? 0) * 15, time, { immediate });
-      const selected = !this.auditionStemId || stem.id === this.auditionStemId;
-      const audible =
-        selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
       writeAudioParam(bus.fader.gain, stem.level, time, { immediate });
       writeSwitchParam(bus.gate.gain, 1, time);
       this.configureFx(stem, bus, { immediate });
@@ -846,7 +827,7 @@ export class StudioPlayback {
   renderStem(stem, step, when) {
     if (this.auditionStemId && stem.id !== this.auditionStemId) return;
     const bus = this.ensureBus(stem).input;
-    if (stem.clipActive === false || stem.mute || (this.anySolo && !stem.solo)) return;
+    if (stem.clipActive === false || stem.mute) return;
     const recording = this.session?.recordings.get(stem.id);
     if (recording) return;
     if (this.renderPerformance(stem, step, when)) return;
