@@ -7,6 +7,7 @@ import { validateSave } from '../src/state/GameState.js';
 test('new Spectra projects start with five monitored input channels', () => {
   const session = new StudioSession();
   session.newProject('New Song', 124);
+  session.clickEnabled = true;
 
   assert.equal(session.project, true);
   assert.equal(session.name, 'New Song');
@@ -28,6 +29,7 @@ test('new Spectra projects start with five monitored input channels', () => {
     ['drum-machine', 'drum-kit', 'synth', 'guitar', 'piano'],
   );
   assert.equal(reopened.name, 'New Song');
+  assert.equal(reopened.clickEnabled, true);
 });
 
 test('saved Spectra projects survive normal game-save validation with instrument state', () => {
