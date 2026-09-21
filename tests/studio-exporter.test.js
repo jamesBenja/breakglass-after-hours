@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createStoredZip, encodeWav, studioExportDuration } from '../src/studio/StudioExporter.js';
+import {
+  StudioExporter,
+  createStoredZip,
+  encodeWav,
+  studioExportDuration,
+} from '../src/studio/StudioExporter.js';
 
 function fakeBuffer(channels, sampleRate = 44_100) {
   const length = channels[0].length;
@@ -34,6 +39,84 @@ test('encodeWav writes a valid stereo 16-bit PCM WAV', () => {
   assert.equal(view.getUint16(34, true), 16);
   assert.equal(view.getUint32(40, true), 16);
   assert.equal(wav.byteLength, 60);
+});
+
+test('renderPerformanceStem freezes performance dry without applying console fader or mute', async () => {
+  let oscillators = 0;
+
+  class Param {
+    constructor(value = 0) {
+      this.value = value;
+    }
+    setValueAtTime(value) {
+      this.value = value;
+    }
+    exponentialRampToValueAtTime(value) {
+      this.value = value;
+    }
+  }
+
+  class Node {
+    constructor() {
+      this.gain = new Param(1);
+      this.frequency = new Param(440);
+    }
+    connect() {
+      return this;
+    }
+    start() {}
+    stop() {}
+  }
+
+  class FakeOfflineAudioContext {
+    constructor(channels, frames, sampleRate) {
+      this.numberOfChannels = channels;
+      this.frames = frames;
+      this.sampleRate = sampleRate;
+      this.destination = new Node();
+    }
+    createGain() {
+      return new Node();
+    }
+    createOscillator() {
+      oscillators += 1;
+      return new Node();
+    }
+    async startRendering() {
+      return fakeBuffer([new Float32Array(this.frames)], this.sampleRate);
+    }
+  }
+
+  const session = {
+    bpm: 120,
+    loopEnabled: true,
+    loopBars: 1,
+    recordings: new Map(),
+    stems: [
+      {
+        id: 'input-synth',
+        level: 0,
+        mute: true,
+        performance: {
+          mode: 'synth',
+          bpm: 120,
+          duration: 2,
+          noteDuration: 0.25,
+          wave: 'triangle',
+          volume: 0.06,
+          events: [{ time: 0, midi: 60, frequency: 261.63 }],
+        },
+      },
+    ],
+  };
+
+  const exporter = new StudioExporter({}, { OfflineAudioContext: FakeOfflineAudioContext });
+  const rendered = await exporter.renderPerformanceStem(session, 'input-synth');
+
+  assert.equal(oscillators, 1);
+  assert.equal(rendered.buffer.duration, 2);
+  assert.ok(rendered.blob);
+  assert.equal(rendered.blob.type, 'audio/wav');
 });
 
 test('createStoredZip builds a standard single-file ZIP container', () => {
