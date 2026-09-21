@@ -89,7 +89,7 @@ test('saved Spectra projects survive normal game-save validation with instrument
   assert.equal(saved.studioProjects.length, 1);
   assert.equal(saved.activeStudioProjectId, 'project-a');
   assert.equal(saved.studioProjects[0].session.project, true);
-  assert.equal(saved.studioProjects[0].session.stems.length, 5);
+  assert.equal(saved.studioProjects[0].session.stems.length, 6);
   assert.equal(saved.studioProjects[0].drumMachine.kit, '909');
   assert.equal(saved.studioProjects[0].modularSynth.wave, 'square');
 });
