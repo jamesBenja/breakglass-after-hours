@@ -47,6 +47,41 @@ test('stale live build cache-busts while preserving entry parameters', async () 
   assert.equal(next.hash, '#god=secret');
 });
 
+test('stale build defers reload while an active music session checkpoint is fresh', async () => {
+  const replacements = [];
+  const sessionStorage = new MapStorage();
+  const localStorage = new MapStorage();
+  localStorage.setItem(
+    'breakglass.active-music-session.v1',
+    JSON.stringify({
+      active: true,
+      savedAt: 1000,
+      saveKey: 'breakglass.after-hours.v1',
+      surface: 'spectra',
+    }),
+  );
+
+  const result = await ensureCanonicalLiveBuild({
+    production: true,
+    buildSha: 'old111',
+    fetchRef: async () => ({ ok: true, json: async () => ({ sha: 'new222abcdef' }) }),
+    locationRef: {
+      href: 'https://example.test/game/?invite=token',
+      replace(url) {
+        replacements.push(url);
+      },
+    },
+    documentRef: { baseURI: 'https://example.test/game/' },
+    sessionStorageRef: sessionStorage,
+    localStorageRef: localStorage,
+    now: 1500,
+  });
+
+  assert.equal(result.reloadDeferred, true);
+  assert.equal(result.activeSurface, 'spectra');
+  assert.deepEqual(replacements, []);
+});
+
 test('development never performs live version navigation', async () => {
   let fetched = false;
   const result = await ensureCanonicalLiveBuild({

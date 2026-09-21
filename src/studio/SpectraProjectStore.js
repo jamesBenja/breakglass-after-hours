@@ -171,6 +171,9 @@ export class SpectraProjectStore {
         session.attachRecording(item.stemId, buffer, item.blob);
         restored += 1;
       } catch {
+        // Safari can record a valid media blob that decodeAudioData cannot decode. Keep the raw
+        // blob attached so StudioPlayback can still play it through an HTMLAudio fallback.
+        session.attachRecording(item.stemId, null, item.blob);
         failed += 1;
       }
     }

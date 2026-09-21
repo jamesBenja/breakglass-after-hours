@@ -1,3 +1,5 @@
+import { readActiveMusicSession } from './SessionRecovery.js';
+
 export async function ensureCanonicalLiveBuild({
   production = false,
   buildSha = '',
@@ -5,6 +7,8 @@ export async function ensureCanonicalLiveBuild({
   locationRef = globalThis.location,
   documentRef = globalThis.document,
   sessionStorageRef = globalThis.sessionStorage,
+  localStorageRef = globalThis.localStorage,
+  now = Date.now(),
 } = {}) {
   if (!production || !buildSha || !fetchRef || !locationRef)
     return { current: true, checked: false };
@@ -22,6 +26,17 @@ export async function ensureCanonicalLiveBuild({
 
   if (!remoteSha || remoteSha === buildSha)
     return { current: true, checked: true, remoteSha: remoteSha || null };
+
+  const activeSession = readActiveMusicSession(localStorageRef, now);
+  if (activeSession) {
+    return {
+      current: false,
+      checked: true,
+      remoteSha,
+      reloadDeferred: true,
+      activeSurface: activeSession.surface ?? null,
+    };
+  }
 
   const reloadKey = `breakglass.live-build-reload.${remoteSha}`;
   try {
