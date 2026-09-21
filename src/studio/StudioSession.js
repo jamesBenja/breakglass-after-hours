@@ -287,6 +287,45 @@ export class StudioSession {
     return template;
   }
 
+  addInputTrack(inputKey, label = null) {
+    const definitions = {
+      'drum-machine': { label: 'Drum Machine', kind: 'drums', level: 0.72 },
+      'drum-kit': { label: 'Drum Kit', kind: 'drums', level: 0.74 },
+      synth: { label: 'Synth', kind: 'synth', level: 0.66 },
+      guitar: { label: 'Guitar', kind: 'guitar', level: 0.64 },
+      piano: { label: 'Piano', kind: 'keys', level: 0.66 },
+    };
+    const definition = definitions[inputKey];
+    if (!definition || this.stems.length >= 12) return null;
+
+    const siblingCount = this.stems.filter((stem) => stem.inputKey === inputKey).length;
+    const number = siblingCount + 1;
+    this.takeCounter += 1;
+    const stem = normalizeStem(
+      {
+        id: `input-${inputKey}-${this.takeCounter}`,
+        label: label || `${definition.label} ${number}`,
+        kind: definition.kind,
+        inputKey,
+        level: definition.level,
+        pan: 0,
+        low: 0,
+        high: 0,
+        fx: 0,
+        mute: false,
+        solo: false,
+        monitor: true,
+        recordArm: false,
+        clipActive: true,
+        clipStart: 0,
+        source: 'spectra-input-track',
+      },
+      this.stems.length,
+    );
+    this.stems.push(stem);
+    return stem;
+  }
+
   addTake(kind, label, source = 'gameplay', processing = null) {
     this.takeCounter += 1;
     const id = `${kind}-${this.takeCounter}`;
