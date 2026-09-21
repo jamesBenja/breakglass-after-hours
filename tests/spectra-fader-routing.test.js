@@ -149,7 +149,9 @@ test('recorded Spectra stems use the same mute path for MUTE and SOLO', () => {
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 });
 
-test('raw browser microphone takes play as recorded audio and never as a fake synth phrase', async () => {
+test(
+  'raw browser microphone takes play as recorded audio and never as a fake synth phrase',
+  async () => {
   const OriginalAudio = globalThis.Audio;
   class FakeMedia {
     constructor() {
@@ -180,7 +182,11 @@ test('raw browser microphone takes play as recorded audio and never as a fake sy
     const playback = new StudioPlayback(fakeAudio());
     const session = new StudioSession();
     const vocal = session.addTake('vocal', 'Vocal take', 'browser-microphone');
-    session.attachRecording(vocal.id, null, new Blob(['voice'], { type: 'audio/mp4' }));
+    session.attachRecording(
+      vocal.id,
+      null,
+      new Blob(['voice'], { type: 'audio/mp4' }),
+    );
     playback.session = session;
 
     let generated = 0;
@@ -188,7 +194,11 @@ test('raw browser microphone takes play as recorded audio and never as a fake sy
       generated += 1;
     };
     playback.renderStem(vocal, 0, 0);
-    assert.equal(generated, 0, 'mic takes must never fall back to the prototype synth phrase');
+    assert.equal(
+      generated,
+      0,
+      'mic takes must never fall back to the prototype synth phrase',
+    );
 
     assert.equal(await playback.startBlobRecordings(session, 0), 1);
     assert.equal(playback.blobStems.get(vocal.id).volume, vocal.level * 0.88);
@@ -200,7 +210,8 @@ test('raw browser microphone takes play as recorded audio and never as a fake sy
   } finally {
     globalThis.Audio = OriginalAudio;
   }
-});
+},
+);
 
 test('deleting a Spectra track removes its audio and session state', () => {
   const playback = new StudioPlayback(fakeAudio());
