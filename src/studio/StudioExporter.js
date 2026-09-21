@@ -581,12 +581,12 @@ function schedulePrototype(context, session, stem, destination, duration) {
           when,
         });
       }
-    } else if (['synth', 'keys', 'vocal'].includes(stem.kind) && step % 8 === 0) {
+    } else if (['synth', 'keys'].includes(stem.kind) && step % 8 === 0) {
       const root = step % 16 === 0 ? NOTE.C4 : NOTE.A3;
       for (const ratio of [1, 1.25, 1.5]) {
         oscillator(context, destination, root * ratio, 0.7, {
-          type: stem.kind === 'vocal' ? 'sine' : 'sawtooth',
-          volume: stem.kind === 'vocal' ? 0.02 : 0.035,
+          type: 'sawtooth',
+          volume: 0.035,
           when,
         });
       }

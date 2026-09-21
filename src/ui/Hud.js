@@ -204,8 +204,9 @@ export class Hud {
       meterProvider = null,
       onAudibility = null,
       onFxDetail = null,
+      onDeleteTrack = null,
+      renderFooter = null,
       onRecordVocal,
-      onAudition = null,
     } = {},
   ) {
     this.clearPanel(
@@ -240,8 +241,9 @@ export class Hud {
                 meterProvider,
                 onAudibility,
                 onFxDetail,
+                onDeleteTrack,
+                renderFooter,
                 onRecordVocal,
-                onAudition,
               });
             }
           })
@@ -370,8 +372,9 @@ export class Hud {
         meterProvider,
         onAudibility,
         onFxDetail,
+        onDeleteTrack,
+        renderFooter,
         onRecordVocal,
-        onAudition,
       });
 
     const views = this.document.createElement('div');
@@ -495,7 +498,9 @@ export class Hud {
         lane.className = 'spectra-session-lane';
         lane.style.setProperty('--spectra-loop-bars', String(loopBars));
         const eventCount = stem.performance?.events?.length ?? 0;
-        const hasAudio = session.recordings?.has?.(stem.id) === true;
+        const hasAudio =
+          session.recordings?.has?.(stem.id) === true ||
+          session.recordingBlobs?.has?.(stem.id) === true;
         const hasClip = eventCount > 0 || hasAudio || !!stem.assetId;
         if (hasClip) {
           const clip = this.document.createElement('div');
@@ -519,6 +524,7 @@ export class Hud {
       sessionView.appendChild(timeline);
       this.buttons.appendChild(sessionView);
       this.startSpectraMeters(meterProvider, new Map(), masterMeters, playhead);
+      renderFooter?.();
       return;
     }
 
@@ -683,14 +689,20 @@ export class Hud {
       faderSection.append(scale, fader, meter, readout);
       strip.appendChild(faderSection);
 
-      if (onAudition) {
-        const audition = this.document.createElement('button');
-        audition.type = 'button';
-        audition.className = 'spectra-audition';
-        audition.textContent = 'PFL';
-        audition.onclick = () =>
-          Promise.resolve(onAudition(stem.id)).catch((error) => this.warning(error.message));
-        strip.appendChild(audition);
+      if (onDeleteTrack) {
+        const deleteTrack = this.document.createElement('button');
+        deleteTrack.type = 'button';
+        deleteTrack.className = 'spectra-delete-track';
+        deleteTrack.textContent = 'DELETE TRACK';
+        deleteTrack.onclick = async () => {
+          const confirmDelete =
+            typeof globalThis.confirm !== 'function' ||
+            globalThis.confirm(`Delete “${stem.label}” from this Spectra session?`);
+          if (!confirmDelete) return;
+          await onDeleteTrack(stem.id);
+          redraw();
+        };
+        strip.appendChild(deleteTrack);
       }
 
       desk.appendChild(strip);
@@ -718,8 +730,9 @@ export class Hud {
         meterProvider,
         onAudibility,
         onFxDetail,
+        onDeleteTrack,
+        renderFooter,
         onRecordVocal,
-        onAudition,
       });
     };
     const clearSolos = this.document.createElement('button');
@@ -741,13 +754,15 @@ export class Hud {
         meterProvider,
         onAudibility,
         onFxDetail,
+        onDeleteTrack,
+        renderFooter,
         onRecordVocal,
-        onAudition,
       });
     };
     master.append(clearMutes, clearSolos);
     this.buttons.appendChild(master);
     this.startSpectraMeters(meterProvider, channelMeters, masterMeters);
+    renderFooter?.();
   }
 
   djMixer(mixer, tracks, { onChange = () => {} } = {}) {

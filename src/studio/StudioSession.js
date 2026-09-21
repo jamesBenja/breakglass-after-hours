@@ -44,7 +44,7 @@ export const DEFAULT_STEMS = [
     label: 'Synth',
     kind: 'synth',
     inputKey: 'synth',
-    level: 0.66,
+    level: 0.74,
     pan: 0,
     mute: false,
     monitor: true,
@@ -349,7 +349,7 @@ export class StudioSession {
     const definitions = {
       'drum-machine': { label: 'Drum Machine', kind: 'drums', level: 0.72 },
       'drum-kit': { label: 'Drum Kit', kind: 'drums', level: 0.74 },
-      synth: { label: 'Synth', kind: 'synth', level: 0.66 },
+      synth: { label: 'Synth', kind: 'synth', level: 0.74 },
       modular: { label: 'Modular Synth', kind: 'synth', level: 0.66 },
       guitar: { label: 'Guitar', kind: 'guitar', level: 0.64 },
       piano: { label: 'Piano', kind: 'keys', level: 0.66 },
@@ -550,6 +550,17 @@ export class StudioSession {
     for (const stem of this.stems) stem.solo = false;
     this.syncSoloMuteState();
     return true;
+  }
+
+  removeTrack(id) {
+    const index = this.stems.findIndex((item) => item.id === id);
+    if (index < 0) return null;
+    const [removed] = this.stems.splice(index, 1);
+    this.recordings.delete(id);
+    this.recordingBlobs.delete(id);
+    this._soloMuteSnapshot?.delete?.(id);
+    this.syncSoloMuteState();
+    return removed;
   }
 
   toggleRecordArm(id) {
