@@ -57,7 +57,7 @@ class FakeAnalyser extends FakeNode {
   }
 }
 
-function fakeAudio() {
+function fakeAudio(createdSources = []) {
   const context = {
     currentTime: 0,
     createGain: () => new FakeNode(),
@@ -66,6 +66,16 @@ function fakeAudio() {
     createDelay: () => new FakeNode(),
     createStereoPanner: () => new FakeNode(),
     createAnalyser: () => new FakeAnalyser(),
+    createBufferSource: () => {
+      const source = new FakeNode();
+      source.buffer = null;
+      source.startArgs = null;
+      source.start = (...args) => {
+        source.startArgs = args;
+      };
+      createdSources.push(source);
+      return source;
+    },
   };
   const destination = new FakeNode();
   return {
@@ -150,6 +160,50 @@ test('Spectra channel and stereo master meters report live post-fader signal', (
   assert.ok(snapshot.channels[second.id] > 0);
   assert.ok(snapshot.master.left > 0);
   assert.ok(snapshot.master.right > 0);
+});
+
+test('frozen Spectra audio is the sole playback source while retained performance stays editable', () => {
+  const createdSources = [];
+  const playback = new StudioPlayback(fakeAudio(createdSources));
+  const frozen = {
+    ...stem('input-drum-machine', 0.72),
+    kind: 'drums',
+    inputKey: 'drum-machine',
+    renderedAudio: true,
+    performance: {
+      mode: 'drums',
+      bpm: 120,
+      duration: 2,
+      events: [{ time: 0, drum: '909-kick' }],
+    },
+  };
+  const audioBuffer = { duration: 2 };
+  const session = {
+    stems: [frozen],
+    recordings: new Map([[frozen.id, audioBuffer]]),
+    bpm: 120,
+    loopEnabled: true,
+    loopBars: 1,
+  };
+  playback.session = session;
+  playback.updateMix(session);
+
+  let performanceCalls = 0;
+  playback.renderPerformance = () => {
+    performanceCalls += 1;
+    return true;
+  };
+
+  playback.renderStem(frozen, 0, 0);
+
+  assert.equal(createdSources.length, 1);
+  assert.equal(createdSources[0].buffer, audioBuffer);
+  assert.equal(createdSources[0].startArgs.length, 1);
+  assert.equal(performanceCalls, 0);
+
+  frozen.mute = true;
+  assert.equal(playback.applyLiveMix(session), true);
+  assert.equal(playback.buses.get(frozen.id).gate.gain.value, 0);
 });
 
 test('recorded drum-machine clips restart at bar one and render through the same channel strip', async () => {
