@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SpectraRecorder } from '../src/studio/SpectraRecorder.js';
+import { StudioSession } from '../src/studio/StudioSession.js';
 
 function studioSession() {
   return {
@@ -92,6 +93,50 @@ test('Spectra live recorder builds separate stems for simultaneous local and rem
   assert.equal(studio.stems[0].processing.amp, 'twin');
   assert.equal(saves, 1);
   assert.equal(mixUpdates, 1);
+});
+
+test('Spectra master record writes only armed inputs into their standing console channels', () => {
+  const studio = new StudioSession();
+  const synth = studio.stems.find((stem) => stem.inputKey === 'synth');
+  const guitar = studio.stems.find((stem) => stem.inputKey === 'guitar');
+  studio.toggleRecordArm(synth.id);
+
+  const game = {
+    studio,
+    studioPlayback: { playing: false, position: () => 0, updateMix: () => {} },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: { localId: 'local-1', remotePlayers: new Map() },
+    save: () => {},
+  };
+  const recorder = new SpectraRecorder(game, {});
+
+  assert.ok(recorder.arm());
+  assert.equal(
+    recorder.captureLocal(
+      { mode: 'guitar', stemKind: 'guitar', label: 'Guitar' },
+      { type: 'midi', midi: 55 },
+      { resourceId: 'local:guitar' },
+    ),
+    false,
+  );
+  assert.equal(
+    recorder.captureLocal(
+      { mode: 'synth', stemKind: 'synth', label: 'Synth' },
+      { type: 'midi', midi: 60 },
+      { resourceId: 'local:synth' },
+    ),
+    true,
+  );
+
+  const committed = recorder.stop({ commit: true });
+  assert.equal(committed.length, 1);
+  assert.equal(committed[0].id, synth.id);
+  assert.equal(studio.stems.length, 5);
+  assert.equal(synth.performance.events[0].midi, 60);
+  assert.equal(guitar.performance, null);
+  assert.equal(synth.recordArm, true);
+  assert.ok(studio.stems.every((stem) => stem.monitor === true));
 });
 
 test('Spectra recorder ignores performances until armed and rejects remote events from another scene', () => {
