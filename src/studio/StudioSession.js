@@ -17,10 +17,61 @@ const DEFAULT_SETUP = {
 };
 
 export const DEFAULT_STEMS = [
-  { id: 'drums', label: 'Drums', kind: 'drums', level: 0.76, pan: 0, mute: false },
-  { id: 'bass', label: 'Bass', kind: 'bass', level: 0.7, pan: 0, mute: false },
-  { id: 'guitar', label: 'Guitar', kind: 'guitar', level: 0.56, pan: -0.18, mute: false },
-  { id: 'synth', label: 'Synth / Keys', kind: 'synth', level: 0.58, pan: 0.18, mute: false },
+  {
+    id: 'input-drum-machine',
+    label: 'Drum Machine',
+    kind: 'drums',
+    inputKey: 'drum-machine',
+    level: 0.72,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-drum-kit',
+    label: 'Drum Kit',
+    kind: 'drums',
+    inputKey: 'drum-kit',
+    level: 0.74,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-synth',
+    label: 'Synth',
+    kind: 'synth',
+    inputKey: 'synth',
+    level: 0.66,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-guitar',
+    label: 'Guitar',
+    kind: 'guitar',
+    inputKey: 'guitar',
+    level: 0.64,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-piano',
+    label: 'Piano',
+    kind: 'keys',
+    inputKey: 'piano',
+    level: 0.66,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
 ];
 
 export const DANCE_SHOES_STEMS = studioSessionById('dance-shoes').stems;
@@ -64,6 +115,9 @@ const normalizeStem = (stem, index) => ({
   fx: clamp(Number(stem.fx) || 0, 0, 1),
   mute: stem.mute === true,
   solo: stem.solo === true,
+  monitor: stem.monitor !== false,
+  recordArm: stem.recordArm === true,
+  inputKey: typeof stem.inputKey === 'string' ? stem.inputKey.slice(0, 32) : null,
   clipActive: stem.clipActive !== false,
   clipStart: clamp(Number(stem.clipStart) || 0, 0, 120),
   spatial: normalizeSpatialPosition(stem.spatial),
@@ -84,10 +138,21 @@ const normalizeStem = (stem, index) => ({
 
 const isUntouchedPrototype = (value = {}) => {
   if (Math.floor(Number(value.takeCounter) || 0) !== 0) return false;
-  if (value.name && value.name !== 'Breakglass Session') return false;
-  if (!Array.isArray(value.stems) || value.stems.length !== DEFAULT_STEMS.length)
-    return !value.stems;
-  return value.stems.every((stem, index) => stem?.id === DEFAULT_STEMS[index].id && !stem?.assetId);
+  if (!Array.isArray(value.stems)) return true;
+  return value.stems.every((stem) => !stem?.assetId && !stem?.performance);
+};
+
+const isLegacyAutoTemplate = (value = {}, template = null) => {
+  if (!template || value.project === true || Math.floor(Number(value.takeCounter) || 0) !== 0)
+    return false;
+  if (value.name !== template.name || !Array.isArray(value.stems)) return false;
+  if (value.stems.length !== template.stems.length) return false;
+  return value.stems.every(
+    (stem, index) =>
+      stem?.id === template.stems[index]?.id &&
+      stem?.assetId === template.stems[index]?.assetId &&
+      !stem?.performance,
+  );
 };
 
 export function normalizeStudioSession(value = {}) {
@@ -101,24 +166,24 @@ export function normalizeStudioSession(value = {}) {
   setup.eq = gearById(PROCESSORS.eq, setup.eq).id;
   setup.compressor = gearById(PROCESSORS.compressor, setup.compressor).id;
 
-  const defaultTemplate = studioSessionById('dance-shoes');
-  const upgrade = isUntouchedPrototype(value);
+  const legacyTemplate = studioSessionById('dance-shoes');
+  const upgrade = isUntouchedPrototype(value) || isLegacyAutoTemplate(value, legacyTemplate);
   const isProject = value.project === true;
   const sourceStems = upgrade
-    ? defaultTemplate.stems
+    ? DEFAULT_STEMS
     : Array.isArray(value.stems) && (value.stems.length || isProject)
       ? value.stems
-      : defaultTemplate.stems;
+      : DEFAULT_STEMS;
   const stems = sourceStems.slice(0, 12).map(normalizeStem);
 
   return {
     project: isProject,
     name: upgrade
-      ? defaultTemplate.name
+      ? 'Spectra Session'
       : typeof value.name === 'string' && value.name.trim()
         ? value.name.trim().slice(0, 64)
-        : defaultTemplate.name,
-    bpm: clamp(Number(value.bpm) || defaultTemplate.bpm, 50, 220),
+        : 'Spectra Session',
+    bpm: clamp(Number(value.bpm) || 118, 50, 220),
     setup,
     stems,
     takeCounter: Math.max(0, Math.floor(Number(value.takeCounter) || 0)),
@@ -186,7 +251,7 @@ export class StudioSession {
       project: true,
       name,
       bpm,
-      stems: [],
+      stems: DEFAULT_STEMS.map((stem) => ({ ...stem })),
       takeCounter: 0,
       loopEnabled: true,
       loopBars: 4,
@@ -288,6 +353,18 @@ export class StudioSession {
     if (!stem) return false;
     stem.solo = !stem.solo;
     return stem.solo;
+  }
+
+  toggleRecordArm(id) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.recordArm = !stem.recordArm;
+    stem.monitor = true;
+    return stem.recordArm;
+  }
+
+  armedStems() {
+    return this.stems.filter((stem) => stem.recordArm === true);
   }
 
   snapshot() {
