@@ -217,8 +217,8 @@ export class SpectraRecorder {
       stem.source = lane.source;
       stem.processing = lane.config.processing ? { ...lane.config.processing } : stem.processing;
       stem.monitor = true;
-      session.recordings.delete(stem.id);
-      session.recordingBlobs.delete(stem.id);
+      session.recordings?.delete?.(stem.id);
+      session.recordingBlobs?.delete?.(stem.id);
       session.attachPerformance(stem.id, {
         mode: lane.config.mode,
         label,
