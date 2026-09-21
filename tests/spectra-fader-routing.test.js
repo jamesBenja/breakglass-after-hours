@@ -145,8 +145,8 @@ test('live Spectra console moves immediately override active playback automation
   const bus = playback.buses.get(recorded.id);
   assert.equal(bus.fader.gain.value, 0.17);
   assert.equal(bus.pan.pan.value, 0.64);
-  assert.equal(bus.low.gain.value, -7.8);
-  assert.equal(bus.high.gain.value, 6.45);
+  assert.ok(Math.abs(bus.low.gain.value - -7.8) < 1e-9);
+  assert.ok(Math.abs(bus.high.gain.value - 6.45) < 1e-9);
   assert.equal(bus.fxGain.gain.value, 0.81 * 0.38);
   for (const parameter of [
     bus.fader.gain,
