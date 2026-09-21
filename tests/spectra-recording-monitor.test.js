@@ -316,6 +316,201 @@ test('bass performance shares the fixed Guitar-family Spectra input', () => {
   assert.equal(guitar.performance.events[0].midi, 31);
 });
 
+test('Drum Kit, Synth and Piano all record into their fixed armed Spectra channels', () => {
+  const cases = [
+    {
+      inputKey: 'drum-kit',
+      mode: 'drums',
+      stemKind: 'drums',
+      label: 'Drum Kit',
+      play: (keyboard) => keyboard.triggerDrum('kick'),
+      expected: (stem) => stem.performance.events[0].drum === 'kick',
+    },
+    {
+      inputKey: 'synth',
+      mode: 'synth',
+      stemKind: 'synth',
+      label: 'Synth',
+      play: (keyboard) => keyboard.playMidi(60),
+      expected: (stem) => stem.performance.events[0].midi === 60,
+    },
+    {
+      inputKey: 'piano',
+      mode: 'piano',
+      stemKind: 'keys',
+      label: 'Piano',
+      play: (keyboard) => keyboard.playMidi(64),
+      expected: (stem) => stem.performance.events[0].midi === 64,
+    },
+  ];
+
+  for (const entry of cases) {
+    const keyboard = new KeyboardPerformance(
+      {
+        tone: () => {},
+        kick: () => {},
+        hat: () => {},
+      },
+      null,
+      null,
+    );
+    const studio = new StudioSession();
+    const target = studio.stems.find((stem) => stem.inputKey === entry.inputKey);
+    studio.toggleRecordArm(target.id);
+    const game = {
+      keyboardPerformance: keyboard,
+      studio,
+      studioPlayback: {
+        playing: false,
+        position: () => 0,
+        updateMix: () => {},
+        monitorLiveEvent: () => true,
+      },
+      state: { data: { avatar: { displayName: 'James' } } },
+      sceneManager: { current: { definition: { id: 'upstairs' } } },
+      multiplayer: { localId: 'local-1', remotePlayers: new Map() },
+      save: () => {},
+    };
+    game.spectraRecorder = new SpectraRecorder(game, {});
+
+    connectKeyboardPerformanceToSpectra(game);
+    assert.ok(game.spectraRecorder.arm(), `${entry.label} recorder should arm`);
+    keyboard.start({
+      mode: entry.mode,
+      stemKind: entry.stemKind,
+      inputKey: entry.inputKey,
+      label: entry.label,
+      wave: 'triangle',
+      volume: 0.06,
+      duration: 0.4,
+    });
+    assert.equal(entry.play(keyboard), true, `${entry.label} should perform`);
+    keyboard.stop(false);
+
+    const committed = game.spectraRecorder.stop({ commit: true });
+    assert.equal(committed.length, 1, `${entry.label} should commit one track`);
+    assert.equal(committed[0].id, target.id);
+    assert.equal(entry.expected(target), true, `${entry.label} should contain the played event`);
+  }
+});
+
+test('new duplicate-input tracks are real record destinations, not cosmetic strips', () => {
+  const studio = new StudioSession();
+  const original = studio.stems.find((stem) => stem.inputKey === 'synth');
+  const added = studio.addInputTrack('synth');
+
+  assert.ok(added);
+  assert.equal(added.label, 'Synth 2');
+  assert.equal(added.inputKey, 'synth');
+  assert.equal(added.monitor, true);
+  assert.equal(added.recordArm, false);
+
+  studio.toggleRecordArm(added.id);
+  const game = {
+    studio,
+    studioPlayback: { playing: false, position: () => 0, updateMix: () => {} },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: { localId: 'local-1', remotePlayers: new Map() },
+    save: () => {},
+  };
+  const recorder = new SpectraRecorder(game, {});
+
+  assert.ok(recorder.arm());
+  assert.equal(
+    recorder.captureLocal(
+      { mode: 'synth', stemKind: 'synth', inputKey: 'synth', label: 'Synth' },
+      { type: 'midi', midi: 67 },
+      { resourceId: 'local:synth' },
+    ),
+    true,
+  );
+
+  const committed = recorder.stop({ commit: true });
+  assert.equal(committed.length, 1);
+  assert.equal(committed[0].id, added.id);
+  assert.equal(added.performance.events[0].midi, 67);
+  assert.equal(original.performance, null);
+});
+
+test('multiple armed tracks sharing one input capture the same performance independently', () => {
+  const studio = new StudioSession();
+  const original = studio.stems.find((stem) => stem.inputKey === 'piano');
+  const added = studio.addInputTrack('piano');
+  studio.toggleRecordArm(original.id);
+  studio.toggleRecordArm(added.id);
+
+  const game = {
+    studio,
+    studioPlayback: { playing: false, position: () => 0, updateMix: () => {} },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: { localId: 'local-1', remotePlayers: new Map() },
+    save: () => {},
+  };
+  const recorder = new SpectraRecorder(game, {});
+
+  assert.ok(recorder.arm());
+  recorder.captureLocal(
+    { mode: 'piano', stemKind: 'keys', inputKey: 'piano', label: 'Piano' },
+    { type: 'midi', midi: 72 },
+    { resourceId: 'local:piano' },
+  );
+
+  const committed = recorder.stop({ commit: true });
+  assert.deepEqual(
+    committed.map((stem) => stem.id).sort(),
+    [original.id, added.id].sort(),
+  );
+  assert.equal(original.performance.events[0].midi, 72);
+  assert.equal(added.performance.events[0].midi, 72);
+});
+
+test('Drum Machine and Modular publish explicit fixed Spectra input keys', () => {
+  const drumCaptured = [];
+  const drumGame = {
+    state: { data: {} },
+    studio: { bpm: 120, swing: 0, loopEnabled: true, loopBars: 1 },
+    studioPlayback: { monitorLiveEvent: () => true },
+    spectraRecorder: {
+      captureLocal: (...args) => {
+        drumCaptured.push(args);
+        return true;
+      },
+    },
+    multiplayer: null,
+    save: () => {},
+  };
+  const drumMachine = new DrumMachineSystem(drumGame, { panel: () => {}, warning: () => {} });
+  const pattern = drumMachine.state.patterns[drumMachine.state.selectedPattern];
+  for (const lane of Object.values(pattern)) lane.fill(0);
+  pattern.kick[0] = 1;
+
+  assert.equal(drumMachine.triggerStep(0), 1);
+  assert.equal(drumCaptured.length, 1);
+  assert.equal(drumCaptured[0][0].inputKey, 'drum-machine');
+
+  const modularCaptured = [];
+  const modularGame = {
+    state: { data: { modularSynth: normalizeModularPatchState() } },
+    studio: { bpm: 120, swing: 0, loopEnabled: true, loopBars: 1 },
+    studioPlayback: { monitorLiveEvent: () => true },
+    spectraRecorder: {
+      captureLocal: (...args) => {
+        modularCaptured.push(args);
+        return true;
+      },
+    },
+    multiplayer: null,
+    save: () => {},
+  };
+  const modular = new ModularSynthSystem(modularGame, { panel: () => {}, warning: () => {} });
+
+  assert.equal(modular.triggerStep(0), true);
+  assert.equal(modularCaptured.length, 1);
+  assert.equal(modularCaptured[0][0].inputKey, 'synth');
+});
+
 test('multiplayer instrument publishing always feeds the local Spectra recorder first', () => {
   const captured = [];
   const performance = {
