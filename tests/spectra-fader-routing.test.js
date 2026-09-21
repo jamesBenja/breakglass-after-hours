@@ -233,11 +233,17 @@ test('live mute and solo hard-gate already playing Spectra channels without tran
   assert.equal(bBus.hardMute.gain.value, 1);
 
   a.mute = false;
+  b.mute = true;
   b.solo = true;
   playback.applyChannelAudibility(session);
   assert.equal(aBus.hardMute.gain.value, 0);
-  assert.equal(bBus.hardMute.gain.value, 1);
+  assert.equal(
+    bBus.hardMute.gain.value,
+    1,
+    'a soloed channel must remain audible even if it had previously been muted',
+  );
 
+  b.mute = false;
   b.solo = false;
   playback.applyChannelAudibility(session);
   assert.equal(aBus.hardMute.gain.value, 1);
