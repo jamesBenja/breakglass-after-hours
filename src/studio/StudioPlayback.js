@@ -763,7 +763,11 @@ export class StudioPlayback {
     });
   }
 
-  startFrozenRecordings(session, offset = 0, { startTime = null } = {}) {
+  startFrozenRecordings(
+    session,
+    offset = 0,
+    { startTime = null, phaseOffset = null } = {},
+  ) {
     const context = this.audio.context;
     if (!context || !session?.recordings?.size) return 0;
     const now = context.currentTime;
@@ -776,9 +780,11 @@ export class StudioPlayback {
         4 *
         Math.max(1, Number(session.loopBars) || 4)
       : null;
-    const phase = this.spectraTransport?.running
-      ? this.spectraTransport.positionAtOffset(start - now)
-      : Math.max(0, Number(offset) || 0);
+    const phase = Number.isFinite(Number(phaseOffset))
+      ? Math.max(0, Number(phaseOffset))
+      : this.spectraTransport?.running
+        ? this.spectraTransport.positionAtOffset(start - now)
+        : Math.max(0, Number(offset) || 0);
 
     let started = 0;
     for (const stem of session.stems) {
@@ -996,12 +1002,13 @@ export class StudioPlayback {
 
     const frozenCount = this.startFrozenRecordings(session, safeOffset, {
       startTime: sharedStartTime,
+      phaseOffset: restartTransport ? safeOffset : null,
     });
 
     const interval = 60 / this.bpm / 4;
     this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
 
-    if (this.spectraTransport) return frozenCount > 0 || this.transportUnsubscribe !== null || true;
+    if (this.spectraTransport) return true;
 
     this.step = Math.floor(safeOffset / interval) % 256;
     const remainder = safeOffset % interval;
