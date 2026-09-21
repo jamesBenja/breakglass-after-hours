@@ -543,20 +543,8 @@ export function installDrumMachineSystem(game, ui) {
     };
   }
 
-  if (!ui._drumMachineMixerPatched && typeof ui.studioMixer === 'function') {
-    const baseStudioMixer = ui.studioMixer.bind(ui);
-    ui.studioMixer = (...args) => {
-      const result = baseStudioMixer(...args);
-      const button = ui.document.createElement('button');
-      button.type = 'button';
-      button.textContent = '808 / 909 / DMX / LINN DRUM MACHINE';
-      button.className = 'spectra-drum-machine-button';
-      button.onclick = () => drumMachine.open();
-      ui.buttons?.appendChild(button);
-      return result;
-    };
-    ui._drumMachineMixerPatched = true;
-  }
+  ui._spectraExternalInstruments ??= {};
+  ui._spectraExternalInstruments.drumMachine = () => drumMachine.open();
 
   return drumMachine;
 }
