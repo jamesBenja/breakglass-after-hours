@@ -89,6 +89,7 @@ export class StudioPlayback {
     this.noiseBuffer = null;
     this.noiseBufferContext = null;
     this.frozenSources = new Map();
+    this.soloFaderActive = false;
   }
 
   get playing() {
@@ -236,19 +237,25 @@ export class StudioPlayback {
     );
     const anySolo = soloIds.size > 0;
     this.anySolo = anySolo;
+    const restoreFaders = this.soloFaderActive && !anySolo;
     for (const stem of session.stems) {
       const bus = this.ensureBus(stem);
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
-      const audible =
-        selected &&
-        stem.clipActive !== false &&
-        (anySolo ? soloIds.has(stem.id) : stem.mute !== true);
+      const active = selected && stem.clipActive !== false;
       const time = this.audio.context.currentTime;
-      // Keep the legacy mix gate permanently open. Mute/solo have their own final hard switch so
-      // no fader/transport automation can override audibility on an already-playing frozen loop.
+
+      // MUTE uses the dedicated final switch. SOLO uses the live fader path because that path is
+      // already proven to control persistent recorded buffers correctly in Safari.
+      if (anySolo || restoreFaders) {
+        const soloLevel = anySolo ? (soloIds.has(stem.id) && active ? stem.level : 0) : stem.level;
+        writeSwitchParam(bus?.fader?.gain, soloLevel, time);
+      }
+      const muteOpen = anySolo ? active && soloIds.has(stem.id) : active && stem.mute !== true;
+
       writeSwitchParam(bus?.gate?.gain, 1, time);
-      writeSwitchParam(bus?.hardMute?.gain, audible ? 1 : 0, time);
+      writeSwitchParam(bus?.hardMute?.gain, muteOpen ? 1 : 0, time);
     }
+    this.soloFaderActive = anySolo;
     this.updateNativeMix(session);
     return true;
   }
@@ -264,11 +271,15 @@ export class StudioPlayback {
       const media = this.nativeStems.get(stem.id);
       if (!media) continue;
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
-      const audible =
-        selected &&
-        stem.clipActive !== false &&
-        (anySolo ? soloIds.has(stem.id) : stem.mute !== true);
-      media.volume = clamp((audible ? stem.level : 0) * environment * 0.88);
+      const active = selected && stem.clipActive !== false;
+      const level = anySolo
+        ? soloIds.has(stem.id) && active
+          ? stem.level
+          : 0
+        : active && stem.mute !== true
+          ? stem.level
+          : 0;
+      media.volume = clamp(level * environment * 0.88);
     }
   }
 

@@ -512,11 +512,12 @@ export class Game {
     if (mobileStudioUi !== this.mobileStudioLowPower) {
       this.mobileStudioLowPower = mobileStudioUi;
       this.renderer.setPixelRatio(mobileStudioUi ? 1 : Math.min(devicePixelRatio, 2));
+      this.renderer.shadowMap.enabled = !mobileStudioUi;
       this.renderer.setSize(innerWidth, innerHeight);
     }
 
     if (mobileStudioUi) {
-      if (this.lastStudioUiFrame && now - this.lastStudioUiFrame < 33) return;
+      if (this.lastStudioUiFrame && now - this.lastStudioUiFrame < 66) return;
       this.lastStudioUiFrame = now;
     } else {
       this.lastStudioUiFrame = 0;
@@ -583,7 +584,7 @@ export class Game {
       }
       if (alleyState?.evacuationRequired) this.beginEvacuation();
       this.saveElapsed += dt;
-      const autosaveInterval = mobileStudioUi ? 12 : 2;
+      const autosaveInterval = mobileStudioUi ? 30 : 2;
       if (this.saveElapsed >= autosaveInterval) {
         this.save();
         this.saveElapsed = 0;
