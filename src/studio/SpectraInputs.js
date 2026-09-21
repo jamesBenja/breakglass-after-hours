@@ -25,19 +25,13 @@ export function spectraInputStems(
   const key = spectraInputKey(config, resourceId);
   const stems = session?.stems ?? [];
   const eligible = stems.filter(
-    (stem) =>
-      (!armedOnly || stem.recordArm === true) && (!monitoredOnly || stem.monitor !== false),
+    (stem) => (!armedOnly || stem.recordArm === true) && (!monitoredOnly || stem.monitor !== false),
   );
   const exact = eligible.filter((stem) => stem.inputKey === key);
   if (exact.length) return exact;
   return eligible.filter((stem) => stem.kind === config.stemKind || stem.kind === config.mode);
 }
 
-export function spectraInputStem(
-  session,
-  config = {},
-  resourceId = '',
-  options = {},
-) {
+export function spectraInputStem(session, config = {}, resourceId = '', options = {}) {
   return spectraInputStems(session, config, resourceId, options)[0] ?? null;
 }

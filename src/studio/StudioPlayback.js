@@ -552,10 +552,7 @@ export class StudioPlayback {
         if (config.octaveLayer) {
           this.oscillator(frequency * 2, (Number(config.duration) || 0.42) * 0.72, bus, {
             type: 'triangle',
-            volume:
-              (Number(config.volume) || 0.065) *
-              0.22 *
-              clamp(Number(level) || 0, 0, 1.5),
+            volume: (Number(config.volume) || 0.065) * 0.22 * clamp(Number(level) || 0, 0, 1.5),
             when: delay + offset + 0.012,
           });
         }

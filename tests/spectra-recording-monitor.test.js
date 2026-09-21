@@ -458,10 +458,7 @@ test('multiple armed tracks sharing one input capture the same performance indep
   );
 
   const committed = recorder.stop({ commit: true });
-  assert.deepEqual(
-    committed.map((stem) => stem.id).sort(),
-    [original.id, added.id].sort(),
-  );
+  assert.deepEqual(committed.map((stem) => stem.id).sort(), [original.id, added.id].sort());
   assert.equal(original.performance.events[0].midi, 72);
   assert.equal(added.performance.events[0].midi, 72);
 });
