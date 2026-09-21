@@ -505,7 +505,7 @@ test('Drum Machine and Modular publish explicit fixed Spectra input keys', () =>
 
   assert.equal(modular.triggerStep(0), true);
   assert.equal(modularCaptured.length, 1);
-  assert.equal(modularCaptured[0][0].inputKey, 'synth');
+  assert.equal(modularCaptured[0][0].inputKey, 'modular');
 });
 
 test('Drum Machine and Modular record through the real master recorder into their fixed channels', () => {
@@ -539,7 +539,7 @@ test('Drum Machine and Modular record through the real master recorder into thei
   assert.match(drumTarget.performance.events[0].drum, /kick/);
 
   const modularStudio = new StudioSession();
-  const synthTarget = modularStudio.stems.find((stem) => stem.inputKey === 'synth');
+  const synthTarget = modularStudio.stems.find((stem) => stem.inputKey === 'modular');
   modularStudio.toggleRecordArm(synthTarget.id);
   const modularGame = {
     state: { data: { modularSynth: normalizeModularPatchState() } },

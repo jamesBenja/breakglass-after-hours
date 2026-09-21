@@ -18,7 +18,7 @@ test('added Spectra input tracks persist with their selected input', () => {
   assert.equal(restored.recordArm, false);
 });
 
-test('new Spectra projects start with five monitored input channels', () => {
+test('new Spectra projects start with six monitored input channels including Modular Synth', () => {
   const session = new StudioSession();
   session.newProject('New Song', 124);
   session.clickEnabled = true;
@@ -28,7 +28,7 @@ test('new Spectra projects start with five monitored input channels', () => {
   assert.equal(session.bpm, 124);
   assert.deepEqual(
     session.stems.map((stem) => stem.inputKey),
-    ['drum-machine', 'drum-kit', 'synth', 'guitar', 'piano'],
+    ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano'],
   );
   assert.ok(session.stems.every((stem) => stem.monitor === true));
   assert.ok(session.stems.every((stem) => stem.recordArm === false));
@@ -37,13 +37,33 @@ test('new Spectra projects start with five monitored input channels', () => {
 
   const reopened = new StudioSession(session.snapshot());
   assert.equal(reopened.project, true);
-  assert.equal(reopened.stems.length, 5);
+  assert.equal(reopened.stems.length, 6);
   assert.deepEqual(
     reopened.stems.map((stem) => stem.inputKey),
-    ['drum-machine', 'drum-kit', 'synth', 'guitar', 'piano'],
+    ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano'],
   );
   assert.equal(reopened.name, 'New Song');
   assert.equal(reopened.clickEnabled, true);
+});
+
+test('existing five-channel Spectra input sessions regain the missing Modular Synth channel', () => {
+  const oldFive = new StudioSession({
+    project: true,
+    name: 'Existing Session',
+    stems: [
+      { id: 'input-drum-machine', label: 'Drum Machine', kind: 'drums', inputKey: 'drum-machine', level: 0.72 },
+      { id: 'input-drum-kit', label: 'Drum Kit', kind: 'drums', inputKey: 'drum-kit', level: 0.74 },
+      { id: 'input-synth', label: 'Synth', kind: 'synth', inputKey: 'synth', level: 0.66 },
+      { id: 'input-guitar', label: 'Guitar', kind: 'guitar', inputKey: 'guitar', level: 0.64 },
+      { id: 'input-piano', label: 'Piano', kind: 'keys', inputKey: 'piano', level: 0.66 },
+    ],
+  });
+
+  assert.deepEqual(
+    oldFive.stems.map((stem) => stem.inputKey),
+    ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano'],
+  );
+  assert.equal(oldFive.stems.find((stem) => stem.inputKey === 'modular')?.label, 'Modular Synth');
 });
 
 test('saved Spectra projects survive normal game-save validation with instrument state', () => {

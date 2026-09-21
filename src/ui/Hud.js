@@ -404,7 +404,8 @@ export class Hud {
         const choices = [
           ['DRUM MACHINE', 'drum-machine'],
           ['DRUM KIT', 'drum-kit'],
-          ['SYNTH / MODULAR', 'synth'],
+          ['SYNTH / ORGAN', 'synth'],
+          ['MODULAR SYNTH', 'modular'],
           ['GUITAR / BASS', 'guitar'],
           ['PIANO', 'piano'],
         ];
