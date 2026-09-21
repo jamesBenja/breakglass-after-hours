@@ -208,6 +208,28 @@ export class StudioPlayback {
     bus.compressor.release.setTargetAtTime(comp.release, time, 0.03);
   }
 
+  applyChannelAudibility(session = this.session) {
+    if (!session || !this.audio.context) return false;
+    const anySolo = session.stems.some((stem) => stem.solo);
+    this.anySolo = anySolo;
+    for (const stem of session.stems) {
+      const bus = this.ensureBus(stem);
+      const selected = !this.auditionStemId || stem.id === this.auditionStemId;
+      const audible =
+        selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
+      const gain = bus?.gate?.gain;
+      if (gain) {
+        const time = this.audio.context.currentTime;
+        gain.cancelScheduledValues?.(time);
+        // Direct assignment is intentional here. Mute/solo are switches, not automation,
+        // and must affect the already-sounding bus immediately on Safari as well as desktop.
+        gain.value = audible ? 1 : 0;
+      }
+    }
+    this.updateNativeMix(session);
+    return true;
+  }
+
   updateNativeMix(session = this.session) {
     if (!session || !this.nativeStems.size) return;
     const anySolo = session.stems.some((stem) => stem.solo);
@@ -238,7 +260,7 @@ export class StudioPlayback {
       const audible =
         selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
       writeAudioParam(bus.fader.gain, stem.level, time, { immediate });
-      writeAudioParam(bus.gate.gain, audible ? 1 : 0, time, { immediate: true });
+      bus.gate.gain.value = audible ? 1 : 0;
       writeAudioParam(bus.fxGain.gain, (stem.fx ?? 0) * 0.38, time, { immediate });
       if (bus.pan) writeAudioParam(bus.pan.pan, stem.pan ?? 0, time, { immediate });
       this.spatialMixer?.updateStem?.(stem, bus, { immediate });
@@ -249,7 +271,7 @@ export class StudioPlayback {
       this.buses.delete(id);
     }
     this.spatialMixer?.sync?.(session, this.buses);
-    this.updateNativeMix(session);
+    this.applyChannelAudibility(session);
     return true;
   }
 
