@@ -5,6 +5,7 @@ import {
   buildSessionRecoveryCheckpoint,
   readActiveMusicSession,
 } from '../src/runtime/SessionRecovery.js';
+import { SpectraProjectStore } from '../src/studio/SpectraProjectStore.js';
 
 class MapStorage {
   constructor() {
@@ -87,4 +88,31 @@ test('active music marker expires instead of blocking future live updates foreve
 
   assert.equal(readActiveMusicSession(storage, 1500)?.surface, 'dj');
   assert.equal(readActiveMusicSession(storage, 31 * 60 * 1000), null);
+});
+
+
+test('recovery store keeps raw microphone blobs when WebAudio decode fails', async () => {
+  const store = new SpectraProjectStore(null);
+  const blob = new Blob(['voice'], { type: 'audio/mp4' });
+  await store.put('recovery', 'vox-1', blob);
+
+  const attached = [];
+  const session = {
+    attachRecording(stemId, buffer, recordingBlob) {
+      attached.push({ stemId, buffer, recordingBlob });
+    },
+  };
+  const audioContext = {
+    async decodeAudioData() {
+      throw new Error('Safari cannot decode this MediaRecorder container');
+    },
+  };
+
+  const result = await store.restoreSession('recovery', session, audioContext);
+  assert.equal(result.restored, 0);
+  assert.equal(result.failed, 1);
+  assert.equal(attached.length, 1);
+  assert.equal(attached[0].stemId, 'vox-1');
+  assert.equal(attached[0].buffer, null);
+  assert.equal(attached[0].recordingBlob, blob);
 });
