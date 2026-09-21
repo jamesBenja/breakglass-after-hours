@@ -897,6 +897,7 @@ export class StudioPlayback {
       source.start(start, startOffset);
       started += 1;
     }
+    if (started > 0) this.applyChannelAudibility(session);
     return started;
   }
 
