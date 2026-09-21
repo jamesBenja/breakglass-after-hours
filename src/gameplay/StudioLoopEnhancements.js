@@ -315,12 +315,16 @@ async function freezePerformanceStems(game, session, stems, { persist = true } =
   return { rendered, failed };
 }
 
-async function ensureFrozenPerformanceAudio(game, session) {
+async function ensureFrozenPerformanceAudio(
+  game,
+  session,
+  { persist = session === game.studio } = {},
+) {
   const missing = (session?.stems ?? []).filter(
     (stem) => stem.performance?.events?.length && !session.recordings?.has?.(stem.id),
   );
   if (!missing.length) return { rendered: 0, failed: 0 };
-  return freezePerformanceStems(game, session, missing, { persist: true });
+  return freezePerformanceStems(game, session, missing, { persist });
 }
 
 function currentSessionHasMaterial(game) {
@@ -691,7 +695,7 @@ async function playStudioSessionDownstairs(game, session, songId = null) {
   game.partyLife?.houseDj?.holdForPlayer?.(8);
   game.audio?.stop?.();
   enhanceSession(session);
-  await ensureFrozenPerformanceAudio(game, session);
+  await ensureFrozenPerformanceAudio(game, session, { persist: false });
   const played = await game.studioPlayback.play(session);
   game.activeStudioSongId = played ? songId : null;
   return played;
