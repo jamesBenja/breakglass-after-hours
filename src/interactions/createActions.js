@@ -175,7 +175,7 @@ export function createActions({
     compressor: studio.setup.compressor,
   });
 
-  const startPerformance = (kind, { record = false, back = () => {}, stemKind = kind } = {}) => {
+  const startPerformance = (kind, { back = () => {}, stemKind = kind } = {}) => {
     if (!keyboardPerformance) return;
     dj?.stop?.();
     const config = {
@@ -183,57 +183,19 @@ export function createActions({
       stemKind,
       processing: performanceProcessing(stemKind),
     };
-    keyboardPerformance.start(config, { record });
-    const title = record
-      ? `${config.label.toUpperCase()} · RECORDING`
-      : `${config.label.toUpperCase()} · PLAY`;
-    const actions = record
-      ? [
-          [
-            'Finish + add take',
-            async () => {
-              const performance = keyboardPerformance.stop();
-              if (!performance?.events?.length) {
-                ui.warning?.('No notes were played, so no take was added.');
-                back();
-                return;
-              }
-              const stem = studio.addTake(
-                stemKind,
-                `${config.label} · take ${studio.takeCounter + 1}`,
-                'keyboard-performance',
-                performanceProcessing(stemKind),
-              );
-              studio.attachPerformance(stem.id, performance);
-              rememberStudio();
-              await monitorStudio();
-              ui.warning?.(
-                `Recorded ${performance.events.length} event${performance.events.length === 1 ? '' : 's'} to “${stem.label}”. The take is now playing through its Spectra fader in the full mix.`,
-              );
-              back();
-            },
-          ],
-          [
-            'Cancel take',
-            () => {
-              keyboardPerformance.stop(false);
-              back();
-            },
-          ],
-        ]
-      : [
-          [
-            'Stop playing',
-            () => {
-              keyboardPerformance.stop(false);
-              back();
-            },
-          ],
-        ];
+    keyboardPerformance.start(config, { record: false });
     panel(
-      title,
-      `${keyboardPerformance.instructions}. Your movement controls are temporarily locked so the same keys behave like an instrument.`,
-      actions,
+      `${config.label.toUpperCase()} · PLAY`,
+      `${keyboardPerformance.instructions}. Input monitoring is always on. To record this instrument, arm its Spectra console channel and use the master RECORD button on the console.`,
+      [
+        [
+          'Stop playing',
+          () => {
+            keyboardPerformance.stop(false);
+            back();
+          },
+        ],
+      ],
     );
   };
 
@@ -303,10 +265,6 @@ export function createActions({
           'Play with keyboard',
           () => startPerformance(type, { back: instrumentPanel, stemKind: type }),
         ],
-        [
-          'Record playable take → console',
-          () => startPerformance(type, { record: true, back: instrumentPanel, stemKind: type }),
-        ],
       ],
     );
   };
@@ -333,10 +291,6 @@ export function createActions({
       ],
       ['Quick audition', previewInstrument],
       ['Play current chain', () => startPerformance(type, { back: ampPanel, stemKind: type })],
-      [
-        'Record current chain',
-        () => startPerformance(type, { record: true, back: ampPanel, stemKind: type }),
-      ],
     ]);
   };
 
@@ -412,15 +366,6 @@ export function createActions({
           'Play kit with keyboard',
           () => startPerformance('drums', { back: drumsPanel, stemKind: 'drums' }),
         ],
-        [
-          'Record drum performance → console',
-          () =>
-            startPerformance('drums', {
-              record: true,
-              back: drumsPanel,
-              stemKind: 'drums',
-            }),
-        ],
       ],
     );
   };
@@ -448,15 +393,6 @@ export function createActions({
         'Play with keyboard',
         () => startPerformance('synth', { back: synthPanel, stemKind: 'synth' }),
       ],
-      [
-        'Record keys take → console',
-        () =>
-          startPerformance('synth', {
-            record: true,
-            back: synthPanel,
-            stemKind: 'synth',
-          }),
-      ],
     ]);
   };
 
@@ -464,10 +400,6 @@ export function createActions({
     if (!hasStudio) return audio.chord(220);
     panel('LIVE ROOM · PIANO', 'The piano is playable from the computer keyboard.', [
       ['Play piano', () => startPerformance('piano', { back: pianoPanel, stemKind: 'keys' })],
-      [
-        'Record piano take → console',
-        () => startPerformance('piano', { record: true, back: pianoPanel, stemKind: 'keys' }),
-      ],
     ]);
   };
 
