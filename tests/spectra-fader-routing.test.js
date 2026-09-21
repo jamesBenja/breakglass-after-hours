@@ -135,7 +135,7 @@ test('recorded Spectra stems are controlled by their actual fader, mute and solo
   first.mute = false;
   second.solo = true;
   playback.updateMix(session);
-  assert.equal(playback.buses.get(first.id).fader.gain.value, 0);
+  assert.equal(playback.buses.get(first.id).fader.gain.value, 0.21);
   assert.equal(playback.buses.get(second.id).fader.gain.value, 0.64);
   assert.equal(playback.buses.get(first.id).hardMute.gain.value, 0);
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
@@ -240,7 +240,11 @@ test('live mute and solo hard-gate already playing Spectra channels without tran
   b.solo = true;
   playback.applyChannelAudibility(session);
   assert.equal(aBus.hardMute.gain.value, 0);
-  assert.equal(aBus.fader.gain.value, 0);
+  assert.equal(
+    aBus.fader.gain.value,
+    a.level,
+    'solo must mute non-solo channels with the hard gate without moving their faders',
+  );
   assert.equal(
     bBus.hardMute.gain.value,
     1,

@@ -237,25 +237,21 @@ export class StudioPlayback {
     );
     const anySolo = soloIds.size > 0;
     this.anySolo = anySolo;
-    const restoreFaders = this.soloFaderActive && !anySolo;
     for (const stem of session.stems) {
       const bus = this.ensureBus(stem);
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const active = selected && stem.clipActive !== false;
       const time = this.audio.context.currentTime;
 
-      // MUTE uses the dedicated final switch. SOLO uses the live fader path because that path is
-      // already proven to control persistent recorded buffers correctly in Safari.
-      if (anySolo || restoreFaders) {
-        const soloLevel = anySolo ? (soloIds.has(stem.id) && active ? stem.level : 0) : stem.level;
-        writeSwitchParam(bus?.fader?.gain, soloLevel, time);
-      }
-      const muteOpen = anySolo ? active && soloIds.has(stem.id) : active && stem.mute !== true;
+      // Keep the user fader authoritative at all times. Mute and solo only operate the final
+      // hard gate: when any channel is soloed, every non-solo channel closes and every soloed
+      // channel stays open at its existing fader level.
+      const gateOpen = anySolo ? active && soloIds.has(stem.id) : active && stem.mute !== true;
 
       writeSwitchParam(bus?.gate?.gain, 1, time);
-      writeSwitchParam(bus?.hardMute?.gain, muteOpen ? 1 : 0, time);
+      writeSwitchParam(bus?.hardMute?.gain, gateOpen ? 1 : 0, time);
     }
-    this.soloFaderActive = anySolo;
+    this.soloFaderActive = false;
     this.updateNativeMix(session);
     return true;
   }
