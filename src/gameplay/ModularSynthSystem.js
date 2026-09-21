@@ -518,20 +518,8 @@ export function installModularSynthSystem(game, ui) {
     if (modular.handle(target)) return;
     baseDispatch(target);
   };
-  if (!ui._modularMixerPatched && typeof ui.studioMixer === 'function') {
-    const baseStudioMixer = ui.studioMixer.bind(ui);
-    ui.studioMixer = (...args) => {
-      const result = baseStudioMixer(...args);
-      const button = ui.document.createElement('button');
-      button.type = 'button';
-      button.textContent = 'MODULAR SYNTH';
-      button.className = 'spectra-modular-synth-button';
-      button.onclick = () => modular.open();
-      ui.buttons?.appendChild(button);
-      return result;
-    };
-    ui._modularMixerPatched = true;
-  }
+  ui._spectraExternalInstruments ??= {};
+  ui._spectraExternalInstruments.modularSynth = () => modular.open();
 
   const baseStopAll = game.stopAll?.bind(game);
   if (baseStopAll) {
