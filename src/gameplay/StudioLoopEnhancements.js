@@ -1122,6 +1122,7 @@ export function installStudioLoopEnhancements(game, ui) {
   game.studio.loopBars = LOOP_BARS.includes(Number(saved.loopBars)) ? Number(saved.loopBars) : 4;
   game.studio.quantize = GRID_DIVISIONS[saved.quantize] ? saved.quantize : '1/16';
   game.studio.swing = clamp(saved.swing, 0, 0.45);
+  game.studio.clickEnabled = saved.clickEnabled === true;
   enhanceSession(game.studio);
   game.spectraTransport ??= new SpectraTransport(game.audio, game.studio);
   game.spectraClipEngine ??= new SpectraClipEngine(game);
@@ -1210,10 +1211,21 @@ export function installStudioLoopEnhancements(game, ui) {
         return true;
       };
 
+      const onTempo = (bpm) => {
+        game.spectraTransport?.setTempo?.(bpm);
+        game.save?.();
+      };
+      const onClick = (enabled) => {
+        game.spectraTransport?.setClickEnabled?.(enabled);
+        game.save?.();
+      };
+
       const result = baseStudioMixer(session, {
         ...options,
         onRecord,
         recordStatus,
+        onTempo,
+        onClick,
       });
       const button = ui.document.createElement('button');
       button.type = 'button';
