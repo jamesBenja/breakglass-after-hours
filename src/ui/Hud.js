@@ -152,8 +152,7 @@ export class Hud {
     this.stopSpectraMeters();
     if (typeof provider !== 'function') return;
     const view = this.document?.defaultView ?? globalThis;
-    const touch =
-      typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints || 0) > 0;
+    const touch = typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints || 0) > 0;
     const update = () => {
       const snapshot = provider();
       if (!snapshot) return;

@@ -255,7 +255,7 @@ test('master recording forces a fixed quantized loop and wraps events inside it'
       return (absolute + offset) % 2;
     },
     quantizeTime(time) {
-      return ((Math.round(time / 0.125) * 0.125) % 2 + 2) % 2;
+      return (((Math.round(time / 0.125) * 0.125) % 2) + 2) % 2;
     },
     snapshot: () => ({ running: true }),
   };

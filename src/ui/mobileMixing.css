@@ -633,7 +633,6 @@
   }
 }
 
-
 @media (hover: none) and (pointer: coarse) {
   body.studio-mobile-active .spectra-master-meter {
     height: 36px;
