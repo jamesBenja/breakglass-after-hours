@@ -171,6 +171,57 @@ test('live Spectra console moves immediately override active playback automation
   assert.equal(bus.gate.gain.value, 1);
 });
 
+test('live monitored inputs enter the real Spectra channel bus', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const input = {
+    ...stem('input-synth', 0.41),
+    inputKey: 'synth',
+    performance: null,
+    monitor: true,
+  };
+  const session = { stems: [input], recordings: new Map() };
+  const calls = [];
+  playback.oscillator = (...args) => calls.push(args);
+
+  assert.equal(
+    playback.monitorLiveEvent(
+      session,
+      { mode: 'synth', stemKind: 'synth', wave: 'triangle', volume: 0.08, duration: 0.4 },
+      { type: 'midi', midi: 60 },
+      { resourceId: 'local:synth' },
+    ),
+    true,
+  );
+
+  const bus = playback.buses.get(input.id);
+  assert.equal(bus.fader.gain.value, 0.41);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][2], bus.input);
+});
+
+test('empty monitored input channels do not generate canned playback', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const input = {
+    ...stem('input-drum-machine', 0.72),
+    inputKey: 'drum-machine',
+    kind: 'drums',
+    performance: null,
+    monitor: true,
+  };
+  const session = { stems: [input], recordings: new Map(), bpm: 118, loopEnabled: true, loopBars: 4 };
+  playback.session = session;
+  let generated = 0;
+  playback.kick = () => {
+    generated += 1;
+  };
+  playback.noise = () => {
+    generated += 1;
+  };
+
+  playback.renderStem(input, 0, 0);
+  assert.equal(generated, 0);
+});
+
 test('starting Spectra mixer playback releases only live Spectra input generators', () => {
   const calls = [];
   stopSpectraLiveInputsForMix({
