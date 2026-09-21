@@ -117,6 +117,7 @@ export class MicrophoneRecorder {
     const blob = new Blob(this.chunks, { type });
 
     let buffer = this.buildPcmBuffer();
+    this.pcmChunks = [];
     if (!buffer && blob.size) {
       try {
         buffer = await this.audio.context.decodeAudioData(await blob.arrayBuffer());
