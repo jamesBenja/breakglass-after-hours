@@ -625,11 +625,12 @@ export class Hud {
       const mute = this.document.createElement('button');
       const solo = this.document.createElement('button');
       const refreshSwitches = () => {
-        mute.textContent = stem.mute ? 'MUTED' : 'MUTE';
+        const manuallyMuted = session.muteState?.(stem.id) ?? stem.mute;
+        mute.textContent = manuallyMuted ? 'MUTED' : 'MUTE';
         solo.textContent = stem.solo ? 'SOLO' : 'SOLO';
-        mute.classList.toggle('active', stem.mute === true);
+        mute.classList.toggle('active', manuallyMuted === true);
         solo.classList.toggle('active', stem.solo === true);
-        mute.setAttribute('aria-pressed', String(stem.mute === true));
+        mute.setAttribute('aria-pressed', String(manuallyMuted === true));
         solo.setAttribute('aria-pressed', String(stem.solo === true));
       };
       mute.onclick = () => {
@@ -724,7 +725,8 @@ export class Hud {
     const clearSolos = this.document.createElement('button');
     clearSolos.textContent = 'CLEAR SOLOS';
     clearSolos.onclick = () => {
-      for (const stem of session.stems) stem.solo = false;
+      if (typeof session.clearSolos === 'function') session.clearSolos();
+      else for (const stem of session.stems) stem.solo = false;
       onMix();
       onAudibility?.();
       this.studioMixer(session, {

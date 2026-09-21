@@ -112,38 +112,39 @@ function stem(id, level = 0.7) {
   };
 }
 
-test('recorded Spectra stems are controlled by their actual fader, mute and solo buses', () => {
+test('recorded Spectra stems use the same mute path for MUTE and SOLO', () => {
   const playback = new StudioPlayback(fakeAudio());
-  const first = stem('recorded-one', 0.82);
-  const second = stem('recorded-two', 0.64);
-  const session = { stems: [first, second], recordings: new Map() };
+  const session = new StudioSession({
+    project: true,
+    stems: [stem('recorded-one', 0.82), stem('recorded-two', 0.64)],
+  });
+  const first = session.stems.find((item) => item.id === 'recorded-one');
+  const second = session.stems.find((item) => item.id === 'recorded-two');
 
   playback.updateMix(session);
   assert.equal(playback.buses.get(first.id).fader.gain.value, 0.82);
   assert.equal(playback.buses.get(second.id).fader.gain.value, 0.64);
 
   first.level = 0.21;
-  playback.updateMix(session);
-  assert.equal(playback.buses.get(first.id).fader.gain.value, 0.21);
-
-  first.mute = true;
+  session.toggleMute(first.id);
   playback.updateMix(session);
   assert.equal(playback.buses.get(first.id).fader.gain.value, 0.21);
   assert.equal(playback.buses.get(first.id).hardMute.gain.value, 0);
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 
-  first.mute = false;
-  second.solo = true;
+  session.toggleMute(first.id);
+  session.toggleSolo(second.id);
   playback.updateMix(session);
-  assert.equal(playback.buses.get(first.id).fader.gain.value, 0.21);
-  assert.equal(playback.buses.get(second.id).fader.gain.value, 0.64);
+  assert.equal(first.mute, true, 'non-solo track is literally muted');
+  assert.equal(second.mute, false, 'soloed track is literally unmuted');
   assert.equal(playback.buses.get(first.id).hardMute.gain.value, 0);
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
-
-  second.solo = false;
-  playback.updateMix(session);
-  assert.equal(playback.buses.get(first.id).fader.gain.value, 0.21);
   assert.equal(playback.buses.get(second.id).fader.gain.value, 0.64);
+
+  session.toggleSolo(second.id);
+  playback.updateMix(session);
+  assert.equal(first.mute, false, 'manual mute state is restored after solo clears');
+  assert.equal(second.mute, false);
   assert.equal(playback.buses.get(first.id).hardMute.gain.value, 1);
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 });
@@ -248,80 +249,64 @@ test('frozen Spectra audio uses one persistent looping source through the live c
   assert.equal(createdSources.length, 1);
 });
 
-test('solo on frozen recorded tracks mutes only non-solo recordings and preserves faders', () => {
+test('SOLO on frozen recordings literally drives the working frozen MUTE gates', () => {
   const playback = new StudioPlayback(fakeAudio());
-  const first = stem('frozen-a', 0.81);
-  const second = stem('frozen-b', 0.57);
-  const session = {
-    stems: [first, second],
-    recordings: new Map([
-      [first.id, { duration: 2 }],
-      [second.id, { duration: 2 }],
-    ]),
+  const session = new StudioSession({
+    project: true,
     bpm: 120,
     loopEnabled: true,
     loopBars: 1,
-  };
+    stems: [stem('frozen-a', 0.81), stem('frozen-b', 0.57)],
+  });
+  const first = session.stems.find((item) => item.id === 'frozen-a');
+  const second = session.stems.find((item) => item.id === 'frozen-b');
+  session.recordings.set(first.id, { duration: 2 });
+  session.recordings.set(second.id, { duration: 2 });
+
   playback.session = session;
   playback.updateMix(session);
   playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
 
-  second.solo = true;
+  session.toggleSolo(second.id);
   playback.applyChannelAudibility(session);
 
+  assert.equal(first.mute, true);
+  assert.equal(second.mute, false);
   assert.equal(playback.frozenGates.get(first.id).gain.value, 0);
   assert.equal(playback.frozenGates.get(second.id).gain.value, 1);
-  assert.equal(playback.buses.get(first.id).hardMute.gain.value, 1);
-  assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
   assert.equal(playback.buses.get(first.id).fader.gain.value, first.level);
   assert.equal(playback.buses.get(second.id).fader.gain.value, second.level);
 });
 
-test('live mute and solo hard-gate already playing Spectra channels without transport restart', () => {
+test('solo restores previous manual mute states when the last solo is cleared', () => {
   const playback = new StudioPlayback(fakeAudio());
-  const a = stem('a', 0.7);
-  const b = stem('b', 0.7);
-  const session = { stems: [a, b], recordings: new Map() };
+  const session = new StudioSession({
+    project: true,
+    stems: [stem('a', 0.7), stem('b', 0.7)],
+  });
+  const a = session.stems.find((item) => item.id === 'a');
+  const b = session.stems.find((item) => item.id === 'b');
 
+  session.toggleMute(b.id);
   playback.updateMix(session);
   const aBus = playback.buses.get(a.id);
   const bBus = playback.buses.get(b.id);
   assert.equal(aBus.hardMute.gain.value, 1);
-  assert.equal(bBus.hardMute.gain.value, 1);
+  assert.equal(bBus.hardMute.gain.value, 0);
 
-  a.mute = true;
-  assert.equal(playback.applyChannelAudibility(session), true);
+  session.toggleSolo(b.id);
+  playback.applyChannelAudibility(session);
+  assert.equal(a.mute, true);
+  assert.equal(b.mute, false, 'solo overrides a prior manual mute while solo is active');
   assert.equal(aBus.hardMute.gain.value, 0);
   assert.equal(bBus.hardMute.gain.value, 1);
 
-  a.mute = false;
-  b.mute = true;
-  b.solo = true;
+  session.clearSolos();
   playback.applyChannelAudibility(session);
-  assert.equal(aBus.hardMute.gain.value, 0);
-  assert.equal(
-    aBus.fader.gain.value,
-    a.level,
-    'solo must mute non-solo channels with the hard gate without moving their faders',
-  );
-  assert.equal(
-    bBus.hardMute.gain.value,
-    1,
-    'a soloed channel must remain audible even if it had previously been muted',
-  );
-  assert.equal(
-    bBus.fader.gain.value,
-    b.level,
-    'the soloed recorded channel must retain its real live fader level',
-  );
-
-  b.mute = false;
-  b.solo = false;
-  playback.applyChannelAudibility(session);
+  assert.equal(a.mute, false);
+  assert.equal(b.mute, true, 'the original manual mute comes back after solo clears');
   assert.equal(aBus.hardMute.gain.value, 1);
-  assert.equal(bBus.hardMute.gain.value, 1);
-  assert.equal(aBus.fader.gain.value, a.level);
-  assert.equal(bBus.fader.gain.value, b.level);
+  assert.equal(bBus.hardMute.gain.value, 0);
 });
 
 test('fully frozen Spectra playback does not subscribe to sixteenth-note render callbacks', async () => {

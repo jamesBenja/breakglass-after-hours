@@ -273,6 +273,8 @@ export class StudioSession {
     this.clickEnabled = normalized.clickEnabled;
     this.recordings = new Map();
     this.recordingBlobs = new Map();
+    this._soloMuteSnapshot = null;
+    this.syncSoloMuteState();
   }
 
   select(group, id) {
@@ -308,6 +310,8 @@ export class StudioSession {
     this.clickEnabled = normalized.clickEnabled;
     this.recordings.clear();
     this.recordingBlobs.clear();
+    this._soloMuteSnapshot = null;
+    this.syncSoloMuteState();
     return this;
   }
 
@@ -336,6 +340,8 @@ export class StudioSession {
     this.takeCounter = 0;
     this.recordings.clear();
     this.recordingBlobs.clear();
+    this._soloMuteSnapshot = null;
+    this.syncSoloMuteState();
     return template;
   }
 
@@ -485,9 +491,49 @@ export class StudioSession {
     return stem.fxSettings[parameter];
   }
 
+  muteState(id) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    if (this._soloMuteSnapshot?.has(stem.id)) return this._soloMuteSnapshot.get(stem.id);
+    return stem.mute === true;
+  }
+
+  syncSoloMuteState() {
+    const hasSolo = this.stems.some((stem) => stem.solo === true);
+    if (hasSolo) {
+      if (!this._soloMuteSnapshot) {
+        this._soloMuteSnapshot = new Map(this.stems.map((stem) => [stem.id, stem.mute === true]));
+      } else {
+        for (const stem of this.stems) {
+          if (!this._soloMuteSnapshot.has(stem.id)) {
+            this._soloMuteSnapshot.set(stem.id, stem.mute === true);
+          }
+        }
+      }
+      for (const stem of this.stems) stem.mute = stem.solo !== true;
+      return true;
+    }
+
+    if (this._soloMuteSnapshot) {
+      for (const stem of this.stems) {
+        if (this._soloMuteSnapshot.has(stem.id)) {
+          stem.mute = this._soloMuteSnapshot.get(stem.id) === true;
+        }
+      }
+      this._soloMuteSnapshot = null;
+    }
+    return false;
+  }
+
   toggleMute(id) {
     const stem = this.stems.find((item) => item.id === id);
     if (!stem) return false;
+    if (this._soloMuteSnapshot) {
+      const next = !(this._soloMuteSnapshot.get(stem.id) === true);
+      this._soloMuteSnapshot.set(stem.id, next);
+      stem.mute = stem.solo !== true;
+      return next;
+    }
     stem.mute = !stem.mute;
     return stem.mute;
   }
@@ -496,7 +542,14 @@ export class StudioSession {
     const stem = this.stems.find((item) => item.id === id);
     if (!stem) return false;
     stem.solo = !stem.solo;
+    this.syncSoloMuteState();
     return stem.solo;
+  }
+
+  clearSolos() {
+    for (const stem of this.stems) stem.solo = false;
+    this.syncSoloMuteState();
+    return true;
   }
 
   toggleRecordArm(id) {
@@ -519,6 +572,9 @@ export class StudioSession {
       setup: { ...this.setup },
       stems: this.stems.map((stem) => ({
         ...stem,
+        mute: this._soloMuteSnapshot?.has(stem.id)
+          ? this._soloMuteSnapshot.get(stem.id) === true
+          : stem.mute === true,
         performance: stem.performance
           ? { ...stem.performance, events: stem.performance.events.map((event) => ({ ...event })) }
           : null,
