@@ -12,6 +12,22 @@ function classList(initial = []) {
     remove(...names) {
       for (const name of names) values.delete(name);
     },
+    toggle(name, force) {
+      if (force === true) {
+        values.add(name);
+        return true;
+      }
+      if (force === false) {
+        values.delete(name);
+        return false;
+      }
+      if (values.has(name)) {
+        values.delete(name);
+        return false;
+      }
+      values.add(name);
+      return true;
+    },
     contains(name) {
       return values.has(name);
     },
