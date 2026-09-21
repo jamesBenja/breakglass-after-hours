@@ -1208,6 +1208,21 @@ export function installStudioLoopEnhancements(game, ui) {
   game.showStudioSongLibrary = (location = 'House playback') =>
     buildSongLibraryPanel(game, ui, location);
 
+  ui._spectraWorkspaceNavigation = {
+    sessions: () => buildSessionManagerPanel(game, ui),
+    advanced: () => buildLoopPanel(game, ui),
+    spatial: () => buildSpatialMixerPanel(game, ui),
+    exportMix: async () => {
+      try {
+        ui.warning?.('Rendering Spectra mix offline…');
+        const exported = await game.studioExporter.exportMix(game.studio);
+        ui.warning?.(`Exported ${exported.filename}.`);
+      } catch (error) {
+        ui.warning?.(`Track export failed: ${error?.message || 'unknown export error'}`);
+      }
+    },
+  };
+
   if (!game.interactions._studioSongPlayerPatched) {
     const baseDispatch = game.interactions.dispatch.bind(game.interactions);
     game.interactions.dispatch = (target) => {
@@ -1334,42 +1349,8 @@ export function installStudioLoopEnhancements(game, ui) {
         meterProvider,
         onAudibility,
       });
-      const sessionsButton = ui.document.createElement('button');
-      sessionsButton.type = 'button';
-      sessionsButton.textContent = 'SPECTRA SESSIONS · CREATE / SAVE / LOAD';
-      sessionsButton.className = 'studio-sessions-button';
-      sessionsButton.onclick = () => buildSessionManagerPanel(game, ui);
-      ui.buttons?.appendChild(sessionsButton);
-
-      const button = ui.document.createElement('button');
-      button.type = 'button';
-      button.textContent = 'ADVANCED SPECTRA SETTINGS';
-      button.className = 'studio-loop-builder-button';
-      button.onclick = () => buildLoopPanel(game, ui);
-      ui.buttons?.appendChild(button);
-
-      const spatialButton = ui.document.createElement('button');
-      spatialButton.type = 'button';
-      spatialButton.textContent = '8CH SPATIAL MIXER';
-      spatialButton.className = 'studio-spatial-mixer-button';
-      spatialButton.onclick = () => buildSpatialMixerPanel(game, ui);
-      ui.buttons?.appendChild(spatialButton);
-
-      const exportButton = ui.document.createElement('button');
-      exportButton.type = 'button';
-      exportButton.textContent = 'EXPORT TRACK';
-      exportButton.className = 'studio-track-export-button';
-      exportButton.onclick = async () => {
-        try {
-          ui.warning?.('Rendering Spectra mix offline…');
-          const exported = await game.studioExporter.exportMix(session);
-          ui.warning?.(`Exported ${exported.filename}.`);
-        } catch (error) {
-          ui.warning?.(`Track export failed: ${error?.message || 'unknown export error'}`);
-        }
-      };
-      ui.buttons?.appendChild(exportButton);
       return result;
+
     };
     ui._studioLoopBuilderPatched = true;
   }
