@@ -234,8 +234,8 @@ export class Hud {
     const applyTempo = (next) => {
       const bpm = Math.max(50, Math.min(220, Math.round(Number(next) || 118)));
       tempoInput.value = String(bpm);
-      session.bpm = bpm;
-      onTempo?.(bpm);
+      if (onTempo) onTempo(bpm);
+      else session.bpm = bpm;
     };
     tempoDown.onclick = () => applyTempo((Number(tempoInput.value) || session.bpm || 118) - 1);
     tempoUp.onclick = () => applyTempo((Number(tempoInput.value) || session.bpm || 118) + 1);
