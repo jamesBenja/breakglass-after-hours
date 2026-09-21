@@ -498,7 +498,9 @@ export class Hud {
         lane.className = 'spectra-session-lane';
         lane.style.setProperty('--spectra-loop-bars', String(loopBars));
         const eventCount = stem.performance?.events?.length ?? 0;
-        const hasAudio = session.recordings?.has?.(stem.id) === true;
+        const hasAudio =
+          session.recordings?.has?.(stem.id) === true ||
+          session.recordingBlobs?.has?.(stem.id) === true;
         const hasClip = eventCount > 0 || hasAudio || !!stem.assetId;
         if (hasClip) {
           const clip = this.document.createElement('div');
