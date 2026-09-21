@@ -1,3 +1,5 @@
+import { spectraInputStem } from './SpectraInputs.js';
+
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
 const clockNow = () => globalThis.performance?.now?.() ?? Date.now();
 
@@ -61,6 +63,9 @@ export class SpectraRecorder {
   }
 
   arm() {
+    const hasTrackArmModel = typeof this.game.studio?.armedStems === 'function';
+    const armedTracks = hasTrackArmModel ? this.game.studio.armedStems() : [];
+    if (hasTrackArmModel && !armedTracks.length) return false;
     this.armed = true;
     this.recording = false;
     this.startedAt = 0;
@@ -119,8 +124,16 @@ export class SpectraRecorder {
     source = 'spectra-live-capture',
   } = {}) {
     if (!this.armed) return false;
+    const hasTrackArmModel = typeof this.game.studio?.armedStems === 'function';
+    const targetStem = hasTrackArmModel
+      ? spectraInputStem(this.game.studio, config, resourceId, { armedOnly: true })
+      : null;
+    if (hasTrackArmModel && !targetStem) return false;
     this.beginOnFirstEvent(offsetSeconds);
-    const laneId = [playerId || 'local', resourceId || config.mode || 'instrument']
+    const laneId = [
+      targetStem?.id || resourceId || config.mode || 'instrument',
+      playerId || 'local',
+    ]
       .join(':')
       .slice(0, 96);
     let lane = this.lanes.get(laneId);
@@ -144,6 +157,7 @@ export class SpectraRecorder {
               : null,
         },
         source,
+        targetStemId: targetStem?.id ?? null,
         events: [],
       };
       this.lanes.set(laneId, lane);
@@ -199,8 +213,14 @@ export class SpectraRecorder {
     for (const lane of this.lanes.values()) {
       if (!lane.events.length) continue;
       const kind = kindFor(lane.config);
-      const label = `${lane.playerName} · ${lane.config.label || kind}`;
-      const stem = session.addTake(kind, label, lane.source, lane.config.processing);
+      const target = session.stems.find((stem) => stem.id === lane.targetStemId);
+      const label = target?.label || `${lane.playerName} · ${lane.config.label || kind}`;
+      const stem = target ?? session.addTake(kind, label, lane.source, lane.config.processing);
+      stem.source = lane.source;
+      stem.processing = lane.config.processing ? { ...lane.config.processing } : stem.processing;
+      stem.monitor = true;
+      session.recordings?.delete?.(stem.id);
+      session.recordingBlobs?.delete?.(stem.id);
       session.attachPerformance(stem.id, {
         mode: lane.config.mode,
         label,

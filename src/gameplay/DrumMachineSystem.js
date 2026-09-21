@@ -388,7 +388,6 @@ export class DrumMachineSystem {
       if (!velocity) continue;
       const name = eventName(this.state.kit, track.id, velocity);
       const delay = Math.max(0, Number(baseWhen) || 0);
-      this.game.studioPlayback?.playDrumEvent?.(name, delay);
       const config = {
         mode: 'drums',
         stemKind: 'drums',
@@ -396,6 +395,13 @@ export class DrumMachineSystem {
         volume: velocity >= 2 ? 0.11 : 0.085,
         duration: this.stepDuration() * 0.8,
       };
+      const monitored = this.game.studioPlayback?.monitorLiveEvent?.(
+        this.game.studio,
+        config,
+        { type: 'drum', name },
+        { resourceId: DRUM_MACHINE_RESOURCE_ID, when: delay, level: 1 },
+      );
+      if (!monitored) this.game.studioPlayback?.playDrumEvent?.(name, delay);
       const instrumentSync = this.game.multiplayer?.instrumentSync;
       if (instrumentSync?.publishExternal) {
         instrumentSync.publishExternal(

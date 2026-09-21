@@ -57,6 +57,7 @@ export class KeyboardPerformance {
     this.spectraTransport = null;
     this.transportOwner = 'keyboard-performance';
     this.performanceEventSink = null;
+    this.performanceMonitor = null;
     this.captureArmed = null;
     this.touchSurface = new TouchPerformanceSurface(document);
     this.onKeyDown = (event) => {
@@ -93,6 +94,20 @@ export class KeyboardPerformance {
   setPerformanceEventSink(listener = null) {
     this.performanceEventSink = typeof listener === 'function' ? listener : null;
     return this.performanceEventSink;
+  }
+
+  setPerformanceMonitor(listener = null) {
+    this.performanceMonitor = typeof listener === 'function' ? listener : null;
+    return this.performanceMonitor;
+  }
+
+  monitorPerformanceEvent(event) {
+    if (!this.active || !this.config || !event || !this.performanceMonitor) return false;
+    try {
+      return this.performanceMonitor({ config: this.config, event }) === true;
+    } catch {
+      return false;
+    }
   }
 
   setCaptureArmed(check = null) {
@@ -211,9 +226,12 @@ export class KeyboardPerformance {
   }
 
   triggerDrum(name) {
-    if (!this.active || this.config?.mode !== 'drums' || !this.playDrum(name)) return false;
+    if (!this.active || this.config?.mode !== 'drums' || !Object.values(DRUM_KEYS).includes(name))
+      return false;
+    const event = { type: 'drum', name };
+    if (!this.monitorPerformanceEvent(event) && !this.playDrum(name)) return false;
     this.record({ drum: name });
-    this.publishPerformanceEvent({ type: 'drum', name });
+    this.publishPerformanceEvent(event);
     return true;
   }
 
@@ -221,18 +239,21 @@ export class KeyboardPerformance {
     if (!this.active || !this.config || this.config.mode === 'drums') return false;
     const safeMidi = clamp(Math.round(Number(midi) || this.config.baseMidi), 24, 96);
     const frequency = midiToFrequency(safeMidi);
-    this.audio.tone(frequency, this.config.duration, this.config.wave, this.config.volume);
-    if (this.config.octaveLayer) {
-      this.audio.tone(
-        frequency * 2,
-        this.config.duration * 0.72,
-        'triangle',
-        this.config.volume * 0.22,
-        0.012,
-      );
+    const event = { type: 'midi', midi: safeMidi };
+    if (!this.monitorPerformanceEvent(event)) {
+      this.audio.tone(frequency, this.config.duration, this.config.wave, this.config.volume);
+      if (this.config.octaveLayer) {
+        this.audio.tone(
+          frequency * 2,
+          this.config.duration * 0.72,
+          'triangle',
+          this.config.volume * 0.22,
+          0.012,
+        );
+      }
     }
     this.record({ midi: safeMidi, frequency });
-    this.publishPerformanceEvent({ type: 'midi', midi: safeMidi });
+    this.publishPerformanceEvent(event);
     return true;
   }
 

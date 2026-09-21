@@ -177,7 +177,6 @@ export function createActions({
 
   const startPerformance = (kind, { record = false, back = () => {}, stemKind = kind } = {}) => {
     if (!keyboardPerformance) return;
-    if (!studio?.loopEnabled) studioPlayback?.stop?.();
     dj?.stop?.();
     const config = {
       ...performanceConfig(kind),

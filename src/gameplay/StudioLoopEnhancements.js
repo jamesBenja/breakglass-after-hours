@@ -138,10 +138,7 @@ export function connectKeyboardPerformanceToSpectra(game) {
   const performance = game?.keyboardPerformance;
   if (!performance?.setPerformanceEventSink) return false;
 
-  performance.setCaptureArmed?.(() => game.spectraRecorder?.armed === true);
-  performance.setPerformanceEventSink(({ config = {}, event = {} } = {}) => {
-    const recorder = game.spectraRecorder;
-    if (!recorder?.armed) return false;
+  const resourceIdFor = (config = {}) => {
     const kind = String(config.stemKind || config.mode || 'instrument')
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, '-')
@@ -151,8 +148,21 @@ export function connectKeyboardPerformanceToSpectra(game) {
       .replace(/[^a-z0-9_-]/g, '-')
       .replace(/-+/g, '-')
       .slice(0, 48);
+    return `local:${kind || 'instrument'}:${label || 'instrument'}`;
+  };
+
+  performance.setCaptureArmed?.(() => game.spectraRecorder?.armed === true);
+  performance.setPerformanceMonitor?.(
+    ({ config = {}, event = {} } = {}) =>
+      game.studioPlayback?.monitorLiveEvent?.(game.studio, config, event, {
+        resourceId: resourceIdFor(config),
+      }) === true,
+  );
+  performance.setPerformanceEventSink(({ config = {}, event = {} } = {}) => {
+    const recorder = game.spectraRecorder;
+    if (!recorder?.armed) return false;
     return recorder.captureLocal(config, event, {
-      resourceId: `local:${kind || 'instrument'}:${label || 'instrument'}`,
+      resourceId: resourceIdFor(config),
     });
   });
   return true;
@@ -219,7 +229,6 @@ function enhancePlayback(playback, session, game) {
   const basePlay = playback.play.bind(playback);
   playback.play = async (activeSession, offset = 0, options = {}) => {
     enhanceSession(activeSession);
-    stopSpectraLiveInputsForMix(game);
     const result = await basePlay(activeSession, offset, options);
     playback.transportOffset = Math.max(0, Number(offset) || 0);
     playback.transportStartedAt = playback.audio.context?.currentTime ?? 0;
@@ -1207,7 +1216,52 @@ export function installStudioLoopEnhancements(game, ui) {
   if (!ui._studioLoopBuilderPatched && typeof ui.studioMixer === 'function') {
     const baseStudioMixer = ui.studioMixer.bind(ui);
     ui.studioMixer = (session, options = {}) => {
-      const result = baseStudioMixer(session, options);
+      const recorder = game.spectraRecorder;
+      const recordStatus = recorder?.status?.() ?? {
+        armed: false,
+        recording: false,
+        lanes: 0,
+        events: 0,
+      };
+      const onRecord = async () => {
+        if (recorder?.armed) {
+          const committed = recorder.stop({ commit: true });
+          if (committed.length) {
+            game.studioPlayback?.applyLiveMix?.(session);
+            game.save?.();
+            ui.warning?.(
+              `Recorded ${committed.length} armed channel${committed.length === 1 ? '' : 's'} into the Spectra console.`,
+            );
+          } else {
+            ui.warning?.('Recording stopped. No events reached the armed channels.');
+          }
+          return committed;
+        }
+
+        const armedTracks =
+          session.armedStems?.() ?? session.stems.filter((stem) => stem.recordArm);
+        if (!armedTracks.length) {
+          ui.warning?.('Arm at least one console channel before pressing RECORD.');
+          return false;
+        }
+        await game.audio?.init?.();
+        const armed = recorder?.arm?.();
+        if (!armed) {
+          ui.warning?.('Spectra could not arm the selected inputs.');
+          return false;
+        }
+        game.save?.();
+        ui.warning?.(
+          `RECORD READY · ${armedTracks.map((stem) => stem.label).join(', ')}. Input monitoring stays on.`,
+        );
+        return true;
+      };
+
+      const result = baseStudioMixer(session, {
+        ...options,
+        onRecord,
+        recordStatus,
+      });
       const button = ui.document.createElement('button');
       button.type = 'button';
       button.textContent = 'LOOP / SONG BUILDER';

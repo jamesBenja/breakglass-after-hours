@@ -334,7 +334,6 @@ export class ModularSynthSystem {
     if (!event) return false;
     const delay = Math.max(0, Number(when) || 0);
     const duration = this.stepDuration() * this.patch.gate;
-    this.game.audio?.tone?.(event.frequency, duration, this.patch.wave, 0.062, delay);
     const config = {
       mode: 'synth',
       stemKind: 'synth',
@@ -344,6 +343,14 @@ export class ModularSynthSystem {
       duration,
       octaveLayer: false,
     };
+    const monitored = this.game.studioPlayback?.monitorLiveEvent?.(
+      this.game.studio,
+      config,
+      { type: 'midi', midi: event.midi },
+      { resourceId: MODULAR_RESOURCE_ID, when: delay },
+    );
+    if (!monitored)
+      this.game.audio?.tone?.(event.frequency, duration, this.patch.wave, 0.062, delay);
     const instrumentSync = this.game.multiplayer?.instrumentSync;
     if (instrumentSync?.publishExternal) {
       instrumentSync.publishExternal(
