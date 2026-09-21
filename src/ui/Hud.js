@@ -202,6 +202,7 @@ export class Hud {
       onClick = null,
       onLoopBars = null,
       meterProvider = null,
+      onAudibility = null,
       onRecordVocal,
       onAudition = null,
     } = {},
@@ -236,6 +237,7 @@ export class Hud {
                 onClick,
                 onLoopBars,
                 meterProvider,
+                onAudibility,
                 onRecordVocal,
                 onAudition,
               });
@@ -364,6 +366,7 @@ export class Hud {
         onClick,
         onLoopBars,
         meterProvider,
+        onAudibility,
         onRecordVocal,
         onAudition,
       });
@@ -571,11 +574,13 @@ export class Hud {
         session.toggleMute(stem.id);
         refreshSwitches();
         onMix();
+        onAudibility?.();
       };
       solo.onclick = () => {
         session.toggleSolo(stem.id);
         refreshSwitches();
         onMix();
+        onAudibility?.();
       };
       refreshSwitches();
       switches.append(mute, solo);
@@ -637,6 +642,7 @@ export class Hud {
     clearMutes.onclick = () => {
       for (const stem of session.stems) stem.mute = false;
       onMix();
+      onAudibility?.();
       this.studioMixer(session, {
         onMix,
         onPlay,
@@ -647,6 +653,7 @@ export class Hud {
         onClick,
         onLoopBars,
         meterProvider,
+        onAudibility,
         onRecordVocal,
         onAudition,
       });
@@ -656,6 +663,7 @@ export class Hud {
     clearSolos.onclick = () => {
       for (const stem of session.stems) stem.solo = false;
       onMix();
+      onAudibility?.();
       this.studioMixer(session, {
         onMix,
         onPlay,
@@ -666,6 +674,7 @@ export class Hud {
         onClick,
         onLoopBars,
         meterProvider,
+        onAudibility,
         onRecordVocal,
         onAudition,
       });
