@@ -180,11 +180,7 @@ test('raw mic blobs play as audio and never as a fake synth phrase', async () =>
     const playback = new StudioPlayback(fakeAudio());
     const session = new StudioSession();
     const vocal = session.addTake('vocal', 'Vocal take', 'browser-microphone');
-    session.attachRecording(
-      vocal.id,
-      null,
-      new Blob(['voice'], { type: 'audio/mp4' }),
-    );
+    session.attachRecording(vocal.id, null, new Blob(['voice'], { type: 'audio/mp4' }));
     playback.session = session;
 
     let generated = 0;
@@ -192,11 +188,7 @@ test('raw mic blobs play as audio and never as a fake synth phrase', async () =>
       generated += 1;
     };
     playback.renderStem(vocal, 0, 0);
-    assert.equal(
-      generated,
-      0,
-      'mic takes must never fall back to the prototype synth phrase',
-    );
+    assert.equal(generated, 0, 'mic takes must never fall back to the prototype synth phrase');
 
     assert.equal(await playback.startBlobRecordings(session, 0), 1);
     assert.equal(playback.blobStems.get(vocal.id).volume, vocal.level * 0.88);
