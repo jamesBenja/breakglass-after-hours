@@ -103,7 +103,7 @@ test('Spectra master record writes only armed inputs into their standing console
 
   const game = {
     studio,
-    studioPlayback: { playing: false, position: () => 0, updateMix: () => {} },
+    studioPlayback: { playing: true, position: () => 0, updateMix: () => {} },
     state: { data: { avatar: { displayName: 'James' } } },
     sceneManager: { current: { definition: { id: 'upstairs' } } },
     multiplayer: { localId: 'local-1', remotePlayers: new Map() },
@@ -232,6 +232,66 @@ test('standalone master recording starts the take clock on the first played even
     committed.performance.events.map((event) => event.time),
     [0, 1.25],
   );
+});
+
+test('master recording forces a fixed quantized loop and wraps events inside it', () => {
+  const studio = new StudioSession();
+  studio.loopEnabled = false;
+  studio.loopBars = 1;
+  studio.quantize = '1/16';
+  const synth = studio.stems.find((stem) => stem.inputKey === 'synth');
+  studio.toggleRecordArm(synth.id);
+
+  let absolute = 0;
+  const transport = {
+    running: true,
+    acquire: () => {},
+    release: () => {},
+    absolutePosition(offset = 0) {
+      return absolute + offset;
+    },
+    positionAtOffset(offset = 0) {
+      return (absolute + offset) % 2;
+    },
+    quantizeTime(time) {
+      return ((Math.round(time / 0.125) * 0.125) % 2 + 2) % 2;
+    },
+    snapshot: () => ({ running: true }),
+  };
+  const game = {
+    studio,
+    spectraTransport: transport,
+    studioPlayback: { playing: false, position: () => 0, updateMix: () => {} },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: { localId: 'local-1', remotePlayers: new Map() },
+    save: () => {},
+  };
+  const recorder = new SpectraRecorder(game, {});
+
+  assert.ok(recorder.arm());
+  assert.equal(studio.loopEnabled, true);
+  absolute = 7.8;
+  recorder.captureLocal(
+    { mode: 'synth', stemKind: 'synth', label: 'Synth' },
+    { type: 'midi', midi: 60 },
+    { resourceId: 'local:synth' },
+  );
+  absolute = 10.05;
+  recorder.captureLocal(
+    { mode: 'synth', stemKind: 'synth', label: 'Synth' },
+    { type: 'midi', midi: 64 },
+    { resourceId: 'local:synth' },
+  );
+
+  const [committed] = recorder.stop({ commit: true });
+  assert.equal(committed.performance.duration, 2);
+  assert.deepEqual(
+    committed.performance.events.map((event) => event.time),
+    [0, 0.25],
+  );
+  assert.equal(committed.clipActive, true);
+  assert.equal(committed.clipStart, 0);
 });
 
 test('Spectra recorder uses the shared transport grid for attached live instruments', () => {
