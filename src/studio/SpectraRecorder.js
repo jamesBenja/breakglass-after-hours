@@ -63,8 +63,9 @@ export class SpectraRecorder {
   }
 
   arm() {
-    const armedTracks = this.game.studio?.armedStems?.() ?? [];
-    if (!armedTracks.length) return false;
+    const hasTrackArmModel = typeof this.game.studio?.armedStems === 'function';
+    const armedTracks = hasTrackArmModel ? this.game.studio.armedStems() : [];
+    if (hasTrackArmModel && !armedTracks.length) return false;
     this.armed = true;
     this.recording = false;
     this.startedAt = 0;
@@ -123,10 +124,13 @@ export class SpectraRecorder {
     source = 'spectra-live-capture',
   } = {}) {
     if (!this.armed) return false;
-    const targetStem = spectraInputStem(this.game.studio, config, resourceId, { armedOnly: true });
-    if (!targetStem) return false;
+    const hasTrackArmModel = typeof this.game.studio?.armedStems === 'function';
+    const targetStem = hasTrackArmModel
+      ? spectraInputStem(this.game.studio, config, resourceId, { armedOnly: true })
+      : null;
+    if (hasTrackArmModel && !targetStem) return false;
     this.beginOnFirstEvent(offsetSeconds);
-    const laneId = [targetStem.id, playerId || 'local']
+    const laneId = [targetStem?.id || resourceId || config.mode || 'instrument', playerId || 'local']
       .join(':')
       .slice(0, 96);
     let lane = this.lanes.get(laneId);
@@ -150,7 +154,7 @@ export class SpectraRecorder {
               : null,
         },
         source,
-        targetStemId: targetStem.id,
+        targetStemId: targetStem?.id ?? null,
         events: [],
       };
       this.lanes.set(laneId, lane);
