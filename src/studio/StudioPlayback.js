@@ -246,9 +246,7 @@ export class StudioPlayback {
       // Keep the user fader authoritative at all times. Mute and solo only operate the final
       // hard gate: when any channel is soloed, every non-solo channel closes and every soloed
       // channel stays open at its existing fader level.
-      const gateOpen = anySolo
-        ? active && soloIds.has(stem.id)
-        : active && stem.mute !== true;
+      const gateOpen = anySolo ? active && soloIds.has(stem.id) : active && stem.mute !== true;
 
       writeSwitchParam(bus?.gate?.gain, 1, time);
       writeSwitchParam(bus?.hardMute?.gain, gateOpen ? 1 : 0, time);
