@@ -503,6 +503,8 @@ export class Game {
       typeof navigator !== 'undefined' &&
       Number(navigator.maxTouchPoints || 0) > 0 &&
       (document.body?.classList.contains('studio-mobile-active') ||
+        document.body?.classList.contains('spectra-console-active') ||
+        document.body?.classList.contains('dj-mobile-active') ||
         document.body?.classList.contains('performance-active') ||
         document.body?.classList.contains('mixer-active'));
 
@@ -517,7 +519,7 @@ export class Game {
     }
 
     if (mobileStudioUi) {
-      if (this.lastStudioUiFrame && now - this.lastStudioUiFrame < 66) return;
+      if (this.lastStudioUiFrame && now - this.lastStudioUiFrame < 100) return;
       this.lastStudioUiFrame = now;
     } else {
       this.lastStudioUiFrame = 0;
@@ -584,7 +586,7 @@ export class Game {
       }
       if (alleyState?.evacuationRequired) this.beginEvacuation();
       this.saveElapsed += dt;
-      const autosaveInterval = mobileStudioUi ? 30 : 2;
+      const autosaveInterval = 2;
       if (this.saveElapsed >= autosaveInterval) {
         this.save();
         this.saveElapsed = 0;
@@ -641,6 +643,7 @@ export class Game {
     this.spectraClipEngine?.dispose?.();
     this.spectraSpatialMixer?.dispose?.();
     this.spectraTransport?.dispose?.();
+    this._sessionRecovery?.dispose?.();
     this.spectraProjectStore?.dispose?.();
     this.freightElevator?.dispose?.();
     this.roofEndgame?.dispose?.();
