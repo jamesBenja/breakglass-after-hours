@@ -642,7 +642,7 @@ function buildSessionManagerPanel(game, ui) {
           game.showSpectraMixer?.();
         },
       ]),
-    ['Back to advanced Spectra settings', () => buildLoopPanel(game, ui)],
+    ['BACK TO SPECTRA MIXER', () => game.showSpectraMixer?.()],
   ];
 
   ui.panel(
