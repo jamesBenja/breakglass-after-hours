@@ -58,6 +58,7 @@ import { installMultiplayerEnhancements } from './multiplayer/installMultiplayer
 import { Hud } from './ui/Hud.js';
 import { resolveEntrySpatialPass } from './runtime/LiveEntryPolicy.js';
 import { ensureCanonicalLiveBuild } from './runtime/LiveVersionGuard.js';
+import { installSessionRecovery } from './runtime/SessionRecovery.js';
 
 installFaceAvatarEnhancements();
 
@@ -115,6 +116,7 @@ if (!liveBuild.reloading) {
     installMultiplayerEnhancements(game, ui);
     installInvitationAccess(game, ui, invitation);
     installClubRegressionFixes(game, ui);
+    installSessionRecovery(game, ui);
     telemetry.attach(game, ui);
     await game.initialize();
   } catch (error) {
