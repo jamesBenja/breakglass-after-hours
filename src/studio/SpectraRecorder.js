@@ -108,7 +108,7 @@ export class SpectraRecorder {
     this.startedAt = clockNow() + offset * 1000;
     const transport = this.game.spectraTransport;
     this.transportOrigin = transport?.running
-      ? transport.positionAtOffset(offset)
+      ? (transport.absolutePosition?.(offset) ?? transport.positionAtOffset(offset))
       : (this.game.studioPlayback?.position?.() ?? 0);
     return true;
   }
@@ -118,10 +118,13 @@ export class SpectraRecorder {
     const session = this.game.studio;
     const transport = this.game.spectraTransport;
     if (transport?.running) {
-      const position = transport.positionAtOffset(offset);
       const timelinePosition = this.game.studioPlayback?.playing
-        ? position
-        : Math.max(0, position - this.transportOrigin);
+        ? transport.positionAtOffset(offset)
+        : Math.max(
+            0,
+            (transport.absolutePosition?.(offset) ?? transport.positionAtOffset(offset)) -
+              this.transportOrigin,
+          );
       return transport.quantizeTime(timelinePosition, {
         wrap: true,
         includeSwing: true,
