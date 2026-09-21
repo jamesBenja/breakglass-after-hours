@@ -339,6 +339,7 @@ export class ModularSynthSystem {
     const config = {
       mode: 'synth',
       stemKind: 'synth',
+      inputKey: 'synth',
       label: 'Spectra modular sequencer',
       wave: this.patch.wave,
       volume: 0.062,
