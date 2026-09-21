@@ -128,21 +128,21 @@ test('recorded Spectra stems are controlled by their actual fader, mute and solo
   first.mute = true;
   playback.updateMix(session);
   assert.equal(playback.buses.get(first.id).fader.gain.value, 0.21);
-  assert.equal(playback.buses.get(first.id).gate.gain.value, 0);
-  assert.equal(playback.buses.get(second.id).gate.gain.value, 1);
+  assert.equal(playback.buses.get(first.id).hardMute.gain.value, 0);
+  assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 
   first.mute = false;
   second.solo = true;
   playback.updateMix(session);
   assert.equal(playback.buses.get(first.id).fader.gain.value, 0.21);
   assert.equal(playback.buses.get(second.id).fader.gain.value, 0.64);
-  assert.equal(playback.buses.get(first.id).gate.gain.value, 0);
-  assert.equal(playback.buses.get(second.id).gate.gain.value, 1);
+  assert.equal(playback.buses.get(first.id).hardMute.gain.value, 0);
+  assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 
   second.solo = false;
   playback.updateMix(session);
-  assert.equal(playback.buses.get(first.id).gate.gain.value, 1);
-  assert.equal(playback.buses.get(second.id).gate.gain.value, 1);
+  assert.equal(playback.buses.get(first.id).hardMute.gain.value, 1);
+  assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 });
 
 test('Spectra channel and stereo master meters report live post-fader signal', () => {
@@ -208,10 +208,10 @@ test('frozen Spectra audio uses one persistent looping source through the live c
 
   frozen.mute = true;
   assert.equal(playback.applyChannelAudibility(session), true);
-  assert.equal(playback.buses.get(frozen.id).gate.gain.value, 0);
+  assert.equal(playback.buses.get(frozen.id).hardMute.gain.value, 0);
   frozen.mute = false;
   playback.applyChannelAudibility(session);
-  assert.equal(playback.buses.get(frozen.id).gate.gain.value, 1);
+  assert.equal(playback.buses.get(frozen.id).hardMute.gain.value, 1);
   assert.equal(createdSources.length, 1);
 });
 
@@ -224,24 +224,24 @@ test('live mute and solo hard-gate already playing Spectra channels without tran
   playback.updateMix(session);
   const aBus = playback.buses.get(a.id);
   const bBus = playback.buses.get(b.id);
-  assert.equal(aBus.gate.gain.value, 1);
-  assert.equal(bBus.gate.gain.value, 1);
+  assert.equal(aBus.hardMute.gain.value, 1);
+  assert.equal(bBus.hardMute.gain.value, 1);
 
   a.mute = true;
   assert.equal(playback.applyChannelAudibility(session), true);
-  assert.equal(aBus.gate.gain.value, 0);
-  assert.equal(bBus.gate.gain.value, 1);
+  assert.equal(aBus.hardMute.gain.value, 0);
+  assert.equal(bBus.hardMute.gain.value, 1);
 
   a.mute = false;
   b.solo = true;
   playback.applyChannelAudibility(session);
-  assert.equal(aBus.gate.gain.value, 0);
-  assert.equal(bBus.gate.gain.value, 1);
+  assert.equal(aBus.hardMute.gain.value, 0);
+  assert.equal(bBus.hardMute.gain.value, 1);
 
   b.solo = false;
   playback.applyChannelAudibility(session);
-  assert.equal(aBus.gate.gain.value, 1);
-  assert.equal(bBus.gate.gain.value, 1);
+  assert.equal(aBus.hardMute.gain.value, 1);
+  assert.equal(bBus.hardMute.gain.value, 1);
 });
 
 test('fully frozen Spectra playback does not subscribe to sixteenth-note render callbacks', async () => {
@@ -453,14 +453,14 @@ test('live Spectra console moves immediately override active playback automation
 
   recorded.mute = true;
   playback.applyLiveMix(session);
-  assert.equal(bus.gate.gain.value, 0);
+  assert.equal(bus.hardMute.gain.value, 0);
 
   playback.timer = null;
   recorded.mute = false;
   recorded.level = 0.55;
   playback.applyLiveMix(session);
   assert.equal(bus.fader.gain.value, 0.55);
-  assert.equal(bus.gate.gain.value, 1);
+  assert.equal(bus.hardMute.gain.value, 1);
 });
 
 test('live monitored inputs enter the real Spectra channel bus', () => {
