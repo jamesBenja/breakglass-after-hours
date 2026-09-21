@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { SpatialAudioSystem } from '../src/audio/SpatialAudioSystem.js';
 import { stopSpectraLiveInputsForMix } from '../src/gameplay/StudioLoopEnhancements.js';
 import { StudioPlayback } from '../src/studio/StudioPlayback.js';
+import { StudioSession } from '../src/studio/StudioSession.js';
 import { createGameSpace } from '../src/world/upstairs/gameSpace.js';
 
 class FakeParam {
