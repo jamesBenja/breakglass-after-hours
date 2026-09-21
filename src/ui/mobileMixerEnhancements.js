@@ -17,6 +17,7 @@ function clearMobileMixerClasses(document) {
     'mixer-collapsed',
     'dj-mobile-active',
     'studio-mobile-active',
+    'spectra-console-active',
   );
 }
 
