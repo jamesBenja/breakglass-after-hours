@@ -40,7 +40,9 @@ class FakeMediaRecorder {
   }
 }
 
-test('MicrophoneRecorder builds a real AudioBuffer from live PCM even when blob decode fails', async () => {
+test(
+  'MicrophoneRecorder builds a real AudioBuffer from live PCM even when blob decode fails',
+  async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
   const track = { stopped: false, stop() { this.stopped = true; } };
@@ -137,9 +139,12 @@ test('MicrophoneRecorder builds a real AudioBuffer from live PCM even when blob 
     else delete globalThis.navigator;
     globalThis.MediaRecorder = originalMediaRecorder;
   }
-});
+},
+);
 
-test('AudioEngine microphone recovery restores playback audio session and game gain state', async () => {
+test(
+  'AudioEngine microphone recovery restores playback audio session and game gain state',
+  async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const audioSession = { type: 'play-and-record' };
   Object.defineProperty(globalThis, 'navigator', {
@@ -201,4 +206,5 @@ test('AudioEngine microphone recovery restores playback audio session and game g
     if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
     else delete globalThis.navigator;
   }
-});
+},
+);
