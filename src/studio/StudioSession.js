@@ -136,10 +136,16 @@ const normalizeStem = (stem, index) => ({
       : null,
 });
 
+const LEGACY_PROTOTYPE_IDS = ['drums', 'bass', 'guitar', 'synth'];
+
 const isUntouchedPrototype = (value = {}) => {
   if (Math.floor(Number(value.takeCounter) || 0) !== 0) return false;
   if (!Array.isArray(value.stems)) return true;
-  return value.stems.every((stem) => !stem?.assetId && !stem?.performance);
+  if (value.stems.length !== LEGACY_PROTOTYPE_IDS.length) return false;
+  return value.stems.every(
+    (stem, index) =>
+      stem?.id === LEGACY_PROTOTYPE_IDS[index] && !stem?.assetId && !stem?.performance,
+  );
 };
 
 const isLegacyAutoTemplate = (value = {}, template = null) => {
