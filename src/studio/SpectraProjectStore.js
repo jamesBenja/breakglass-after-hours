@@ -128,8 +128,10 @@ export class SpectraProjectStore {
 
   async saveSession(projectId, session) {
     if (!projectId || !session) return { saved: 0, missing: 0 };
-    const micStems = (session.stems ?? []).filter((stem) => stem.source === 'browser-microphone');
-    const currentIds = new Set(micStems.map((stem) => String(stem.id)));
+    const persistedStems = (session.stems ?? []).filter(
+      (stem) => stem.source === 'browser-microphone' || stem.renderedAudio === true,
+    );
+    const currentIds = new Set(persistedStems.map((stem) => String(stem.id)));
     const existing = await this.list(projectId);
     for (const item of existing) {
       if (!currentIds.has(String(item.stemId))) await this.delete(projectId, item.stemId);
@@ -137,7 +139,7 @@ export class SpectraProjectStore {
 
     let saved = 0;
     let missing = 0;
-    for (const stem of micStems) {
+    for (const stem of persistedStems) {
       const blob = session.recordingBlobs?.get?.(stem.id);
       if (blob) {
         await this.put(projectId, stem.id, blob);
