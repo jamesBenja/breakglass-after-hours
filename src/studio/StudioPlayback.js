@@ -279,8 +279,8 @@ export class StudioPlayback {
     if (!context || !bus) return;
     const time = context.currentTime;
     const settings = stem.fxSettings ?? {};
-    const reverb = clamp(stem.reverb ?? 0, 0, 1);
-    const delay = clamp(stem.delay ?? 0, 0, 1);
+    const reverb = clamp(stem.reverb ?? (stem.fx ?? 0) * 0.55, 0, 1);
+    const delay = clamp(stem.delay ?? stem.fx ?? 0, 0, 1);
     const reverbSize = clamp(settings.reverbSize ?? 0.55, 0, 1);
     const reverbDamping = clamp(settings.reverbDamping ?? 0.35, 0, 1);
     const delayTime = clamp(settings.delayTime ?? 0.25, 0.05, 1.2);
