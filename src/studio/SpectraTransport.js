@@ -168,7 +168,7 @@ export class SpectraTransport {
 
     if (this.timer != null) this.timers.clearInterval(this.timer);
     this.schedule();
-    this.timer = this.timers.setInterval(() => this.schedule(), 20);
+    this.timer = this.timers.setInterval(() => this.schedule(), 40);
     return true;
   }
 

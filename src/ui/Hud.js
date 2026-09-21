@@ -491,7 +491,7 @@ export class Hud {
       range.dataset.parameter = key;
       range.oninput = () => {
         handler(Number(range.value));
-        onMix();
+        onMix(stem.id);
       };
       control.append(caption, range);
       strip.appendChild(control);
@@ -531,7 +531,7 @@ export class Hud {
         arm.classList.toggle('active', stem.recordArm === true);
         arm.textContent = stem.recordArm ? 'ARMED' : 'ARM';
         arm.setAttribute('aria-pressed', String(stem.recordArm === true));
-        onMix();
+        onMix(stem.id);
         const count = session.stems.filter((item) => item.recordArm === true).length;
         status.textContent = `${recordStatus?.armed ? 'RECORD READY' : 'READY'} · ${count} ARMED · MONITOR ALL`;
       };
@@ -573,13 +573,13 @@ export class Hud {
       mute.onclick = () => {
         session.toggleMute(stem.id);
         refreshSwitches();
-        onMix();
+        onMix(stem.id);
         onAudibility?.();
       };
       solo.onclick = () => {
         session.toggleSolo(stem.id);
         refreshSwitches();
-        onMix();
+        onMix(stem.id);
         onAudibility?.();
       };
       refreshSwitches();
@@ -614,7 +614,7 @@ export class Hud {
       fader.oninput = () => {
         session.setLevel(stem.id, Number(fader.value));
         syncFader();
-        onMix();
+        onMix(stem.id);
       };
       syncFader();
       faderSection.append(scale, fader, meter, readout);
