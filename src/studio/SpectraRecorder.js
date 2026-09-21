@@ -82,11 +82,13 @@ export class SpectraRecorder {
 
     this.armed = true;
     this.recording = false;
-    this.startedAt = 0;
+    this.startedAt = clockNow();
     this.transportOrigin = 0;
     this.lanes.clear();
     this.lastCommitted = [];
-    this.game.spectraTransport?.acquire?.(this.transportOwner, { position: 0 });
+    const transport = this.game.spectraTransport;
+    transport?.acquire?.(this.transportOwner, { position: 0 });
+    this.transportOrigin = transport?.absolutePosition?.() ?? 0;
     return this.status();
   }
 
@@ -105,11 +107,9 @@ export class SpectraRecorder {
     if (this.recording) return true;
     const offset = Math.max(0, Number(offsetSeconds) || 0);
     this.recording = true;
-    this.startedAt = clockNow() + offset * 1000;
-    const transport = this.game.spectraTransport;
-    this.transportOrigin = transport?.running
-      ? (transport.absolutePosition?.(offset) ?? transport.positionAtOffset(offset))
-      : (this.game.studioPlayback?.position?.() ?? 0);
+    // Recording time is anchored when RECORD is pressed, not on the first played note. This keeps
+    // live overdubs phase-aligned with Drum Machine, Modular and any already-playing Spectra loop.
+    if (!(this.startedAt > 0)) this.startedAt = clockNow() + offset * 1000;
     return true;
   }
 
@@ -118,14 +118,7 @@ export class SpectraRecorder {
     const session = this.game.studio;
     const transport = this.game.spectraTransport;
     if (transport?.running) {
-      const timelinePosition = this.game.studioPlayback?.playing
-        ? transport.positionAtOffset(offset)
-        : Math.max(
-            0,
-            (transport.absolutePosition?.(offset) ?? transport.positionAtOffset(offset)) -
-              this.transportOrigin,
-          );
-      return transport.quantizeTime(timelinePosition, {
+      return transport.quantizeTime(transport.positionAtOffset(offset), {
         wrap: true,
         includeSwing: true,
       });
