@@ -9,17 +9,23 @@ import { createGameSpace } from '../src/world/upstairs/gameSpace.js';
 class FakeParam {
   constructor(value = 0) {
     this.value = value;
+    this.lastWrite = null;
+    this.cancelled = 0;
   }
   setTargetAtTime(value) {
     this.value = value;
+    this.lastWrite = 'target';
   }
   setValueAtTime(value) {
     this.value = value;
+    this.lastWrite = 'value';
   }
   exponentialRampToValueAtTime(value) {
     this.value = value;
   }
-  cancelScheduledValues() {}
+  cancelScheduledValues() {
+    this.cancelled += 1;
+  }
 }
 
 class FakeNode {
@@ -115,6 +121,54 @@ test('recorded Spectra stems are controlled by their actual fader, mute and solo
   playback.updateMix(session);
   assert.equal(playback.buses.get(first.id).gate.gain.value, 1);
   assert.equal(playback.buses.get(second.id).gate.gain.value, 1);
+});
+
+test('live Spectra console moves immediately override active playback automation', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const recorded = stem('recorded-live', 0.78);
+  recorded.pan = -0.2;
+  recorded.low = 0.1;
+  recorded.high = -0.1;
+  recorded.fx = 0.22;
+  const session = { stems: [recorded], recordings: new Map() };
+
+  playback.updateMix(session);
+  playback.timer = 1;
+
+  recorded.level = 0.17;
+  recorded.pan = 0.64;
+  recorded.low = -0.52;
+  recorded.high = 0.43;
+  recorded.fx = 0.81;
+  playback.applyLiveMix(session);
+
+  const bus = playback.buses.get(recorded.id);
+  assert.equal(bus.fader.gain.value, 0.17);
+  assert.equal(bus.pan.pan.value, 0.64);
+  assert.equal(bus.low.gain.value, -7.8);
+  assert.equal(bus.high.gain.value, 6.45);
+  assert.equal(bus.fxGain.gain.value, 0.81 * 0.38);
+  for (const parameter of [
+    bus.fader.gain,
+    bus.pan.pan,
+    bus.low.gain,
+    bus.high.gain,
+    bus.fxGain.gain,
+  ]) {
+    assert.equal(parameter.lastWrite, 'value');
+    assert.ok(parameter.cancelled > 0);
+  }
+
+  recorded.mute = true;
+  playback.applyLiveMix(session);
+  assert.equal(bus.gate.gain.value, 0);
+
+  playback.timer = null;
+  recorded.mute = false;
+  recorded.level = 0.55;
+  playback.applyLiveMix(session);
+  assert.equal(bus.fader.gain.value, 0.55);
+  assert.equal(bus.gate.gain.value, 1);
 });
 
 test('starting Spectra mixer playback releases only live Spectra input generators', () => {
