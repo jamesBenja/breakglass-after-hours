@@ -95,7 +95,7 @@ export class Hud {
   clearPanel(title, text) {
     if (this.panelElement) {
       this.panelElement.hidden = false;
-      this.panelElement.classList.remove('photo-review-open');
+      this.panelElement.classList.remove('photo-review-open', 'spectra-console-panel');
     }
     this.title.textContent = title;
     this.text.textContent = text;
