@@ -508,6 +508,63 @@ test('Drum Machine and Modular publish explicit fixed Spectra input keys', () =>
   assert.equal(modularCaptured[0][0].inputKey, 'synth');
 });
 
+test('Drum Machine and Modular record through the real master recorder into their fixed channels', () => {
+  const drumStudio = new StudioSession();
+  const drumTarget = drumStudio.stems.find((stem) => stem.inputKey === 'drum-machine');
+  drumStudio.toggleRecordArm(drumTarget.id);
+  const drumGame = {
+    state: { data: {} },
+    studio: drumStudio,
+    studioPlayback: {
+      playing: false,
+      position: () => 0,
+      updateMix: () => {},
+      monitorLiveEvent: () => true,
+    },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: null,
+    save: () => {},
+  };
+  drumGame.spectraRecorder = new SpectraRecorder(drumGame, {});
+  const drumMachine = new DrumMachineSystem(drumGame, { panel: () => {}, warning: () => {} });
+  const pattern = drumMachine.state.patterns[drumMachine.state.selectedPattern];
+  for (const lane of Object.values(pattern)) lane.fill(0);
+  pattern.kick[0] = 1;
+
+  assert.ok(drumGame.spectraRecorder.arm());
+  assert.equal(drumMachine.triggerStep(0), 1);
+  const drumCommitted = drumGame.spectraRecorder.stop({ commit: true });
+  assert.equal(drumCommitted.length, 1);
+  assert.equal(drumCommitted[0].id, drumTarget.id);
+  assert.match(drumTarget.performance.events[0].drum, /kick/);
+
+  const modularStudio = new StudioSession();
+  const synthTarget = modularStudio.stems.find((stem) => stem.inputKey === 'synth');
+  modularStudio.toggleRecordArm(synthTarget.id);
+  const modularGame = {
+    state: { data: { modularSynth: normalizeModularPatchState() } },
+    studio: modularStudio,
+    studioPlayback: {
+      playing: false,
+      position: () => 0,
+      updateMix: () => {},
+      monitorLiveEvent: () => true,
+    },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: null,
+    save: () => {},
+  };
+  modularGame.spectraRecorder = new SpectraRecorder(modularGame, {});
+  const modular = new ModularSynthSystem(modularGame, { panel: () => {}, warning: () => {} });
+
+  assert.ok(modularGame.spectraRecorder.arm());
+  assert.equal(modular.triggerStep(0), true);
+  const modularCommitted = modularGame.spectraRecorder.stop({ commit: true });
+  assert.equal(modularCommitted.length, 1);
+  assert.equal(modularCommitted[0].id, synthTarget.id);
+  assert.equal(typeof synthTarget.performance.events[0].midi, 'number');
+});
+
 test('multiplayer instrument publishing always feeds the local Spectra recorder first', () => {
   const captured = [];
   const performance = {
