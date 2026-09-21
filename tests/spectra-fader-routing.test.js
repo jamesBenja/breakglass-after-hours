@@ -206,6 +206,35 @@ test('frozen Spectra audio is the sole playback source while retained performanc
   assert.equal(playback.buses.get(frozen.id).gate.gain.value, 0);
 });
 
+test('live mute and solo hard-gate already playing Spectra channels without transport restart', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const a = stem('a', 0.7);
+  const b = stem('b', 0.7);
+  const session = { stems: [a, b], recordings: new Map() };
+
+  playback.updateMix(session);
+  const aBus = playback.buses.get(a.id);
+  const bBus = playback.buses.get(b.id);
+  assert.equal(aBus.gate.gain.value, 1);
+  assert.equal(bBus.gate.gain.value, 1);
+
+  a.mute = true;
+  assert.equal(playback.applyChannelAudibility(session), true);
+  assert.equal(aBus.gate.gain.value, 0);
+  assert.equal(bBus.gate.gain.value, 1);
+
+  a.mute = false;
+  b.solo = true;
+  playback.applyChannelAudibility(session);
+  assert.equal(aBus.gate.gain.value, 0);
+  assert.equal(bBus.gate.gain.value, 1);
+
+  b.solo = false;
+  playback.applyChannelAudibility(session);
+  assert.equal(aBus.gate.gain.value, 1);
+  assert.equal(bBus.gate.gain.value, 1);
+});
+
 test('recorded drum-machine clips restart at bar one and render through the same channel strip', async () => {
   const audio = fakeAudio();
   const playback = new StudioPlayback(audio);
