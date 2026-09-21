@@ -700,7 +700,8 @@ export function createActions({
       [
         ['Drum Machine input', () => add('drum-machine', 'Drum Machine')],
         ['Drum Kit input', () => add('drum-kit', 'Drum Kit')],
-        ['Synth / Modular input', () => add('synth', 'Synth / Modular')],
+        ['Synth / Organ input', () => add('synth', 'Synth / Organ')],
+        ['Modular Synth input', () => add('modular', 'Modular Synth')],
         ['Guitar / Bass input', () => add('guitar', 'Guitar / Bass')],
         ['Piano input', () => add('piano', 'Piano')],
         ['Back to Spectra mixer', consolePanel],
