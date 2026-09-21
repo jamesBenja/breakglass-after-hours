@@ -188,10 +188,7 @@ test('frozen Spectra audio uses one persistent looping source through the live c
   playback.session = session;
   playback.updateMix(session);
 
-  assert.equal(
-    playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }),
-    1,
-  );
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
   assert.equal(createdSources.length, 1);
   assert.equal(createdSources[0].buffer, audioBuffer);
   assert.equal(createdSources[0].loop, true);

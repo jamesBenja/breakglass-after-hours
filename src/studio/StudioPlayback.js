@@ -769,11 +769,7 @@ export class StudioPlayback {
     });
   }
 
-  startFrozenRecordings(
-    session,
-    offset = 0,
-    { startTime = null, phaseOffset = null } = {},
-  ) {
+  startFrozenRecordings(session, offset = 0, { startTime = null, phaseOffset = null } = {}) {
     const context = this.audio.context;
     if (!context || !session?.recordings?.size) return 0;
     const now = context.currentTime;
@@ -970,7 +966,8 @@ export class StudioPlayback {
         this.transportUnsubscribe = this.spectraTransport.subscribe(
           'studio-playback',
           (transportEvent) => {
-            if (this.session !== session || this.realSessionPlaying || this.nativeStems.size) return;
+            if (this.session !== session || this.realSessionPlaying || this.nativeStems.size)
+              return;
             for (const stem of session.stems) {
               if (session.recordings.has(stem.id)) continue;
               this.renderStem(stem, transportEvent.loopStep, transportEvent.when);
