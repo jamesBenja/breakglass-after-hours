@@ -592,8 +592,9 @@ export function createActions({
       return;
     }
     ui.studioMixer(studio, {
-      onMix: () => {
-        studioPlayback.applyLiveMix?.(studio) ?? studioPlayback.updateMix(studio);
+      onMix: (stemId = null) => {
+        if (stemId) studioPlayback.updateStemMix?.(studio, stemId, { immediate: true });
+        else studioPlayback.applyLiveMix?.(studio) ?? studioPlayback.updateMix(studio);
         rememberStudio();
       },
       onPlay: async () => {
@@ -629,8 +630,9 @@ export function createActions({
       return;
     }
     ui.studioMixer(studio, {
-      onMix: () => {
-        studioPlayback.applyLiveMix?.(studio) ?? studioPlayback.updateMix(studio);
+      onMix: (stemId = null) => {
+        if (stemId) studioPlayback.updateStemMix?.(studio, stemId, { immediate: true });
+        else studioPlayback.applyLiveMix?.(studio) ?? studioPlayback.updateMix(studio);
         rememberStudio();
       },
       onPlay: async () => {
