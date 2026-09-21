@@ -85,6 +85,16 @@ export class Game {
     this.input.bindCamera(this.renderer.domElement);
     this.input.bindTouchControls(document);
 
+    // The panel X is also an exit from any modal instrument/performance surface. Without this,
+    // mobile CSS can disappear while KeyboardPerformance remains active, leaving movement and
+    // ACTION input suppressed by the game loop.
+    ui.onPanelClose = () => {
+      if (this.keyboardPerformance?.active || this.keyboardPerformance?.recording) {
+        this.keyboardPerformance.stop(false);
+      }
+      this.input.clear();
+    };
+
     this.audioPlaybackRecoveryPending = false;
     this.audioPlaybackResumePromise = null;
     this.prepareAudioPlaybackForBackground = () => {
