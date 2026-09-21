@@ -203,6 +203,7 @@ export class Hud {
       onLoopBars = null,
       meterProvider = null,
       onAudibility = null,
+      onFxDetail = null,
       onRecordVocal,
       onAudition = null,
     } = {},
@@ -238,6 +239,7 @@ export class Hud {
                 onLoopBars,
                 meterProvider,
                 onAudibility,
+                onFxDetail,
                 onRecordVocal,
                 onAudition,
               });
@@ -367,6 +369,7 @@ export class Hud {
         onLoopBars,
         meterProvider,
         onAudibility,
+        onFxDetail,
         onRecordVocal,
         onAudition,
       });
@@ -600,9 +603,21 @@ export class Hud {
       addMiniRange(routing, stem, 'pan', 'PAN', -1, 1, stem.pan ?? 0, (value) =>
         session.setPan(stem.id, value),
       );
-      addMiniRange(routing, stem, 'fx', 'FX', 0, 1, stem.fx ?? 0, (value) =>
-        session.setFx(stem.id, value),
+      addMiniRange(routing, stem, 'reverb', 'REVERB', 0, 1, stem.reverb ?? 0, (value) =>
+        session.setReverb?.(stem.id, value),
       );
+      addMiniRange(routing, stem, 'delay', 'DELAY', 0, 1, stem.delay ?? 0, (value) =>
+        session.setDelay?.(stem.id, value),
+      );
+      if (onFxDetail) {
+        const detail = this.document.createElement('button');
+        detail.type = 'button';
+        detail.className = 'spectra-fx-detail';
+        detail.textContent = 'FX DETAIL';
+        detail.onclick = () =>
+          Promise.resolve(onFxDetail(stem.id)).catch((error) => this.warning(error.message));
+        routing.appendChild(detail);
+      }
       strip.appendChild(routing);
 
       const switches = this.document.createElement('div');
@@ -701,6 +716,7 @@ export class Hud {
         onLoopBars,
         meterProvider,
         onAudibility,
+        onFxDetail,
         onRecordVocal,
         onAudition,
       });
@@ -722,6 +738,7 @@ export class Hud {
         onLoopBars,
         meterProvider,
         onAudibility,
+        onFxDetail,
         onRecordVocal,
         onAudition,
       });

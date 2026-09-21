@@ -156,6 +156,46 @@ test('local keyboard and touch performance feeds an armed Spectra recorder witho
   keyboard.stop(false);
 });
 
+test('live recording stays anchored to the shared Spectra grid instead of re-zeroing on first note', () => {
+  const studio = new StudioSession();
+  const guitar = studio.stems.find((stem) => stem.inputKey === 'guitar');
+  studio.toggleRecordArm(guitar.id);
+  let position = 0;
+  const transport = {
+    running: true,
+    acquire: () => true,
+    release: () => true,
+    absolutePosition: () => position,
+    positionAtOffset: (offset = 0) => position + offset,
+    quantizeTime: (time) => Math.round(time / 0.125) * 0.125,
+  };
+  const game = {
+    studio,
+    spectraTransport: transport,
+    studioPlayback: { playing: false, position: () => position, updateMix: () => {} },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: null,
+    save: () => {},
+  };
+  const recorder = new SpectraRecorder(game, {});
+
+  assert.ok(recorder.arm());
+  position = 0.37;
+  assert.equal(
+    recorder.captureLocal(
+      { mode: 'guitar', stemKind: 'guitar', inputKey: 'guitar', label: 'Guitar' },
+      { type: 'midi', midi: 43 },
+      { resourceId: 'local:guitar' },
+    ),
+    true,
+  );
+
+  const committed = recorder.stop({ commit: true });
+  assert.equal(committed.length, 1);
+  assert.equal(guitar.performance.events[0].time, 0.375);
+});
+
 test('master console record captures a normally played monitored instrument into its armed channel', () => {
   const keyboard = new KeyboardPerformance(
     {

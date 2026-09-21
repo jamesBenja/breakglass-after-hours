@@ -148,6 +148,34 @@ test('recorded Spectra stems are controlled by their actual fader, mute and solo
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 });
 
+test('Spectra exposes independent reverb and delay sends with persistent FX detail settings', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const session = new StudioSession();
+  const synth = session.stems.find((stem) => stem.inputKey === 'synth');
+
+  session.setReverb(synth.id, 0.4);
+  session.setDelay(synth.id, 0.7);
+  session.setFxParam(synth.id, 'reverbSize', 0.8);
+  session.setFxParam(synth.id, 'reverbDamping', 0.5);
+  session.setFxParam(synth.id, 'delayTime', 0.5);
+  session.setFxParam(synth.id, 'delayFeedback', 0.45);
+
+  playback.updateMix(session, { immediate: true });
+  const bus = playback.buses.get(synth.id);
+  assert.equal(bus.reverbSend.gain.value, 0.12);
+  assert.equal(bus.delaySend.gain.value, 0.294);
+  assert.equal(bus.delayNode.delayTime.value, 0.5);
+  assert.equal(bus.delayFeedback.gain.value, 0.45);
+  assert.equal(bus.reverbDampingA.frequency.value, 8250);
+
+  const reopened = new StudioSession(session.snapshot());
+  const restored = reopened.stems.find((stem) => stem.id === synth.id);
+  assert.equal(restored.reverb, 0.4);
+  assert.equal(restored.delay, 0.7);
+  assert.equal(restored.fxSettings.reverbSize, 0.8);
+  assert.equal(restored.fxSettings.delayTime, 0.5);
+});
+
 test('Spectra channel and stereo master meters report live post-fader signal', () => {
   const playback = new StudioPlayback(fakeAudio());
   const first = stem('meter-one', 0.8);
@@ -211,11 +239,42 @@ test('frozen Spectra audio uses one persistent looping source through the live c
 
   frozen.mute = true;
   assert.equal(playback.applyChannelAudibility(session), true);
-  assert.equal(playback.buses.get(frozen.id).hardMute.gain.value, 0);
+  assert.equal(playback.frozenGates.get(frozen.id).gain.value, 0);
+  assert.equal(playback.buses.get(frozen.id).hardMute.gain.value, 1);
   frozen.mute = false;
   playback.applyChannelAudibility(session);
+  assert.equal(playback.frozenGates.get(frozen.id).gain.value, 1);
   assert.equal(playback.buses.get(frozen.id).hardMute.gain.value, 1);
   assert.equal(createdSources.length, 1);
+});
+
+test('solo on frozen recorded tracks mutes only non-solo recordings and preserves faders', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const first = stem('frozen-a', 0.81);
+  const second = stem('frozen-b', 0.57);
+  const session = {
+    stems: [first, second],
+    recordings: new Map([
+      [first.id, { duration: 2 }],
+      [second.id, { duration: 2 }],
+    ]),
+    bpm: 120,
+    loopEnabled: true,
+    loopBars: 1,
+  };
+  playback.session = session;
+  playback.updateMix(session);
+  playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
+
+  second.solo = true;
+  playback.applyChannelAudibility(session);
+
+  assert.equal(playback.frozenGates.get(first.id).gain.value, 0);
+  assert.equal(playback.frozenGates.get(second.id).gain.value, 1);
+  assert.equal(playback.buses.get(first.id).hardMute.gain.value, 1);
+  assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
+  assert.equal(playback.buses.get(first.id).fader.gain.value, first.level);
+  assert.equal(playback.buses.get(second.id).fader.gain.value, second.level);
 });
 
 test('live mute and solo hard-gate already playing Spectra channels without transport restart', () => {
@@ -396,10 +455,12 @@ test('recorded drum-machine clips restart at bar one and render through the same
   assert.equal(rendered[0].bus, playback.buses.get(drum.id).input);
 
   drum.level = 0.23;
-  drum.fx = 0.66;
+  drum.reverb = 0.4;
+  drum.delay = 0.66;
   playback.applyLiveMix(session);
   assert.equal(playback.buses.get(drum.id).fader.gain.value, 0.23);
-  assert.equal(playback.buses.get(drum.id).fxGain.gain.value, 0.66 * 0.38);
+  assert.equal(playback.buses.get(drum.id).reverbSend.gain.value, 0.4 * 0.3);
+  assert.equal(playback.buses.get(drum.id).delaySend.gain.value, 0.66 * 0.42);
 });
 
 test('Spectra reuses one white-noise buffer for repeated drum hits', () => {
@@ -487,7 +548,8 @@ test('live Spectra console moves immediately override active playback automation
   recorded.pan = -0.2;
   recorded.low = 0.1;
   recorded.high = -0.1;
-  recorded.fx = 0.22;
+  recorded.reverb = 0.22;
+  recorded.delay = 0.22;
   const session = { stems: [recorded], recordings: new Map() };
 
   playback.updateMix(session);
@@ -497,7 +559,8 @@ test('live Spectra console moves immediately override active playback automation
   recorded.pan = 0.64;
   recorded.low = -0.52;
   recorded.high = 0.43;
-  recorded.fx = 0.81;
+  recorded.reverb = 0.54;
+  recorded.delay = 0.81;
   playback.applyLiveMix(session);
 
   const bus = playback.buses.get(recorded.id);
@@ -505,13 +568,15 @@ test('live Spectra console moves immediately override active playback automation
   assert.equal(bus.pan.pan.value, 0.64);
   assert.ok(Math.abs(bus.low.gain.value - -7.8) < 1e-9);
   assert.ok(Math.abs(bus.high.gain.value - 6.45) < 1e-9);
-  assert.equal(bus.fxGain.gain.value, 0.81 * 0.38);
+  assert.equal(bus.reverbSend.gain.value, 0.54 * 0.3);
+  assert.equal(bus.delaySend.gain.value, 0.81 * 0.42);
   for (const parameter of [
     bus.fader.gain,
     bus.pan.pan,
     bus.low.gain,
     bus.high.gain,
-    bus.fxGain.gain,
+    bus.reverbSend.gain,
+    bus.delaySend.gain,
   ]) {
     assert.equal(parameter.lastWrite, 'value');
     assert.ok(parameter.cancelled > 0);

@@ -233,8 +233,16 @@ function createChannel(
     panEnabled && typeof context.createStereoPanner === 'function'
       ? context.createStereoPanner()
       : null;
-  const fxGain = context.createGain();
-  const fxDelay = context.createDelay(0.5);
+  const delaySend = context.createGain();
+  const delayNode = context.createDelay(1.2);
+  const delayFeedback = context.createGain();
+  const reverbSend = context.createGain();
+  const reverbDelayA = context.createDelay(0.3);
+  const reverbDelayB = context.createDelay(0.3);
+  const reverbDampingA = context.createBiquadFilter();
+  const reverbDampingB = context.createBiquadFilter();
+  const reverbFeedbackA = context.createGain();
+  const reverbFeedbackB = context.createGain();
 
   const processing = stem.processing ?? {};
   const mic = MIC_COLOR[processing.mic] ?? { frequency: 1800, gain: 0, q: 0.8 };
@@ -261,8 +269,21 @@ function createChannel(
 
   fader.gain.value = clamp(level, 0, 1);
   if (pan) pan.pan.value = clamp(stem.pan ?? 0, -1, 1);
-  fxGain.gain.value = clamp(stem.fx ?? 0, 0, 1) * 0.38;
-  fxDelay.delayTime.value = 0.18;
+  const fxSettings = stem.fxSettings ?? {};
+  const reverbSize = clamp(fxSettings.reverbSize ?? 0.55, 0, 1);
+  const reverbDamping = clamp(fxSettings.reverbDamping ?? 0.35, 0, 1);
+  delaySend.gain.value = clamp(stem.delay ?? stem.fx ?? 0, 0, 1) * 0.42;
+  delayNode.delayTime.value = clamp(fxSettings.delayTime ?? 0.25, 0.05, 1.2);
+  delayFeedback.gain.value = clamp(fxSettings.delayFeedback ?? 0.3, 0, 0.82);
+  reverbSend.gain.value = clamp(stem.reverb ?? (stem.fx ?? 0) * 0.55, 0, 1) * 0.3;
+  reverbDampingA.type = 'lowpass';
+  reverbDampingB.type = 'lowpass';
+  reverbDampingA.frequency.value = 14000 - reverbDamping * 11500;
+  reverbDampingB.frequency.value = (14000 - reverbDamping * 11500) * 0.92;
+  reverbDelayA.delayTime.value = 0.025 + reverbSize * 0.055;
+  reverbDelayB.delayTime.value = 0.037 + reverbSize * 0.073;
+  reverbFeedbackA.gain.value = 0.24 + reverbSize * 0.5;
+  reverbFeedbackB.gain.value = Math.max(0, reverbFeedbackA.gain.value - 0.04);
 
   input.connect(color);
   color.connect(low);
@@ -271,9 +292,23 @@ function createChannel(
   compressor.connect(fader);
   fader.connect(pan ?? destination);
   pan?.connect(destination);
-  fader.connect(fxGain);
-  fxGain.connect(fxDelay);
-  fxDelay.connect(destination);
+  fader.connect(delaySend);
+  delaySend.connect(delayNode);
+  delayNode.connect(destination);
+  delayNode.connect(delayFeedback);
+  delayFeedback.connect(delayNode);
+
+  fader.connect(reverbSend);
+  reverbSend.connect(reverbDelayA);
+  reverbSend.connect(reverbDelayB);
+  reverbDelayA.connect(reverbDampingA);
+  reverbDelayB.connect(reverbDampingB);
+  reverbDampingA.connect(destination);
+  reverbDampingB.connect(destination);
+  reverbDampingA.connect(reverbFeedbackA);
+  reverbDampingB.connect(reverbFeedbackB);
+  reverbFeedbackA.connect(reverbDelayA);
+  reverbFeedbackB.connect(reverbDelayB);
 
   return input;
 }
@@ -593,6 +628,9 @@ function sessionMetadata(session, duration) {
       low: stem.low,
       high: stem.high,
       fx: stem.fx,
+      reverb: stem.reverb,
+      delay: stem.delay,
+      fxSettings: stem.fxSettings ? { ...stem.fxSettings } : null,
       mute: stem.mute,
       solo: stem.solo,
       clipActive: stem.clipActive !== false,
@@ -666,7 +704,9 @@ export class StudioExporter {
     const probe = new this.OfflineAudioContext(2, SAMPLE_RATE, SAMPLE_RATE);
     const buffers = await this.assetBuffers(session, probe);
     const duration = studioExportDuration(session, buffers);
-    const hasFx = session.stems.some((stem) => (stem.fx ?? 0) > 0);
+    const hasFx = session.stems.some(
+      (stem) => (stem.reverb ?? 0) > 0 || (stem.delay ?? stem.fx ?? 0) > 0,
+    );
     const tail = hasFx ? 0.5 : 0.08;
     const frames = Math.ceil((duration + tail) * SAMPLE_RATE);
     const context = new this.OfflineAudioContext(2, frames, SAMPLE_RATE);
@@ -715,7 +755,9 @@ export class StudioExporter {
     const probe = new this.OfflineAudioContext(2, SAMPLE_RATE, SAMPLE_RATE);
     const buffers = await this.assetBuffers(session, probe);
     const duration = studioExportDuration(session, buffers);
-    const hasFx = session.stems.some((stem) => (stem.fx ?? 0) > 0);
+    const hasFx = session.stems.some(
+      (stem) => (stem.reverb ?? 0) > 0 || (stem.delay ?? stem.fx ?? 0) > 0,
+    );
     const tail = hasFx ? 0.5 : 0.08;
     const frames = Math.ceil((duration + tail) * SAMPLE_RATE);
     const context = new this.OfflineAudioContext(8, frames, SAMPLE_RATE);

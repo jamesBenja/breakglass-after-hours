@@ -1356,6 +1356,76 @@ export function installStudioLoopEnhancements(game, ui) {
         game.save?.();
       };
 
+      const showFxDetail = (stemId) => {
+        const stem = session.stems.find((item) => item.id === stemId);
+        if (!stem) return false;
+        stem.fxSettings ??= {
+          reverbSize: 0.55,
+          reverbDamping: 0.35,
+          delayTime: 0.25,
+          delayFeedback: 0.3,
+        };
+        ui.clearPanel?.(
+          `FX DETAIL · ${stem.label}`,
+          'Main mixer REVERB and DELAY controls set send amount. These controls shape the two effects for this channel.',
+        );
+        const controls = ui.document?.createElement?.('div');
+        if (!controls) return false;
+        controls.className = 'spectra-fx-detail-panel';
+        const apply = (parameter, value) => {
+          session.setFxParam?.(stem.id, parameter, value);
+          game.studioPlayback?.updateStemMix?.(session, stem.id, { immediate: true });
+          game.save?.();
+        };
+        ui.addMixerRange?.(
+          controls,
+          'Reverb size',
+          0,
+          1,
+          0.01,
+          stem.fxSettings.reverbSize ?? 0.55,
+          (value) => apply('reverbSize', value),
+          (value) => `${Math.round(value * 100)}%`,
+        );
+        ui.addMixerRange?.(
+          controls,
+          'Reverb damping',
+          0,
+          1,
+          0.01,
+          stem.fxSettings.reverbDamping ?? 0.35,
+          (value) => apply('reverbDamping', value),
+          (value) => `${Math.round(value * 100)}%`,
+        );
+        ui.addMixerRange?.(
+          controls,
+          'Delay time',
+          0.05,
+          1.2,
+          0.01,
+          stem.fxSettings.delayTime ?? 0.25,
+          (value) => apply('delayTime', value),
+          (value) => `${Math.round(value * 1000)} ms`,
+        );
+        ui.addMixerRange?.(
+          controls,
+          'Delay feedback',
+          0,
+          0.82,
+          0.01,
+          stem.fxSettings.delayFeedback ?? 0.3,
+          (value) => apply('delayFeedback', value),
+          (value) => `${Math.round(value * 100)}%`,
+        );
+        ui.buttons?.appendChild(controls);
+        const back = ui.document.createElement('button');
+        back.type = 'button';
+        back.textContent = 'BACK TO SPECTRA MIXER';
+        back.onclick = () => ui.studioMixer(session, options);
+        ui.buttons?.appendChild(back);
+        return true;
+      };
+
       const meterProvider = () => ({
         ...(game.studioPlayback?.meterSnapshot?.(session) ?? {
           channels: {},
@@ -1373,6 +1443,7 @@ export function installStudioLoopEnhancements(game, ui) {
         onLoopBars,
         meterProvider,
         onAudibility,
+        onFxDetail: showFxDetail,
       });
       return result;
     };
