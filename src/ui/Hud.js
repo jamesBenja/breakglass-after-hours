@@ -33,6 +33,8 @@ export class Hud {
     this.touchPrimary = document.querySelector('[data-action="interact"]');
     this.debug = document.getElementById('debug');
     this.notice = document.getElementById('notice');
+    this._spectraMeterTimer = null;
+    this._spectraView = 'mixer';
     this.closeButton = document.createElement('button');
     this.closeButton.type = 'button';
     this.closeButton.className = 'panel-close';
@@ -85,6 +87,7 @@ export class Hud {
   }
 
   closePanel() {
+    this.stopSpectraMeters();
     if (this.panelElement) {
       this.panelElement.hidden = true;
       this.panelElement.classList.remove('photo-review-open');
@@ -93,6 +96,7 @@ export class Hud {
   }
 
   clearPanel(title, text) {
+    this.stopSpectraMeters();
     if (this.panelElement) {
       this.panelElement.hidden = false;
       this.panelElement.classList.remove('photo-review-open', 'spectra-console-panel');
@@ -138,6 +142,40 @@ export class Hud {
     return range;
   }
 
+  stopSpectraMeters() {
+    const view = this.document?.defaultView ?? globalThis;
+    if (this._spectraMeterTimer != null) view.clearInterval?.(this._spectraMeterTimer);
+    this._spectraMeterTimer = null;
+  }
+
+  startSpectraMeters(provider, channelMeters = new Map(), masterMeters = null, playhead = null) {
+    this.stopSpectraMeters();
+    if (typeof provider !== 'function') return;
+    const view = this.document?.defaultView ?? globalThis;
+    const touch = typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints || 0) > 0;
+    const update = () => {
+      const snapshot = provider();
+      if (!snapshot) return;
+      for (const [stemId, element] of channelMeters) {
+        const level = Math.max(0, Math.min(1, Number(snapshot.channels?.[stemId]) || 0));
+        element.style.height = `${Math.round(level * 100)}%`;
+      }
+      if (masterMeters) {
+        const left = Math.max(0, Math.min(1, Number(snapshot.master?.left) || 0));
+        const right = Math.max(0, Math.min(1, Number(snapshot.master?.right) || 0));
+        masterMeters.left.style.height = `${Math.round(left * 100)}%`;
+        masterMeters.right.style.height = `${Math.round(right * 100)}%`;
+      }
+      if (playhead && snapshot.transport) {
+        const steps = Math.max(16, Number(snapshot.transport.loopBars || 4) * 16);
+        const step = Math.max(0, Number(snapshot.transport.loopStep) || 0);
+        playhead.style.left = `${Math.min(100, (step / steps) * 100)}%`;
+      }
+    };
+    update();
+    this._spectraMeterTimer = view.setInterval?.(update, touch ? 140 : 90) ?? null;
+  }
+
   studioMixer(
     session,
     {
@@ -148,6 +186,8 @@ export class Hud {
       recordStatus = null,
       onTempo = null,
       onClick = null,
+      onLoopBars = null,
+      meterProvider = null,
       onRecordVocal,
       onAudition = null,
     } = {},
@@ -180,6 +220,8 @@ export class Hud {
                 recordStatus,
                 onTempo,
                 onClick,
+                onLoopBars,
+                meterProvider,
                 onRecordVocal,
                 onAudition,
               });
@@ -276,8 +318,142 @@ export class Hud {
       const vox = makeTransportButton('REC VOX', 'spectra-console-utility', onRecordVocal);
       toolbar.appendChild(vox);
     }
+
+    const masterMeter = this.document.createElement('div');
+    masterMeter.className = 'spectra-master-meter';
+    const makeMasterLane = (label) => {
+      const lane = this.document.createElement('div');
+      lane.className = 'spectra-master-meter-lane';
+      const fill = this.document.createElement('span');
+      fill.className = 'spectra-master-meter-fill';
+      const caption = this.document.createElement('small');
+      caption.textContent = label;
+      lane.append(fill, caption);
+      masterMeter.appendChild(lane);
+      return fill;
+    };
+    const masterMeters = {
+      left: makeMasterLane('L'),
+      right: makeMasterLane('R'),
+    };
+    toolbar.appendChild(masterMeter);
     this.buttons.appendChild(toolbar);
 
+    const redraw = () =>
+      this.studioMixer(session, {
+        onMix,
+        onPlay,
+        onStop,
+        onRecord,
+        recordStatus,
+        onTempo,
+        onClick,
+        onLoopBars,
+        meterProvider,
+        onRecordVocal,
+        onAudition,
+      });
+
+    const views = this.document.createElement('div');
+    views.className = 'spectra-view-switch';
+    for (const [id, label] of [
+      ['mixer', 'MIXER'],
+      ['session', 'SESSION'],
+    ]) {
+      const button = this.document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.classList.toggle('active', this._spectraView === id);
+      button.onclick = () => {
+        this._spectraView = id;
+        redraw();
+      };
+      views.appendChild(button);
+    }
+    this.buttons.appendChild(views);
+
+    if (this._spectraView === 'session') {
+      const loopBars = Math.max(1, Number(session.loopBars) || 4);
+      const loopSeconds = (loopBars * 4 * 60) / Math.max(1, Number(session.bpm) || 118);
+      const sessionView = this.document.createElement('div');
+      sessionView.className = 'spectra-session-view';
+
+      const header = this.document.createElement('div');
+      header.className = 'spectra-session-header';
+      const summary = this.document.createElement('strong');
+      summary.textContent = `LOOP · ${loopBars} BAR${loopBars === 1 ? '' : 'S'} · ${loopSeconds.toFixed(
+        2,
+      )} SEC · ${session.quantize || '1/16'} GRID`;
+      const lengthControls = this.document.createElement('div');
+      lengthControls.className = 'spectra-loop-length-controls';
+      for (const bars of [1, 2, 4, 8, 16]) {
+        const button = this.document.createElement('button');
+        button.type = 'button';
+        button.textContent = `${bars} BAR${bars === 1 ? '' : 'S'}`;
+        button.classList.toggle('active', bars === loopBars);
+        button.onclick = async () => {
+          await onLoopBars?.(bars);
+          session.loopBars = bars;
+          session.loopEnabled = true;
+          redraw();
+        };
+        lengthControls.appendChild(button);
+      }
+      header.append(summary, lengthControls);
+      sessionView.appendChild(header);
+
+      const timeline = this.document.createElement('div');
+      timeline.className = 'spectra-session-timeline';
+      const ruler = this.document.createElement('div');
+      ruler.className = 'spectra-session-ruler';
+      ruler.style.setProperty('--spectra-loop-bars', String(loopBars));
+      for (let bar = 1; bar <= loopBars; bar += 1) {
+        const marker = this.document.createElement('span');
+        marker.textContent = `BAR ${bar}`;
+        ruler.appendChild(marker);
+      }
+      const playheadTrack = this.document.createElement('div');
+      playheadTrack.className = 'spectra-session-playhead-track';
+      const playhead = this.document.createElement('div');
+      playhead.className = 'spectra-session-playhead';
+      playheadTrack.appendChild(playhead);
+      timeline.append(ruler, playheadTrack);
+
+      for (const stem of session.stems) {
+        const row = this.document.createElement('div');
+        row.className = 'spectra-session-track';
+        const label = this.document.createElement('strong');
+        label.textContent = stem.label;
+        const lane = this.document.createElement('div');
+        lane.className = 'spectra-session-lane';
+        lane.style.setProperty('--spectra-loop-bars', String(loopBars));
+        const eventCount = stem.performance?.events?.length ?? 0;
+        const hasAudio = session.recordings?.has?.(stem.id) === true;
+        const hasClip = eventCount > 0 || hasAudio || !!stem.assetId;
+        if (hasClip) {
+          const clip = this.document.createElement('div');
+          clip.className = 'spectra-session-clip';
+          clip.textContent = eventCount
+            ? `${eventCount} EVENT${eventCount === 1 ? '' : 'S'} · ${loopBars} BAR LOOP`
+            : `AUDIO · ${loopBars} BAR LOOP`;
+          lane.appendChild(clip);
+        } else {
+          const empty = this.document.createElement('span');
+          empty.className = 'spectra-session-empty';
+          empty.textContent = stem.recordArm ? 'ARMED · WAITING FOR RECORD' : 'EMPTY';
+          lane.appendChild(empty);
+        }
+        row.append(label, lane);
+        timeline.appendChild(row);
+      }
+
+      sessionView.appendChild(timeline);
+      this.buttons.appendChild(sessionView);
+      this.startSpectraMeters(meterProvider, new Map(), masterMeters, playhead);
+      return;
+    }
+
+    const channelMeters = new Map();
     const desk = this.document.createElement('div');
     desk.className = 'spectra-console-desk';
 
@@ -402,6 +578,13 @@ export class Hud {
       fader.value = String(stem.level);
       fader.className = 'spectra-fader';
       fader.setAttribute('aria-label', `${stem.label} fader`);
+      const meter = this.document.createElement('div');
+      meter.className = 'spectra-channel-meter';
+      const meterFill = this.document.createElement('span');
+      meterFill.className = 'spectra-channel-meter-fill';
+      meter.appendChild(meterFill);
+      channelMeters.set(stem.id, meterFill);
+
       const readout = this.document.createElement('output');
       readout.className = 'spectra-fader-readout';
       const syncFader = () => {
@@ -413,7 +596,7 @@ export class Hud {
         onMix();
       };
       syncFader();
-      faderSection.append(scale, fader, readout);
+      faderSection.append(scale, fader, meter, readout);
       strip.appendChild(faderSection);
 
       if (onAudition) {
@@ -446,6 +629,8 @@ export class Hud {
         recordStatus,
         onTempo,
         onClick,
+        onLoopBars,
+        meterProvider,
         onRecordVocal,
         onAudition,
       });
@@ -463,12 +648,15 @@ export class Hud {
         recordStatus,
         onTempo,
         onClick,
+        onLoopBars,
+        meterProvider,
         onRecordVocal,
         onAudition,
       });
     };
     master.append(clearMutes, clearSolos);
     this.buttons.appendChild(master);
+    this.startSpectraMeters(meterProvider, channelMeters, masterMeters);
   }
 
   djMixer(mixer, tracks, { onChange = () => {} } = {}) {

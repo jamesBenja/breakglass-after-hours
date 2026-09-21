@@ -46,6 +46,17 @@ class FakeNode {
   disconnect() {}
 }
 
+class FakeAnalyser extends FakeNode {
+  constructor() {
+    super();
+    this.fftSize = 128;
+    this.smoothingTimeConstant = 0;
+  }
+  getFloatTimeDomainData(data) {
+    data.fill(0.2);
+  }
+}
+
 function fakeAudio() {
   const context = {
     currentTime: 0,
@@ -54,6 +65,7 @@ function fakeAudio() {
     createDynamicsCompressor: () => new FakeNode(),
     createDelay: () => new FakeNode(),
     createStereoPanner: () => new FakeNode(),
+    createAnalyser: () => new FakeAnalyser(),
   };
   const destination = new FakeNode();
   return {
@@ -121,6 +133,23 @@ test('recorded Spectra stems are controlled by their actual fader, mute and solo
   playback.updateMix(session);
   assert.equal(playback.buses.get(first.id).gate.gain.value, 1);
   assert.equal(playback.buses.get(second.id).gate.gain.value, 1);
+});
+
+test('Spectra channel and stereo master meters report live post-fader signal', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const first = stem('meter-one', 0.8);
+  first.pan = -1;
+  const second = stem('meter-two', 0.8);
+  second.pan = 1;
+  const session = { stems: [first, second], recordings: new Map() };
+
+  playback.updateMix(session);
+  const snapshot = playback.meterSnapshot(session);
+
+  assert.ok(snapshot.channels[first.id] > 0);
+  assert.ok(snapshot.channels[second.id] > 0);
+  assert.ok(snapshot.master.left > 0);
+  assert.ok(snapshot.master.right > 0);
 });
 
 test('live Spectra console moves immediately override active playback automation', () => {

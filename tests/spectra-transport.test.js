@@ -106,6 +106,17 @@ test('Spectra click follows the shared transport and does not run when disabled'
   assert.equal(clicks.length, count);
 });
 
+test('Spectra transport exposes unwrapped time while its musical position loops', () => {
+  const clock = fakeClock();
+  const active = session({ bpm: 120, loopEnabled: true, loopBars: 1, swing: 0 });
+  const transport = new SpectraTransport({ context: clock.context }, active, clock.timers);
+  transport.acquire('recorder', { position: 0 });
+
+  clock.context.currentTime = 12.6;
+  assert.ok(transport.position() < 2);
+  assert.ok(Math.abs(transport.absolutePosition() - 2.56) < 0.02);
+});
+
 test('Spectra transport remains alive until the final instrument owner releases it', () => {
   const clock = fakeClock();
   const transport = new SpectraTransport({ context: clock.context }, session(), clock.timers);

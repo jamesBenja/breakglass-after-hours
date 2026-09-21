@@ -844,3 +844,233 @@ canvas:focus {
 .spectra-console-master button {
   font-size: 9px;
 }
+
+.spectra-master-meter {
+  display: flex;
+  gap: 4px;
+  align-items: end;
+  height: 44px;
+  padding: 4px 5px;
+  border: 1px solid #343438;
+  border-radius: 5px;
+  background: #090a0b;
+}
+
+.spectra-master-meter-lane {
+  position: relative;
+  width: 9px;
+  height: 34px;
+  overflow: hidden;
+  border: 1px solid #292c30;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #28191a 0%, #252415 30%, #142316 100%);
+}
+
+.spectra-master-meter-fill,
+.spectra-channel-meter-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0%;
+  background: linear-gradient(180deg, #d18c66 0%, #c9b55f 26%, #70a86f 54%, #4d7f59 100%);
+  transition: height 70ms linear;
+}
+
+.spectra-master-meter-lane small {
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  z-index: 2;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 5px;
+  pointer-events: none;
+}
+
+.spectra-view-switch {
+  display: flex;
+  gap: 5px;
+  margin: 0 0 8px;
+}
+
+.spectra-view-switch button {
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.spectra-view-switch button.active {
+  border-color: #8f8a73;
+  background: #302f29;
+  color: #f0ead7;
+}
+
+.spectra-channel-meter {
+  position: relative;
+  grid-row: 1;
+  width: 11px;
+  height: 190px;
+  overflow: hidden;
+  border: 1px solid #292c30;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #28191a 0%, #252415 30%, #142316 100%);
+}
+
+.spectra-fader-section {
+  grid-template-columns: 25px 1fr 13px;
+}
+
+.spectra-session-view {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #343438;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #1a1a1d, #101012);
+}
+
+.spectra-session-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spectra-session-header strong {
+  color: #d8d2bf;
+  font:
+    800 9px/1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.06em;
+}
+
+.spectra-loop-length-controls {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.spectra-loop-length-controls button {
+  min-height: 26px;
+  padding: 4px 7px;
+  font-size: 7px;
+  font-weight: 850;
+}
+
+.spectra-loop-length-controls button.active {
+  border-color: #6f8d73;
+  background: #213126;
+}
+
+.spectra-session-timeline {
+  position: relative;
+  min-width: 620px;
+  display: grid;
+  gap: 5px;
+}
+
+.spectra-session-ruler {
+  display: grid;
+  grid-template-columns: repeat(var(--spectra-loop-bars), minmax(70px, 1fr));
+  margin-left: 132px;
+  color: #72767c;
+  font:
+    700 7px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.spectra-session-ruler span {
+  padding: 3px 5px;
+  border-left: 1px solid #31343a;
+}
+
+.spectra-session-track {
+  display: grid;
+  grid-template-columns: 124px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.spectra-session-track > strong {
+  overflow: hidden;
+  color: #b9b6aa;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spectra-session-lane {
+  position: relative;
+  min-height: 34px;
+  overflow: hidden;
+  border: 1px solid #303238;
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.035) 0,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 1px,
+      transparent calc(100% / var(--spectra-loop-bars))
+    ),
+    #0d0e10;
+}
+
+.spectra-session-clip {
+  position: absolute;
+  inset: 3px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid #596f60;
+  border-radius: 3px;
+  color: #c7dfcb;
+  background: #1d3425;
+  font:
+    800 7px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.04em;
+}
+
+.spectra-session-empty {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 8px;
+  color: #5f6368;
+  font:
+    700 7px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.05em;
+}
+
+.spectra-session-playhead-track {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  bottom: 0;
+  left: 132px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.spectra-session-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: rgba(231, 107, 110, 0.82);
+}

@@ -69,6 +69,8 @@ export class StudioPlayback {
     this.transportUnsubscribe = null;
     this.spatialMixer = null;
     this.auditionStemId = null;
+    this.performanceIndex = new WeakMap();
+    this.anySolo = false;
   }
 
   get playing() {
@@ -132,13 +134,23 @@ export class StudioPlayback {
     // Keep level automation separate from the final mute/solo gate so channel state is authoritative.
     const channelSum = context.createGain();
     const gate = context.createGain();
+    const meter = typeof context.createAnalyser === 'function' ? context.createAnalyser() : null;
+    if (meter) {
+      meter.fftSize = 128;
+      meter.smoothingTimeConstant = 0.68;
+    }
     const spatialPost = gate;
     const dry = context.createGain();
     dry.gain.value = 1;
     gate.gain.value = 1;
     fader.connect(channelSum);
     channelSum.connect(gate);
-    gate.connect(dry);
+    if (meter) {
+      gate.connect(meter);
+      meter.connect(dry);
+    } else {
+      gate.connect(dry);
+    }
     dry.connect(pan ?? destination);
     pan?.connect(destination);
     fxGain.gain.value = 0;
@@ -155,6 +167,8 @@ export class StudioPlayback {
       fader,
       channelSum,
       gate,
+      meter,
+      meterData: meter ? new Float32Array(meter.fftSize) : null,
       spatialPost,
       dry,
       pan,
@@ -169,8 +183,15 @@ export class StudioPlayback {
   configureProcessing(stem, bus) {
     const context = this.audio.context;
     if (!context || !bus) return;
-    const time = context.currentTime;
     const processing = stem.processing ?? {};
+    const processingKey = [
+      processing.mic ?? '',
+      processing.eq ?? '',
+      processing.compressor ?? '',
+    ].join('|');
+    if (bus.processingKey === processingKey) return;
+    bus.processingKey = processingKey;
+    const time = context.currentTime;
     const mic = MIC_COLOR[processing.mic] ?? { frequency: 1800, gain: 0, q: 0.8 };
     let eqGain = mic.gain;
     if (processing.eq === 'spectra-eq') eqGain += 1.4;
@@ -204,6 +225,7 @@ export class StudioPlayback {
     const time = this.audio.context.currentTime;
     const activeIds = new Set();
     const anySolo = session.stems.some((stem) => stem.solo);
+    this.anySolo = anySolo;
     for (const stem of session.stems) {
       activeIds.add(stem.id);
       const bus = this.ensureBus(stem);
@@ -230,6 +252,48 @@ export class StudioPlayback {
 
   applyLiveMix(session = this.session) {
     return this.updateMix(session, { immediate: true });
+  }
+
+  busMeterLevel(bus) {
+    const analyser = bus?.meter;
+    const data = bus?.meterData;
+    if (!analyser || !data || typeof analyser.getFloatTimeDomainData !== 'function') return 0;
+    analyser.getFloatTimeDomainData(data);
+    let peak = 0;
+    let sum = 0;
+    for (let index = 0; index < data.length; index += 1) {
+      const value = data[index];
+      const absolute = Math.abs(value);
+      if (absolute > peak) peak = absolute;
+      sum += value * value;
+    }
+    const rms = Math.sqrt(sum / Math.max(1, data.length));
+    const level = Math.max(peak * 0.72, rms * 1.55);
+    return clamp(level, 0, 1);
+  }
+
+  meterSnapshot(session = this.session) {
+    const channels = {};
+    let leftPower = 0;
+    let rightPower = 0;
+    for (const stem of session?.stems ?? []) {
+      const bus = this.buses.get(stem.id);
+      const level = this.busMeterLevel(bus);
+      channels[stem.id] = level;
+      const pan = clamp(Number(stem.pan) || 0, -1, 1);
+      const angle = ((pan + 1) * Math.PI) / 4;
+      const left = level * Math.cos(angle);
+      const right = level * Math.sin(angle);
+      leftPower += left * left;
+      rightPower += right * right;
+    }
+    return {
+      channels,
+      master: {
+        left: clamp(Math.sqrt(leftPower), 0, 1),
+        right: clamp(Math.sqrt(rightPower), 0, 1),
+      },
+    };
   }
 
   oscillator(freq, duration, destination, { type = 'triangle', volume = 0.12, when = 0 } = {}) {
@@ -519,23 +583,47 @@ export class StudioPlayback {
     }
   }
 
+  performanceEventsForStep(stem, performance, loopSteps, sourceStepDuration) {
+    let cache = this.performanceIndex.get(performance);
+    if (
+      !cache ||
+      cache.events !== performance.events ||
+      cache.loopSteps !== loopSteps ||
+      cache.stepDuration !== sourceStepDuration
+    ) {
+      const byStep = new Map();
+      for (const event of performance.events) {
+        const eventTime = Math.max(0, Number(event.time) || 0);
+        const absoluteStep = Math.round(eventTime / sourceStepDuration);
+        const eventStep = ((absoluteStep % loopSteps) + loopSteps) % loopSteps;
+        const microOffset = Math.max(0, eventTime - absoluteStep * sourceStepDuration);
+        const bucket = byStep.get(eventStep) ?? [];
+        bucket.push({ event, microOffset });
+        byStep.set(eventStep, bucket);
+      }
+      cache = {
+        events: performance.events,
+        loopSteps,
+        stepDuration: sourceStepDuration,
+        byStep,
+      };
+      this.performanceIndex.set(performance, cache);
+    }
+    return cache.byStep.get(((step % loopSteps) + loopSteps) % loopSteps) ?? [];
+  }
+
   renderPerformance(stem, step, when) {
     const performance = stem.performance;
     if (!performance?.events?.length) return false;
     const bus = this.ensureBus(stem).input;
     const sourceBpm = performance.bpm || this.bpm;
-    const stepDuration = 60 / sourceBpm / 4;
-    const loopSteps = Math.max(
-      16,
-      Math.min(256, Math.ceil((performance.duration || 4) / stepDuration)),
-    );
-    const current = step % loopSteps;
-    for (const event of performance.events) {
-      const eventTime = Math.max(0, Number(event.time) || 0);
-      const absoluteStep = Math.round(eventTime / stepDuration);
-      const eventStep = absoluteStep % loopSteps;
-      if (eventStep !== current) continue;
-      const microOffset = Math.max(0, eventTime - absoluteStep * stepDuration);
+    const sourceStepDuration = 60 / sourceBpm / 4;
+    const loopSteps = this.session?.loopEnabled
+      ? Math.max(16, Math.max(1, Number(this.session.loopBars) || 4) * 16)
+      : Math.max(16, Math.min(256, Math.ceil((performance.duration || 4) / sourceStepDuration)));
+    const events = this.performanceEventsForStep(stem, performance, loopSteps, sourceStepDuration);
+
+    for (const { event, microOffset } of events) {
       const eventWhen = when + microOffset;
       if (event.drum) {
         this.renderDrumEvent(event.drum, bus, eventWhen);
@@ -565,8 +653,7 @@ export class StudioPlayback {
   renderStem(stem, step, when) {
     if (this.auditionStemId && stem.id !== this.auditionStemId) return;
     const bus = this.ensureBus(stem).input;
-    const anySolo = this.session?.stems.some((candidate) => candidate.solo);
-    if (stem.clipActive === false || stem.mute || (anySolo && !stem.solo)) return;
+    if (stem.clipActive === false || stem.mute || (this.anySolo && !stem.solo)) return;
     const recording = this.session?.recordings.get(stem.id);
     const recordingStepDuration = 60 / Math.max(1, Number(this.session?.bpm) || this.bpm) / 4;
     const recordingLoopSteps = this.session?.loopEnabled
@@ -773,7 +860,6 @@ export class StudioPlayback {
         'studio-playback',
         (transportEvent) => {
           if (this.session !== session || this.realSessionPlaying || this.nativeStems.size) return;
-          this.updateMix(session);
           for (const stem of session.stems) {
             this.renderStem(stem, transportEvent.loopStep, transportEvent.when);
           }
@@ -864,6 +950,7 @@ export class StudioPlayback {
     this.previewDrumInput?.disconnect?.();
     this.previewDrumInput = null;
     this.assetBuffers.clear();
+    this.performanceIndex = new WeakMap();
     this.session = null;
   }
 }

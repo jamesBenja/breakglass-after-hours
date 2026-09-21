@@ -220,9 +220,9 @@ function enhancePlayback(playback, session, game) {
             ? transportPosition % duration
             : transportPosition;
       for (const element of media) {
-        if (Math.abs(element.currentTime - target) > 0.035) element.currentTime = target;
+        if (Math.abs(element.currentTime - target) > 0.12) element.currentTime = target;
       }
-    }, 120);
+    }, 500);
     return true;
   };
 
@@ -239,11 +239,6 @@ function enhancePlayback(playback, session, game) {
   playback.renderPerformance = (stem, step, when) => {
     const activeSession = playback.session ?? session;
     if (!activeSession.loopEnabled) return baseRenderPerformance(stem, step, when);
-    const performance = stem.performance;
-    if (performance?.events?.length) {
-      performance.duration = loopSeconds(activeSession);
-      performance.bpm = activeSession.bpm;
-    }
     return baseRenderPerformance(stem, step % playback.loopSteps(activeSession), when);
   };
 
@@ -1181,10 +1176,12 @@ export function installStudioLoopEnhancements(game, ui) {
         if (recorder?.armed) {
           const committed = recorder.stop({ commit: true });
           if (committed.length) {
-            game.studioPlayback?.applyLiveMix?.(session);
+            await game.audio?.init?.();
+            game.spectraTransport?.restart?.(0);
+            await game.studioPlayback?.play?.(session, 0);
             game.save?.();
             ui.warning?.(
-              `Recorded ${committed.length} armed channel${committed.length === 1 ? '' : 's'} into the Spectra console.`,
+              `Recorded ${committed.length} quantized loop${committed.length === 1 ? '' : 's'} into the armed channel${committed.length === 1 ? '' : 's'} and started playback.`,
             );
           } else {
             ui.warning?.('Recording stopped. No events reached the armed channels.');
@@ -1199,6 +1196,7 @@ export function installStudioLoopEnhancements(game, ui) {
           return false;
         }
         await game.audio?.init?.();
+        session.loopEnabled = true;
         const armed = recorder?.arm?.();
         if (!armed) {
           ui.warning?.('Spectra could not arm the selected inputs.');
@@ -1220,12 +1218,28 @@ export function installStudioLoopEnhancements(game, ui) {
         game.save?.();
       };
 
+      const onLoopBars = async (bars) => {
+        game.spectraTransport?.setLoopBars?.(bars);
+        session.loopEnabled = true;
+        if (game.studioPlayback?.playing) await game.studioPlayback.play(session, 0);
+        game.save?.();
+      };
+      const meterProvider = () => ({
+        ...(game.studioPlayback?.meterSnapshot?.(session) ?? {
+          channels: {},
+          master: { left: 0, right: 0 },
+        }),
+        transport: game.spectraTransport?.snapshot?.() ?? null,
+      });
+
       const result = baseStudioMixer(session, {
         ...options,
         onRecord,
         recordStatus,
         onTempo,
         onClick,
+        onLoopBars,
+        meterProvider,
       });
       const button = ui.document.createElement('button');
       button.type = 'button';

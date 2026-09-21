@@ -63,9 +63,23 @@ export class SpectraRecorder {
   }
 
   arm() {
-    const hasTrackArmModel = typeof this.game.studio?.armedStems === 'function';
-    const armedTracks = hasTrackArmModel ? this.game.studio.armedStems() : [];
+    const session = this.game.studio;
+    const hasTrackArmModel = typeof session?.armedStems === 'function';
+    const armedTracks = hasTrackArmModel ? session.armedStems() : [];
     if (hasTrackArmModel && !armedTracks.length) return false;
+
+    // Spectra records musical loops, not open-ended takes. Keep every captured channel on the
+    // same bar/grid geometry so stopping record always produces immediately playable clips.
+    if (session) {
+      session.loopEnabled = true;
+      session.loopBars = [1, 2, 4, 8, 16].includes(Number(session.loopBars))
+        ? Number(session.loopBars)
+        : 4;
+      session.quantize = ['1/4', '1/8', '1/16'].includes(session.quantize)
+        ? session.quantize
+        : '1/16';
+    }
+
     this.armed = true;
     this.recording = false;
     this.startedAt = 0;
@@ -94,7 +108,7 @@ export class SpectraRecorder {
     this.startedAt = clockNow() + offset * 1000;
     const transport = this.game.spectraTransport;
     this.transportOrigin = transport?.running
-      ? transport.positionAtOffset(offset)
+      ? (transport.absolutePosition?.(offset) ?? transport.positionAtOffset(offset))
       : (this.game.studioPlayback?.position?.() ?? 0);
     return true;
   }
@@ -104,12 +118,15 @@ export class SpectraRecorder {
     const session = this.game.studio;
     const transport = this.game.spectraTransport;
     if (transport?.running) {
-      const position = transport.positionAtOffset(offset);
       const timelinePosition = this.game.studioPlayback?.playing
-        ? position
-        : Math.max(0, position - this.transportOrigin);
+        ? transport.positionAtOffset(offset)
+        : Math.max(
+            0,
+            (transport.absolutePosition?.(offset) ?? transport.positionAtOffset(offset)) -
+              this.transportOrigin,
+          );
       return transport.quantizeTime(timelinePosition, {
-        wrap: session?.loopEnabled === true,
+        wrap: true,
         includeSwing: true,
       });
     }
@@ -215,7 +232,7 @@ export class SpectraRecorder {
     }
 
     const session = this.game.studio;
-    const duration = loopSeconds(session) || Math.max(0.25, (clockNow() - this.startedAt) / 1000);
+    const duration = loopSeconds(session);
     const committed = [];
     for (const lane of this.lanes.values()) {
       if (!lane.events.length) continue;
@@ -226,6 +243,8 @@ export class SpectraRecorder {
       stem.source = lane.source;
       stem.processing = lane.config.processing ? { ...lane.config.processing } : stem.processing;
       stem.monitor = true;
+      stem.clipActive = true;
+      stem.clipStart = 0;
       session.recordings?.delete?.(stem.id);
       session.recordingBlobs?.delete?.(stem.id);
       session.attachPerformance(stem.id, {

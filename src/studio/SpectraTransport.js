@@ -84,6 +84,13 @@ export class SpectraTransport {
     return value;
   }
 
+  absolutePosition(offsetSeconds = 0) {
+    const offset = Math.max(0, Number(offsetSeconds) || 0);
+    const context = this.context;
+    if (!this.running || !context) return Math.max(0, this.lastPosition + offset);
+    return Math.max(0, context.currentTime - this.originContextTime + offset);
+  }
+
   positionAtOffset(offsetSeconds = 0) {
     const offset = Math.max(0, Number(offsetSeconds) || 0);
     const value = this.position() + offset;
