@@ -602,7 +602,7 @@ export class StudioPlayback {
     }
   }
 
-  performanceEventsForStep(stem, performance, loopSteps, sourceStepDuration) {
+  performanceEventsForStep(stem, performance, step, loopSteps, sourceStepDuration) {
     let cache = this.performanceIndex.get(performance);
     if (
       !cache ||
@@ -640,7 +640,13 @@ export class StudioPlayback {
     const loopSteps = this.session?.loopEnabled
       ? Math.max(16, Math.max(1, Number(this.session.loopBars) || 4) * 16)
       : Math.max(16, Math.min(256, Math.ceil((performance.duration || 4) / sourceStepDuration)));
-    const events = this.performanceEventsForStep(stem, performance, loopSteps, sourceStepDuration);
+    const events = this.performanceEventsForStep(
+      stem,
+      performance,
+      step,
+      loopSteps,
+      sourceStepDuration,
+    );
 
     for (const { event, microOffset } of events) {
       const eventWhen = when + microOffset;
