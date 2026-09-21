@@ -304,6 +304,14 @@ async function freezePerformanceStems(game, session, stems, { persist = true } =
     }
   }
 
+  if (projectId) {
+    const active = projectById(game, projectId);
+    if (active) {
+      active.session = session.snapshot();
+      active.updatedAt = Date.now();
+    }
+  }
+  game.save?.();
   return { rendered, failed };
 }
 
