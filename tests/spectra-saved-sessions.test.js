@@ -60,6 +60,32 @@ test('saved Spectra projects survive normal game-save validation with instrument
   assert.equal(saved.studioProjects[0].modularSynth.wave, 'square');
 });
 
+test('Spectra project audio store persists frozen performance audio beside source events', async () => {
+  const store = new SpectraProjectStore(null);
+  const fakeBlob = { arrayBuffer: async () => new ArrayBuffer(16) };
+  const session = {
+    stems: [
+      {
+        id: 'input-drum-machine',
+        source: 'spectra-live-capture',
+        renderedAudio: true,
+        performance: {
+          events: [{ time: 0, drum: '909-kick' }],
+        },
+      },
+    ],
+    recordingBlobs: new Map([['input-drum-machine', fakeBlob]]),
+    recordings: new Map([['input-drum-machine', { duration: 2 }]]),
+  };
+
+  const result = await store.saveSession('project-freeze', session);
+  assert.equal(result.saved, 1);
+  const items = await store.list('project-freeze');
+  assert.equal(items.length, 1);
+  assert.equal(items[0].stemId, 'input-drum-machine');
+  assert.equal(session.stems[0].performance.events[0].drum, '909-kick');
+});
+
 test('Spectra project audio store keeps microphone blobs in its no-IndexedDB fallback', async () => {
   const store = new SpectraProjectStore(null);
   const fakeBlob = { arrayBuffer: async () => new ArrayBuffer(8) };
