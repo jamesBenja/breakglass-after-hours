@@ -337,6 +337,7 @@ export class StudioPlayback {
     }
     this.soloFaderActive = false;
     this.updateNativeMix(session);
+    this.updateBlobMix(session);
     return true;
   }
 
@@ -350,6 +351,18 @@ export class StudioPlayback {
       const active = selected && stem.clipActive !== false;
       const level = active && stem.mute !== true ? stem.level : 0;
       media.volume = clamp(level * environment * 0.88);
+    }
+  }
+
+  updateBlobMix(session = this.session) {
+    if (!session || !this.blobStems.size) return;
+    const environment = this.audio.sourceGain?.('studio') ?? this.audio.environment?.gain ?? 1;
+    for (const stem of session.stems) {
+      const media = this.blobStems.get(stem.id);
+      if (!media) continue;
+      const selected = !this.auditionStemId || stem.id === this.auditionStemId;
+      const active = selected && stem.clipActive !== false;
+      media.volume = clamp(active && stem.mute !== true ? stem.level * environment * 0.88 : 0);
     }
   }
 
