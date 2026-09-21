@@ -453,6 +453,29 @@ test('per-channel Spectra updates do not rewrite untouched channel automation', 
   assert.equal(secondBus.pan.pan.lastWrite, null);
 });
 
+test('a shared live input monitors through every matching added Spectra track', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const session = new StudioSession();
+  const original = session.stems.find((stem) => stem.inputKey === 'synth');
+  const added = session.addInputTrack('synth');
+  const destinations = [];
+  playback.oscillator = (_frequency, _duration, destination) => destinations.push(destination);
+
+  assert.equal(
+    playback.monitorLiveEvent(
+      session,
+      { mode: 'synth', stemKind: 'synth', inputKey: 'synth', wave: 'triangle' },
+      { type: 'midi', midi: 60 },
+      { resourceId: 'local:synth' },
+    ),
+    true,
+  );
+
+  assert.equal(destinations.length, 2);
+  assert.equal(destinations.includes(playback.buses.get(original.id).input), true);
+  assert.equal(destinations.includes(playback.buses.get(added.id).input), true);
+});
+
 test('live Spectra console moves immediately override active playback automation', () => {
   const playback = new StudioPlayback(fakeAudio());
   const recorded = stem('recorded-live', 0.78);
