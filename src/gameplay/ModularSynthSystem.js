@@ -172,7 +172,6 @@ export class ModularSynthSystem {
           this.playing ? '■ STOP LIVE LOOP' : '▶ START LIVE LOOP',
           () => (this.playing ? this.stopLoop() : this.startLoop()),
         ],
-        ['Record current pattern → Spectra', () => this.recordToConsole()],
       ],
     );
     this.renderTransportControls();
