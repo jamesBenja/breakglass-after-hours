@@ -579,6 +579,62 @@ export class AudioEngine {
     if (this.context?.state === 'running') await this.context.suspend();
   }
 
+  async recoverAfterMicrophoneCapture({ settleMs = 140 } = {}) {
+    const audioSession = globalThis.navigator?.audioSession;
+    let audioSessionRestored = false;
+    if (audioSession) {
+      try {
+        audioSession.type = 'playback';
+        audioSessionRestored = true;
+      } catch {
+        // Fall through to the AudioContext cycle below on older Safari.
+      }
+    }
+
+    this.setPrioritySource(null);
+
+    // iOS changes the underlying AVAudioSession while getUserMedia is active. Give Safari a short
+    // moment after the microphone track closes, then reassert the playback route and all game
+    // gains. Older Safari versions benefit from one suspend/resume cycle to leave the attenuated
+    // play-and-record route.
+    if (settleMs > 0 && typeof globalThis.setTimeout === 'function') {
+      await new Promise((resolve) => globalThis.setTimeout(resolve, settleMs));
+    }
+
+    const context = this.context;
+    if (!audioSessionRestored && context?.state === 'running') {
+      try {
+        await context.suspend();
+        if (typeof globalThis.setTimeout === 'function') {
+          await new Promise((resolve) => globalThis.setTimeout(resolve, 60));
+        }
+        await context.resume();
+      } catch {
+        // The next user gesture will retry resume through the normal recovery path.
+      }
+    } else if (context && context.state !== 'running' && context.state !== 'closed') {
+      try {
+        await context.resume();
+      } catch {
+        // Normal gesture recovery remains installed.
+      }
+    }
+
+    if (audioSession) {
+      try {
+        audioSession.type = 'playback';
+      } catch {
+        // Ignore unsupported Audio Session writes.
+      }
+    }
+
+    this.setParam(this.environmentGain?.gain, this.environment.gain, 0.025);
+    this.setParam(this.environmentFilter?.frequency, this.environment.lowpassHz, 0.025);
+    for (const owner of this.sourceBuses.keys()) this.applySourceEnvironment(owner);
+    for (const owner of this.nativeMedia.keys()) this.applySourceEnvironment(owner);
+    return this.context?.state === 'running';
+  }
+
   async resume() {
     let contextRetryNeeded = false;
     const context = this.context;
