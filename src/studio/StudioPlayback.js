@@ -231,13 +231,18 @@ export class StudioPlayback {
 
   applyChannelAudibility(session = this.session) {
     if (!session || !this.audio.context) return false;
-    const anySolo = session.stems.some((stem) => stem.solo);
+    const soloIds = new Set(
+      session.stems.filter((stem) => stem.solo === true).map((stem) => stem.id),
+    );
+    const anySolo = soloIds.size > 0;
     this.anySolo = anySolo;
     for (const stem of session.stems) {
       const bus = this.ensureBus(stem);
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const audible =
-        selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
+        selected &&
+        stem.clipActive !== false &&
+        (anySolo ? soloIds.has(stem.id) : stem.mute !== true);
       const time = this.audio.context.currentTime;
       // Keep the legacy mix gate permanently open. Mute/solo have their own final hard switch so
       // no fader/transport automation can override audibility on an already-playing frozen loop.
@@ -250,14 +255,19 @@ export class StudioPlayback {
 
   updateNativeMix(session = this.session) {
     if (!session || !this.nativeStems.size) return;
-    const anySolo = session.stems.some((stem) => stem.solo);
+    const soloIds = new Set(
+      session.stems.filter((stem) => stem.solo === true).map((stem) => stem.id),
+    );
+    const anySolo = soloIds.size > 0;
     const environment = this.audio.sourceGain?.('studio') ?? this.audio.environment?.gain ?? 1;
     for (const stem of session.stems) {
       const media = this.nativeStems.get(stem.id);
       if (!media) continue;
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const audible =
-        selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
+        selected &&
+        stem.clipActive !== false &&
+        (anySolo ? soloIds.has(stem.id) : stem.mute !== true);
       media.volume = clamp((audible ? stem.level : 0) * environment * 0.88);
     }
   }

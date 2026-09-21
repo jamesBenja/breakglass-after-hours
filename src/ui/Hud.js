@@ -187,7 +187,7 @@ export class Hud {
       }
     };
     update();
-    this._spectraMeterTimer = view.setInterval?.(update, touch ? 140 : 90) ?? null;
+    this._spectraMeterTimer = view.setInterval?.(update, touch ? 200 : 100) ?? null;
   }
 
   studioMixer(

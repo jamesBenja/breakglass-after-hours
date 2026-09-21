@@ -41,6 +41,8 @@ export class Game {
     this.evacuationStarted = false;
     this.lastPoliceVisits = 0;
     this.localAudioPriorityKey = '';
+    this.lastStudioUiFrame = 0;
+    this.mobileStudioLowPower = false;
     let storage = options.storage;
     if (!('storage' in options)) {
       try {
@@ -379,7 +381,7 @@ export class Game {
     }, this.state);
     this.onResize = () => {
       this.camera.resize(innerWidth, innerHeight);
-      this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      this.renderer.setPixelRatio(this.mobileStudioLowPower ? 1 : Math.min(devicePixelRatio, 2));
       this.renderer.setSize(innerWidth, innerHeight);
     };
     this.onVisibility = () => {
@@ -497,6 +499,29 @@ export class Game {
   }
 
   update(now, movementOverride = null) {
+    const mobileStudioUi =
+      typeof navigator !== 'undefined' &&
+      Number(navigator.maxTouchPoints || 0) > 0 &&
+      (document.body?.classList.contains('studio-mobile-active') ||
+        document.body?.classList.contains('performance-active') ||
+        document.body?.classList.contains('mixer-active'));
+
+    // When a studio instrument/console is covering the mobile screen, the Web Audio graph and its
+    // timers keep running independently. Cap the 3D/game loop to ~30fps so Safari has more CPU
+    // headroom for audio instead of rendering an obscured world at 60/120fps.
+    if (mobileStudioUi !== this.mobileStudioLowPower) {
+      this.mobileStudioLowPower = mobileStudioUi;
+      this.renderer.setPixelRatio(mobileStudioUi ? 1 : Math.min(devicePixelRatio, 2));
+      this.renderer.setSize(innerWidth, innerHeight);
+    }
+
+    if (mobileStudioUi) {
+      if (this.lastStudioUiFrame && now - this.lastStudioUiFrame < 33) return;
+      this.lastStudioUiFrame = now;
+    } else {
+      this.lastStudioUiFrame = 0;
+    }
+
     const elapsed = this.lastTime == null ? 0 : (now - this.lastTime) / 1000;
     this.lastTime = now;
     const dt = Math.max(0, Math.min(0.035, elapsed));
@@ -558,7 +583,8 @@ export class Game {
       }
       if (alleyState?.evacuationRequired) this.beginEvacuation();
       this.saveElapsed += dt;
-      if (this.saveElapsed >= 2) {
+      const autosaveInterval = mobileStudioUi ? 12 : 2;
+      if (this.saveElapsed >= autosaveInterval) {
         this.save();
         this.saveElapsed = 0;
       }
