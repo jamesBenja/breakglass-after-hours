@@ -1177,11 +1177,12 @@ export function installStudioLoopEnhancements(game, ui) {
           const committed = recorder.stop({ commit: true });
           if (committed.length) {
             await game.audio?.init?.();
-            game.spectraTransport?.restart?.(0);
-            await game.studioPlayback?.play?.(session, 0);
+            game.drumMachine?.stopLoop?.(false);
+            game.modularSynth?.stopLoop?.(false);
+            await game.studioPlayback?.play?.(session, 0, { restartTransport: true });
             game.save?.();
             ui.warning?.(
-              `Recorded ${committed.length} quantized loop${committed.length === 1 ? '' : 's'} into the armed channel${committed.length === 1 ? '' : 's'} and started playback.`,
+              `Recorded ${committed.length} quantized loop${committed.length === 1 ? '' : 's'} into the armed channel${committed.length === 1 ? '' : 's'} and started playback from bar 1.`,
             );
           } else {
             ui.warning?.('Recording stopped. No events reached the armed channels.');
