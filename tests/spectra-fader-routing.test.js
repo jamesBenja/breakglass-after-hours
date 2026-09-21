@@ -415,6 +415,28 @@ test('Spectra reuses one white-noise buffer for repeated drum hits', () => {
   assert.equal(bufferCreates, 1);
 });
 
+test('per-channel Spectra updates do not rewrite untouched channel automation', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const first = stem('channel-a', 0.8);
+  const second = stem('channel-b', 0.6);
+  const session = { stems: [first, second], recordings: new Map() };
+
+  playback.updateMix(session, { immediate: true });
+  const firstBus = playback.buses.get(first.id);
+  const secondBus = playback.buses.get(second.id);
+  secondBus.fader.gain.lastWrite = null;
+  secondBus.pan.pan.lastWrite = null;
+
+  first.level = 0.22;
+  first.pan = 0.45;
+  assert.equal(playback.updateStemMix(session, first.id, { immediate: true }), true);
+
+  assert.equal(firstBus.fader.gain.value, 0.22);
+  assert.equal(firstBus.pan.pan.value, 0.45);
+  assert.equal(secondBus.fader.gain.lastWrite, null);
+  assert.equal(secondBus.pan.pan.lastWrite, null);
+});
+
 test('live Spectra console moves immediately override active playback automation', () => {
   const playback = new StudioPlayback(fakeAudio());
   const recorded = stem('recorded-live', 0.78);
