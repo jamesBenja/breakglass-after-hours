@@ -89,6 +89,7 @@ export class StudioPlayback {
     this.noiseBuffer = null;
     this.noiseBufferContext = null;
     this.frozenSources = new Map();
+    this.soloFaderActive = false;
   }
 
   get playing() {
@@ -236,6 +237,7 @@ export class StudioPlayback {
     );
     const anySolo = soloIds.size > 0;
     this.anySolo = anySolo;
+    const restoreFaders = this.soloFaderActive && !anySolo;
     for (const stem of session.stems) {
       const bus = this.ensureBus(stem);
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
@@ -244,13 +246,16 @@ export class StudioPlayback {
 
       // MUTE uses the dedicated final switch. SOLO uses the live fader path because that path is
       // already proven to control persistent recorded buffers correctly in Safari.
-      const soloLevel = anySolo ? (soloIds.has(stem.id) && active ? stem.level : 0) : stem.level;
+      if (anySolo || restoreFaders) {
+        const soloLevel = anySolo ? (soloIds.has(stem.id) && active ? stem.level : 0) : stem.level;
+        writeSwitchParam(bus?.fader?.gain, soloLevel, time);
+      }
       const muteOpen = anySolo ? active && soloIds.has(stem.id) : active && stem.mute !== true;
 
       writeSwitchParam(bus?.gate?.gain, 1, time);
-      writeSwitchParam(bus?.fader?.gain, soloLevel, time);
       writeSwitchParam(bus?.hardMute?.gain, muteOpen ? 1 : 0, time);
     }
+    this.soloFaderActive = anySolo;
     this.updateNativeMix(session);
     return true;
   }
