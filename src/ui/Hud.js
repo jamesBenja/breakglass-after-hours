@@ -389,6 +389,52 @@ export class Hud {
     }
     this.buttons.appendChild(views);
 
+    if (typeof session.addInputTrack === 'function') {
+      const addTrack = this.document.createElement('button');
+      addTrack.type = 'button';
+      addTrack.className = 'spectra-add-track';
+      addTrack.textContent = '+ ADD TRACK';
+      addTrack.onclick = () => {
+        this.stopSpectraMeters();
+        this.clearPanel(
+          'ADD SPECTRA TRACK',
+          'Choose the live input for the new console channel. Input monitoring stays on; arm the new strip when you want it included in the next recording.',
+        );
+
+        const choices = [
+          ['DRUM MACHINE', 'drum-machine'],
+          ['DRUM KIT', 'drum-kit'],
+          ['SYNTH / MODULAR', 'synth'],
+          ['GUITAR / BASS', 'guitar'],
+          ['PIANO', 'piano'],
+        ];
+        for (const [label, inputKey] of choices) {
+          const button = this.document.createElement('button');
+          button.type = 'button';
+          button.textContent = label;
+          button.onclick = () => {
+            const stem = session.addInputTrack(inputKey);
+            if (!stem) {
+              this.warning('Spectra supports up to 12 tracks in the current session.');
+              redraw();
+              return;
+            }
+            this._spectraView = 'mixer';
+            onMix(stem.id);
+            redraw();
+          };
+          this.buttons.appendChild(button);
+        }
+
+        const cancel = this.document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = 'BACK TO MIXER';
+        cancel.onclick = redraw;
+        this.buttons.appendChild(cancel);
+      };
+      this.buttons.appendChild(addTrack);
+    }
+
     if (this._spectraView === 'session') {
       const loopBars = Math.max(1, Number(session.loopBars) || 4);
       const loopSeconds = (loopBars * 4 * 60) / Math.max(1, Number(session.bpm) || 118);
