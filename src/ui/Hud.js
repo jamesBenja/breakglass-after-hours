@@ -413,9 +413,12 @@ export class Hud {
         marker.textContent = `BAR ${bar}`;
         ruler.appendChild(marker);
       }
+      const playheadTrack = this.document.createElement('div');
+      playheadTrack.className = 'spectra-session-playhead-track';
       const playhead = this.document.createElement('div');
       playhead.className = 'spectra-session-playhead';
-      timeline.append(ruler, playhead);
+      playheadTrack.appendChild(playhead);
+      timeline.append(ruler, playheadTrack);
 
       for (const stem of session.stems) {
         const row = this.document.createElement('div');
