@@ -152,6 +152,109 @@ test('Spectra channel and stereo master meters report live post-fader signal', (
   assert.ok(snapshot.master.right > 0);
 });
 
+test('recorded drum-machine clips restart at bar one and render through the same channel strip', async () => {
+  const audio = fakeAudio();
+  const playback = new StudioPlayback(audio);
+  const drum = {
+    ...stem('input-drum-machine', 0.72),
+    kind: 'drums',
+    inputKey: 'drum-machine',
+    performance: {
+      mode: 'drums',
+      bpm: 120,
+      duration: 2,
+      noteDuration: 0.1,
+      wave: 'triangle',
+      volume: 0.09,
+      events: [{ time: 0, drum: '909-kick' }],
+    },
+  };
+  const session = {
+    stems: [drum],
+    recordings: new Map(),
+    bpm: 120,
+    loopEnabled: true,
+    loopBars: 1,
+  };
+
+  let subscriber = null;
+  const order = [];
+  playback.spectraTransport = {
+    running: true,
+    position: () => 0,
+    positionAtOffset: () => 0,
+    subscribe(_id, callback) {
+      order.push('subscribe');
+      subscriber = callback;
+      return () => {
+        subscriber = null;
+      };
+    },
+    acquire() {
+      order.push('acquire');
+      return true;
+    },
+    restart() {
+      order.push('restart');
+      subscriber?.({ loopStep: 0, when: 0, position: 0 });
+      return true;
+    },
+    release() {
+      order.push('release');
+      return true;
+    },
+  };
+
+  const rendered = [];
+  playback.renderDrumEvent = (name, bus, when) => rendered.push({ name, bus, when });
+
+  assert.equal(await playback.play(session, 0, { restartTransport: true }), true);
+  assert.deepEqual(order.slice(-3), ['subscribe', 'acquire', 'restart']);
+  assert.equal(rendered.length, 1);
+  assert.equal(rendered[0].name, '909-kick');
+  assert.equal(rendered[0].bus, playback.buses.get(drum.id).input);
+
+  drum.level = 0.23;
+  drum.fx = 0.66;
+  playback.applyLiveMix(session);
+  assert.equal(playback.buses.get(drum.id).fader.gain.value, 0.23);
+  assert.equal(playback.buses.get(drum.id).fxGain.gain.value, 0.66 * 0.38);
+});
+
+test('Spectra reuses one white-noise buffer for repeated drum hits', () => {
+  let bufferCreates = 0;
+  const context = {
+    currentTime: 0,
+    sampleRate: 48000,
+    createGain: () => new FakeNode(),
+    createBiquadFilter: () => new FakeNode(),
+    createDynamicsCompressor: () => new FakeNode(),
+    createDelay: () => new FakeNode(),
+    createStereoPanner: () => new FakeNode(),
+    createAnalyser: () => new FakeAnalyser(),
+    createBuffer(_channels, length, sampleRate) {
+      bufferCreates += 1;
+      const data = new Float32Array(length);
+      return {
+        duration: length / sampleRate,
+        getChannelData: () => data,
+      };
+    },
+  };
+  const playback = new StudioPlayback({
+    context,
+    master: new FakeNode(),
+    sourceDestination: () => new FakeNode(),
+    sourceGain: () => 1,
+  });
+
+  const first = playback.sharedNoiseBuffer();
+  const second = playback.sharedNoiseBuffer();
+
+  assert.equal(first, second);
+  assert.equal(bufferCreates, 1);
+});
+
 test('live Spectra console moves immediately override active playback automation', () => {
   const playback = new StudioPlayback(fakeAudio());
   const recorded = stem('recorded-live', 0.78);
