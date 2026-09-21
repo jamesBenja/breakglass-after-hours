@@ -4,6 +4,20 @@ import { StudioSession } from '../src/studio/StudioSession.js';
 import { SpectraProjectStore } from '../src/studio/SpectraProjectStore.js';
 import { validateSave } from '../src/state/GameState.js';
 
+test('added Spectra input tracks persist with their selected input', () => {
+  const session = new StudioSession();
+  const added = session.addInputTrack('drum-kit');
+  assert.ok(added);
+  assert.equal(added.label, 'Drum Kit 2');
+
+  const reopened = new StudioSession(session.snapshot());
+  const restored = reopened.stems.find((stem) => stem.id === added.id);
+  assert.ok(restored);
+  assert.equal(restored.inputKey, 'drum-kit');
+  assert.equal(restored.monitor, true);
+  assert.equal(restored.recordArm, false);
+});
+
 test('new Spectra projects start with five monitored input channels', () => {
   const session = new StudioSession();
   session.newProject('New Song', 124);

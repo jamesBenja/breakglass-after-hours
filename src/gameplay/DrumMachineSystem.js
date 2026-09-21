@@ -393,6 +393,7 @@ export class DrumMachineSystem {
       const config = {
         mode: 'drums',
         stemKind: 'drums',
+        inputKey: 'drum-machine',
         label: `Spectra ${this.state.kit} drum machine`,
         volume: velocity >= 2 ? 0.11 : 0.085,
         duration: this.stepDuration() * 0.8,
