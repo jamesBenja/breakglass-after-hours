@@ -103,7 +103,7 @@ test('Spectra master record writes only armed inputs into their standing console
 
   const game = {
     studio,
-    studioPlayback: { playing: true, position: () => 0, updateMix: () => {} },
+    studioPlayback: { playing: false, position: () => 0, updateMix: () => {} },
     state: { data: { avatar: { displayName: 'James' } } },
     sceneManager: { current: { definition: { id: 'upstairs' } } },
     multiplayer: { localId: 'local-1', remotePlayers: new Map() },
@@ -321,7 +321,7 @@ test('Spectra recorder uses the shared transport grid for attached live instrume
   const game = {
     studio,
     spectraTransport: transport,
-    studioPlayback: { playing: false, position: () => 0, updateMix: () => {} },
+    studioPlayback: { playing: true, position: () => 0, updateMix: () => {} },
     state: { data: { avatar: { displayName: 'James' } } },
     sceneManager: { current: { definition: { id: 'upstairs' } } },
     multiplayer: { localId: 'local-1', remotePlayers: new Map() },
