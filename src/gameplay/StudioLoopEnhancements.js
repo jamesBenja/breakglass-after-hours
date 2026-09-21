@@ -1215,7 +1215,51 @@ export function installStudioLoopEnhancements(game, ui) {
   if (!ui._studioLoopBuilderPatched && typeof ui.studioMixer === 'function') {
     const baseStudioMixer = ui.studioMixer.bind(ui);
     ui.studioMixer = (session, options = {}) => {
-      const result = baseStudioMixer(session, options);
+      const recorder = game.spectraRecorder;
+      const recordStatus = recorder?.status?.() ?? {
+        armed: false,
+        recording: false,
+        lanes: 0,
+        events: 0,
+      };
+      const onRecord = async () => {
+        if (recorder?.armed) {
+          const committed = recorder.stop({ commit: true });
+          if (committed.length) {
+            game.studioPlayback?.applyLiveMix?.(session);
+            game.save?.();
+            ui.warning?.(
+              `Recorded ${committed.length} armed channel${committed.length === 1 ? '' : 's'} into the Spectra console.`,
+            );
+          } else {
+            ui.warning?.('Recording stopped. No events reached the armed channels.');
+          }
+          return committed;
+        }
+
+        const armedTracks = session.armedStems?.() ?? session.stems.filter((stem) => stem.recordArm);
+        if (!armedTracks.length) {
+          ui.warning?.('Arm at least one console channel before pressing RECORD.');
+          return false;
+        }
+        await game.audio?.init?.();
+        const armed = recorder?.arm?.();
+        if (!armed) {
+          ui.warning?.('Spectra could not arm the selected inputs.');
+          return false;
+        }
+        game.save?.();
+        ui.warning?.(
+          `RECORD READY · ${armedTracks.map((stem) => stem.label).join(', ')}. Input monitoring stays on.`,
+        );
+        return true;
+      };
+
+      const result = baseStudioMixer(session, {
+        ...options,
+        onRecord,
+        recordStatus,
+      });
       const button = ui.document.createElement('button');
       button.type = 'button';
       button.textContent = 'LOOP / SONG BUILDER';
