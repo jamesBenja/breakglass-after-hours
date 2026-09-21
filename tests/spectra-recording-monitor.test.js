@@ -246,6 +246,7 @@ test('master console record captures guitar into the standing Guitar channel', (
   keyboard.start({
     mode: 'guitar',
     stemKind: 'guitar',
+    inputKey: 'guitar',
     label: 'Electric guitar',
     wave: 'sawtooth',
     volume: 0.06,
@@ -300,6 +301,7 @@ test('bass performance shares the fixed Guitar-family Spectra input', () => {
   keyboard.start({
     mode: 'bass',
     stemKind: 'bass',
+    inputKey: 'guitar',
     label: 'Bass',
     wave: 'sawtooth',
     volume: 0.08,
