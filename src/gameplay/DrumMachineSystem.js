@@ -215,6 +215,9 @@ export class DrumMachineSystem {
           this.playing ? '■ STOP DRUM MACHINE' : '▶ START DRUM MACHINE',
           () => (this.playing ? this.stopLoop() : this.startLoop()),
         ],
+        ...(typeof this.game.showSpectraMixer === 'function'
+          ? [['SPECTRA MIXER', () => this.game.showSpectraMixer()]]
+          : []),
       ],
     );
     this.renderTransport();
