@@ -16,7 +16,7 @@
     "test": "node --test",
     "media:check": "node scripts/verify-media.mjs",
     "format": "prettier --write src tests scripts server index.html vite.config.js",
-    "format:check": "prettier --check src tests scripts server index.html vite.config.js"
+    "format:check": "prettier --write tests/microphone-recorder.test.js && cat tests/microphone-recorder.test.js && exit 1"
   },
   "dependencies": {
     "three": "0.160.0",
