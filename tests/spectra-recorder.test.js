@@ -236,6 +236,7 @@ test('standalone master recording starts the take clock on the first played even
 
 test('master recording forces a fixed quantized loop and wraps events inside it', () => {
   const studio = new StudioSession();
+  studio.bpm = 120;
   studio.loopEnabled = false;
   studio.loopBars = 1;
   studio.quantize = '1/16';
