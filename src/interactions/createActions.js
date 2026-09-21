@@ -665,6 +665,49 @@ export function createActions({
     });
   };
 
+  const addSpectraTrackPanel = () => {
+    if (!studio?.addInputTrack) {
+      ui.warning?.('Additional Spectra tracks are unavailable in this session.');
+      consolePanel();
+      return;
+    }
+    if ((studio.stems?.length ?? 0) >= 12) {
+      panel(
+        'SPECTRA · ADD TRACK',
+        'This session already has the maximum 12 tracks. Remove or reuse a track before adding another.',
+        [['Back to Spectra mixer', consolePanel]],
+      );
+      return;
+    }
+
+    const add = (inputKey, label) => {
+      const stem = studio.addInputTrack(inputKey);
+      if (!stem) {
+        ui.warning?.('Could not add another Spectra track.');
+        return;
+      }
+      rememberStudio();
+      studioPlayback?.updateMix?.(studio, { immediate: true });
+      ui.warning?.(
+        `${stem.label} added with ${label} input monitoring on. Arm that channel when you want to record it.`,
+      );
+      consolePanel();
+    };
+
+    panel(
+      'SPECTRA · ADD TRACK',
+      'Choose the input for the new channel. The new track is input-monitored immediately and starts unarmed.',
+      [
+        ['Drum Machine input', () => add('drum-machine', 'Drum Machine')],
+        ['Drum Kit input', () => add('drum-kit', 'Drum Kit')],
+        ['Synth / Modular input', () => add('synth', 'Synth / Modular')],
+        ['Guitar / Bass input', () => add('guitar', 'Guitar / Bass')],
+        ['Piano input', () => add('piano', 'Piano')],
+        ['Back to Spectra mixer', consolePanel],
+      ],
+    );
+  };
+
   const consolePanel = () => {
     if (!studio || !studioPlayback || typeof ui.studioMixer !== 'function') {
       panel('CONTROL ROOM', 'Load a session and hear the room become active.', [
@@ -689,6 +732,7 @@ export function createActions({
     const external = ui._spectraExternalInstruments ?? {};
     const workspace = ui._spectraWorkspaceNavigation ?? {};
 
+    appendButton('+ ADD TRACK · CHOOSE INPUT', addSpectraTrackPanel);
     appendButton('DRUM MACHINE', () => external.drumMachine?.());
     appendButton('DRUM KIT', drumsPanel);
     appendButton('SYNTH / ORGAN', synthPanel);
