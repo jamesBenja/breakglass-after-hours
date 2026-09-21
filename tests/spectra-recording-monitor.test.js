@@ -565,6 +565,83 @@ test('Drum Machine and Modular record through the real master recorder into thei
   assert.equal(typeof synthTarget.performance.events[0].midi, 'number');
 });
 
+test('guitar still records exactly once after multiplayer wraps the live instrument methods', () => {
+  const keyboard = new KeyboardPerformance(
+    {
+      tone: () => {},
+      kick: () => {},
+      hat: () => {},
+    },
+    null,
+    null,
+  );
+  const studio = new StudioSession();
+  const guitar = studio.stems.find((stem) => stem.inputKey === 'guitar');
+  studio.toggleRecordArm(guitar.id);
+
+  const game = {
+    keyboardPerformance: keyboard,
+    studio,
+    studioPlayback: {
+      playing: false,
+      position: () => 0,
+      updateMix: () => {},
+      monitorLiveEvent: () => true,
+    },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    player: { position: { x: 0, y: 0, z: 0 } },
+    save: () => {},
+  };
+  game.spectraRecorder = new SpectraRecorder(game, {});
+  connectKeyboardPerformanceToSpectra(game);
+
+  const sent = [];
+  const world = {
+    useTarget: async (_target, action) => action(),
+    resourceForTarget: () => 'upstairs:guitar',
+    owns: () => true,
+    localClaims: new Map(),
+    handleObjectState: () => {},
+  };
+  const client = {
+    game,
+    world,
+    joined: true,
+    localId: 'local',
+    send: (message) => {
+      sent.push(message);
+      return true;
+    },
+  };
+  game.multiplayer = client;
+  const sync = new InstrumentSync(client);
+  sync.activeResourceId = 'upstairs:guitar';
+
+  assert.ok(game.spectraRecorder.arm());
+  keyboard.start({
+    mode: 'guitar',
+    stemKind: 'guitar',
+    inputKey: 'guitar',
+    label: 'Electric guitar',
+    wave: 'sawtooth',
+    volume: 0.06,
+    duration: 0.5,
+  });
+  assert.equal(keyboard.playMidi(43), true);
+
+  const committed = game.spectraRecorder.stop({ commit: true });
+  assert.equal(committed.length, 1);
+  assert.equal(committed[0].id, guitar.id);
+  assert.equal(guitar.performance.events.length, 1);
+  assert.equal(guitar.performance.events[0].midi, 43);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].data.config.inputKey, 'guitar');
+
+  sync.dispose();
+  keyboard.dispose();
+});
+
 test('multiplayer instrument publishing always feeds the local Spectra recorder first', () => {
   const captured = [];
   const performance = {
