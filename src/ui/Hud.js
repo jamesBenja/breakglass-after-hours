@@ -33,6 +33,8 @@ export class Hud {
     this.touchPrimary = document.querySelector('[data-action="interact"]');
     this.debug = document.getElementById('debug');
     this.notice = document.getElementById('notice');
+    this._spectraMeterTimer = null;
+    this._spectraView = 'mixer';
     this.closeButton = document.createElement('button');
     this.closeButton.type = 'button';
     this.closeButton.className = 'panel-close';
@@ -85,6 +87,7 @@ export class Hud {
   }
 
   closePanel() {
+    this.stopSpectraMeters();
     if (this.panelElement) {
       this.panelElement.hidden = true;
       this.panelElement.classList.remove('photo-review-open');
@@ -93,6 +96,7 @@ export class Hud {
   }
 
   clearPanel(title, text) {
+    this.stopSpectraMeters();
     if (this.panelElement) {
       this.panelElement.hidden = false;
       this.panelElement.classList.remove('photo-review-open', 'spectra-console-panel');
@@ -136,6 +140,41 @@ export class Hud {
     label.append(caption, range);
     strip.appendChild(label);
     return range;
+  }
+
+  stopSpectraMeters() {
+    const view = this.document?.defaultView ?? globalThis;
+    if (this._spectraMeterTimer != null) view.clearInterval?.(this._spectraMeterTimer);
+    this._spectraMeterTimer = null;
+  }
+
+  startSpectraMeters(provider, channelMeters = new Map(), masterMeters = null, playhead = null) {
+    this.stopSpectraMeters();
+    if (typeof provider !== 'function') return;
+    const view = this.document?.defaultView ?? globalThis;
+    const touch =
+      typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints || 0) > 0;
+    const update = () => {
+      const snapshot = provider();
+      if (!snapshot) return;
+      for (const [stemId, element] of channelMeters) {
+        const level = Math.max(0, Math.min(1, Number(snapshot.channels?.[stemId]) || 0));
+        element.style.height = `${Math.round(level * 100)}%`;
+      }
+      if (masterMeters) {
+        const left = Math.max(0, Math.min(1, Number(snapshot.master?.left) || 0));
+        const right = Math.max(0, Math.min(1, Number(snapshot.master?.right) || 0));
+        masterMeters.left.style.height = `${Math.round(left * 100)}%`;
+        masterMeters.right.style.height = `${Math.round(right * 100)}%`;
+      }
+      if (playhead && snapshot.transport) {
+        const steps = Math.max(16, Number(snapshot.transport.loopBars || 4) * 16);
+        const step = Math.max(0, Number(snapshot.transport.loopStep) || 0);
+        playhead.style.left = `${Math.min(100, (step / steps) * 100)}%`;
+      }
+    };
+    update();
+    this._spectraMeterTimer = view.setInterval?.(update, touch ? 140 : 90) ?? null;
   }
 
   studioMixer(
