@@ -548,6 +548,62 @@ canvas:focus {
   border-color: #e57c7f;
 }
 
+.spectra-console-global {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border: 1px solid #343438;
+  border-radius: 6px;
+  background: #0b0b0d;
+}
+
+.spectra-global-label,
+.spectra-tempo-unit {
+  color: #8f9298;
+  font:
+    800 8px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.08em;
+}
+
+.spectra-tempo-input {
+  width: 52px;
+  min-height: 30px;
+  box-sizing: border-box;
+  border: 1px solid #49494e;
+  border-radius: 4px;
+  color: #eee9da;
+  background: #131316;
+  font:
+    850 12px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  text-align: center;
+}
+
+.spectra-tempo-step,
+.spectra-click-toggle {
+  min-height: 30px;
+  padding: 4px 7px;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.spectra-click-toggle {
+  border-color: #4f5156;
+  background: #202126;
+}
+
+.spectra-click-toggle.active {
+  border-color: #71936f;
+  color: #c3e5bf;
+  background: #203020;
+}
+
 .spectra-console-status {
   flex: 1 1 220px;
   min-width: 180px;
