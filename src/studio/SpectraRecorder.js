@@ -211,7 +211,8 @@ export class SpectraRecorder {
       if (!lane.events.length) continue;
       const kind = kindFor(lane.config);
       const target = session.stems.find((stem) => stem.id === lane.targetStemId);
-      const label = target?.label || lane.config.label || kind;
+      const label =
+        target?.label || `${lane.playerName} · ${lane.config.label || kind}`;
       const stem =
         target ?? session.addTake(kind, label, lane.source, lane.config.processing);
       stem.source = lane.source;
