@@ -477,15 +477,9 @@ export function createActions({
             studio.attachRecording(stem.id, result.buffer, result.blob);
             rememberStudio();
 
-            // iOS/Safari can keep the output route attenuated briefly after getUserMedia closes.
-            // Reassert the normal game-audio state before restarting the Spectra mix.
-            await audio.resume?.();
-            audio.setPrioritySource?.(null);
-            audio.setEnvironment?.(audio.environment);
-            audio.applySourceEnvironment?.('studio');
-            if (globalThis.setTimeout) {
-              await new Promise((resolve) => globalThis.setTimeout(resolve, 80));
-            }
+            // MicrophoneRecorder already restores Safari's play-and-record route. Reassert once
+            // more without another delay before rebuilding the Spectra playback graph.
+            await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
 
             if (result.buffer || result.blob?.size) await monitorStudio();
             else ui.warning?.('The microphone take was empty and was not added to playback.');
