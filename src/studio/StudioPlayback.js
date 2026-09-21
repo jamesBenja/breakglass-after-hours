@@ -74,6 +74,8 @@ export class StudioPlayback {
     this.buses = new Map();
     this.sources = new Set();
     this.nativeStems = new Map();
+    this.blobStems = new Map();
+    this.blobUrls = new Map();
     this.assetBuffers = new Map();
     this.realSessionPlaying = false;
     this.bpm = 118;
@@ -99,6 +101,7 @@ export class StudioPlayback {
       this.transportUnsubscribe !== null ||
       this.realSessionPlaying ||
       this.nativeStems.size > 0 ||
+      this.blobStems.size > 0 ||
       this.frozenSources.size > 0
     );
   }
@@ -864,13 +867,16 @@ export class StudioPlayback {
       }
       return;
     }
-    if (stem.kind === 'synth' || stem.kind === 'keys' || stem.kind === 'vocal') {
+    // Microphone takes must never fall back to the old generated demo phrase. If a browser cannot
+    // decode the MediaRecorder container, the raw recording blob is handled by startBlobRecordings.
+    if (stem.kind === 'vocal' || stem.source === 'browser-microphone') return;
+    if (stem.kind === 'synth' || stem.kind === 'keys') {
       if (step % 8 === 0) {
         const root = step % 16 === 0 ? NOTE.C4 : NOTE.A3;
         for (const ratio of [1, 1.25, 1.5]) {
           this.oscillator(root * ratio, 0.7, bus, {
-            type: stem.kind === 'vocal' ? 'sine' : 'sawtooth',
-            volume: stem.kind === 'vocal' ? 0.02 : 0.035,
+            type: 'sawtooth',
+            volume: 0.035,
             when,
           });
         }
@@ -881,8 +887,10 @@ export class StudioPlayback {
   hasEventPlayback(session = this.session) {
     return (session?.stems ?? []).some((stem) => {
       if (session?.recordings?.has?.(stem.id)) return false;
+      if (session?.recordingBlobs?.has?.(stem.id)) return false;
       if (stem.performance?.events?.length) return true;
       if (stem.inputKey) return false;
+      if (stem.kind === 'vocal' || stem.source === 'browser-microphone') return false;
       return !stem.assetId;
     });
   }
@@ -956,6 +964,81 @@ export class StudioPlayback {
     }
     if (started > 0) this.applyChannelAudibility(session);
     return started;
+  }
+
+  async startBlobRecordings(session, offset = 0) {
+    if (
+      typeof Audio === 'undefined' ||
+      typeof URL === 'undefined' ||
+      typeof URL.createObjectURL !== 'function' ||
+      !session?.recordingBlobs?.size
+    ) {
+      return 0;
+    }
+
+    const phase = this.spectraTransport?.running
+      ? this.spectraTransport.position()
+      : Math.max(0, Number(offset) || 0);
+    const created = [];
+
+    for (const stem of session.stems) {
+      if (session.recordings?.has?.(stem.id)) continue;
+      const blob = session.recordingBlobs.get(stem.id);
+      if (!blob) continue;
+
+      const old = this.blobStems.get(stem.id);
+      if (old) {
+        old.pause?.();
+        old.removeAttribute?.('src');
+        old.load?.();
+      }
+      const oldUrl = this.blobUrls.get(stem.id);
+      if (oldUrl) URL.revokeObjectURL?.(oldUrl);
+
+      const url = URL.createObjectURL(blob);
+      const media = new Audio();
+      media.preload = 'auto';
+      media.playsInline = true;
+      media.loop = session.loopEnabled === true;
+      media.src = url;
+      media.volume = 0;
+
+      const seek = () => {
+        const clipStart = Math.max(0, Number(stem.clipStart) || 0);
+        const relative = Math.max(0, phase - clipStart);
+        try {
+          const duration = Number(media.duration);
+          media.currentTime =
+            Number.isFinite(duration) && duration > 0 ? relative % duration : relative;
+        } catch {
+          // Metadata-loaded retry handles delayed seekability.
+        }
+      };
+      if (media.readyState >= 1) seek();
+      else media.addEventListener?.('loadedmetadata', seek, { once: true });
+
+      created.push([stem.id, media, url]);
+    }
+
+    if (!created.length) return 0;
+    try {
+      await Promise.all(created.map(([, media]) => media.play()));
+    } catch {
+      for (const [, media, url] of created) {
+        media.pause?.();
+        media.removeAttribute?.('src');
+        media.load?.();
+        URL.revokeObjectURL?.(url);
+      }
+      return 0;
+    }
+
+    for (const [id, media, url] of created) {
+      this.blobStems.set(id, media);
+      this.blobUrls.set(id, url);
+    }
+    this.updateBlobMix(session);
+    return created.length;
   }
 
   async loadAlignedAssets(session) {
@@ -1137,6 +1220,7 @@ export class StudioPlayback {
       startTime: sharedStartTime,
       phaseOffset: restartTransport ? safeOffset : null,
     });
+    await this.startBlobRecordings(session, safeOffset);
 
     const interval = 60 / this.bpm / 4;
     this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
@@ -1160,6 +1244,56 @@ export class StudioPlayback {
     schedule();
     this.timer = this.timers.setInterval(schedule, 25);
     return true;
+  }
+
+  removeStem(session = this.session, stemId) {
+    if (!session || !stemId) return null;
+
+    const frozen = this.frozenSources.get(stemId);
+    if (frozen) {
+      frozen.onended = null;
+      try {
+        frozen.stop?.();
+      } catch {
+        // Already stopped.
+      }
+      frozen.disconnect?.();
+      this.sources.delete(frozen);
+      this.frozenSources.delete(stemId);
+    }
+    this.frozenGates.get(stemId)?.disconnect?.();
+    this.frozenGates.delete(stemId);
+
+    const blobMedia = this.blobStems.get(stemId);
+    if (blobMedia) {
+      blobMedia.pause?.();
+      blobMedia.removeAttribute?.('src');
+      blobMedia.load?.();
+      this.blobStems.delete(stemId);
+    }
+    const blobUrl = this.blobUrls.get(stemId);
+    if (blobUrl) {
+      URL.revokeObjectURL?.(blobUrl);
+      this.blobUrls.delete(stemId);
+    }
+
+    const native = this.nativeStems.get(stemId);
+    if (native) {
+      native.pause?.();
+      native.removeAttribute?.('src');
+      native.load?.();
+      this.nativeStems.delete(stemId);
+    }
+
+    const bus = this.buses.get(stemId);
+    if (bus) {
+      for (const node of Object.values(bus)) node?.disconnect?.();
+      this.buses.delete(stemId);
+    }
+
+    const removed = session.removeTrack?.(stemId) ?? null;
+    this.updateMix(session, { immediate: true });
+    return removed;
   }
 
   stop() {
@@ -1188,6 +1322,14 @@ export class StudioPlayback {
       media.load?.();
     }
     this.nativeStems.clear();
+    for (const media of this.blobStems.values()) {
+      media.pause?.();
+      media.removeAttribute?.('src');
+      media.load?.();
+    }
+    this.blobStems.clear();
+    for (const url of this.blobUrls.values()) URL.revokeObjectURL?.(url);
+    this.blobUrls.clear();
     this.transportOffset = 0;
     this.transportStartedAt = 0;
     this.audio.clearExternalTransport?.('studio');
