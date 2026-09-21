@@ -177,7 +177,7 @@ test('Spectra recorder ignores performances until armed and rejects remote event
   assert.equal(studio.stems.length, 0);
 });
 
-test('standalone master recording starts the take clock on the first played event', () => {
+test('standalone master recording stays aligned to the shared loop phase', () => {
   const studio = new StudioSession();
   const synth = studio.stems.find((stem) => stem.inputKey === 'synth');
   studio.toggleRecordArm(synth.id);
@@ -188,7 +188,7 @@ test('standalone master recording starts the take clock on the first played even
     acquire: () => {},
     release: () => {},
     positionAtOffset(offset = 0) {
-      return transportPosition + offset;
+      return (transportPosition + offset) % 8;
     },
     quantizeTime(time) {
       return time;
@@ -289,7 +289,7 @@ test('master recording forces a fixed quantized loop and wraps events inside it'
   assert.equal(committed.performance.duration, 2);
   assert.deepEqual(
     committed.performance.events.map((event) => event.time),
-    [0, 0.25],
+    [1.75, 0],
   );
   assert.equal(committed.clipActive, true);
   assert.equal(committed.clipStart, 0);
