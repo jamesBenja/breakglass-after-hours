@@ -71,6 +71,8 @@ export class StudioPlayback {
     this.auditionStemId = null;
     this.performanceIndex = new WeakMap();
     this.anySolo = false;
+    this.noiseBuffer = null;
+    this.noiseBufferContext = null;
   }
 
   get playing() {
@@ -370,18 +372,35 @@ export class StudioPlayback {
     source.stop(start + 0.22);
   }
 
-  noise(destination, when = 0, duration = 0.05, volume = 0.05) {
+  sharedNoiseBuffer() {
     const context = this.audio.context;
+    if (!context) return null;
+    if (this.noiseBuffer && this.noiseBufferContext === context) return this.noiseBuffer;
+    const duration = 1;
     const length = Math.max(1, Math.floor(context.sampleRate * duration));
     const buffer = context.createBuffer(1, length, context.sampleRate);
     const data = buffer.getChannelData(0);
-    for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+    for (let index = 0; index < length; index += 1) data[index] = Math.random() * 2 - 1;
+    this.noiseBuffer = buffer;
+    this.noiseBufferContext = context;
+    return buffer;
+  }
+
+  noise(destination, when = 0, duration = 0.05, volume = 0.05) {
+    const context = this.audio.context;
+    const buffer = this.sharedNoiseBuffer();
+    if (!context || !buffer) return;
     const source = context.createBufferSource();
     const filter = context.createBiquadFilter();
     const gain = context.createGain();
+    const start = context.currentTime + when;
+    const safeDuration = Math.max(0.012, Math.min(Number(duration) || 0.05, buffer.duration));
+    const maxOffset = Math.max(0, buffer.duration - safeDuration);
+    const offset = maxOffset > 0 ? Math.random() * maxOffset : 0;
     filter.type = 'highpass';
     filter.frequency.value = 3200;
-    gain.gain.value = volume;
+    gain.gain.setValueAtTime(Math.max(0.0002, Number(volume) || 0.05), start);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + safeDuration);
     source.buffer = buffer;
     source.connect(filter);
     filter.connect(gain);
@@ -393,7 +412,7 @@ export class StudioPlayback {
       this.sources.delete(source);
     };
     this.sources.add(source);
-    source.start(context.currentTime + when);
+    source.start(start, offset, safeDuration);
   }
 
   drumPreviewDestination() {
@@ -842,7 +861,7 @@ export class StudioPlayback {
     return true;
   }
 
-  async play(session, offset = 0, { stemId = null } = {}) {
+  async play(session, offset = 0, { stemId = null, restartTransport = false } = {}) {
     if (!this.audio.context) return false;
     this.stop();
     this.auditionStemId = stemId || null;
@@ -866,6 +885,10 @@ export class StudioPlayback {
         },
       );
       this.spectraTransport.acquire('studio-playback', { position: safeOffset });
+      if (restartTransport) {
+        safeOffset = requestedOffset;
+        this.spectraTransport.restart(safeOffset);
+      }
       this.transportOffset = safeOffset;
       this.transportStartedAt =
         this.audio.context.currentTime - Math.max(0, this.spectraTransport.position());
@@ -951,6 +974,8 @@ export class StudioPlayback {
     this.previewDrumInput = null;
     this.assetBuffers.clear();
     this.performanceIndex = new WeakMap();
+    this.noiseBuffer = null;
+    this.noiseBufferContext = null;
     this.session = null;
   }
 }
