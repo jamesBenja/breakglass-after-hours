@@ -243,9 +243,9 @@ function enhancePlayback(playback, session, game) {
   };
 
   const baseUpdateMix = playback.updateMix.bind(playback);
-  playback.updateMix = (activeSession = session) => {
+  playback.updateMix = (activeSession = session, options = {}) => {
     enhanceSession(activeSession);
-    return baseUpdateMix(activeSession);
+    return baseUpdateMix(activeSession, options);
   };
 
   const baseStop = playback.stop.bind(playback);
