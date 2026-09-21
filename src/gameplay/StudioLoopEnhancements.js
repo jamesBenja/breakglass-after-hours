@@ -1350,7 +1350,6 @@ export function installStudioLoopEnhancements(game, ui) {
         onAudibility,
       });
       return result;
-
     };
     ui._studioLoopBuilderPatched = true;
   }
