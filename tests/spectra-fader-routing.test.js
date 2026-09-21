@@ -211,11 +211,42 @@ test('frozen Spectra audio uses one persistent looping source through the live c
 
   frozen.mute = true;
   assert.equal(playback.applyChannelAudibility(session), true);
-  assert.equal(playback.buses.get(frozen.id).hardMute.gain.value, 0);
+  assert.equal(playback.frozenGates.get(frozen.id).gain.value, 0);
+  assert.equal(playback.buses.get(frozen.id).hardMute.gain.value, 1);
   frozen.mute = false;
   playback.applyChannelAudibility(session);
+  assert.equal(playback.frozenGates.get(frozen.id).gain.value, 1);
   assert.equal(playback.buses.get(frozen.id).hardMute.gain.value, 1);
   assert.equal(createdSources.length, 1);
+});
+
+test('solo on frozen recorded tracks mutes only non-solo recordings and preserves faders', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const first = stem('frozen-a', 0.81);
+  const second = stem('frozen-b', 0.57);
+  const session = {
+    stems: [first, second],
+    recordings: new Map([
+      [first.id, { duration: 2 }],
+      [second.id, { duration: 2 }],
+    ]),
+    bpm: 120,
+    loopEnabled: true,
+    loopBars: 1,
+  };
+  playback.session = session;
+  playback.updateMix(session);
+  playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
+
+  second.solo = true;
+  playback.applyChannelAudibility(session);
+
+  assert.equal(playback.frozenGates.get(first.id).gain.value, 0);
+  assert.equal(playback.frozenGates.get(second.id).gain.value, 1);
+  assert.equal(playback.buses.get(first.id).hardMute.gain.value, 1);
+  assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
+  assert.equal(playback.buses.get(first.id).fader.gain.value, first.level);
+  assert.equal(playback.buses.get(second.id).fader.gain.value, second.level);
 });
 
 test('live mute and solo hard-gate already playing Spectra channels without transport restart', () => {
