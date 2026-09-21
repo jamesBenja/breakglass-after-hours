@@ -35,6 +35,7 @@ export class Hud {
     this.notice = document.getElementById('notice');
     this._spectraMeterTimer = null;
     this._spectraView = 'mixer';
+    this.onPanelClose = null;
     this.closeButton = document.createElement('button');
     this.closeButton.type = 'button';
     this.closeButton.className = 'panel-close';
@@ -88,9 +89,22 @@ export class Hud {
 
   closePanel() {
     this.stopSpectraMeters();
+    this.document.body?.classList.remove(
+      'mixer-active',
+      'mixer-collapsed',
+      'dj-mobile-active',
+      'studio-mobile-active',
+      'spectra-console-active',
+      'performance-active',
+    );
+    try {
+      this.onPanelClose?.();
+    } catch (error) {
+      console.warn('Panel close cleanup failed', error);
+    }
     if (this.panelElement) {
       this.panelElement.hidden = true;
-      this.panelElement.classList.remove('photo-review-open');
+      this.panelElement.classList.remove('photo-review-open', 'spectra-console-panel');
     }
     this.document.querySelector('canvas')?.focus();
   }
