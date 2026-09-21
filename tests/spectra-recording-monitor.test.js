@@ -8,6 +8,8 @@ import {
 import { InstrumentSync } from '../src/multiplayer/InstrumentSync.js';
 import { connectKeyboardPerformanceToSpectra } from '../src/gameplay/StudioLoopEnhancements.js';
 import { KeyboardPerformance } from '../src/studio/KeyboardPerformance.js';
+import { SpectraRecorder } from '../src/studio/SpectraRecorder.js';
+import { StudioSession } from '../src/studio/StudioSession.js';
 
 function recordingSession() {
   return {
@@ -152,6 +154,60 @@ test('local keyboard and touch performance feeds an armed Spectra recorder witho
   assert.match(captured[0][2].resourceId, /^local:synth:/);
 
   keyboard.stop(false);
+});
+
+test('master console record captures a normally played monitored instrument into its armed channel', () => {
+  const keyboard = new KeyboardPerformance(
+    {
+      tone: () => {},
+      kick: () => {},
+      hat: () => {},
+    },
+    null,
+    null,
+  );
+  const studio = new StudioSession();
+  const synth = studio.stems.find((stem) => stem.inputKey === 'synth');
+  studio.toggleRecordArm(synth.id);
+
+  const game = {
+    keyboardPerformance: keyboard,
+    studio,
+    studioPlayback: {
+      playing: false,
+      position: () => 0,
+      updateMix: () => {},
+      monitorLiveEvent: () => true,
+    },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: { localId: 'local-1', remotePlayers: new Map() },
+    save: () => {},
+  };
+  game.spectraRecorder = new SpectraRecorder(game, {});
+
+  assert.equal(connectKeyboardPerformanceToSpectra(game), true);
+  assert.ok(game.spectraRecorder.arm());
+
+  keyboard.start({
+    mode: 'synth',
+    stemKind: 'synth',
+    label: 'Synth',
+    wave: 'triangle',
+    volume: 0.06,
+    duration: 0.4,
+  });
+  assert.equal(keyboard.playMidi(60), true);
+  assert.equal(keyboard.playMidi(64), true);
+  keyboard.stop(false);
+
+  const committed = game.spectraRecorder.stop({ commit: true });
+  assert.equal(committed.length, 1);
+  assert.equal(committed[0].id, synth.id);
+  assert.deepEqual(
+    synth.performance.events.map((event) => event.midi),
+    [60, 64],
+  );
 });
 
 test('multiplayer instrument publishing always feeds the local Spectra recorder first', () => {
