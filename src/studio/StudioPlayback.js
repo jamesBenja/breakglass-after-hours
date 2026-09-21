@@ -142,8 +142,16 @@ export class StudioPlayback {
     high.gain.value = 0;
     const compressor = context.createDynamicsCompressor();
     const fader = context.createGain();
-    const fxGain = context.createGain();
-    const fxDelay = context.createDelay(0.5);
+    const delaySend = context.createGain();
+    const delayNode = context.createDelay(1.2);
+    const delayFeedback = context.createGain();
+    const reverbSend = context.createGain();
+    const reverbDelayA = context.createDelay(0.3);
+    const reverbDelayB = context.createDelay(0.3);
+    const reverbDampingA = context.createBiquadFilter();
+    const reverbDampingB = context.createBiquadFilter();
+    const reverbFeedbackA = context.createGain();
+    const reverbFeedbackB = context.createGain();
     const pan =
       typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
     input.connect(color);
@@ -177,11 +185,37 @@ export class StudioPlayback {
     }
     dry.connect(pan ?? destination);
     pan?.connect(destination);
-    fxGain.gain.value = 0;
-    fxDelay.delayTime.value = 0.18;
-    fader.connect(fxGain);
-    fxGain.connect(fxDelay);
-    fxDelay.connect(channelSum);
+
+    delaySend.gain.value = 0;
+    delayNode.delayTime.value = 0.25;
+    delayFeedback.gain.value = 0.3;
+    fader.connect(delaySend);
+    delaySend.connect(delayNode);
+    delayNode.connect(channelSum);
+    delayNode.connect(delayFeedback);
+    delayFeedback.connect(delayNode);
+
+    reverbSend.gain.value = 0;
+    reverbDampingA.type = 'lowpass';
+    reverbDampingB.type = 'lowpass';
+    reverbDampingA.frequency.value = 9000;
+    reverbDampingB.frequency.value = 9000;
+    reverbDelayA.delayTime.value = 0.052;
+    reverbDelayB.delayTime.value = 0.071;
+    reverbFeedbackA.gain.value = 0.48;
+    reverbFeedbackB.gain.value = 0.44;
+    fader.connect(reverbSend);
+    reverbSend.connect(reverbDelayA);
+    reverbSend.connect(reverbDelayB);
+    reverbDelayA.connect(reverbDampingA);
+    reverbDelayB.connect(reverbDampingB);
+    reverbDampingA.connect(channelSum);
+    reverbDampingB.connect(channelSum);
+    reverbDampingA.connect(reverbFeedbackA);
+    reverbDampingB.connect(reverbFeedbackB);
+    reverbFeedbackA.connect(reverbDelayA);
+    reverbFeedbackB.connect(reverbDelayB);
+
     bus = {
       input,
       color,
@@ -197,11 +231,20 @@ export class StudioPlayback {
       spatialPost,
       dry,
       pan,
-      fxGain,
-      fxDelay,
+      delaySend,
+      delayNode,
+      delayFeedback,
+      reverbSend,
+      reverbDelayA,
+      reverbDelayB,
+      reverbDampingA,
+      reverbDampingB,
+      reverbFeedbackA,
+      reverbFeedbackB,
     };
     this.buses.set(stem.id, bus);
     this.configureProcessing(stem, bus);
+    this.configureFx(stem, bus, { immediate: true });
     return bus;
   }
 
@@ -229,6 +272,39 @@ export class StudioPlayback {
     bus.compressor.ratio.setTargetAtTime(comp.ratio, time, 0.03);
     bus.compressor.attack.setTargetAtTime(comp.attack, time, 0.03);
     bus.compressor.release.setTargetAtTime(comp.release, time, 0.03);
+  }
+
+  configureFx(stem, bus, { immediate = false } = {}) {
+    const context = this.audio.context;
+    if (!context || !bus) return;
+    const time = context.currentTime;
+    const settings = stem.fxSettings ?? {};
+    const reverb = clamp(stem.reverb ?? 0, 0, 1);
+    const delay = clamp(stem.delay ?? 0, 0, 1);
+    const reverbSize = clamp(settings.reverbSize ?? 0.55, 0, 1);
+    const reverbDamping = clamp(settings.reverbDamping ?? 0.35, 0, 1);
+    const delayTime = clamp(settings.delayTime ?? 0.25, 0.05, 1.2);
+    const delayFeedback = clamp(settings.delayFeedback ?? 0.3, 0, 0.82);
+
+    writeAudioParam(bus.reverbSend?.gain, reverb * 0.3, time, { immediate });
+    writeAudioParam(bus.delaySend?.gain, delay * 0.42, time, { immediate });
+    writeAudioParam(bus.delayNode?.delayTime, delayTime, time, { immediate });
+    writeAudioParam(bus.delayFeedback?.gain, delayFeedback, time, { immediate });
+
+    const dampingHz = 14000 - reverbDamping * 11500;
+    const feedback = 0.24 + reverbSize * 0.5;
+    writeAudioParam(bus.reverbDampingA?.frequency, dampingHz, time, { immediate });
+    writeAudioParam(bus.reverbDampingB?.frequency, dampingHz * 0.92, time, { immediate });
+    writeAudioParam(bus.reverbDelayA?.delayTime, 0.025 + reverbSize * 0.055, time, {
+      immediate,
+    });
+    writeAudioParam(bus.reverbDelayB?.delayTime, 0.037 + reverbSize * 0.073, time, {
+      immediate,
+    });
+    writeAudioParam(bus.reverbFeedbackA?.gain, feedback, time, { immediate });
+    writeAudioParam(bus.reverbFeedbackB?.gain, Math.max(0, feedback - 0.04), time, {
+      immediate,
+    });
   }
 
   applyChannelAudibility(session = this.session) {
@@ -299,7 +375,7 @@ export class StudioPlayback {
     writeAudioParam(bus.low.gain, (stem.low ?? 0) * 15, time, { immediate });
     writeAudioParam(bus.high.gain, (stem.high ?? 0) * 15, time, { immediate });
     writeAudioParam(bus.fader.gain, stem.level, time, { immediate });
-    writeAudioParam(bus.fxGain.gain, (stem.fx ?? 0) * 0.38, time, { immediate });
+    this.configureFx(stem, bus, { immediate });
     if (bus.pan) writeAudioParam(bus.pan.pan, stem.pan ?? 0, time, { immediate });
     this.spatialMixer?.updateStem?.(stem, bus, { immediate });
     this.applyChannelAudibility(session);
@@ -323,7 +399,7 @@ export class StudioPlayback {
         selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
       writeAudioParam(bus.fader.gain, stem.level, time, { immediate });
       writeSwitchParam(bus.gate.gain, 1, time);
-      writeAudioParam(bus.fxGain.gain, (stem.fx ?? 0) * 0.38, time, { immediate });
+      this.configureFx(stem, bus, { immediate });
       if (bus.pan) writeAudioParam(bus.pan.pan, stem.pan ?? 0, time, { immediate });
       this.spatialMixer?.updateStem?.(stem, bus, { immediate });
     }
