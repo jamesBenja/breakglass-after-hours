@@ -51,6 +51,17 @@ export const DEFAULT_STEMS = [
     recordArm: false,
   },
   {
+    id: 'input-modular',
+    label: 'Modular Synth',
+    kind: 'synth',
+    inputKey: 'modular',
+    level: 0.66,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
     id: 'input-guitar',
     label: 'Guitar',
     kind: 'guitar',
@@ -184,7 +195,37 @@ export function normalizeStudioSession(value = {}) {
     : Array.isArray(value.stems) && (value.stems.length || isProject)
       ? value.stems
       : DEFAULT_STEMS;
-  const stems = sourceStems.slice(0, 12).map(normalizeStem);
+  const legacyFiveInputIds = [
+    'input-drum-machine',
+    'input-drum-kit',
+    'input-synth',
+    'input-guitar',
+    'input-piano',
+  ];
+  const restoreMissingModular =
+    !sourceStems.some((stem) => stem?.inputKey === 'modular' || stem?.id === 'input-modular') &&
+    legacyFiveInputIds.every((id) => sourceStems.some((stem) => stem?.id === id));
+  const migratedSourceStems = restoreMissingModular
+    ? sourceStems.flatMap((stem) =>
+        stem?.id === 'input-synth'
+          ? [
+              stem,
+              {
+                id: 'input-modular',
+                label: 'Modular Synth',
+                kind: 'synth',
+                inputKey: 'modular',
+                level: 0.66,
+                pan: 0,
+                mute: false,
+                monitor: true,
+                recordArm: false,
+              },
+            ]
+          : [stem],
+      )
+    : sourceStems;
+  const stems = migratedSourceStems.slice(0, 12).map(normalizeStem);
 
   return {
     project: isProject,
@@ -292,6 +333,7 @@ export class StudioSession {
       'drum-machine': { label: 'Drum Machine', kind: 'drums', level: 0.72 },
       'drum-kit': { label: 'Drum Kit', kind: 'drums', level: 0.74 },
       synth: { label: 'Synth', kind: 'synth', level: 0.66 },
+      modular: { label: 'Modular Synth', kind: 'synth', level: 0.66 },
       guitar: { label: 'Guitar', kind: 'guitar', level: 0.64 },
       piano: { label: 'Piano', kind: 'keys', level: 0.66 },
     };
