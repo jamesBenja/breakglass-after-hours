@@ -26,6 +26,17 @@ const COMP = {
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
+function writeAudioParam(parameter, value, time, { immediate = false, timeConstant = 0.025 } = {}) {
+  if (!parameter) return;
+  parameter.cancelScheduledValues?.(time);
+  if (immediate && parameter.setValueAtTime) {
+    parameter.setValueAtTime(value, time);
+    return;
+  }
+  if (parameter.setTargetAtTime) parameter.setTargetAtTime(value, time, timeConstant);
+  else parameter.value = value;
+}
+
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -185,7 +196,7 @@ export class StudioPlayback {
     }
   }
 
-  updateMix(session = this.session) {
+  updateMix(session = this.session, { immediate = false } = {}) {
     if (!session || !this.audio.context) return;
     const time = this.audio.context.currentTime;
     const activeIds = new Set();
@@ -194,18 +205,16 @@ export class StudioPlayback {
       activeIds.add(stem.id);
       const bus = this.ensureBus(stem);
       this.configureProcessing(stem, bus);
-      bus.low.gain.setTargetAtTime((stem.low ?? 0) * 15, time, 0.025);
-      bus.high.gain.setTargetAtTime((stem.high ?? 0) * 15, time, 0.025);
+      writeAudioParam(bus.low.gain, (stem.low ?? 0) * 15, time, { immediate });
+      writeAudioParam(bus.high.gain, (stem.high ?? 0) * 15, time, { immediate });
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const audible =
         selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
-      bus.fader.gain.setTargetAtTime(stem.level, time, 0.025);
-      bus.gate.gain.cancelScheduledValues?.(time);
-      if (bus.gate.gain.setValueAtTime) bus.gate.gain.setValueAtTime(audible ? 1 : 0, time);
-      else bus.gate.gain.value = audible ? 1 : 0;
-      bus.fxGain.gain.setTargetAtTime((stem.fx ?? 0) * 0.38, time, 0.025);
-      if (bus.pan) bus.pan.pan.setTargetAtTime(stem.pan ?? 0, time, 0.025);
-      this.spatialMixer?.updateStem?.(stem, bus);
+      writeAudioParam(bus.fader.gain, stem.level, time, { immediate });
+      writeAudioParam(bus.gate.gain, audible ? 1 : 0, time, { immediate: true });
+      writeAudioParam(bus.fxGain.gain, (stem.fx ?? 0) * 0.38, time, { immediate });
+      if (bus.pan) writeAudioParam(bus.pan.pan, stem.pan ?? 0, time, { immediate });
+      this.spatialMixer?.updateStem?.(stem, bus, { immediate });
     }
     for (const [id, bus] of this.buses) {
       if (activeIds.has(id)) continue;
@@ -214,6 +223,10 @@ export class StudioPlayback {
     }
     this.spatialMixer?.sync?.(session, this.buses);
     this.updateNativeMix(session);
+  }
+
+  applyLiveMix(session = this.session) {
+    return this.updateMix(session, { immediate: true });
   }
 
   oscillator(freq, duration, destination, { type = 'triangle', volume = 0.12, when = 0 } = {}) {

@@ -4,9 +4,11 @@ import {
   spatialSpeakerGains,
 } from './SpectraSpatialLayout.js';
 
-function setParam(parameter, value, time = 0, timeConstant = 0.02) {
+function setParam(parameter, value, time = 0, timeConstant = 0.02, immediate = false) {
   if (!parameter) return;
-  if (parameter.setTargetAtTime) parameter.setTargetAtTime(value, time, timeConstant);
+  parameter.cancelScheduledValues?.(time);
+  if (immediate && parameter.setValueAtTime) parameter.setValueAtTime(value, time);
+  else if (parameter.setTargetAtTime) parameter.setTargetAtTime(value, time, timeConstant);
   else parameter.value = value;
 }
 
@@ -73,16 +75,17 @@ export class SpectraSpatialMixer {
     return route;
   }
 
-  updateStem(stem, bus) {
+  updateStem(stem, bus, { immediate = false } = {}) {
     if (!stem || !bus) return;
     const spatial = normalizeSpatialPosition(stem.spatial);
     const active = this.previewEnabled && spatial.enabled;
-    if (bus.dry?.gain) setParam(bus.dry.gain, active ? 0 : 1, this.context?.currentTime ?? 0);
+    if (bus.dry?.gain)
+      setParam(bus.dry.gain, active ? 0 : 1, this.context?.currentTime ?? 0, 0.02, immediate);
     if (!active) {
       const route = this.trackRoutes.get(stem.id);
       if (route) {
         for (const gain of route.gains)
-          setParam(gain.gain, 0, this.context?.currentTime ?? 0, 0.015);
+          setParam(gain.gain, 0, this.context?.currentTime ?? 0, 0.015, immediate);
       }
       return;
     }
@@ -90,7 +93,13 @@ export class SpectraSpatialMixer {
     if (!route) return;
     const gains = spatialSpeakerGains(spatial);
     for (let index = 0; index < route.gains.length; index += 1) {
-      setParam(route.gains[index].gain, gains[index] ?? 0, this.context?.currentTime ?? 0, 0.015);
+      setParam(
+        route.gains[index].gain,
+        gains[index] ?? 0,
+        this.context?.currentTime ?? 0,
+        0.015,
+        immediate,
+      );
     }
   }
 
@@ -105,7 +114,9 @@ export class SpectraSpatialMixer {
 
   setPreview(enabled) {
     this.previewEnabled = enabled === true;
-    this.game.studioPlayback?.updateMix?.(this.game.studio);
+    this.game.studioPlayback?.applyLiveMix?.(this.game.studio) ??
+      this.game.studioPlayback?.applyLiveMix?.(this.game.studio) ??
+      this.game.studioPlayback?.updateMix?.(this.game.studio);
     return this.previewEnabled;
   }
 

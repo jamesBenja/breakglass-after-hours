@@ -498,6 +498,18 @@ Hud.prototype.studioMixer = function mobileStudioMixer(
         onMix();
       },
     });
+    addRange(this.document, controls, {
+      label: 'FX',
+      min: 0,
+      max: 1,
+      step: 0.01,
+      value: stem.fx ?? 0,
+      format: (value) => `${Math.round(value * 100)}`,
+      onInput: (value) => {
+        session.setFx(stem.id, value);
+        onMix();
+      },
+    });
     stripHost.appendChild(controls);
   };
 
