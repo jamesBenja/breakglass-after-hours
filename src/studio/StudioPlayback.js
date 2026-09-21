@@ -1,4 +1,4 @@
-import { spectraInputStem } from './SpectraInputs.js';
+import { spectraInputStems } from './SpectraInputs.js';
 
 const NOTE = {
   C2: 65.41,
@@ -522,49 +522,53 @@ export class StudioPlayback {
     { resourceId = '', when = 0, level = 1 } = {},
   ) {
     if (!this.audio.context || !session) return false;
-    const stem = spectraInputStem(session, config, resourceId);
-    if (!stem || stem.monitor === false) return false;
-    const hadBus = this.buses.has(stem.id);
-    const busObject = this.ensureBus(stem);
-    if (!hadBus) {
-      // Initialize the channel strip once. Subsequent monitored hits go straight through the
-      // existing Web Audio graph; control moves update the graph independently via applyLiveMix.
-      this.updateMix(session, { immediate: true });
-    }
-    const bus = busObject.input;
+    const stems = spectraInputStems(session, config, resourceId, { monitoredOnly: true });
+    if (!stems.length) return false;
     const delay = Math.max(0, Number(when) || 0);
 
-    if (event.type === 'drum' && event.name) {
-      this.renderDrumEvent(event.name, bus, delay, level);
-      return true;
-    }
-
-    const playMidi = (midi, offset = 0) => {
-      const frequency = midiToFrequency(midi);
-      this.oscillator(frequency, Number(config.duration) || 0.42, bus, {
-        type: config.wave || 'triangle',
-        volume: (Number(config.volume) || 0.065) * clamp(Number(level) || 0, 0, 1.5),
-        when: delay + offset,
-      });
-      if (config.octaveLayer) {
-        this.oscillator(frequency * 2, (Number(config.duration) || 0.42) * 0.72, bus, {
-          type: 'triangle',
-          volume: (Number(config.volume) || 0.065) * 0.22 * clamp(Number(level) || 0, 0, 1.5),
-          when: delay + offset + 0.012,
-        });
+    for (const stem of stems) {
+      const hadBus = this.buses.has(stem.id);
+      const busObject = this.ensureBus(stem);
+      if (!hadBus) {
+        // Initialize newly added input tracks once. Existing monitored channels reuse their
+        // Web Audio graph so live performance remains cheap.
+        this.updateStemMix?.(session, stem.id, { immediate: true }) ??
+          this.updateMix(session, { immediate: true });
       }
-    };
+      const bus = busObject.input;
 
-    if (event.type === 'chord' && Array.isArray(event.midis)) {
-      const notes = event.direction === 'up' ? [...event.midis].reverse() : event.midis;
-      notes.slice(0, 8).forEach((midi, index) => playMidi(midi, index * 0.021));
-      return true;
+      if (event.type === 'drum' && event.name) {
+        this.renderDrumEvent(event.name, bus, delay, level);
+        continue;
+      }
+
+      const playMidi = (midi, offset = 0) => {
+        const frequency = midiToFrequency(midi);
+        this.oscillator(frequency, Number(config.duration) || 0.42, bus, {
+          type: config.wave || 'triangle',
+          volume: (Number(config.volume) || 0.065) * clamp(Number(level) || 0, 0, 1.5),
+          when: delay + offset,
+        });
+        if (config.octaveLayer) {
+          this.oscillator(frequency * 2, (Number(config.duration) || 0.42) * 0.72, bus, {
+            type: 'triangle',
+            volume:
+              (Number(config.volume) || 0.065) *
+              0.22 *
+              clamp(Number(level) || 0, 0, 1.5),
+            when: delay + offset + 0.012,
+          });
+        }
+      };
+
+      if (event.type === 'chord' && Array.isArray(event.midis)) {
+        const notes = event.direction === 'up' ? [...event.midis].reverse() : event.midis;
+        notes.slice(0, 8).forEach((midi, index) => playMidi(midi, index * 0.021));
+        continue;
+      }
+      if (event.type === 'midi') playMidi(event.midi);
     }
-    if (event.type === 'midi') {
-      playMidi(event.midi);
-      return true;
-    }
-    return false;
+    return event.type === 'drum' || event.type === 'midi' || event.type === 'chord';
   }
 
   renderDrumEvent(name, bus, when, gain = 1) {
