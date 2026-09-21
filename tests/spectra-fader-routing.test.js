@@ -149,9 +149,7 @@ test('recorded Spectra stems use the same mute path for MUTE and SOLO', () => {
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 });
 
-test(
-  'raw browser microphone takes play as recorded audio and never as a fake synth phrase',
-  async () => {
+test('raw mic blobs play as audio and never as a fake synth phrase', async () => {
   const OriginalAudio = globalThis.Audio;
   class FakeMedia {
     constructor() {
@@ -210,8 +208,7 @@ test(
   } finally {
     globalThis.Audio = OriginalAudio;
   }
-},
-);
+});
 
 test('deleting a Spectra track removes its audio and session state', () => {
   const playback = new StudioPlayback(fakeAudio());
