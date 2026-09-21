@@ -686,7 +686,7 @@
     margin-left: 113px;
   }
 
-  body.studio-mobile-active .spectra-session-playhead {
-    margin-left: 113px;
+  body.studio-mobile-active .spectra-session-playhead-track {
+    left: 113px;
   }
 }
