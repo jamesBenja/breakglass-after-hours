@@ -38,9 +38,11 @@ export class MicrophoneRecorder {
     });
     this.chunks = [];
     const candidates = [
+      // Safari/iOS is much more reliable decoding its own AAC/MP4 MediaRecorder output back into
+      // WebAudio than WebM, so prefer MP4 whenever the browser exposes it.
+      'audio/mp4',
       'audio/webm;codecs=opus',
       'audio/webm',
-      'audio/mp4',
       'audio/ogg;codecs=opus',
     ];
     const mimeType = candidates.find((type) => MediaRecorder.isTypeSupported?.(type));
