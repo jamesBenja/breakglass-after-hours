@@ -132,7 +132,7 @@ test('Spectra master record writes only armed inputs into their standing console
   const committed = recorder.stop({ commit: true });
   assert.equal(committed.length, 1);
   assert.equal(committed[0].id, synth.id);
-  assert.equal(studio.stems.length, 5);
+  assert.equal(studio.stems.length, 6);
   assert.equal(synth.performance.events[0].midi, 60);
   assert.equal(guitar.performance, null);
   assert.equal(synth.recordArm, true);
