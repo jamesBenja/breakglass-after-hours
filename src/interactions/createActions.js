@@ -677,11 +677,21 @@ export function createActions({
       onRecordVocal: recordVocal,
       onAudition: async (stemId) => monitorStudio(stemId),
     });
+    const external = ui._spectraExternalInstruments ?? {};
+    const workspace = ui._spectraWorkspaceNavigation ?? {};
+
+    appendButton('DRUM MACHINE', () => external.drumMachine?.());
     appendButton('DRUM KIT', drumsPanel);
     appendButton('SYNTH / ORGAN', synthPanel);
     appendButton('GUITAR', openGuitarPanel);
     appendButton('BASS', openBassPanel);
     appendButton('PIANO', pianoPanel);
+    appendButton('MODULAR SYNTH', () => external.modularSynth?.());
+
+    appendButton('SPECTRA SESSIONS · CREATE / SAVE / LOAD', () => workspace.sessions?.());
+    appendButton('ADVANCED SPECTRA SETTINGS', () => workspace.advanced?.());
+    appendButton('8CH SPATIAL MIXER', () => workspace.spatial?.());
+    appendButton('EXPORT TRACK', () => workspace.exportMix?.());
     appendButton('Spectra mix challenge', mixChallengeMenu);
     appendButton('Breakglass session templates', sessionLibraryPanel);
   };
