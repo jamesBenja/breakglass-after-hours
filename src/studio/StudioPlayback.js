@@ -1,3 +1,5 @@
+import { spectraInputStem } from './SpectraInputs.js';
+
 const NOTE = {
   C2: 65.41,
   D2: 73.42,
@@ -25,6 +27,7 @@ const COMP = {
 };
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
+const midiToFrequency = (midi) => 440 * Math.pow(2, (Number(midi) - 69) / 12);
 
 function writeAudioParam(parameter, value, time, { immediate = false, timeConstant = 0.025 } = {}) {
   if (!parameter) return;
@@ -350,6 +353,52 @@ export class StudioPlayback {
     return true;
   }
 
+  monitorLiveEvent(
+    session,
+    config = {},
+    event = {},
+    { resourceId = '', when = 0, level = 1 } = {},
+  ) {
+    if (!this.audio.context || !session) return false;
+    const stem = spectraInputStem(session, config, resourceId);
+    if (!stem || stem.monitor === false) return false;
+    this.updateMix(session, { immediate: true });
+    const bus = this.ensureBus(stem).input;
+    const delay = Math.max(0, Number(when) || 0);
+
+    if (event.type === 'drum' && event.name) {
+      this.renderDrumEvent(event.name, bus, delay, level);
+      return true;
+    }
+
+    const playMidi = (midi, offset = 0) => {
+      const frequency = midiToFrequency(midi);
+      this.oscillator(frequency, Number(config.duration) || 0.42, bus, {
+        type: config.wave || 'triangle',
+        volume: Number(config.volume) || 0.065,
+        when: delay + offset,
+      });
+      if (config.octaveLayer) {
+        this.oscillator(frequency * 2, (Number(config.duration) || 0.42) * 0.72, bus, {
+          type: 'triangle',
+          volume: (Number(config.volume) || 0.065) * 0.22,
+          when: delay + offset + 0.012,
+        });
+      }
+    };
+
+    if (event.type === 'chord' && Array.isArray(event.midis)) {
+      const notes = event.direction === 'up' ? [...event.midis].reverse() : event.midis;
+      notes.slice(0, 8).forEach((midi, index) => playMidi(midi, index * 0.021));
+      return true;
+    }
+    if (event.type === 'midi') {
+      playMidi(event.midi);
+      return true;
+    }
+    return false;
+  }
+
   renderDrumEvent(name, bus, when, gain = 1) {
     const raw = String(name || '').toLowerCase();
     const accent = raw.endsWith('-accent');
@@ -540,6 +589,8 @@ export class StudioPlayback {
 
     if (recording) return;
     if (this.renderPerformance(stem, step, when)) return;
+    // Empty input channels are monitor paths, not canned backing generators.
+    if (stem.inputKey) return;
     if (stem.kind === 'drums') {
       if (step % 4 === 0) this.kick(bus, when);
       if (step % 2 === 1) this.noise(bus, when + 0.01, 0.035, 0.055);
