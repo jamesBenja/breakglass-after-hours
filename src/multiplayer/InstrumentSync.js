@@ -194,6 +194,13 @@ export class InstrumentSync {
     if (!audio) return;
     const remoteGain = this.remoteGain(data);
     if (!(remoteGain > 0)) return;
+    if (
+      this.game.studioPlayback?.monitorLiveEvent?.(this.game.studio, config, event, {
+        resourceId: data.resourceId ?? 'remote-instrument',
+        level: remoteGain,
+      })
+    )
+      return;
     if (event.type === 'drum') {
       const machineVoice = /^(808|909|dmx|linn)-/i.test(String(event.name || ''));
       if (machineVoice && this.game.studioPlayback?.playDrumEvent) {
