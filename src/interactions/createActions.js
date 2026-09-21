@@ -189,9 +189,18 @@ export function createActions({
   const startPerformance = (kind, { back = () => {}, stemKind = kind } = {}) => {
     if (!keyboardPerformance) return;
     dj?.stop?.();
+    const inputKey =
+      kind === 'drums'
+        ? 'drum-kit'
+        : kind === 'piano' || stemKind === 'keys'
+          ? 'piano'
+          : kind === 'guitar' || kind === 'bass'
+            ? 'guitar'
+            : 'synth';
     const config = {
       ...performanceConfig(kind),
       stemKind,
+      inputKey,
       processing: performanceProcessing(stemKind),
     };
     keyboardPerformance.start(config, { record: false });
