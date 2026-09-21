@@ -138,10 +138,7 @@ export function connectKeyboardPerformanceToSpectra(game) {
   const performance = game?.keyboardPerformance;
   if (!performance?.setPerformanceEventSink) return false;
 
-  performance.setCaptureArmed?.(() => game.spectraRecorder?.armed === true);
-  performance.setPerformanceEventSink(({ config = {}, event = {} } = {}) => {
-    const recorder = game.spectraRecorder;
-    if (!recorder?.armed) return false;
+  const resourceIdFor = (config = {}) => {
     const kind = String(config.stemKind || config.mode || 'instrument')
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, '-')
@@ -151,8 +148,20 @@ export function connectKeyboardPerformanceToSpectra(game) {
       .replace(/[^a-z0-9_-]/g, '-')
       .replace(/-+/g, '-')
       .slice(0, 48);
+    return `local:${kind || 'instrument'}:${label || 'instrument'}`;
+  };
+
+  performance.setCaptureArmed?.(() => game.spectraRecorder?.armed === true);
+  performance.setPerformanceMonitor?.(({ config = {}, event = {} } = {}) =>
+    game.studioPlayback?.monitorLiveEvent?.(game.studio, config, event, {
+      resourceId: resourceIdFor(config),
+    }) === true,
+  );
+  performance.setPerformanceEventSink(({ config = {}, event = {} } = {}) => {
+    const recorder = game.spectraRecorder;
+    if (!recorder?.armed) return false;
     return recorder.captureLocal(config, event, {
-      resourceId: `local:${kind || 'instrument'}:${label || 'instrument'}`,
+      resourceId: resourceIdFor(config),
     });
   });
   return true;
@@ -219,7 +228,6 @@ function enhancePlayback(playback, session, game) {
   const basePlay = playback.play.bind(playback);
   playback.play = async (activeSession, offset = 0, options = {}) => {
     enhanceSession(activeSession);
-    stopSpectraLiveInputsForMix(game);
     const result = await basePlay(activeSession, offset, options);
     playback.transportOffset = Math.max(0, Number(offset) || 0);
     playback.transportStartedAt = playback.audio.context?.currentTime ?? 0;
