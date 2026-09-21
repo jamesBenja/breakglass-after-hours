@@ -662,7 +662,7 @@ export function createActions({
     }
     ui.studioMixer(studio, {
       onMix: () => {
-        studioPlayback.updateMix(studio);
+        studioPlayback.applyLiveMix?.(studio) ?? studioPlayback.updateMix(studio);
         rememberStudio();
       },
       onPlay: async () => {
@@ -699,7 +699,7 @@ export function createActions({
     }
     ui.studioMixer(studio, {
       onMix: () => {
-        studioPlayback.updateMix(studio);
+        studioPlayback.applyLiveMix?.(studio) ?? studioPlayback.updateMix(studio);
         rememberStudio();
       },
       onPlay: async () => {
