@@ -90,7 +90,6 @@ test('active music marker expires instead of blocking future live updates foreve
   assert.equal(readActiveMusicSession(storage, 31 * 60 * 1000), null);
 });
 
-
 test('recovery store keeps raw microphone blobs when WebAudio decode fails', async () => {
   const store = new SpectraProjectStore(null);
   const blob = new Blob(['voice'], { type: 'audio/mp4' });
