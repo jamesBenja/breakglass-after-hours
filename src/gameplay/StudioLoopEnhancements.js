@@ -158,13 +158,38 @@ export function connectKeyboardPerformanceToSpectra(game) {
         resourceId: resourceIdFor(config),
       }) === true,
   );
-  performance.setPerformanceEventSink(({ config = {}, event = {} } = {}) => {
-    const recorder = game.spectraRecorder;
-    if (!recorder?.armed) return false;
-    return recorder.captureLocal(config, event, {
-      resourceId: resourceIdFor(config),
-    });
-  });
+
+  // Local keyboard/touch instruments must hit the recorder on the same execution path as the
+  // audible note itself. This avoids later multiplayer wrappers or UI navigation accidentally
+  // bypassing the callback sink. External systems such as Drum Machine and Modular keep their
+  // own publishExternal capture path.
+  performance.setPerformanceEventSink?.(null);
+  if (!performance._spectraLocalCapturePatched) {
+    const capture = (event) => {
+      const config = performance.config;
+      const recorder = game.spectraRecorder;
+      if (!config || !recorder?.armed) return false;
+      return recorder.captureLocal(config, event, {
+        resourceId: resourceIdFor(config),
+      });
+    };
+
+    const basePlayMidi = performance.playMidi.bind(performance);
+    performance.playMidi = (midi) => {
+      const played = basePlayMidi(midi);
+      if (played) capture({ type: 'midi', midi: Number(midi) });
+      return played;
+    };
+
+    const baseTriggerDrum = performance.triggerDrum.bind(performance);
+    performance.triggerDrum = (name) => {
+      const played = baseTriggerDrum(name);
+      if (played) capture({ type: 'drum', name });
+      return played;
+    };
+
+    performance._spectraLocalCapturePatched = true;
+  }
   return true;
 }
 
