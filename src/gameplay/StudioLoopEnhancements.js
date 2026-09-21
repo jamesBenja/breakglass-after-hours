@@ -317,10 +317,7 @@ async function freezePerformanceStems(game, session, stems, { persist = true } =
 
 async function ensureFrozenPerformanceAudio(game, session) {
   const missing = (session?.stems ?? []).filter(
-    (stem) =>
-      stem.renderedAudio === true &&
-      stem.performance?.events?.length &&
-      !session.recordings?.has?.(stem.id),
+    (stem) => stem.performance?.events?.length && !session.recordings?.has?.(stem.id),
   );
   if (!missing.length) return { rendered: 0, failed: 0 };
   return freezePerformanceStems(game, session, missing, { persist: true });
@@ -694,6 +691,7 @@ async function playStudioSessionDownstairs(game, session, songId = null) {
   game.partyLife?.houseDj?.holdForPlayer?.(8);
   game.audio?.stop?.();
   enhanceSession(session);
+  await ensureFrozenPerformanceAudio(game, session);
   const played = await game.studioPlayback.play(session);
   game.activeStudioSongId = played ? songId : null;
   return played;
@@ -1274,8 +1272,17 @@ export function installStudioLoopEnhancements(game, ui) {
         return true;
       };
 
-      const onTempo = (bpm) => {
+      const onTempo = async (bpm) => {
+        const wasPlaying = game.studioPlayback?.playing === true;
+        if (wasPlaying) game.studioPlayback.stop();
         game.spectraTransport?.setTempo?.(bpm);
+        const frozen = session.stems.filter(
+          (stem) => stem.renderedAudio === true && stem.performance?.events?.length,
+        );
+        if (frozen.length) await freezePerformanceStems(game, session, frozen);
+        if (wasPlaying) {
+          await game.studioPlayback?.play?.(session, 0, { restartTransport: true });
+        }
         game.save?.();
       };
       const onClick = (enabled) => {
@@ -1284,9 +1291,18 @@ export function installStudioLoopEnhancements(game, ui) {
       };
 
       const onLoopBars = async (bars) => {
+        const wasPlaying = game.studioPlayback?.playing === true;
+        if (wasPlaying) game.studioPlayback.stop();
         game.spectraTransport?.setLoopBars?.(bars);
         session.loopEnabled = true;
-        if (game.studioPlayback?.playing) await game.studioPlayback.play(session, 0);
+        const frozen = session.stems.filter(
+          (stem) => stem.renderedAudio === true && stem.performance?.events?.length,
+        );
+        for (const stem of frozen) quantizePerformance(session, stem.performance);
+        if (frozen.length) await freezePerformanceStems(game, session, frozen);
+        if (wasPlaying) {
+          await game.studioPlayback?.play?.(session, 0, { restartTransport: true });
+        }
         game.save?.();
       };
       const meterProvider = () => ({
