@@ -73,6 +73,7 @@ export class StudioPlayback {
     this.anySolo = false;
     this.noiseBuffer = null;
     this.noiseBufferContext = null;
+    this.frozenSources = new Map();
   }
 
   get playing() {
@@ -80,7 +81,8 @@ export class StudioPlayback {
       this.timer !== null ||
       this.transportUnsubscribe !== null ||
       this.realSessionPlaying ||
-      this.nativeStems.size > 0
+      this.nativeStems.size > 0 ||
+      this.frozenSources.size > 0
     );
   }
 
@@ -703,25 +705,6 @@ export class StudioPlayback {
     const bus = this.ensureBus(stem).input;
     if (stem.clipActive === false || stem.mute || (this.anySolo && !stem.solo)) return;
     const recording = this.session?.recordings.get(stem.id);
-    const recordingStepDuration = 60 / Math.max(1, Number(this.session?.bpm) || this.bpm) / 4;
-    const recordingLoopSteps = this.session?.loopEnabled
-      ? Math.max(16, Math.max(1, Number(this.session?.loopBars) || 4) * 16)
-      : 256;
-    const recordingStartStep =
-      Math.round(Math.max(0, Number(stem.clipStart) || 0) / recordingStepDuration) %
-      recordingLoopSteps;
-    if (recording && step % recordingLoopSteps === recordingStartStep) {
-      const source = this.audio.context.createBufferSource();
-      source.buffer = recording;
-      source.connect(bus);
-      source.onended = () => {
-        source.disconnect();
-        this.sources.delete(source);
-      };
-      this.sources.add(source);
-      source.start(this.audio.context.currentTime + when);
-    }
-
     if (recording) return;
     if (this.renderPerformance(stem, step, when)) return;
     // Empty input channels are monitor paths, not canned backing generators.
@@ -769,6 +752,72 @@ export class StudioPlayback {
         }
       }
     }
+  }
+
+  hasEventPlayback(session = this.session) {
+    return (session?.stems ?? []).some((stem) => {
+      if (session?.recordings?.has?.(stem.id)) return false;
+      if (stem.performance?.events?.length) return true;
+      if (stem.inputKey) return false;
+      return !stem.assetId;
+    });
+  }
+
+  startFrozenRecordings(session, offset = 0, { startTime = null } = {}) {
+    const context = this.audio.context;
+    if (!context || !session?.recordings?.size) return 0;
+    const now = context.currentTime;
+    const start =
+      Number.isFinite(Number(startTime)) && Number(startTime) >= now
+        ? Number(startTime)
+        : now + 0.045;
+    const loopDuration = session.loopEnabled
+      ? (60 / Math.max(1, Number(session.bpm) || this.bpm)) *
+        4 *
+        Math.max(1, Number(session.loopBars) || 4)
+      : null;
+    const phase = this.spectraTransport?.running
+      ? this.spectraTransport.positionAtOffset(start - now)
+      : Math.max(0, Number(offset) || 0);
+
+    let started = 0;
+    for (const stem of session.stems) {
+      const buffer = session.recordings.get(stem.id);
+      if (!buffer?.duration) continue;
+      const existing = this.frozenSources.get(stem.id);
+      if (existing) {
+        try {
+          existing.stop();
+        } catch {
+          // Already stopped.
+        }
+        existing.disconnect?.();
+        this.sources.delete(existing);
+      }
+
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = session.loopEnabled === true;
+      if (source.loop) {
+        source.loopStart = 0;
+        source.loopEnd = Math.min(buffer.duration, loopDuration || buffer.duration);
+      }
+      source.connect(this.ensureBus(stem).input);
+      source.onended = () => {
+        source.disconnect?.();
+        this.sources.delete(source);
+        if (this.frozenSources.get(stem.id) === source) this.frozenSources.delete(stem.id);
+      };
+      this.sources.add(source);
+      this.frozenSources.set(stem.id, source);
+
+      const playableDuration =
+        source.loop && source.loopEnd > 0 ? source.loopEnd : Math.max(0.001, buffer.duration);
+      const startOffset = playableDuration > 0 ? phase % playableDuration : 0;
+      source.start(start, startOffset);
+      started += 1;
+    }
+    return started;
   }
 
   async loadAlignedAssets(session) {
@@ -900,23 +949,28 @@ export class StudioPlayback {
     this.updateMix(session);
 
     let safeOffset = requestedOffset;
+    let sharedStartTime = null;
     if (this.spectraTransport) {
       safeOffset = this.spectraTransport.running
         ? this.spectraTransport.position()
         : requestedOffset;
-      this.transportUnsubscribe = this.spectraTransport.subscribe(
-        'studio-playback',
-        (transportEvent) => {
-          if (this.session !== session || this.realSessionPlaying || this.nativeStems.size) return;
-          for (const stem of session.stems) {
-            this.renderStem(stem, transportEvent.loopStep, transportEvent.when);
-          }
-        },
-      );
+      if (this.hasEventPlayback(session)) {
+        this.transportUnsubscribe = this.spectraTransport.subscribe(
+          'studio-playback',
+          (transportEvent) => {
+            if (this.session !== session || this.realSessionPlaying || this.nativeStems.size) return;
+            for (const stem of session.stems) {
+              if (session.recordings.has(stem.id)) continue;
+              this.renderStem(stem, transportEvent.loopStep, transportEvent.when);
+            }
+          },
+        );
+      }
       this.spectraTransport.acquire('studio-playback', { position: safeOffset });
       if (restartTransport) {
         safeOffset = requestedOffset;
-        this.spectraTransport.restart(safeOffset);
+        sharedStartTime = this.audio.context.currentTime + 0.06;
+        this.spectraTransport.restart(safeOffset, sharedStartTime);
       }
       this.transportOffset = safeOffset;
       this.transportStartedAt =
@@ -940,10 +994,14 @@ export class StudioPlayback {
       : safeOffset;
     if (await this.startNativeAssets(session, nativeOffset)) return true;
 
+    const frozenCount = this.startFrozenRecordings(session, safeOffset, {
+      startTime: sharedStartTime,
+    });
+
     const interval = 60 / this.bpm / 4;
     this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
 
-    if (this.spectraTransport) return true;
+    if (this.spectraTransport) return frozenCount > 0 || this.transportUnsubscribe !== null || true;
 
     this.step = Math.floor(safeOffset / interval) % 256;
     const remainder = safeOffset % interval;
@@ -981,6 +1039,7 @@ export class StudioPlayback {
       source.disconnect();
     }
     this.sources.clear();
+    this.frozenSources.clear();
     for (const media of this.nativeStems.values()) {
       media.pause();
       media.removeAttribute('src');
