@@ -144,142 +144,267 @@ export class Hud {
       onMix = () => {},
       onPlay = () => {},
       onStop = () => {},
+      onRecord = null,
+      recordStatus = null,
       onRecordVocal,
       onAudition = null,
     } = {},
   ) {
     this.clearPanel(
       'SPECTRA CONSOLE',
-      `${session.name} · ${session.stems.length} stems. Fader, pan, shelves, FX send, mute and solo all feed the actual WebAudio channel strips.`,
+      `${session.name} · ${session.stems.length} channels · input monitoring is always on. Arm individual channels, then use the master RECORD control.`,
     );
-    const grid = this.document.createElement('div');
-    grid.className = 'control-grid';
-    for (const stem of session.stems) {
-      const strip = this.document.createElement('div');
-      strip.className = 'mixer-strip';
-      const name = this.document.createElement('strong');
-      name.textContent = stem.label;
-      const source = this.document.createElement('small');
-      const eventCount = stem.performance?.events?.length ?? 0;
-      const recordingSeconds = session.recordings?.get?.(stem.id)?.duration;
-      const material = eventCount
-        ? ` · ${eventCount} event${eventCount === 1 ? '' : 's'}`
-        : Number.isFinite(recordingSeconds)
-          ? ` · ${recordingSeconds.toFixed(1)}s audio`
-          : stem.assetId
-            ? ' · audio asset'
-            : ' · generated';
-      source.textContent = `${stem.source ? ` · ${stem.source}` : ''}${material}`;
-      name.appendChild(source);
-      strip.appendChild(name);
+    this.panelElement?.classList.add('spectra-console-panel');
 
-      this.addMixerRange(
-        strip,
-        `${stem.label} level`,
-        0,
-        1,
-        0.01,
-        stem.level,
-        (value) => {
-          session.setLevel(stem.id, value);
-          onMix();
-        },
-        (value) => String(Math.round(Number(value) * 100)),
+    const toolbar = this.document.createElement('div');
+    toolbar.className = 'spectra-console-toolbar';
+
+    const transport = this.document.createElement('div');
+    transport.className = 'spectra-console-transport';
+    const makeTransportButton = (label, className, action) => {
+      const button = this.document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      if (className) button.className = className;
+      button.onclick = () =>
+        Promise.resolve(action?.())
+          .then(() => {
+            if (action === onRecord) {
+              this.studioMixer(session, {
+                onMix,
+                onPlay,
+                onStop,
+                onRecord,
+                recordStatus,
+                onRecordVocal,
+                onAudition,
+              });
+            }
+          })
+          .catch((error) => this.warning(error.message));
+      return button;
+    };
+
+    transport.append(
+      makeTransportButton('▶ PLAY', 'spectra-transport-play', onPlay),
+      makeTransportButton('■ STOP', 'spectra-transport-stop', onStop),
+    );
+    if (onRecord) {
+      const recording = recordStatus?.armed === true;
+      const record = makeTransportButton(
+        recording ? '■ STOP RECORD' : '● RECORD',
+        `spectra-transport-record${recording ? ' active' : ''}`,
+        onRecord,
       );
-      this.addMixerRange(strip, 'Pan', -1, 1, 0.01, stem.pan ?? 0, (value) => {
-        session.setPan(stem.id, value);
-        onMix();
-      });
-      this.addMixerRange(strip, 'Low shelf', -1, 1, 0.01, stem.low ?? 0, (value) => {
-        session.setEq(stem.id, 'low', value);
-        onMix();
-      });
-      this.addMixerRange(strip, 'High shelf', -1, 1, 0.01, stem.high ?? 0, (value) => {
-        session.setEq(stem.id, 'high', value);
-        onMix();
-      });
-      this.addMixerRange(strip, 'FX send', 0, 1, 0.01, stem.fx ?? 0, (value) => {
-        session.setFx(stem.id, value);
-        onMix();
-      });
+      record.setAttribute('aria-pressed', String(recording));
+      transport.appendChild(record);
+    }
+    toolbar.appendChild(transport);
 
-      const row = this.document.createElement('div');
-      row.className = 'row';
+    const status = this.document.createElement('div');
+    status.className = 'spectra-console-status';
+    const armedCount = session.stems.filter((stem) => stem.recordArm === true).length;
+    const liveText = recordStatus?.recording
+      ? `RECORDING · ${recordStatus.lanes ?? 0} INPUT${recordStatus?.lanes === 1 ? '' : 'S'}`
+      : recordStatus?.armed
+        ? 'RECORD READY'
+        : 'READY';
+    status.textContent = `${liveText} · ${armedCount} ARMED · MONITOR ALL`;
+    toolbar.appendChild(status);
+
+    if (onRecordVocal) {
+      const vox = makeTransportButton('REC VOX', 'spectra-console-utility', onRecordVocal);
+      toolbar.appendChild(vox);
+    }
+    this.buttons.appendChild(toolbar);
+
+    const desk = this.document.createElement('div');
+    desk.className = 'spectra-console-desk';
+
+    const addMiniRange = (strip, stem, key, labelText, min, max, value, handler) => {
+      const control = this.document.createElement('label');
+      control.className = 'spectra-console-mini';
+      const caption = this.document.createElement('span');
+      caption.textContent = labelText;
+      const range = this.document.createElement('input');
+      range.type = 'range';
+      range.min = String(min);
+      range.max = String(max);
+      range.step = '0.01';
+      range.value = String(value);
+      range.setAttribute('aria-label', `${stem.label} ${labelText}`);
+      range.dataset.parameter = key;
+      range.oninput = () => {
+        handler(Number(range.value));
+        onMix();
+      };
+      control.append(caption, range);
+      strip.appendChild(control);
+    };
+
+    session.stems.forEach((stem, index) => {
+      const strip = this.document.createElement('section');
+      strip.className = 'spectra-console-channel';
+      strip.dataset.stemId = stem.id;
+
+      const channelNumber = this.document.createElement('div');
+      channelNumber.className = 'spectra-channel-number';
+      channelNumber.textContent = String(index + 1).padStart(2, '0');
+
+      const input = this.document.createElement('div');
+      input.className = 'spectra-channel-input';
+      const inputName = this.document.createElement('strong');
+      inputName.textContent = stem.label;
+      const source = this.document.createElement('small');
+      source.textContent = stem.inputKey
+        ? stem.inputKey.replaceAll('-', ' ').toUpperCase()
+        : (stem.source || stem.kind || 'audio').toUpperCase();
+      input.append(inputName, source);
+
+      const monitor = this.document.createElement('div');
+      monitor.className = 'spectra-monitor on';
+      monitor.textContent = 'MON';
+      monitor.title = 'Input monitoring is always on';
+
+      const arm = this.document.createElement('button');
+      arm.type = 'button';
+      arm.className = `spectra-arm${stem.recordArm ? ' active' : ''}`;
+      arm.textContent = stem.recordArm ? 'ARMED' : 'ARM';
+      arm.setAttribute('aria-pressed', String(stem.recordArm === true));
+      arm.onclick = () => {
+        session.toggleRecordArm?.(stem.id);
+        arm.classList.toggle('active', stem.recordArm === true);
+        arm.textContent = stem.recordArm ? 'ARMED' : 'ARM';
+        arm.setAttribute('aria-pressed', String(stem.recordArm === true));
+        onMix();
+        const count = session.stems.filter((item) => item.recordArm === true).length;
+        status.textContent = `${recordStatus?.armed ? 'RECORD READY' : 'READY'} · ${count} ARMED · MONITOR ALL`;
+      };
+
+      strip.append(channelNumber, input, monitor, arm);
+
+      const eq = this.document.createElement('div');
+      eq.className = 'spectra-console-eq';
+      addMiniRange(eq, stem, 'high', 'HIGH', -1, 1, stem.high ?? 0, (value) =>
+        session.setEq(stem.id, 'high', value),
+      );
+      addMiniRange(eq, stem, 'low', 'LOW', -1, 1, stem.low ?? 0, (value) =>
+        session.setEq(stem.id, 'low', value),
+      );
+      strip.appendChild(eq);
+
+      const routing = this.document.createElement('div');
+      routing.className = 'spectra-console-routing';
+      addMiniRange(routing, stem, 'pan', 'PAN', -1, 1, stem.pan ?? 0, (value) =>
+        session.setPan(stem.id, value),
+      );
+      addMiniRange(routing, stem, 'fx', 'FX', 0, 1, stem.fx ?? 0, (value) =>
+        session.setFx(stem.id, value),
+      );
+      strip.appendChild(routing);
+
+      const switches = this.document.createElement('div');
+      switches.className = 'spectra-console-switches';
       const mute = this.document.createElement('button');
       const solo = this.document.createElement('button');
-      const audition = onAudition ? this.document.createElement('button') : null;
-      const refresh = () => {
+      const refreshSwitches = () => {
         mute.textContent = stem.mute ? 'MUTED' : 'MUTE';
-        solo.textContent = stem.solo ? 'SOLOED' : 'SOLO';
+        solo.textContent = stem.solo ? 'SOLO' : 'SOLO';
+        mute.classList.toggle('active', stem.mute === true);
+        solo.classList.toggle('active', stem.solo === true);
         mute.setAttribute('aria-pressed', String(stem.mute === true));
         solo.setAttribute('aria-pressed', String(stem.solo === true));
-        mute.classList.toggle('mixer-toggle-active', stem.mute === true);
-        solo.classList.toggle('mixer-toggle-active', stem.solo === true);
-        strip.classList.toggle('mixer-strip-muted', stem.mute === true);
-        strip.classList.toggle('mixer-strip-solo', stem.solo === true);
       };
-      refresh();
       mute.onclick = () => {
         session.toggleMute(stem.id);
-        refresh();
+        refreshSwitches();
         onMix();
       };
       solo.onclick = () => {
         session.toggleSolo(stem.id);
-        refresh();
+        refreshSwitches();
         onMix();
       };
-      if (audition) {
-        audition.textContent = 'Audition';
+      refreshSwitches();
+      switches.append(mute, solo);
+      strip.appendChild(switches);
+
+      const faderSection = this.document.createElement('div');
+      faderSection.className = 'spectra-fader-section';
+      const scale = this.document.createElement('div');
+      scale.className = 'spectra-fader-scale';
+      scale.innerHTML = '<span>+10</span><span>0</span><span>-10</span><span>-∞</span>';
+      const fader = this.document.createElement('input');
+      fader.type = 'range';
+      fader.min = '0';
+      fader.max = '1';
+      fader.step = '0.01';
+      fader.value = String(stem.level);
+      fader.className = 'spectra-fader';
+      fader.setAttribute('aria-label', `${stem.label} fader`);
+      const readout = this.document.createElement('output');
+      readout.className = 'spectra-fader-readout';
+      const syncFader = () => {
+        readout.textContent = String(Math.round(Number(fader.value) * 100));
+      };
+      fader.oninput = () => {
+        session.setLevel(stem.id, Number(fader.value));
+        syncFader();
+        onMix();
+      };
+      syncFader();
+      faderSection.append(scale, fader, readout);
+      strip.appendChild(faderSection);
+
+      if (onAudition) {
+        const audition = this.document.createElement('button');
+        audition.type = 'button';
+        audition.className = 'spectra-audition';
+        audition.textContent = 'PFL';
         audition.onclick = () =>
           Promise.resolve(onAudition(stem.id)).catch((error) => this.warning(error.message));
-        row.append(mute, solo, audition);
-      } else row.append(mute, solo);
-      strip.appendChild(row);
-      grid.appendChild(strip);
-    }
-    this.buttons.appendChild(grid);
+        strip.appendChild(audition);
+      }
 
-    const mixState = this.document.createElement('div');
-    mixState.className = 'row spectra-mix-state';
+      desk.appendChild(strip);
+    });
+
+    this.buttons.appendChild(desk);
+
+    const master = this.document.createElement('div');
+    master.className = 'spectra-console-master';
     const clearMutes = this.document.createElement('button');
-    const clearSolos = this.document.createElement('button');
-    const refreshMixState = () => {
-      const muted = session.stems.filter((stem) => stem.mute).length;
-      const soloed = session.stems.filter((stem) => stem.solo).length;
-      clearMutes.textContent = muted ? `CLEAR MUTES · ${muted}` : 'CLEAR MUTES';
-      clearSolos.textContent = soloed ? `CLEAR SOLOS · ${soloed}` : 'CLEAR SOLOS';
-      clearMutes.disabled = muted === 0;
-      clearSolos.disabled = soloed === 0;
-    };
+    clearMutes.textContent = 'CLEAR MUTES';
     clearMutes.onclick = () => {
       for (const stem of session.stems) stem.mute = false;
       onMix();
-      this.studioMixer(session, { onMix, onPlay, onStop, onRecordVocal, onAudition });
+      this.studioMixer(session, {
+        onMix,
+        onPlay,
+        onStop,
+        onRecord,
+        recordStatus,
+        onRecordVocal,
+        onAudition,
+      });
     };
+    const clearSolos = this.document.createElement('button');
+    clearSolos.textContent = 'CLEAR SOLOS';
     clearSolos.onclick = () => {
       for (const stem of session.stems) stem.solo = false;
       onMix();
-      this.studioMixer(session, { onMix, onPlay, onStop, onRecordVocal, onAudition });
+      this.studioMixer(session, {
+        onMix,
+        onPlay,
+        onStop,
+        onRecord,
+        recordStatus,
+        onRecordVocal,
+        onAudition,
+      });
     };
-    refreshMixState();
-    mixState.append(clearMutes, clearSolos);
-    this.buttons.appendChild(mixState);
-
-    const transport = this.document.createElement('div');
-    transport.className = 'row';
-    for (const [label, action] of [
-      ['Play mix', onPlay],
-      ['Stop', onStop],
-      ...(onRecordVocal ? [['Record vocal', onRecordVocal]] : []),
-    ]) {
-      const button = this.document.createElement('button');
-      button.textContent = label;
-      button.onclick = () =>
-        Promise.resolve(action()).catch((error) => this.warning(error.message));
-      transport.appendChild(button);
-    }
-    this.buttons.appendChild(transport);
+    master.append(clearMutes, clearSolos);
+    this.buttons.appendChild(master);
   }
 
   djMixer(mixer, tracks, { onChange = () => {} } = {}) {
