@@ -89,6 +89,7 @@ export class StudioPlayback {
     this.noiseBuffer = null;
     this.noiseBufferContext = null;
     this.frozenSources = new Map();
+    this.frozenGates = new Map();
     this.soloFaderActive = false;
   }
 
@@ -248,8 +249,17 @@ export class StudioPlayback {
       // channel stays open at its existing fader level.
       const gateOpen = anySolo ? active && soloIds.has(stem.id) : active && stem.mute !== true;
 
+      const frozenGate = this.frozenGates.get(stem.id);
+      if (frozenGate) {
+        // Frozen recordings get their own source gate. Keep the shared downstream switch open so
+        // Safari cannot accidentally silence the soloed recording while non-solo recordings are
+        // being gated off.
+        writeSwitchParam(frozenGate.gain, gateOpen ? 1 : 0, time);
+        writeSwitchParam(bus?.hardMute?.gain, 1, time);
+      } else {
+        writeSwitchParam(bus?.hardMute?.gain, gateOpen ? 1 : 0, time);
+      }
       writeSwitchParam(bus?.gate?.gain, 1, time);
-      writeSwitchParam(bus?.hardMute?.gain, gateOpen ? 1 : 0, time);
     }
     this.soloFaderActive = false;
     this.updateNativeMix(session);
@@ -853,6 +863,9 @@ export class StudioPlayback {
         existing.disconnect?.();
         this.sources.delete(existing);
       }
+      const existingGate = this.frozenGates.get(stem.id);
+      existingGate?.disconnect?.();
+      this.frozenGates.delete(stem.id);
 
       const source = context.createBufferSource();
       source.buffer = buffer;
@@ -861,14 +874,22 @@ export class StudioPlayback {
         source.loopStart = 0;
         source.loopEnd = Math.min(buffer.duration, loopDuration || buffer.duration);
       }
-      source.connect(this.ensureBus(stem).input);
+      const sourceGate = context.createGain();
+      sourceGate.gain.value = 1;
+      source.connect(sourceGate);
+      sourceGate.connect(this.ensureBus(stem).input);
       source.onended = () => {
         source.disconnect?.();
+        sourceGate.disconnect?.();
         this.sources.delete(source);
-        if (this.frozenSources.get(stem.id) === source) this.frozenSources.delete(stem.id);
+        if (this.frozenSources.get(stem.id) === source) {
+          this.frozenSources.delete(stem.id);
+          this.frozenGates.delete(stem.id);
+        }
       };
       this.sources.add(source);
       this.frozenSources.set(stem.id, source);
+      this.frozenGates.set(stem.id, sourceGate);
 
       const playableDuration =
         source.loop && source.loopEnd > 0 ? source.loopEnd : Math.max(0.001, buffer.duration);
@@ -1101,6 +1122,8 @@ export class StudioPlayback {
     }
     this.sources.clear();
     this.frozenSources.clear();
+    for (const gate of this.frozenGates.values()) gate.disconnect?.();
+    this.frozenGates.clear();
     for (const media of this.nativeStems.values()) {
       media.pause();
       media.removeAttribute('src');
