@@ -632,3 +632,61 @@
     left: 0;
   }
 }
+
+
+@media (hover: none) and (pointer: coarse) {
+  body.studio-mobile-active .spectra-master-meter {
+    height: 36px;
+    padding: 3px 4px;
+  }
+
+  body.studio-mobile-active .spectra-master-meter-lane {
+    height: 28px;
+  }
+
+  body.studio-mobile-active .spectra-channel-meter {
+    height: 145px;
+    width: 10px;
+  }
+
+  body.studio-mobile-active .spectra-fader-section {
+    grid-template-columns: 20px 1fr 12px;
+  }
+
+  body.studio-mobile-active .spectra-view-switch {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+  }
+
+  body.studio-mobile-active .spectra-session-view {
+    overflow-x: auto;
+    padding: 6px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  body.studio-mobile-active .spectra-session-header {
+    position: sticky;
+    left: 0;
+    width: min(88vw, 520px);
+    z-index: 2;
+    background: #151518;
+  }
+
+  body.studio-mobile-active .spectra-session-timeline {
+    min-width: 560px;
+  }
+
+  body.studio-mobile-active .spectra-session-track {
+    grid-template-columns: 105px 1fr;
+  }
+
+  body.studio-mobile-active .spectra-session-ruler {
+    margin-left: 113px;
+  }
+
+  body.studio-mobile-active .spectra-session-playhead {
+    margin-left: 113px;
+  }
+}
