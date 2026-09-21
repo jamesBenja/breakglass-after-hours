@@ -1,4 +1,11 @@
-export const SPECTRA_INPUT_KEYS = ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano'];
+export const SPECTRA_INPUT_KEYS = [
+  'drum-machine',
+  'drum-kit',
+  'synth',
+  'modular',
+  'guitar',
+  'piano',
+];
 
 export function spectraInputKey(config = {}, resourceId = '') {
   const explicit = String(config.inputKey || '').toLowerCase();
