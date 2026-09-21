@@ -29,6 +29,21 @@ const COMP = {
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 const midiToFrequency = (midi) => 440 * Math.pow(2, (Number(midi) - 69) / 12);
 
+function writeSwitchParam(parameter, value, time) {
+  if (!parameter) return;
+  if (typeof parameter.cancelAndHoldAtTime === 'function') {
+    try {
+      parameter.cancelAndHoldAtTime(time);
+    } catch {
+      parameter.cancelScheduledValues?.(time);
+    }
+  } else {
+    parameter.cancelScheduledValues?.(time);
+  }
+  if (parameter.setValueAtTime) parameter.setValueAtTime(value, time);
+  else parameter.value = value;
+}
+
 function writeAudioParam(parameter, value, time, { immediate = false, timeConstant = 0.025 } = {}) {
   if (!parameter) return;
   parameter.cancelScheduledValues?.(time);
@@ -138,22 +153,25 @@ export class StudioPlayback {
     // Keep level automation separate from the final mute/solo gate so channel state is authoritative.
     const channelSum = context.createGain();
     const gate = context.createGain();
+    const hardMute = context.createGain();
     const meter = typeof context.createAnalyser === 'function' ? context.createAnalyser() : null;
     if (meter) {
-      meter.fftSize = 128;
-      meter.smoothingTimeConstant = 0.68;
+      meter.fftSize = 64;
+      meter.smoothingTimeConstant = 0.62;
     }
-    const spatialPost = gate;
+    const spatialPost = hardMute;
     const dry = context.createGain();
     dry.gain.value = 1;
     gate.gain.value = 1;
+    hardMute.gain.value = 1;
     fader.connect(channelSum);
     channelSum.connect(gate);
+    gate.connect(hardMute);
     if (meter) {
-      gate.connect(meter);
+      hardMute.connect(meter);
       meter.connect(dry);
     } else {
-      gate.connect(dry);
+      hardMute.connect(dry);
     }
     dry.connect(pan ?? destination);
     pan?.connect(destination);
@@ -171,6 +189,7 @@ export class StudioPlayback {
       fader,
       channelSum,
       gate,
+      hardMute,
       meter,
       meterData: meter ? new Float32Array(meter.fftSize) : null,
       spatialPost,
@@ -219,14 +238,11 @@ export class StudioPlayback {
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const audible =
         selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
-      const gain = bus?.gate?.gain;
-      if (gain) {
-        const time = this.audio.context.currentTime;
-        gain.cancelScheduledValues?.(time);
-        // Direct assignment is intentional here. Mute/solo are switches, not automation,
-        // and must affect the already-sounding bus immediately on Safari as well as desktop.
-        gain.value = audible ? 1 : 0;
-      }
+      const time = this.audio.context.currentTime;
+      // Keep the legacy mix gate permanently open. Mute/solo have their own final hard switch so
+      // no fader/transport automation can override audibility on an already-playing frozen loop.
+      writeSwitchParam(bus?.gate?.gain, 1, time);
+      writeSwitchParam(bus?.hardMute?.gain, audible ? 1 : 0, time);
     }
     this.updateNativeMix(session);
     return true;
@@ -246,6 +262,23 @@ export class StudioPlayback {
     }
   }
 
+  updateStemMix(session = this.session, stemId, { immediate = true } = {}) {
+    if (!session || !this.audio.context || !stemId) return false;
+    const stem = session.stems.find((item) => item.id === stemId);
+    if (!stem) return false;
+    const time = this.audio.context.currentTime;
+    const bus = this.ensureBus(stem);
+    this.configureProcessing(stem, bus);
+    writeAudioParam(bus.low.gain, (stem.low ?? 0) * 15, time, { immediate });
+    writeAudioParam(bus.high.gain, (stem.high ?? 0) * 15, time, { immediate });
+    writeAudioParam(bus.fader.gain, stem.level, time, { immediate });
+    writeAudioParam(bus.fxGain.gain, (stem.fx ?? 0) * 0.38, time, { immediate });
+    if (bus.pan) writeAudioParam(bus.pan.pan, stem.pan ?? 0, time, { immediate });
+    this.spatialMixer?.updateStem?.(stem, bus, { immediate });
+    this.applyChannelAudibility(session);
+    return true;
+  }
+
   updateMix(session = this.session, { immediate = false } = {}) {
     if (!session || !this.audio.context) return;
     const time = this.audio.context.currentTime;
@@ -262,7 +295,7 @@ export class StudioPlayback {
       const audible =
         selected && stem.clipActive !== false && !stem.mute && (!anySolo || stem.solo);
       writeAudioParam(bus.fader.gain, stem.level, time, { immediate });
-      bus.gate.gain.value = audible ? 1 : 0;
+      writeSwitchParam(bus.gate.gain, 1, time);
       writeAudioParam(bus.fxGain.gain, (stem.fx ?? 0) * 0.38, time, { immediate });
       if (bus.pan) writeAudioParam(bus.pan.pan, stem.pan ?? 0, time, { immediate });
       this.spatialMixer?.updateStem?.(stem, bus, { immediate });
