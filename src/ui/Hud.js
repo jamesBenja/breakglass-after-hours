@@ -187,6 +187,8 @@ export class Hud {
       recordStatus = null,
       onTempo = null,
       onClick = null,
+      onLoopBars = null,
+      meterProvider = null,
       onRecordVocal,
       onAudition = null,
     } = {},
@@ -219,6 +221,8 @@ export class Hud {
                 recordStatus,
                 onTempo,
                 onClick,
+                onLoopBars,
+                meterProvider,
                 onRecordVocal,
                 onAudition,
               });
@@ -485,6 +489,8 @@ export class Hud {
         recordStatus,
         onTempo,
         onClick,
+        onLoopBars,
+        meterProvider,
         onRecordVocal,
         onAudition,
       });
@@ -502,6 +508,8 @@ export class Hud {
         recordStatus,
         onTempo,
         onClick,
+        onLoopBars,
+        meterProvider,
         onRecordVocal,
         onAudition,
       });
