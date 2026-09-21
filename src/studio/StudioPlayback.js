@@ -250,6 +250,7 @@ export class StudioPlayback {
     }
     this.spatialMixer?.sync?.(session, this.buses);
     this.updateNativeMix(session);
+    return true;
   }
 
   applyLiveMix(session = this.session) {

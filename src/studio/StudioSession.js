@@ -122,6 +122,10 @@ const normalizeStem = (stem, index) => ({
   clipStart: clamp(Number(stem.clipStart) || 0, 0, 120),
   spatial: normalizeSpatialPosition(stem.spatial),
   assetId: typeof stem.assetId === 'string' ? stem.assetId.slice(0, 64) : null,
+  renderedAudio: stem.renderedAudio === true,
+  renderedAudioAt: Number.isFinite(Number(stem.renderedAudioAt))
+    ? Math.max(0, Number(stem.renderedAudioAt))
+    : null,
   source: typeof stem.source === 'string' ? stem.source.slice(0, 100) : 'session',
   performance: normalizePerformance(stem.performance),
   processing:

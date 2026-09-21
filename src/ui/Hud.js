@@ -447,9 +447,11 @@ export class Hud {
         if (hasClip) {
           const clip = this.document.createElement('div');
           clip.className = 'spectra-session-clip';
-          clip.textContent = eventCount
-            ? `${eventCount} EVENT${eventCount === 1 ? '' : 'S'} · ${loopBars} BAR LOOP`
-            : `AUDIO · ${loopBars} BAR LOOP`;
+          clip.textContent = hasAudio
+            ? `AUDIO LOOP · ${loopBars} BAR${loopBars === 1 ? '' : 'S'}${eventCount ? ` · SOURCE ${eventCount} EVENT${eventCount === 1 ? '' : 'S'}` : ''}`
+            : eventCount
+              ? `${eventCount} EVENT${eventCount === 1 ? '' : 'S'} · ${loopBars} BAR LOOP`
+              : `AUDIO · ${loopBars} BAR LOOP`;
           lane.appendChild(clip);
         } else {
           const empty = this.document.createElement('span');

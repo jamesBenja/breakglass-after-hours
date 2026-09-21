@@ -628,6 +628,36 @@ export class StudioExporter {
     return result;
   }
 
+  async renderPerformanceStem(session, stemId) {
+    if (!this.OfflineAudioContext) {
+      throw new Error('Offline audio rendering is not supported by this browser.');
+    }
+    const stem = session?.stems?.find?.((item) => item.id === stemId);
+    if (!stem?.performance?.events?.length) {
+      throw new Error('This Spectra channel has no performance data to render.');
+    }
+
+    const duration = studioExportDuration(session);
+    const frames = Math.max(1, Math.ceil(duration * SAMPLE_RATE));
+    const context = new this.OfflineAudioContext(1, frames, SAMPLE_RATE);
+    const input = context.createGain();
+    input.gain.value = 1;
+    input.connect(context.destination);
+    if (!schedulePerformance(context, stem, input, duration)) {
+      throw new Error('Spectra could not render this performance.');
+    }
+
+    const buffer = await context.startRendering();
+    const bytes = encodeWav(buffer);
+    const blob = typeof Blob !== 'undefined' ? new Blob([bytes], { type: 'audio/wav' }) : null;
+    return {
+      buffer,
+      blob,
+      bytes,
+      duration,
+    };
+  }
+
   async render(session, { stemIds = null, respectMuteSolo = true } = {}) {
     if (!this.OfflineAudioContext) {
       throw new Error('Offline audio rendering is not supported by this browser.');

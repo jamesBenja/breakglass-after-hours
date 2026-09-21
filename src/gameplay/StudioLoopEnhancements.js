@@ -280,6 +280,53 @@ function currentProject(game) {
   return projectById(game, game.state.data.activeStudioProjectId);
 }
 
+async function freezePerformanceStems(game, session, stems, { persist = true } = {}) {
+  const candidates = (stems ?? []).filter((stem) => stem?.performance?.events?.length);
+  let rendered = 0;
+  let failed = 0;
+  const projectId = persist ? game.state?.data?.activeStudioProjectId : null;
+
+  for (const stem of candidates) {
+    try {
+      const frozen = await game.studioExporter?.renderPerformanceStem?.(session, stem.id);
+      if (!frozen?.buffer) throw new Error('Offline render returned no audio buffer.');
+      session.attachRecording(stem.id, frozen.buffer, frozen.blob ?? null);
+      stem.renderedAudio = true;
+      stem.renderedAudioAt = Date.now();
+      if (projectId && frozen.blob) {
+        await game.spectraProjectStore?.put?.(projectId, stem.id, frozen.blob);
+      }
+      rendered += 1;
+    } catch {
+      stem.renderedAudio = false;
+      stem.renderedAudioAt = null;
+      failed += 1;
+    }
+  }
+
+  if (projectId) {
+    const active = projectById(game, projectId);
+    if (active) {
+      active.session = session.snapshot();
+      active.updatedAt = Date.now();
+    }
+  }
+  game.save?.();
+  return { rendered, failed };
+}
+
+async function ensureFrozenPerformanceAudio(
+  game,
+  session,
+  { persist = session === game.studio } = {},
+) {
+  const missing = (session?.stems ?? []).filter(
+    (stem) => stem.performance?.events?.length && !session.recordings?.has?.(stem.id),
+  );
+  if (!missing.length) return { rendered: 0, failed: 0 };
+  return freezePerformanceStems(game, session, missing, { persist });
+}
+
 function currentSessionHasMaterial(game) {
   return (
     game.studio.takeCounter > 0 ||
@@ -390,6 +437,7 @@ async function loadProject(game, ui, id) {
     restored.failed += 1;
   }
 
+  await ensureFrozenPerformanceAudio(game, game.studio);
   game.studioPlayback?.updateMix?.(game.studio);
   const detail = restored.restored
     ? ` · restored ${restored.restored} recorded audio clip${restored.restored === 1 ? '' : 's'}`
@@ -647,6 +695,7 @@ async function playStudioSessionDownstairs(game, session, songId = null) {
   game.partyLife?.houseDj?.holdForPlayer?.(8);
   game.audio?.stop?.();
   enhanceSession(session);
+  await ensureFrozenPerformanceAudio(game, session, { persist: false });
   const played = await game.studioPlayback.play(session);
   game.activeStudioSongId = played ? songId : null;
   return played;
@@ -1142,6 +1191,13 @@ export function installStudioLoopEnhancements(game, ui) {
   if (activeProjectId) {
     void game.spectraProjectStore
       .restoreSession(activeProjectId, game.studio, game.audio?.context)
+      .then(async () => {
+        await ensureFrozenPerformanceAudio(game, game.studio);
+        game.studioPlayback?.updateMix?.(game.studio);
+      })
+      .catch(() => {});
+  } else {
+    void ensureFrozenPerformanceAudio(game, game.studio)
       .then(() => game.studioPlayback?.updateMix?.(game.studio))
       .catch(() => {});
   }
@@ -1176,14 +1232,24 @@ export function installStudioLoopEnhancements(game, ui) {
         if (recorder?.armed) {
           const committed = recorder.stop({ commit: true });
           if (committed.length) {
+            ui.warning?.(
+              `Rendering ${committed.length} recorded channel${committed.length === 1 ? '' : 's'} to audio…`,
+            );
+            const frozen = await freezePerformanceStems(game, session, committed);
             await game.audio?.init?.();
             game.drumMachine?.stopLoop?.(false);
             game.modularSynth?.stopLoop?.(false);
             await game.studioPlayback?.play?.(session, 0, { restartTransport: true });
             game.save?.();
-            ui.warning?.(
-              `Recorded ${committed.length} quantized loop${committed.length === 1 ? '' : 's'} into the armed channel${committed.length === 1 ? '' : 's'} and started playback from bar 1.`,
-            );
+            if (frozen.failed) {
+              ui.warning?.(
+                `Recorded ${committed.length} loop${committed.length === 1 ? '' : 's'}. ${frozen.rendered} rendered to audio; ${frozen.failed} remains on event-playback fallback because offline rendering was unavailable.`,
+              );
+            } else {
+              ui.warning?.(
+                `Recorded and rendered ${frozen.rendered} audio loop${frozen.rendered === 1 ? '' : 's'} into the armed channel${frozen.rendered === 1 ? '' : 's'} and started playback from bar 1.`,
+              );
+            }
           } else {
             ui.warning?.('Recording stopped. No events reached the armed channels.');
           }
@@ -1210,8 +1276,17 @@ export function installStudioLoopEnhancements(game, ui) {
         return true;
       };
 
-      const onTempo = (bpm) => {
+      const onTempo = async (bpm) => {
+        const wasPlaying = game.studioPlayback?.playing === true;
+        if (wasPlaying) game.studioPlayback.stop();
         game.spectraTransport?.setTempo?.(bpm);
+        const frozen = session.stems.filter(
+          (stem) => stem.renderedAudio === true && stem.performance?.events?.length,
+        );
+        if (frozen.length) await freezePerformanceStems(game, session, frozen);
+        if (wasPlaying) {
+          await game.studioPlayback?.play?.(session, 0, { restartTransport: true });
+        }
         game.save?.();
       };
       const onClick = (enabled) => {
@@ -1220,9 +1295,18 @@ export function installStudioLoopEnhancements(game, ui) {
       };
 
       const onLoopBars = async (bars) => {
+        const wasPlaying = game.studioPlayback?.playing === true;
+        if (wasPlaying) game.studioPlayback.stop();
         game.spectraTransport?.setLoopBars?.(bars);
         session.loopEnabled = true;
-        if (game.studioPlayback?.playing) await game.studioPlayback.play(session, 0);
+        const frozen = session.stems.filter(
+          (stem) => stem.renderedAudio === true && stem.performance?.events?.length,
+        );
+        for (const stem of frozen) quantizePerformance(session, stem.performance);
+        if (frozen.length) await freezePerformanceStems(game, session, frozen);
+        if (wasPlaying) {
+          await game.studioPlayback?.play?.(session, 0, { restartTransport: true });
+        }
         game.save?.();
       };
       const meterProvider = () => ({
