@@ -16,14 +16,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feat/spectra-console-real-desk
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: pnpm
       - uses: pnpm/action-setup@v4
         with:
           version: 10
           run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec prettier --write src/gameplay/ModularSynthSystem.js src/gameplay/StudioLoopEnhancements.js src/studio/SpectraInputs.js src/studio/SpectraRecorder.js src/studio/StudioPlayback.js src/ui/mobileMixerEnhancements.js src/ui/mobileMixing.css src/ui/styles.css tests/spectra-fader-routing.test.js
       - name: Commit formatting
