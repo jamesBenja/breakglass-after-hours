@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Hud } from '../src/ui/Hud.js';
+import { StudioSession } from '../src/studio/StudioSession.js';
 
 function classList(initial = []) {
   const values = new Set(initial);
@@ -18,13 +19,27 @@ function classList(initial = []) {
 }
 
 function node(overrides = {}) {
+  const children = [];
   return {
     hidden: false,
     textContent: '',
+    className: '',
     classList: classList(),
-    appendChild() {},
-    replaceChildren() {},
+    children,
+    dataset: {},
+    style: { setProperty() {} },
+    append(...items) {
+      children.push(...items);
+    },
+    appendChild(item) {
+      children.push(item);
+      return item;
+    },
+    replaceChildren(...items) {
+      children.splice(0, children.length, ...items);
+    },
     setAttribute() {},
+    addEventListener() {},
     focus() {},
     ...overrides,
   };
@@ -69,6 +84,7 @@ function fakeDocument() {
   return {
     panel,
     canvas,
+    buttons: elements.get('buttons'),
     body,
     defaultView: {
       clearInterval() {},
@@ -110,4 +126,40 @@ test('closing a performance or mixer panel restores mobile gameplay UI state', (
   ]) {
     assert.equal(document.body.classList.contains(name), false, `${name} should be cleared`);
   }
+});
+
+
+function findByText(root, text) {
+  if (!root) return null;
+  if (root.textContent === text) return root;
+  for (const child of root.children ?? []) {
+    const found = findByText(child, text);
+    if (found) return found;
+  }
+  return null;
+}
+
+test('Spectra footer survives internal mixer redraws and PFL is not rendered', () => {
+  const document = fakeDocument();
+  const hud = new Hud(document);
+  const session = new StudioSession();
+  let footerRenders = 0;
+
+  hud.studioMixer(session, {
+    renderFooter: () => {
+      footerRenders += 1;
+    },
+    onDeleteTrack: () => true,
+  });
+
+  assert.equal(footerRenders, 1);
+  assert.equal(findByText(document.buttons, 'PFL'), null);
+  assert.ok(findByText(document.buttons, 'DELETE TRACK'));
+
+  const sessionView = findByText(document.buttons, 'SESSION');
+  assert.ok(sessionView);
+  sessionView.onclick();
+
+  assert.equal(footerRenders, 2);
+  assert.equal(findByText(document.buttons, 'PFL'), null);
 });
