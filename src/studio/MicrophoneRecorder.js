@@ -210,6 +210,7 @@ export class MicrophoneRecorder {
 
     let buffer = this.buildPcmBuffer();
     const pcmFrames = this.pcmChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const captureMode = this.captureMode;
     this.pcmChunks = [];
 
     if (!buffer && blob.size) {
@@ -234,7 +235,7 @@ export class MicrophoneRecorder {
       type,
       timelineStart: this.timelineStart,
       pcmFrames,
-      captureMode: this.captureMode,
+      captureMode,
     };
   }
 
