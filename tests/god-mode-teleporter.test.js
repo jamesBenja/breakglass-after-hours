@@ -1,9 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  collectGodModeTeleportDestinations,
-  teleportGodMode,
-} from '../src/gameplay/GodMode.js';
+import { collectGodModeTeleportDestinations, teleportGodMode } from '../src/gameplay/GodMode.js';
 
 function makeLevel(id = 'upstairs') {
   return {
@@ -59,9 +56,7 @@ function makeLevel(id = 'upstairs') {
       },
       isValidPosition(position) {
         return (
-          Number.isFinite(position.x) &&
-          Number.isFinite(position.y) &&
-          Number.isFinite(position.z)
+          Number.isFinite(position.x) && Number.isFinite(position.y) && Number.isFinite(position.z)
         );
       },
     },
@@ -71,7 +66,12 @@ function makeLevel(id = 'upstairs') {
 test('God Mode teleport list includes live rooms, anchors and spawns with Spectra featured', () => {
   const upstairs = makeLevel('upstairs');
   const downstairs = makeLevel('downstairs');
-  const game = { scenes: new Map([['upstairs', upstairs], ['downstairs', downstairs]]) };
+  const game = {
+    scenes: new Map([
+      ['upstairs', upstairs],
+      ['downstairs', downstairs],
+    ]),
+  };
 
   const destinations = collectGodModeTeleportDestinations(game);
   const spectra = destinations.find((destination) => destination.id === 'upstairs:anchor:console');
@@ -94,7 +94,10 @@ test('God Mode teleports across floors through SceneManager at a collision-safe 
   const calls = [];
   const game = {
     godMode: true,
-    scenes: new Map([['upstairs', upstairs], ['downstairs', downstairs]]),
+    scenes: new Map([
+      ['upstairs', upstairs],
+      ['downstairs', downstairs],
+    ]),
     sceneManager: {
       changing: false,
       current: downstairs,
