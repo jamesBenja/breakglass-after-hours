@@ -406,6 +406,7 @@ export class Hud {
           ['MODULAR SYNTH', 'modular'],
           ['GUITAR / BASS', 'guitar'],
           ['PIANO', 'piano'],
+          ['VOCAL / PHONE MIC', 'vocal'],
         ];
         for (const [label, inputKey] of choices) {
           const button = this.document.createElement('button');
