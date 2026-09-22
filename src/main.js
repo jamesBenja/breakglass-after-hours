@@ -86,10 +86,7 @@ if (!liveBuild.reloading) {
       saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : invitationSaveKey(invitation),
     });
     applyInvitationAccess(game, invitation);
-    if (godMode.enabled) {
-      applyGodMode(game, ui);
-      mountGodModeControls(document);
-    }
+    if (godMode.enabled) applyGodMode(game, ui);
     installMusicEnhancements(game, ui);
     installPartyPressureEnhancements(game, ui);
     installPartyLifeEnhancements(game, ui);
@@ -119,6 +116,7 @@ if (!liveBuild.reloading) {
     installSessionRecovery(game, ui);
     telemetry.attach(game, ui);
     await game.initialize();
+    if (godMode.enabled) mountGodModeControls(document, game, ui);
   } catch (error) {
     console.error('Breakglass startup failed', error);
     await game?.dispose();
