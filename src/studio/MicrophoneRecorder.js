@@ -95,7 +95,10 @@ export class MicrophoneRecorder {
       });
     } else this.timelineStart = 0;
 
-    this.recorder.start(100);
+    // Safari/iOS produces a much more reliable complete MP4 when MediaRecorder is allowed to
+    // finalize one file on stop. Timesliced MP4 chunks are fragmented and are not reliably
+    // decodable/playable when concatenated back together.
+    this.recorder.start();
     return true;
   }
 
@@ -196,7 +199,6 @@ export class MicrophoneRecorder {
       recorder.onstop = resolve;
     });
 
-    recorder.requestData?.();
     recorder.stop();
     await done;
     await this.flushPcmCapture();

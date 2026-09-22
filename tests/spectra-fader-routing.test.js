@@ -149,6 +149,72 @@ test('recorded Spectra stems use the same mute path for MUTE and SOLO', () => {
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 });
 
+test('blob-only vocal takes are treated as playable Spectra audio', async () => {
+  const OriginalAudio = globalThis.Audio;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  const created = [];
+
+  class FakeMedia {
+    constructor() {
+      this.src = '';
+      this.volume = 0;
+      this.loop = false;
+      this.playsInline = false;
+      this.readyState = 1;
+      this.duration = 2;
+      this.currentTime = 0;
+      this.played = false;
+      this.paused = false;
+      created.push(this);
+    }
+
+    play() {
+      this.played = true;
+      return Promise.resolve();
+    }
+
+    pause() {
+      this.paused = true;
+    }
+
+    removeAttribute(name) {
+      if (name === 'src') this.src = '';
+    }
+
+    load() {}
+    addEventListener() {}
+  }
+
+  globalThis.Audio = FakeMedia;
+  URL.createObjectURL = () => 'blob:recorded-vocal';
+  URL.revokeObjectURL = () => {};
+
+  try {
+    const playback = new StudioPlayback(fakeAudio());
+    const session = new StudioSession();
+    const vocal = session.addTake('vocal', 'Vocal take', 'browser-microphone');
+    session.attachRecording(vocal.id, null, new Blob(['voice'], { type: 'audio/mp4' }));
+    playback.session = session;
+
+    const started = await playback.startBlobRecordings(session, 0);
+    assert.equal(started, 1);
+    assert.equal(created.length, 1);
+    assert.equal(created[0].src, 'blob:recorded-vocal');
+    assert.equal(created[0].played, true);
+    assert.equal(playback.blobStems.get(vocal.id), created[0]);
+
+    vocal.mute = true;
+    playback.applyChannelAudibility(session);
+    assert.equal(created[0].volume, 0);
+    playback.stop();
+  } finally {
+    globalThis.Audio = OriginalAudio;
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  }
+});
+
 test('Spectra exposes independent reverb and delay sends with persistent FX detail settings', () => {
   const playback = new StudioPlayback(fakeAudio());
   const session = new StudioSession();

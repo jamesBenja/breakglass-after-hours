@@ -24,19 +24,23 @@ class FakeMediaRecorder {
     this.onerror = null;
   }
 
-  start() {
+  start(...args) {
+    this.startArgs = args;
     this.state = 'recording';
   }
 
   requestData() {
-    this.ondataavailable?.({
-      data: new Blob(['mic-data'], { type: this.mimeType }),
-    });
+    this.requestDataCalled = true;
   }
 
   stop() {
     this.state = 'inactive';
-    queueMicrotask(() => this.onstop?.());
+    queueMicrotask(() => {
+      this.ondataavailable?.({
+        data: new Blob(['mic-data'], { type: this.mimeType }),
+      });
+      this.onstop?.();
+    });
   }
 }
 
@@ -244,7 +248,10 @@ test('MicrophoneRecorder uses PCM when MediaRecorder decode fails', async () => 
       },
     });
 
+    const mediaRecorder = recorder.recorder;
     const result = await recorder.stop();
+    assert.deepEqual(mediaRecorder.startArgs, []);
+    assert.equal(mediaRecorder.requestDataCalled, undefined);
     assert.ok(result.buffer);
     assert.equal(result.buffer.length, 6);
     assert.deepEqual(
