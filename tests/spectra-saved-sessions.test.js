@@ -81,7 +81,10 @@ test('deleting the default Vocal track stays deleted after the new input schema 
   session.removeTrack(vocal.id);
   const reopened = new StudioSession(session.snapshot());
 
-  assert.equal(reopened.stems.some((stem) => stem.inputKey === 'vocal'), false);
+  assert.equal(
+    reopened.stems.some((stem) => stem.inputKey === 'vocal'),
+    false,
+  );
 });
 
 test('additional Vocal tracks persist as normal Spectra inputs', () => {
