@@ -105,3 +105,52 @@ test('Neve outboard rack sits beside the tape machine and clear of the console',
     'rack should no longer obstruct the Neve console',
   );
 });
+
+
+test('Spectra Vocal station exists once in the back acoustic-panel corner and is interactable', () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    createElement() {
+      return {
+        width: 0,
+        height: 0,
+        getContext() {
+          return {
+            fillStyle: '',
+            font: '',
+            fillText() {},
+          };
+        },
+      };
+    },
+  };
+
+  const root = new Group();
+  const definition = createUpstairsDefinition('B');
+  buildStudioEquipment(root, definition);
+
+  const fixture = definition.fixtures.find((item) => item.id === 'spectra-vocal-mic');
+  const anchor = definition.anchors.vocalMic;
+  const sofa = definition.fixtures.find((item) => item.id === 'mix-sofa-rear');
+
+  assert.ok(fixture, 'expected the RCA 44-style Vocal station fixture');
+  assert.ok(anchor, 'expected an interaction anchor for the Vocal station');
+  assert.equal(anchor.action, 'vocal');
+  assert.equal(fixture.player, false);
+  assert.equal(fixture.camera, false);
+
+  const fixtureX = (fixture.x1 + fixture.x2) / 2;
+  const fixtureZ = (fixture.z1 + fixture.z2) / 2;
+  const sofaX = (sofa.x1 + sofa.x2) / 2;
+  const sofaZ = (sofa.z1 + sofa.z2) / 2;
+  assert.ok(fixtureX > sofaX, 'Vocal mic should sit in the empty corner east of the rear couch');
+  assert.ok(fixtureZ < sofaZ, 'Vocal mic should sit closer to the back acoustic-panel wall');
+
+  const matches = [];
+  root.traverse((object) => {
+    if (object.name === 'spectra-vocal-mic') matches.push(object);
+  });
+  assert.equal(matches.length, 1, 'Vocal station should render exactly once');
+
+  globalThis.document = previousDocument;
+});
