@@ -107,10 +107,7 @@ export class MicrophoneRecorder {
 
     this.captureSource = context.createMediaStreamSource(this.stream);
 
-    if (
-      context.audioWorklet?.addModule &&
-      typeof globalThis.AudioWorkletNode === 'function'
-    ) {
+    if (context.audioWorklet?.addModule && typeof globalThis.AudioWorkletNode === 'function') {
       try {
         const key = '__breakglassMicCaptureWorkletV2';
         if (!context[key]) {
