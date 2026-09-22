@@ -258,9 +258,10 @@ function resolveTeleportLanding(level, destination) {
   if (exact) return exact;
 
   const base = Math.max(0.65, Math.min(1.8, (Number(destination.radius) || 1.25) * 0.7));
-  const distances = [...new Set([base, 1, 1.5, 2, 2.75, 3.5].map((value) => value.toFixed(2)))].map(
-    Number,
+  const uniqueDistances = new Set(
+    [base, 1, 1.5, 2, 2.75, 3.5].map((value) => value.toFixed(2)),
   );
+  const distances = [...uniqueDistances].map(Number);
   const [targetX, targetY, targetZ] = destination.position;
 
   for (const distance of distances) {
