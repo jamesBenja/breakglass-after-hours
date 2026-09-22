@@ -40,6 +40,125 @@ class FakeMediaRecorder {
   }
 }
 
+test('MicrophoneRecorder prefers AudioWorklet PCM capture on modern Safari', async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalMediaRecorder = globalThis.MediaRecorder;
+  const originalAudioWorkletNode = globalThis.AudioWorkletNode;
+  const track = {
+    stopped: false,
+    stop() {
+      this.stopped = true;
+    },
+  };
+  const stream = { getTracks: () => [track] };
+  const audioSession = { type: 'playback' };
+  let workletNode = null;
+  let moduleUrl = null;
+
+  class FakeAudioWorkletNode {
+    constructor() {
+      workletNode = this;
+      this.port = {
+        onmessage: null,
+        postMessage: (message) => {
+          if (message === 'flush') {
+            queueMicrotask(() => this.port.onmessage?.({ data: { type: 'flushed' } }));
+          }
+        },
+      };
+    }
+
+    connect() {}
+    disconnect() {}
+  }
+
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      audioSession,
+      mediaDevices: {
+        async getUserMedia() {
+          return stream;
+        },
+      },
+    },
+  });
+  globalThis.MediaRecorder = FakeMediaRecorder;
+  globalThis.AudioWorkletNode = FakeAudioWorkletNode;
+
+  try {
+    const context = {
+      state: 'running',
+      sampleRate: 48000,
+      destination: {},
+      audioWorklet: {
+        async addModule(url) {
+          moduleUrl = url;
+        },
+      },
+      createMediaStreamSource() {
+        return makeNode();
+      },
+      createGain() {
+        return { ...makeNode(), gain: { value: 1 } };
+      },
+      createBuffer(channels, length, sampleRate) {
+        const data = Array.from({ length: channels }, () => new Float32Array(length));
+        return {
+          numberOfChannels: channels,
+          length,
+          sampleRate,
+          duration: length / sampleRate,
+          getChannelData(channel) {
+            return data[channel];
+          },
+        };
+      },
+      async decodeAudioData() {
+        throw new Error('encoded fallback should not be needed');
+      },
+    };
+    const audio = {
+      context,
+      async resume() {
+        return true;
+      },
+      async recoverAfterMicrophoneCapture() {
+        audioSession.type = 'playback';
+        return true;
+      },
+    };
+
+    const recorder = new MicrophoneRecorder(audio);
+    assert.equal(await recorder.start(), true);
+    assert.ok(String(moduleUrl).includes('MicrophoneCaptureWorklet'));
+    assert.ok(workletNode);
+
+    workletNode.port.onmessage({
+      data: new Float32Array([0.12, -0.24, 0.36, -0.48]),
+    });
+    workletNode.port.onmessage({
+      data: new Float32Array([0.6, -0.72]),
+    });
+
+    const result = await recorder.stop();
+    assert.equal(result.captureMode, 'worklet');
+    assert.equal(result.pcmFrames, 6);
+    assert.equal(result.buffer.length, 6);
+    assert.deepEqual(
+      [...result.buffer.getChannelData(0)].map((value) => Number(value.toFixed(2))),
+      [0.12, -0.24, 0.36, -0.48, 0.6, -0.72],
+    );
+    assert.equal(track.stopped, true);
+    assert.equal(audioSession.type, 'playback');
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
+    globalThis.MediaRecorder = originalMediaRecorder;
+    globalThis.AudioWorkletNode = originalAudioWorkletNode;
+  }
+});
+
 test('MicrophoneRecorder uses PCM when MediaRecorder decode fails', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
@@ -163,6 +282,9 @@ test('AudioEngine restores playback mode after mic capture', async () => {
     engine.environmentGain = {
       gain: {
         setTargetAtTime(value) {
+          values.push(['gain-target', value]);
+        },
+        setValueAtTime(value) {
           values.push(['gain', value]);
         },
       },
@@ -170,6 +292,9 @@ test('AudioEngine restores playback mode after mic capture', async () => {
     engine.environmentFilter = {
       frequency: {
         setTargetAtTime(value) {
+          values.push(['filter-target', value]);
+        },
+        setValueAtTime(value) {
           values.push(['filter', value]);
         },
       },
@@ -177,6 +302,9 @@ test('AudioEngine restores playback mode after mic capture', async () => {
     const sourceGain = {
       gain: {
         setTargetAtTime(value) {
+          values.push(['source-target', value]);
+        },
+        setValueAtTime(value) {
           values.push(['source', value]);
         },
       },
@@ -184,6 +312,9 @@ test('AudioEngine restores playback mode after mic capture', async () => {
     const sourceFilter = {
       frequency: {
         setTargetAtTime(value) {
+          values.push(['source-filter-target', value]);
+        },
+        setValueAtTime(value) {
           values.push(['source-filter', value]);
         },
       },
