@@ -61,12 +61,22 @@ class FakeAnalyser extends FakeNode {
 function fakeAudio(createdSources = []) {
   const context = {
     currentTime: 0,
+    sampleRate: 10,
     createGain: () => new FakeNode(),
     createBiquadFilter: () => new FakeNode(),
     createDynamicsCompressor: () => new FakeNode(),
     createDelay: () => new FakeNode(),
     createStereoPanner: () => new FakeNode(),
     createAnalyser: () => new FakeAnalyser(),
+    createBuffer: (channels, length, sampleRate) => {
+      const data = Array.from({ length: channels }, () => new Float32Array(length));
+      return {
+        duration: length / sampleRate,
+        numberOfChannels: channels,
+        sampleRate,
+        getChannelData: (channel) => data[channel],
+      };
+    },
     createBufferSource: () => {
       const source = new FakeNode();
       source.buffer = null;
@@ -215,6 +225,48 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
   }
+});
+
+test('recorded microphone audio is padded onto the Spectra bar grid and loops persistently', () => {
+  const createdSources = [];
+  const playback = new StudioPlayback(fakeAudio(createdSources));
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+  session.loopEnabled = false;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  vocal.clipStart = 2;
+
+  const samples = Float32Array.from([0.2, 0.4, 0.6, 0.8, 1, 0.8, 0.6, 0.4, 0.2, 0.1]);
+  const recording = {
+    duration: 1,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => samples,
+  };
+  session.recordings.set(vocal.id, recording);
+  playback.session = session;
+  playback.updateMix(session);
+
+  assert.equal(
+    playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 3.5 }),
+    1,
+  );
+
+  const source = createdSources[0];
+  assert.equal(source.loop, true, 'microphone takes should remain Spectra loops');
+  assert.equal(source.loopStart, 0);
+  assert.equal(source.loopEnd, 4);
+  assert.equal(source.buffer.duration, 4);
+  assert.notEqual(source.buffer, recording, 'vocal should be placed into a loop-length buffer');
+  assert.deepEqual(source.startArgs, [0, 3.5]);
+
+  const aligned = source.buffer.getChannelData(0);
+  assert.equal(aligned.slice(0, 20).every((value) => value === 0), true);
+  assert.deepEqual(Array.from(aligned.slice(20, 30)), Array.from(samples));
+  assert.equal(aligned.slice(30).every((value) => value === 0), true);
 });
 
 test('Spectra exposes independent reverb and delay sends with persistent FX detail settings', () => {
