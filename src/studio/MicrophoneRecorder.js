@@ -1,4 +1,3 @@
-
 async function decodeRecordingBlob(audio, blob) {
   const context = audio?.context;
   if (!context?.decodeAudioData || !blob?.size || typeof blob.arrayBuffer !== 'function') {
