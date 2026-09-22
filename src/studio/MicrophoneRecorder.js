@@ -30,9 +30,9 @@ async function decodeRecordingBlob(audio, blob) {
 /**
  * Minimal browser microphone recorder for Spectra vocal takes.
  *
- * Deliberately uses the browser's native MediaRecorder format with no forced mime type,
- * no AudioWorklet, no ScriptProcessor and no WebAudio decode step. Safari is responsible
- * for producing one complete recording file, and Spectra plays that exact Blob back.
+ * Uses the browser's native MediaRecorder format with no forced mime type, AudioWorklet or
+ * ScriptProcessor. Safari produces the recording file; Spectra decodes it into its normal
+ * channel path when possible and keeps the native Blob as a fallback.
  */
 export class MicrophoneRecorder {
   constructor(audio) {
@@ -79,6 +79,15 @@ export class MicrophoneRecorder {
 
     this.startedAt = performance.now();
     if (this.spectraTransport) {
+      // Vocal takes are Spectra loops just like armed instrument recordings. Force the same
+      // loop-grid invariant before capturing so clipStart is wrapped to the active bar cycle.
+      const session = this.spectraTransport.session;
+      if (session) {
+        session.loopEnabled = true;
+        session.loopBars = [1, 2, 4, 8, 16].includes(Number(session.loopBars))
+          ? Number(session.loopBars)
+          : 4;
+      }
       this.spectraTransport.acquire(this.transportOwner, { position: 0 });
       const position = this.spectraTransport.position();
       this.timelineStart = this.spectraTransport.quantizeTime(position, {
