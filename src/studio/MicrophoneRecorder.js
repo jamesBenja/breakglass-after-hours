@@ -1,3 +1,33 @@
+
+async function decodeRecordingBlob(audio, blob) {
+  const context = audio?.context;
+  if (!context?.decodeAudioData || !blob?.size || typeof blob.arrayBuffer !== 'function') {
+    return null;
+  }
+
+  let bytes = null;
+  try {
+    bytes = await blob.arrayBuffer();
+  } catch {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value ?? null);
+    };
+    try {
+      const result = context.decodeAudioData(bytes.slice(0), finish, () => finish(null));
+      if (result?.then) result.then(finish, () => finish(null));
+    } catch {
+      finish(null);
+    }
+  });
+}
+
 /**
  * Minimal browser microphone recorder for Spectra vocal takes.
  *
@@ -88,14 +118,19 @@ export class MicrophoneRecorder {
     this.cleanupStream();
     await this.audio.recoverAfterMicrophoneCapture?.();
 
+    // Prefer a decoded AudioBuffer so the take enters the exact same WebAudio/Spectra bus,
+    // fader, mute/solo, FX, meters and spatial path as every other recorded track. Keep the
+    // native MediaRecorder Blob too so Safari still has a raw-file fallback if decoding fails.
+    const buffer = await decodeRecordingBlob(this.audio, blob);
+
     this.recorder = null;
     this.chunks = [];
     this.spectraTransport?.release?.(this.transportOwner);
 
     return {
       blob,
-      buffer: null,
-      duration,
+      buffer,
+      duration: buffer?.duration || duration,
       type: blob.type || type,
       timelineStart: this.timelineStart,
       bytes: blob.size,
