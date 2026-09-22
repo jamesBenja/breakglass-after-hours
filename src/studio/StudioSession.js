@@ -83,6 +83,17 @@ export const DEFAULT_STEMS = [
     monitor: true,
     recordArm: false,
   },
+  {
+    id: 'input-vocal',
+    label: 'Vocal',
+    kind: 'vocal',
+    inputKey: 'vocal',
+    level: 0.72,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
 ];
 
 export const DANCE_SHOES_STEMS = studioSessionById('dance-shoes').stems;
@@ -236,10 +247,40 @@ export function normalizeStudioSession(value = {}) {
           : [stem],
       )
     : sourceStems;
-  const stems = migratedSourceStems.slice(0, 12).map(normalizeStem);
+  const legacySixInputIds = [
+    'input-drum-machine',
+    'input-drum-kit',
+    'input-synth',
+    'input-modular',
+    'input-guitar',
+    'input-piano',
+  ];
+  const inputVersion = Math.max(0, Math.floor(Number(value.inputVersion) || 0));
+  const restoreMissingVocal =
+    inputVersion < 2 &&
+    !migratedSourceStems.some((stem) => stem?.inputKey === 'vocal' || stem?.id === 'input-vocal') &&
+    legacySixInputIds.every((id) => migratedSourceStems.some((stem) => stem?.id === id));
+  const versionedSourceStems = restoreMissingVocal
+    ? [
+        ...migratedSourceStems,
+        {
+          id: 'input-vocal',
+          label: 'Vocal',
+          kind: 'vocal',
+          inputKey: 'vocal',
+          level: 0.72,
+          pan: 0,
+          mute: false,
+          monitor: true,
+          recordArm: false,
+        },
+      ]
+    : migratedSourceStems;
+  const stems = versionedSourceStems.slice(0, 12).map(normalizeStem);
 
   return {
     project: isProject,
+    inputVersion: 2,
     name: upgrade
       ? 'Spectra Session'
       : typeof value.name === 'string' && value.name.trim()
@@ -261,6 +302,7 @@ export class StudioSession {
   constructor(value) {
     const normalized = normalizeStudioSession(value);
     this.project = normalized.project;
+    this.inputVersion = normalized.inputVersion;
     this.name = normalized.name;
     this.bpm = normalized.bpm;
     this.setup = normalized.setup;
@@ -298,6 +340,7 @@ export class StudioSession {
   replace(value = {}) {
     const normalized = normalizeStudioSession(value);
     this.project = normalized.project;
+    this.inputVersion = normalized.inputVersion;
     this.name = normalized.name;
     this.bpm = normalized.bpm;
     this.setup = normalized.setup;
@@ -318,6 +361,7 @@ export class StudioSession {
   newProject(name = 'Untitled Spectra Session', bpm = 118) {
     return this.replace({
       project: true,
+      inputVersion: 2,
       name,
       bpm,
       stems: DEFAULT_STEMS.map((stem) => ({ ...stem })),
@@ -353,6 +397,7 @@ export class StudioSession {
       modular: { label: 'Modular Synth', kind: 'synth', level: 0.66 },
       guitar: { label: 'Guitar', kind: 'guitar', level: 0.64 },
       piano: { label: 'Piano', kind: 'keys', level: 0.66 },
+      vocal: { label: 'Vocal', kind: 'vocal', level: 0.72 },
     };
     const definition = definitions[inputKey];
     if (!definition || this.stems.length >= 12) return null;
@@ -421,6 +466,14 @@ export class StudioSession {
   attachRecording(stemId, audioBuffer, blob = null) {
     if (audioBuffer) this.recordings.set(stemId, audioBuffer);
     if (blob) this.recordingBlobs.set(stemId, blob);
+  }
+
+  replaceRecording(stemId, audioBuffer = null, blob = null) {
+    this.recordings.delete(stemId);
+    this.recordingBlobs.delete(stemId);
+    if (audioBuffer) this.recordings.set(stemId, audioBuffer);
+    if (blob) this.recordingBlobs.set(stemId, blob);
+    return !!(audioBuffer || blob);
   }
 
   attachPerformance(stemId, performance) {
@@ -578,6 +631,7 @@ export class StudioSession {
   snapshot() {
     return {
       project: this.project === true,
+      inputVersion: 2,
       name: this.name,
       bpm: this.bpm,
       setup: { ...this.setup },
