@@ -18,7 +18,7 @@ test('added Spectra input tracks persist with their selected input', () => {
   assert.equal(restored.recordArm, false);
 });
 
-test('new Spectra projects start with six monitored input channels including Modular Synth', () => {
+test('new Spectra projects start with seven monitored input channels including Vocal', () => {
   const session = new StudioSession();
   session.newProject('New Song', 124);
   session.clickEnabled = true;
@@ -28,7 +28,7 @@ test('new Spectra projects start with six monitored input channels including Mod
   assert.equal(session.bpm, 124);
   assert.deepEqual(
     session.stems.map((stem) => stem.inputKey),
-    ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano'],
+    ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano', 'vocal'],
   );
   assert.ok(session.stems.every((stem) => stem.monitor === true));
   assert.ok(session.stems.every((stem) => stem.recordArm === false));
@@ -37,16 +37,16 @@ test('new Spectra projects start with six monitored input channels including Mod
 
   const reopened = new StudioSession(session.snapshot());
   assert.equal(reopened.project, true);
-  assert.equal(reopened.stems.length, 6);
+  assert.equal(reopened.stems.length, 7);
   assert.deepEqual(
     reopened.stems.map((stem) => stem.inputKey),
-    ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano'],
+    ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano', 'vocal'],
   );
   assert.equal(reopened.name, 'New Song');
   assert.equal(reopened.clickEnabled, true);
 });
 
-test('existing five-channel Spectra input sessions regain the missing Modular Synth channel', () => {
+test('legacy Spectra input sessions regain missing Modular Synth and Vocal channels', () => {
   const oldFive = new StudioSession({
     project: true,
     name: 'Existing Session',
@@ -67,9 +67,34 @@ test('existing five-channel Spectra input sessions regain the missing Modular Sy
 
   assert.deepEqual(
     oldFive.stems.map((stem) => stem.inputKey),
-    ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano'],
+    ['drum-machine', 'drum-kit', 'synth', 'modular', 'guitar', 'piano', 'vocal'],
   );
   assert.equal(oldFive.stems.find((stem) => stem.inputKey === 'modular')?.label, 'Modular Synth');
+  assert.equal(oldFive.stems.find((stem) => stem.inputKey === 'vocal')?.label, 'Vocal');
+});
+
+test('deleting the default Vocal track stays deleted after the new input schema is saved', () => {
+  const session = new StudioSession();
+  const vocal = session.stems.find((stem) => stem.id === 'input-vocal');
+  assert.ok(vocal);
+
+  session.removeTrack(vocal.id);
+  const reopened = new StudioSession(session.snapshot());
+
+  assert.equal(reopened.stems.some((stem) => stem.inputKey === 'vocal'), false);
+});
+
+test('additional Vocal tracks persist as normal Spectra inputs', () => {
+  const session = new StudioSession();
+  const added = session.addInputTrack('vocal');
+  assert.ok(added);
+  assert.equal(added.label, 'Vocal 2');
+
+  const reopened = new StudioSession(session.snapshot());
+  const restored = reopened.stems.find((stem) => stem.id === added.id);
+  assert.ok(restored);
+  assert.equal(restored.inputKey, 'vocal');
+  assert.equal(restored.kind, 'vocal');
 });
 
 test('saved Spectra projects survive normal game-save validation with instrument state', () => {
@@ -95,7 +120,7 @@ test('saved Spectra projects survive normal game-save validation with instrument
   assert.equal(saved.studioProjects.length, 1);
   assert.equal(saved.activeStudioProjectId, 'project-a');
   assert.equal(saved.studioProjects[0].session.project, true);
-  assert.equal(saved.studioProjects[0].session.stems.length, 6);
+  assert.equal(saved.studioProjects[0].session.stems.length, 7);
   assert.equal(saved.studioProjects[0].drumMachine.kit, '909');
   assert.equal(saved.studioProjects[0].modularSynth.wave, 'square');
 });
