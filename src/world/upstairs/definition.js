@@ -164,6 +164,12 @@ export function createUpstairsDefinition(pass = 'B') {
         radius: 1.55,
         action: 'drumMachine',
       },
+      vocalMic: {
+        name: 'Spectra Vocal station · RCA 44 microphone',
+        position: at(310, 732),
+        radius: 1.45,
+        action: 'vocal',
+      },
       modularSynth: {
         name: 'Patchable modular synth + sequencer',
         position: at(195, 777),
