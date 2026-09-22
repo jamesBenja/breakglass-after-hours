@@ -150,8 +150,8 @@ test('Spectra Vocal station exists once in the back acoustic-panel corner and is
     'Vocal mic should sit behind the span of the rear acoustic-panel bank',
   );
   assert.ok(
-    fixtureZ < panelBankZ,
-    'Vocal mic should be physically behind the acoustic panels, not in the main control room',
+    fixtureZ < panelBankZ - 1.5,
+    'Vocal mic should sit well inside the empty booth, not directly against the acoustic panels',
   );
   assert.ok(fixtureZ < sofaZ, 'Vocal mic should remain behind the rear couch');
   assert.ok(Math.abs(anchor.position[0] - fixtureX) < 0.01);
