@@ -101,7 +101,6 @@ test('MicrophoneRecorder uses the browser native MediaRecorder format and return
   }
 });
 
-
 test('MicrophoneRecorder keeps the native vocal Blob when WebAudio decoding is unavailable', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
