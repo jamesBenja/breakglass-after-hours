@@ -140,20 +140,17 @@ test('Spectra Vocal station exists once in the back acoustic-panel corner and is
 
   const fixtureX = (fixture.x1 + fixture.x2) / 2;
   const fixtureZ = (fixture.z1 + fixture.z2) / 2;
-  const sofaZ = (sofa.z1 + sofa.z2) / 2;
-  const panelBankZ = (685 - 820) / 20;
-  const panelBankMinX = (202 - 500) / 20;
-  const panelBankMaxX = (314 - 500) / 20;
+  const dividingWallX = (242 - 500) / 20;
+  const mixingSuiteNorthZ = (668 - 820) / 20;
 
   assert.ok(
-    fixtureX >= panelBankMinX && fixtureX <= panelBankMaxX,
-    'Vocal mic should sit behind the span of the rear acoustic-panel bank',
+    fixtureX < dividingWallX - 0.5,
+    'Vocal mic should be clearly west of the dividing wall in the narrow empty strip',
   );
   assert.ok(
-    fixtureZ < panelBankZ - 1.5,
-    'Vocal mic should sit well inside the empty booth, not directly against the acoustic panels',
+    fixtureZ < mixingSuiteNorthZ,
+    'Vocal mic should sit north of Mixing Suite A in the empty circulation pocket shown in the screenshot',
   );
-  assert.ok(fixtureZ < sofaZ, 'Vocal mic should remain behind the rear couch');
   assert.ok(Math.abs(anchor.position[0] - fixtureX) < 0.01);
   assert.ok(Math.abs(anchor.position[2] - fixtureZ) < 0.01);
 

@@ -97,9 +97,9 @@ export function createGameSpace() {
       camera: false,
       surface: false,
     }),
-    // Vocal booth sits well inside the empty room behind the rear acoustic-panel bank, leaving
-    // clear visual and walking separation from the panels.
-    prop('spectra-vocal-mic', 260, 640, 0.5, 0.5, 1.72, 0x4b4e50, {
+    // Screenshot-matched vocal position: in the narrow empty circulation strip west of the
+    // dividing wall, not in the Dead Room on the other side.
+    prop('spectra-vocal-mic', 215, 625, 0.5, 0.5, 1.72, 0x4b4e50, {
       kind: 'equipment',
       name: 'Spectra vocal station · RCA 44 ribbon mic',
       rotationY: Math.PI,
