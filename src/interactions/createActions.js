@@ -452,7 +452,13 @@ export function createActions({
       ui.warning?.('This browser cannot record the computer microphone here.');
       return;
     }
-    await micRecorder.start();
+    try {
+      const started = await micRecorder.start();
+      if (!started) return;
+    } catch (error) {
+      ui.warning?.(`Microphone recording could not start: ${error?.message ?? 'unknown error'}`);
+      return;
+    }
     const mic = gearById(MICS, studio.setup.mic);
     panel(
       'VOCAL TAKE · RECORDING',
@@ -463,6 +469,14 @@ export function createActions({
           async () => {
             const result = await micRecorder.stop();
             if (!result) return;
+            if (!result.buffer?.duration) {
+              ui.warning?.(
+                'The microphone opened, but no playable audio samples were captured. No empty vocal track was added.',
+              );
+              consolePanel();
+              return;
+            }
+
             const stem = studio.addTake(
               'vocal',
               `Vocal take ${studio.takeCounter + 1}`,
@@ -481,8 +495,7 @@ export function createActions({
             // more without another delay before rebuilding the Spectra playback graph.
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
 
-            if (result.buffer || result.blob?.size) await monitorStudio();
-            else ui.warning?.('The microphone take was empty and was not added to playback.');
+            await monitorStudio();
             consolePanel();
           },
         ],
