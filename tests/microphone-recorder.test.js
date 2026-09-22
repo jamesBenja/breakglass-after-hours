@@ -101,6 +101,57 @@ test('MicrophoneRecorder uses the browser native MediaRecorder format and return
   }
 });
 
+test('MicrophoneRecorder forces the Spectra loop grid on before capturing a vocal take', async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalMediaRecorder = globalThis.MediaRecorder;
+  const stream = { getTracks: () => [{ stop() {} }] };
+
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      mediaDevices: {
+        async getUserMedia() {
+          return stream;
+        },
+      },
+    },
+  });
+  globalThis.MediaRecorder = FakeMediaRecorder;
+
+  try {
+    const session = { loopEnabled: false, loopBars: 3 };
+    const calls = [];
+    const recorder = new MicrophoneRecorder({});
+    recorder.spectraTransport = {
+      session,
+      acquire(owner, options) {
+        calls.push(['acquire', owner, options]);
+      },
+      position() {
+        return 6.4;
+      },
+      quantizeTime(position, options) {
+        calls.push(['quantize', position, options]);
+        return 2.5;
+      },
+      release(owner) {
+        calls.push(['release', owner]);
+      },
+    };
+
+    assert.equal(await recorder.start(), true);
+    assert.equal(session.loopEnabled, true);
+    assert.equal(session.loopBars, 4);
+    assert.equal(recorder.timelineStart, 2.5);
+    assert.deepEqual(calls[1], ['quantize', 6.4, { wrap: true, includeSwing: true }]);
+    recorder.cancel();
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
+    globalThis.MediaRecorder = originalMediaRecorder;
+  }
+});
+
 test('MicrophoneRecorder keeps the native vocal Blob when WebAudio decoding is unavailable', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
