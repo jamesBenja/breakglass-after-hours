@@ -61,7 +61,14 @@ test('MicrophoneRecorder uses the browser native MediaRecorder format and return
   globalThis.MediaRecorder = FakeMediaRecorder;
 
   try {
+    const decoded = { duration: 1.25, numberOfChannels: 1 };
     const audio = {
+      context: {
+        decodeAudioData(_bytes, success) {
+          success?.(decoded);
+          return Promise.resolve(decoded);
+        },
+      },
       async recoverAfterMicrophoneCapture() {
         recovered += 1;
         audioSession.type = 'playback';
@@ -77,7 +84,8 @@ test('MicrophoneRecorder uses the browser native MediaRecorder format and return
     assert.equal(audioSession.type, 'play-and-record');
 
     const result = await recorder.stop();
-    assert.equal(result.buffer, null);
+    assert.equal(result.buffer, decoded);
+    assert.equal(result.duration, decoded.duration);
     assert.ok(result.blob instanceof Blob);
     assert.ok(result.blob.size > 0);
     assert.equal(result.bytes, result.blob.size);
@@ -90,6 +98,47 @@ test('MicrophoneRecorder uses the browser native MediaRecorder format and return
     else delete globalThis.navigator;
     globalThis.MediaRecorder = originalMediaRecorder;
     FakeMediaRecorder.lastOptions = Symbol('unset');
+  }
+});
+
+test('MicrophoneRecorder keeps the native vocal Blob when WebAudio decoding is unavailable', async () => {
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalMediaRecorder = globalThis.MediaRecorder;
+  const stream = { getTracks: () => [{ stop() {} }] };
+
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      mediaDevices: {
+        async getUserMedia() {
+          return stream;
+        },
+      },
+    },
+  });
+  globalThis.MediaRecorder = FakeMediaRecorder;
+
+  try {
+    const recorder = new MicrophoneRecorder({
+      context: {
+        decodeAudioData() {
+          return Promise.reject(new Error('unsupported container'));
+        },
+      },
+      async recoverAfterMicrophoneCapture() {
+        return true;
+      },
+    });
+
+    assert.equal(await recorder.start(), true);
+    const result = await recorder.stop();
+    assert.equal(result.buffer, null);
+    assert.ok(result.blob instanceof Blob);
+    assert.ok(result.blob.size > 0);
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
+    globalThis.MediaRecorder = originalMediaRecorder;
   }
 });
 

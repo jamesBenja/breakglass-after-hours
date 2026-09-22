@@ -568,7 +568,9 @@ export function createActions({
               eq: studio.setup.eq,
               compressor: studio.setup.compressor,
             };
-            studio.replaceRecording?.(destination.id, null, result.blob);
+            studio.replaceRecording?.(destination.id, result.buffer ?? null, result.blob);
+            destination.renderedAudio = !!result.buffer;
+            destination.renderedAudioAt = result.buffer ? Date.now() : null;
             connectedVocalStemId = destination.id;
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
@@ -594,12 +596,33 @@ export function createActions({
   const vocalPanel = () => {
     const target = activeVocalTrack();
     const mic = gearById(MICS, studio.setup.mic);
-    const hasTake = !!target && studio.recordingBlobs?.has?.(target.id);
+    const hasTake =
+      !!target &&
+      (studio.recordings?.has?.(target.id) === true ||
+        studio.recordingBlobs?.has?.(target.id) === true);
     panel(
       'SPECTRA VOCAL STATION · RCA 44',
       `Phone/computer microphone → ${target?.label ?? 'Vocal'}. Modeled mic chain: ${mic.label} → ${gearById(PROCESSORS.eq, studio.setup.eq).label} → ${gearById(PROCESSORS.compressor, studio.setup.compressor).label}. ${hasTake ? 'This track already has a vocal take; recording again replaces it.' : 'Ready for a vocal take.'}`,
       [
         [`Record to ${target?.label ?? 'Vocal'}`, startVocalRecording],
+        ...(hasTake && target
+          ? [
+              [
+                `▶ Play ${target.label} take`,
+                async () => {
+                  await monitorStudio(target.id);
+                  vocalPanel();
+                },
+              ],
+              [
+                '■ Stop vocal take',
+                () => {
+                  studioPlayback?.stop?.();
+                  vocalPanel();
+                },
+              ],
+            ]
+          : []),
         ['Connect Vocal mic to track…', vocalConnectionPanel],
         [
           '+ New Vocal track',

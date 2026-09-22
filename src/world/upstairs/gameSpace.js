@@ -87,7 +87,8 @@ export function createGameSpace() {
     prop('side-rack', 185, 742, 0.85, 1.3, 1.7, 0x414f57, {
       kind: 'equipment',
       name: 'Spectra outboard rack',
-      rotationY: Math.PI / 2,
+      // The rack sits on the west wall, so its control face must point east into the room.
+      rotationY: -Math.PI / 2,
     }),
     prop('spectra-drum-machine', 320, 826, 1.3, 0.78, 1.04, 0x554a3c, {
       kind: 'equipment',
@@ -96,10 +97,12 @@ export function createGameSpace() {
       camera: false,
       surface: false,
     }),
-    prop('spectra-vocal-mic', 310, 700, 0.5, 0.5, 1.72, 0x4b4e50, {
+    // Vocal booth lives in the narrow pocket behind the rear acoustic-panel bank, not in the
+    // main control-room seating area.
+    prop('spectra-vocal-mic', 230, 680, 0.5, 0.5, 1.72, 0x4b4e50, {
       kind: 'equipment',
       name: 'Spectra vocal station · RCA 44 ribbon mic',
-      rotationY: -Math.PI / 4,
+      rotationY: Math.PI,
       player: false,
       camera: false,
       surface: false,

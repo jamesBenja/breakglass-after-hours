@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { StudioSession } from '../src/studio/StudioSession.js';
 import { spectraInputKey, spectraInputStem } from '../src/studio/SpectraInputs.js';
+import { SPECTRA_ADD_TRACK_CHOICES } from '../src/ui/Hud.js';
 
 test('Vocal is a first-class Spectra input routed to the default Vocal channel', () => {
   const session = new StudioSession();
@@ -14,5 +15,12 @@ test('Vocal is a first-class Spectra input routed to the default Vocal channel',
   assert.equal(
     spectraInputStem(session, { mode: 'vocal', stemKind: 'vocal', inputKey: 'vocal' })?.id,
     'input-vocal',
+  );
+});
+
+test('Vocal appears in the Spectra + ADD TRACK source menu', () => {
+  assert.deepEqual(
+    SPECTRA_ADD_TRACK_CHOICES.find(([, inputKey]) => inputKey === 'vocal'),
+    ['VOCAL / PHONE MIC', 'vocal'],
   );
 });
