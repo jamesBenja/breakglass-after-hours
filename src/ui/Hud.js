@@ -206,12 +206,11 @@ export class Hud {
       onFxDetail = null,
       onDeleteTrack = null,
       renderFooter = null,
-      onRecordVocal,
     } = {},
   ) {
     this.clearPanel(
       'SPECTRA CONSOLE',
-      `${session.name} · ${session.stems.length} channels · input monitoring is always on. Arm individual channels, then use the master RECORD control.`,
+      `${session.name} · ${session.stems.length} channels · input monitoring is always on. Arm instrument channels for master RECORD; Vocal records from its connected mic station.`,
     );
     this.panelElement?.classList.add('spectra-console-panel');
 
@@ -243,7 +242,6 @@ export class Hud {
                 onFxDetail,
                 onDeleteTrack,
                 renderFooter,
-                onRecordVocal,
               });
             }
           })
@@ -334,11 +332,6 @@ export class Hud {
     status.textContent = `${liveText} · ${armedCount} ARMED · MONITOR ALL`;
     toolbar.appendChild(status);
 
-    if (onRecordVocal) {
-      const vox = makeTransportButton('REC VOX', 'spectra-console-utility', onRecordVocal);
-      toolbar.appendChild(vox);
-    }
-
     const masterMeter = this.document.createElement('div');
     masterMeter.className = 'spectra-master-meter';
     const makeMasterLane = (label) => {
@@ -374,7 +367,6 @@ export class Hud {
         onFxDetail,
         onDeleteTrack,
         renderFooter,
-        onRecordVocal,
       });
 
     const views = this.document.createElement('div');
@@ -732,7 +724,6 @@ export class Hud {
         onFxDetail,
         onDeleteTrack,
         renderFooter,
-        onRecordVocal,
       });
     };
     const clearSolos = this.document.createElement('button');
@@ -756,7 +747,6 @@ export class Hud {
         onFxDetail,
         onDeleteTrack,
         renderFooter,
-        onRecordVocal,
       });
     };
     master.append(clearMutes, clearSolos);

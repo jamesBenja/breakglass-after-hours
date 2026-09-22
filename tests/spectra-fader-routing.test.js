@@ -193,8 +193,10 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
   try {
     const playback = new StudioPlayback(fakeAudio());
     const session = new StudioSession();
-    const vocal = session.addTake('vocal', 'Vocal take', 'browser-microphone');
-    session.attachRecording(vocal.id, null, new Blob(['voice'], { type: 'audio/mp4' }));
+    const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+    assert.ok(vocal, 'default Spectra session should expose a Vocal input channel');
+    vocal.source = 'browser-microphone';
+    session.replaceRecording(vocal.id, null, new Blob(['voice'], { type: 'audio/mp4' }));
     playback.session = session;
 
     const started = await playback.startBlobRecordings(session, 0);

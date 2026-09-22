@@ -96,6 +96,14 @@ export function createGameSpace() {
       camera: false,
       surface: false,
     }),
+    prop('spectra-vocal-mic', 310, 700, 0.5, 0.5, 1.72, 0x4b4e50, {
+      kind: 'equipment',
+      name: 'Spectra vocal station · RCA 44 ribbon mic',
+      rotationY: -Math.PI / 4,
+      player: false,
+      camera: false,
+      surface: false,
+    }),
     prop('mix-sofa-rear', 252, 706, 3.25, 0.95, 0.82, 0x4b4544, {
       kind: 'equipment',
       name: 'Spectra control-room couch',

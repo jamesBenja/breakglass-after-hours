@@ -150,6 +150,27 @@ export function buildStudioEquipment(root, definition) {
       }
       for (let i = 0; i < 4; i++) cyl(group, 0.035, 0.04, cream, 0.19 + i * 0.12, 1.035, -0.2);
       label(root, 'RHYTHM', group.position.x, 1.55, group.position.z, 0.22, '#ffd99e');
+    } else if (fixture.id === 'spectra-vocal-mic') {
+      const stand = mat(0x282b2d, 0.34, 0.62);
+      const chrome = mat(0xaeb4b5, 0.3, 0.72);
+      const grille = mat(0x202326, 0.72, 0.18);
+      const body = mat(0x5b6062, 0.46, 0.58);
+
+      // Weighted circular stand base and upright.
+      cyl(group, 0.22, 0.045, stand, 0, 0.025, 0);
+      cyl(group, 0.024, 1.32, chrome, 0, 0.68, 0);
+
+      // RCA 44-inspired yoke and broad ribbon-mic body.
+      box(group, 0.34, 0.035, 0.055, chrome, 0, 1.31, 0);
+      box(group, 0.035, 0.34, 0.055, chrome, -0.17, 1.47, 0);
+      box(group, 0.035, 0.34, 0.055, chrome, 0.17, 1.47, 0);
+      box(group, 0.29, 0.4, 0.16, body, 0, 1.5, 0);
+      box(group, 0.245, 0.27, 0.012, grille, 0, 1.54, -0.086);
+      for (let i = 0; i < 6; i++) {
+        box(group, 0.012, 0.245, 0.014, chrome, -0.095 + i * 0.038, 1.54, -0.094);
+      }
+      box(group, 0.19, 0.045, 0.014, chrome, 0, 1.35, -0.094);
+      label(root, 'VOCAL', group.position.x, 2.02, group.position.z, 0.2, '#e6d5b7');
     } else if (fixture.id === 'piano-body') {
       box(group, w, 0.62, d, wood, 0, 0.74, 0);
       for (const x of [-w / 2 + 0.12, w / 2 - 0.12])

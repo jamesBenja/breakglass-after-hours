@@ -5,6 +5,7 @@ import { createActions } from '../src/interactions/createActions.js';
 import { InputController } from '../src/player/InputController.js';
 import { interactionVerb } from '../src/ui/Hud.js';
 import { levels } from '../src/world/levels.js';
+import { StudioSession } from '../src/studio/StudioSession.js';
 
 test('only in-range interactions on the active floor are offered', () => {
   const dispatched = [];
@@ -70,6 +71,69 @@ test('instrument, console and DJ actions survive extraction; stale panel actions
   assert.deepEqual(calls.at(-1), ['play', '3am-tool']);
   panelActions[2][1]();
   assert.deepEqual(calls.at(-1), ['stop']);
+});
+
+test('Spectra Vocal station records the native browser mic into the default Vocal track', async () => {
+  const studio = new StudioSession();
+  const vocal = studio.stems.find((stem) => stem.inputKey === 'vocal');
+  assert.ok(vocal);
+
+  let panelActions = [];
+  let started = 0;
+  let stopped = 0;
+  const blob = new Blob(['real microphone audio'], { type: 'audio/mp4' });
+  const dispatch = createActions({
+    audio: {
+      async recoverAfterMicrophoneCapture() {
+        return true;
+      },
+    },
+    sceneManager: {
+      current: { definition: levels.upstairs },
+    },
+    ui: {
+      panel(title, text, actions) {
+        panelActions = actions;
+      },
+      warning() {},
+    },
+    studio,
+    studioPlayback: {
+      updateMix() {},
+    },
+    micRecorder: {
+      supported: true,
+      async start() {
+        started += 1;
+        return true;
+      },
+      async stop() {
+        stopped += 1;
+        return {
+          blob,
+          type: 'audio/mp4',
+          timelineStart: 0,
+        };
+      },
+      cancel() {},
+    },
+    state: { data: {} },
+    saveState() {},
+    canAct: () => true,
+  });
+
+  dispatch(levels.upstairs.anchors.vocalMic);
+  assert.match(String(panelActions[0][0]), /Record to Vocal/i);
+
+  await panelActions[0][1]();
+  assert.equal(started, 1);
+  assert.match(String(panelActions[0][0]), /Stop \+ commit to Vocal/i);
+
+  await panelActions[0][1]();
+  assert.equal(stopped, 1);
+  assert.equal(studio.recordingBlobs.get(vocal.id), blob);
+  assert.equal(vocal.source, 'browser-microphone');
+  assert.equal(vocal.inputKey, 'vocal');
 });
 
 test('mobile primary action label explains what the nearby interaction will do', () => {

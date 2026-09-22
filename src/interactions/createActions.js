@@ -447,11 +447,78 @@ export function createActions({
     ]);
   };
 
-  const recordVocal = async () => {
+  let connectedVocalStemId = null;
+
+  const vocalTracks = () => studio?.stems?.filter((stem) => stem.inputKey === 'vocal') ?? [];
+
+  const ensureVocalTrack = () => {
+    const existing =
+      vocalTracks().find((stem) => stem.id === 'input-vocal') ?? vocalTracks()[0] ?? null;
+    if (existing) return existing;
+    const added = studio?.addInputTrack?.('vocal') ?? null;
+    if (added) {
+      connectedVocalStemId = added.id;
+      rememberStudio();
+      studioPlayback?.updateMix?.(studio, { immediate: true });
+    }
+    return added;
+  };
+
+  const activeVocalTrack = () => {
+    const armed = vocalTracks().find((stem) => stem.recordArm === true);
+    if (armed) return armed;
+    const connected = vocalTracks().find((stem) => stem.id === connectedVocalStemId);
+    if (connected) return connected;
+    const fallback = ensureVocalTrack();
+    if (fallback) connectedVocalStemId = fallback.id;
+    return fallback;
+  };
+
+  const vocalConnectionPanel = () => {
+    const tracks = vocalTracks();
+    const connected = activeVocalTrack();
+    panel(
+      'SPECTRA VOCAL · CONNECTION',
+      `Phone/computer microphone input. Connected destination: ${connected?.label ?? 'none'}. An armed Vocal channel takes priority over the selected connection.`,
+      [
+        ...tracks.map((stem) => [
+          `${stem.id === connected?.id ? '✓ ' : ''}Connect to ${stem.label}`,
+          () => {
+            connectedVocalStemId = stem.id;
+            vocalPanel();
+          },
+        ]),
+        [
+          '+ New Vocal track',
+          () => {
+            const stem = studio.addInputTrack('vocal');
+            if (!stem) {
+              ui.warning?.('Could not add another Vocal track.');
+              return;
+            }
+            connectedVocalStemId = stem.id;
+            rememberStudio();
+            studioPlayback?.updateMix?.(studio, { immediate: true });
+            vocalPanel();
+          },
+        ],
+        ['Back to Vocal station', vocalPanel],
+        ['Back to Spectra mixer', consolePanel],
+      ],
+    );
+  };
+
+  const startVocalRecording = async () => {
     if (!micRecorder?.supported) {
-      ui.warning?.('This browser cannot record the computer microphone here.');
+      ui.warning?.('This browser cannot record its microphone here.');
       return;
     }
+    const target = activeVocalTrack();
+    if (!target) {
+      ui.warning?.('Add a Vocal track before recording.');
+      return;
+    }
+
     try {
       const started = await micRecorder.start();
       if (!started) return;
@@ -459,56 +526,96 @@ export function createActions({
       ui.warning?.(`Microphone recording could not start: ${error?.message ?? 'unknown error'}`);
       return;
     }
-    const mic = gearById(MICS, studio.setup.mic);
+
     panel(
-      'VOCAL TAKE · RECORDING',
-      `Recording through your computer microphone, modeled as ${mic.label} → ${gearById(PROCESSORS.eq, studio.setup.eq).label} → ${gearById(PROCESSORS.compressor, studio.setup.compressor).label}.`,
+      'SPECTRA VOCAL MIC · RECORDING',
+      `Recording the phone/computer microphone directly to ${target.label}. This uses the browser's native microphone recorder with no synthetic fallback.`,
       [
         [
-          'Stop + add take',
+          `Stop + commit to ${target.label}`,
           async () => {
-            const result = await micRecorder.stop();
-            if (!result) return;
-            const bytes = Number(result.blob?.size) || 0;
+            let result = null;
+            try {
+              result = await micRecorder.stop();
+            } catch (error) {
+              ui.warning?.(`Vocal recording failed: ${error?.message ?? 'unknown error'}`);
+              vocalPanel();
+              return;
+            }
+            const bytes = Number(result?.blob?.size) || 0;
             if (!bytes) {
               ui.warning?.(
-                'The microphone opened, but the browser returned a 0-byte recording. No vocal track was added.',
+                'The microphone opened, but the browser returned a 0-byte recording. Nothing was written to the Vocal track.',
               );
-              consolePanel();
+              vocalPanel();
               return;
             }
 
-            const stem = studio.addTake(
-              'vocal',
-              `Vocal take ${studio.takeCounter + 1}`,
-              'browser-microphone',
-              {
-                mic: studio.setup.mic,
-                eq: studio.setup.eq,
-                compressor: studio.setup.compressor,
-              },
-            );
-            stem.clipStart = Math.max(0, Number(result.timelineStart) || 0);
-            studio.attachRecording(stem.id, null, result.blob);
-            rememberStudio();
+            const destination =
+              studio.stems.find((stem) => stem.id === target.id) ?? activeVocalTrack();
+            if (!destination) {
+              ui.warning?.('The Vocal destination track no longer exists.');
+              vocalPanel();
+              return;
+            }
 
-            // Do not auto-start the new HTMLAudio source here. On iPhone the async MediaRecorder
-            // stop chain can outlive the original tap and Safari may block that playback. The
-            // normal Spectra PLAY button is a fresh user gesture and starts the exact saved Blob.
+            destination.kind = 'vocal';
+            destination.inputKey = 'vocal';
+            destination.source = 'browser-microphone';
+            destination.clipStart = Math.max(0, Number(result.timelineStart) || 0);
+            destination.processing = {
+              mic: studio.setup.mic,
+              eq: studio.setup.eq,
+              compressor: studio.setup.compressor,
+            };
+            studio.replaceRecording?.(destination.id, null, result.blob);
+            connectedVocalStemId = destination.id;
+            rememberStudio();
+            studioPlayback?.updateMix?.(studio, { immediate: true });
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
-            consolePanel();
+
             ui.warning?.(
-              `Vocal captured: ${Math.max(1, Math.round(bytes / 1024))} KB · ${result.type || 'browser audio'}. Tap PLAY to hear it.`,
+              `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Tap PLAY on the Spectra mixer to hear the exact recorded microphone file.`,
             );
+            consolePanel();
           },
         ],
         [
-          'Cancel',
+          'Cancel recording',
           () => {
             micRecorder.cancel();
-            consolePanel();
+            vocalPanel();
           },
         ],
+      ],
+    );
+  };
+
+  const vocalPanel = () => {
+    const target = activeVocalTrack();
+    const mic = gearById(MICS, studio.setup.mic);
+    const hasTake = !!target && studio.recordingBlobs?.has?.(target.id);
+    panel(
+      'SPECTRA VOCAL STATION · RCA 44',
+      `Phone/computer microphone → ${target?.label ?? 'Vocal'}. Modeled mic chain: ${mic.label} → ${gearById(PROCESSORS.eq, studio.setup.eq).label} → ${gearById(PROCESSORS.compressor, studio.setup.compressor).label}. ${hasTake ? 'This track already has a vocal take; recording again replaces it.' : 'Ready for a vocal take.'}`,
+      [
+        [`Record to ${target?.label ?? 'Vocal'}`, startVocalRecording],
+        ['Connect Vocal mic to track…', vocalConnectionPanel],
+        [
+          '+ New Vocal track',
+          () => {
+            const stem = studio.addInputTrack('vocal');
+            if (!stem) {
+              ui.warning?.('Could not add another Vocal track.');
+              return;
+            }
+            connectedVocalStemId = stem.id;
+            rememberStudio();
+            studioPlayback?.updateMix?.(studio, { immediate: true });
+            vocalPanel();
+          },
+        ],
+        ['Spectra mixer', consolePanel],
       ],
     );
   };
@@ -722,6 +829,7 @@ export function createActions({
         ['Modular Synth input', () => add('modular', 'Modular Synth')],
         ['Guitar / Bass input', () => add('guitar', 'Guitar / Bass')],
         ['Piano input', () => add('piano', 'Piano')],
+        ['Vocal / phone mic input', () => add('vocal', 'Vocal / phone mic')],
         ['Back to Spectra mixer', consolePanel],
       ],
     );
@@ -746,6 +854,7 @@ export function createActions({
       appendButton('GUITAR', openGuitarPanel);
       appendButton('BASS', openBassPanel);
       appendButton('PIANO', pianoPanel);
+      appendButton('VOCAL / MIC', vocalPanel);
       appendButton('MODULAR SYNTH', () => external.modularSynth?.());
 
       appendButton('SPECTRA SESSIONS · CREATE / SAVE / LOAD', () => workspace.sessions?.());
@@ -766,7 +875,6 @@ export function createActions({
         await monitorStudio();
       },
       onStop: () => studioPlayback.stop(),
-      onRecordVocal: recordVocal,
       onDeleteTrack: async (stemId) => {
         const removed =
           studioPlayback.removeStem?.(studio, stemId) ?? studio.removeTrack?.(stemId) ?? null;
@@ -1154,6 +1262,7 @@ export function createActions({
     guitar: openGuitarPanel,
     bass: openBassPanel,
     piano: pianoPanel,
+    vocal: vocalPanel,
     instruments: instrumentPanel,
   };
 
@@ -1161,6 +1270,7 @@ export function createActions({
     drums: drumsPanel,
     piano: pianoPanel,
     synth: synthPanel,
+    vocal: vocalPanel,
     instruments: instrumentPanel,
     amps: ampPanel,
     mics: micPanel,
