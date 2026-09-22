@@ -75,8 +75,8 @@ test('Spectra outboard rack sits against the wall behind the modular synth and f
   );
   assert.equal(
     rackFixture.rotationY ?? 0,
-    Math.PI / 2,
-    'rack should be rotated 90 degrees counter-clockwise',
+    -Math.PI / 2,
+    'rack control face should point east into the room instead of into the west wall',
   );
 });
 
@@ -140,10 +140,22 @@ test('Spectra Vocal station exists once in the back acoustic-panel corner and is
 
   const fixtureX = (fixture.x1 + fixture.x2) / 2;
   const fixtureZ = (fixture.z1 + fixture.z2) / 2;
-  const sofaX = (sofa.x1 + sofa.x2) / 2;
   const sofaZ = (sofa.z1 + sofa.z2) / 2;
-  assert.ok(fixtureX > sofaX, 'Vocal mic should sit in the empty corner east of the rear couch');
-  assert.ok(fixtureZ < sofaZ, 'Vocal mic should sit closer to the back acoustic-panel wall');
+  const panelBankZ = (685 - 820) / 20;
+  const panelBankMinX = (202 - 500) / 20;
+  const panelBankMaxX = (314 - 500) / 20;
+
+  assert.ok(
+    fixtureX >= panelBankMinX && fixtureX <= panelBankMaxX,
+    'Vocal mic should sit behind the span of the rear acoustic-panel bank',
+  );
+  assert.ok(
+    fixtureZ < panelBankZ,
+    'Vocal mic should be physically behind the acoustic panels, not in the main control room',
+  );
+  assert.ok(fixtureZ < sofaZ, 'Vocal mic should remain behind the rear couch');
+  assert.ok(Math.abs(anchor.position[0] - fixtureX) < 0.01);
+  assert.ok(Math.abs(anchor.position[2] - fixtureZ) < 0.01);
 
   const matches = [];
   root.traverse((object) => {
