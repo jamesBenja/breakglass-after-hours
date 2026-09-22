@@ -18,6 +18,16 @@ export function interactionVerb(target) {
   return 'USE';
 }
 
+export const SPECTRA_ADD_TRACK_CHOICES = [
+  ['DRUM MACHINE', 'drum-machine'],
+  ['DRUM KIT', 'drum-kit'],
+  ['SYNTH / ORGAN', 'synth'],
+  ['MODULAR SYNTH', 'modular'],
+  ['GUITAR / BASS', 'guitar'],
+  ['PIANO', 'piano'],
+  ['VOCAL / PHONE MIC', 'vocal'],
+];
+
 export class Hud {
   constructor(document) {
     this.document = document;
@@ -399,16 +409,7 @@ export class Hud {
           'Choose the live input for the new console channel. Input monitoring stays on; arm the new strip when you want it included in the next recording.',
         );
 
-        const choices = [
-          ['DRUM MACHINE', 'drum-machine'],
-          ['DRUM KIT', 'drum-kit'],
-          ['SYNTH / ORGAN', 'synth'],
-          ['MODULAR SYNTH', 'modular'],
-          ['GUITAR / BASS', 'guitar'],
-          ['PIANO', 'piano'],
-          ['VOCAL / PHONE MIC', 'vocal'],
-        ];
-        for (const [label, inputKey] of choices) {
+        for (const [label, inputKey] of SPECTRA_ADD_TRACK_CHOICES) {
           const button = this.document.createElement('button');
           button.type = 'button';
           button.textContent = label;
