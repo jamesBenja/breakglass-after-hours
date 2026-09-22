@@ -250,10 +250,7 @@ test('recorded microphone audio is padded onto the Spectra bar grid and loops pe
   playback.session = session;
   playback.updateMix(session);
 
-  assert.equal(
-    playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 3.5 }),
-    1,
-  );
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 3.5 }), 1);
 
   const source = createdSources[0];
   assert.equal(source.loop, true, 'microphone takes should remain Spectra loops');
@@ -264,9 +261,15 @@ test('recorded microphone audio is padded onto the Spectra bar grid and loops pe
   assert.deepEqual(source.startArgs, [0, 3.5]);
 
   const aligned = source.buffer.getChannelData(0);
-  assert.equal(aligned.slice(0, 20).every((value) => value === 0), true);
+  assert.equal(
+    aligned.slice(0, 20).every((value) => value === 0),
+    true,
+  );
   assert.deepEqual(Array.from(aligned.slice(20, 30)), Array.from(samples));
-  assert.equal(aligned.slice(30).every((value) => value === 0), true);
+  assert.equal(
+    aligned.slice(30).every((value) => value === 0),
+    true,
+  );
 });
 
 test('Spectra exposes independent reverb and delay sends with persistent FX detail settings', () => {
