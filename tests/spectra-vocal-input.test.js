@@ -18,7 +18,6 @@ test('Vocal is a first-class Spectra input routed to the default Vocal channel',
   );
 });
 
-
 test('Vocal appears in the Spectra + ADD TRACK source menu', () => {
   assert.deepEqual(
     SPECTRA_ADD_TRACK_CHOICES.find(([, inputKey]) => inputKey === 'vocal'),
