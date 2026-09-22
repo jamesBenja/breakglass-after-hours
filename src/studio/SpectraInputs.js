@@ -5,6 +5,7 @@ export const SPECTRA_INPUT_KEYS = [
   'modular',
   'guitar',
   'piano',
+  'vocal',
 ];
 
 export function spectraInputKey(config = {}, resourceId = '') {
@@ -17,6 +18,7 @@ export function spectraInputKey(config = {}, resourceId = '') {
   if (resource.includes('drummachine') || label.includes('drum machine')) return 'drum-machine';
   if (resource.includes('modularsynth') || label.includes('modular')) return 'modular';
   if (mode === 'piano' || mode === 'keys' || label === 'piano') return 'piano';
+  if (mode === 'vocal' || label.includes('vocal') || resource.includes('vocal')) return 'vocal';
   if (mode === 'guitar' || mode === 'bass') return 'guitar';
   if (mode === 'synth') return 'synth';
   if (mode === 'drums') return 'drum-kit';
