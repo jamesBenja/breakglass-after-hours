@@ -12,7 +12,21 @@ function makeLevel(id = 'upstairs') {
       title: id === 'upstairs' ? 'UPSTAIRS — BREAKGLASS STUDIOS' : 'BELOW BREAKGLASS',
       cameraOffset: [4, 3, 4],
       camera: { mode: 'close' },
-      rooms: id === 'upstairs' ? [{ id: 'mixing', name: 'Mixing Suite', points: [[0, 0], [4, 0], [4, 4], [0, 4]] }] : [],
+      rooms:
+        id === 'upstairs'
+          ? [
+              {
+                id: 'mixing',
+                name: 'Mixing Suite',
+                points: [
+                  [0, 0],
+                  [4, 0],
+                  [4, 4],
+                  [0, 4],
+                ],
+              },
+            ]
+          : [],
       navigation:
         id === 'downstairs'
           ? {
@@ -44,7 +58,11 @@ function makeLevel(id = 'upstairs') {
         return { surface: { id: 'floor' }, height: x < -10 ? 0.28 : 0 };
       },
       isValidPosition(position) {
-        return Number.isFinite(position.x) && Number.isFinite(position.y) && Number.isFinite(position.z);
+        return (
+          Number.isFinite(position.x) &&
+          Number.isFinite(position.y) &&
+          Number.isFinite(position.z)
+        );
       },
     },
   };
