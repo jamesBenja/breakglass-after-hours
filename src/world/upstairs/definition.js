@@ -166,7 +166,7 @@ export function createUpstairsDefinition(pass = 'B') {
       },
       vocalMic: {
         name: 'Spectra Vocal station · RCA 44 microphone',
-        position: at(310, 716),
+        position: at(230, 680),
         radius: 1.45,
         action: 'vocal',
       },
