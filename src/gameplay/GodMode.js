@@ -295,6 +295,7 @@ export function teleportGodMode(game, destinationId, ui) {
 
   const sceneManager = game.sceneManager;
   if (!sceneManager) return null;
+  ui?.closePanel?.();
   game.input?.clear?.();
 
   if (sceneManager.changing) {
