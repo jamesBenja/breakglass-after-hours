@@ -579,44 +579,32 @@ export class AudioEngine {
     if (this.context?.state === 'running') await this.context.suspend();
   }
 
-  async recoverAfterMicrophoneCapture({ settleMs = 140 } = {}) {
+  async recoverAfterMicrophoneCapture({ settleMs = 80 } = {}) {
     const audioSession = globalThis.navigator?.audioSession;
-    let audioSessionRestored = false;
     if (audioSession) {
       try {
         audioSession.type = 'playback';
-        audioSessionRestored = true;
       } catch {
-        // Fall through to the AudioContext cycle below on older Safari.
+        // Older Safari versions do not expose a writable Audio Session API.
       }
     }
 
     this.setPrioritySource(null);
 
-    // iOS changes the underlying AVAudioSession while getUserMedia is active. Give Safari a short
-    // moment after the microphone track closes, then reassert the playback route and all game
-    // gains. Older Safari versions benefit from one suspend/resume cycle to leave the attenuated
-    // play-and-record route.
-    if (settleMs > 0 && typeof globalThis.setTimeout === 'function') {
-      await new Promise((resolve) => globalThis.setTimeout(resolve, settleMs));
-    }
-
     const context = this.context;
-    if (!audioSessionRestored && context?.state === 'running') {
+    if (context && context.state !== 'closed') {
       try {
-        await context.suspend();
-        if (typeof globalThis.setTimeout === 'function') {
-          await new Promise((resolve) => globalThis.setTimeout(resolve, 60));
+        if (context.state === 'running' && typeof context.suspend === 'function') {
+          await context.suspend();
         }
-        await context.resume();
+        if (settleMs > 0 && typeof globalThis.setTimeout === 'function') {
+          await new Promise((resolve) => globalThis.setTimeout(resolve, settleMs));
+        }
+        if (context.state !== 'running' && typeof context.resume === 'function') {
+          await context.resume();
+        }
       } catch {
-        // The next user gesture will retry resume through the normal recovery path.
-      }
-    } else if (context && context.state !== 'running' && context.state !== 'closed') {
-      try {
-        await context.resume();
-      } catch {
-        // Normal gesture recovery remains installed.
+        // Normal gesture recovery remains installed if Safari rejects the immediate route cycle.
       }
     }
 
@@ -628,10 +616,29 @@ export class AudioEngine {
       }
     }
 
-    this.setParam(this.environmentGain?.gain, this.environment.gain, 0.025);
-    this.setParam(this.environmentFilter?.frequency, this.environment.lowpassHz, 0.025);
-    for (const owner of this.sourceBuses.keys()) this.applySourceEnvironment(owner);
-    for (const owner of this.nativeMedia.keys()) this.applySourceEnvironment(owner);
+    const hardSet = (parameter, value) => {
+      if (!parameter) return;
+      const now = this.context?.currentTime ?? 0;
+      parameter.cancelScheduledValues?.(now);
+      if (typeof parameter.setValueAtTime === 'function') parameter.setValueAtTime(value, now);
+      else parameter.value = value;
+    };
+
+    hardSet(this.environmentGain?.gain, this.environment.gain);
+    hardSet(this.environmentFilter?.frequency, this.environment.lowpassHz);
+
+    for (const [owner, bus] of this.sourceBuses) {
+      const environment = this.sourceEnvironments.get(owner) ?? {
+        gain: 1,
+        lowpassHz: 20000,
+      };
+      hardSet(bus.gain?.gain, this.sourceGain(owner));
+      hardSet(bus.filter?.frequency, environment.lowpassHz);
+    }
+    for (const [owner, media] of this.nativeMedia) {
+      media.element.volume = clamp(media.baseVolume * this.sourceGain(owner));
+    }
+
     return this.context?.state === 'running';
   }
 
