@@ -28,6 +28,37 @@
   white-space: nowrap;
 }
 
+.god-mode-teleport {
+  width: 190px;
+  max-width: 38vw;
+  min-height: 22px;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.88);
+  color-scheme: dark;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.god-mode-teleport:hover,
+.god-mode-teleport:focus-visible {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.god-mode-teleport option,
+.god-mode-teleport optgroup {
+  background: #111216;
+  color: #fff;
+}
+
 #godModeIndicator .god-mode-exit {
   min-height: 22px;
   padding: 3px 7px;
@@ -57,6 +88,15 @@
     left: max(8px, env(safe-area-inset-left));
     top: calc(max(8px, env(safe-area-inset-top)) + 42px);
     transform: none;
+    max-width: calc(
+      100vw - max(16px, env(safe-area-inset-left)) - max(16px, env(safe-area-inset-right))
+    );
     min-height: 26px;
+  }
+
+  .god-mode-teleport {
+    width: 154px;
+    max-width: 42vw;
+    font-size: 8px;
   }
 }
