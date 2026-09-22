@@ -469,9 +469,11 @@ export function createActions({
           async () => {
             const result = await micRecorder.stop();
             if (!result) return;
-            if (!result.buffer?.duration) {
+            const hasBuffer = !!result.buffer?.duration;
+            const hasBlob = (result.blob?.size ?? 0) > 0;
+            if (!hasBuffer && !hasBlob) {
               ui.warning?.(
-                'The microphone opened, but no playable audio samples were captured. No empty vocal track was added.',
+                'The microphone opened, but Safari returned an empty take. No vocal track was added.',
               );
               consolePanel();
               return;
@@ -488,14 +490,19 @@ export function createActions({
               },
             );
             stem.clipStart = Math.max(0, Number(result.timelineStart) || 0);
-            studio.attachRecording(stem.id, result.buffer, result.blob);
+            studio.attachRecording(stem.id, result.buffer, hasBlob ? result.blob : null);
             rememberStudio();
 
             // MicrophoneRecorder already restores Safari's play-and-record route. Reassert once
             // more without another delay before rebuilding the Spectra playback graph.
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
 
-            await monitorStudio();
+            const played = await monitorStudio();
+            if (!hasBuffer && hasBlob && !played) {
+              ui.warning?.(
+                'Your vocal was recorded and added to the track. Tap PLAY to hear the recorded take.',
+              );
+            }
             consolePanel();
           },
         ],
