@@ -210,7 +210,7 @@ export class Hud {
   ) {
     this.clearPanel(
       'SPECTRA CONSOLE',
-      `${session.name} · ${session.stems.length} channels · input monitoring is always on. Arm individual channels, then use the master RECORD control.`,
+      `${session.name} · ${session.stems.length} channels · input monitoring is always on. Arm instrument channels for master RECORD; Vocal records from its connected mic station.`,
     );
     this.panelElement?.classList.add('spectra-console-panel');
 
