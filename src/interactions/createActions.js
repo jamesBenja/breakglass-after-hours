@@ -469,11 +469,10 @@ export function createActions({
           async () => {
             const result = await micRecorder.stop();
             if (!result) return;
-            const hasBuffer = !!result.buffer?.duration;
-            const hasBlob = (result.blob?.size ?? 0) > 0;
-            if (!hasBuffer && !hasBlob) {
+            const bytes = Number(result.blob?.size) || 0;
+            if (!bytes) {
               ui.warning?.(
-                'The microphone opened, but Safari returned an empty take. No vocal track was added.',
+                'The microphone opened, but the browser returned a 0-byte recording. No vocal track was added.',
               );
               consolePanel();
               return;
@@ -490,20 +489,17 @@ export function createActions({
               },
             );
             stem.clipStart = Math.max(0, Number(result.timelineStart) || 0);
-            studio.attachRecording(stem.id, result.buffer, hasBlob ? result.blob : null);
+            studio.attachRecording(stem.id, null, result.blob);
             rememberStudio();
 
-            // MicrophoneRecorder already restores Safari's play-and-record route. Reassert once
-            // more without another delay before rebuilding the Spectra playback graph.
+            // Do not auto-start the new HTMLAudio source here. On iPhone the async MediaRecorder
+            // stop chain can outlive the original tap and Safari may block that playback. The
+            // normal Spectra PLAY button is a fresh user gesture and starts the exact saved Blob.
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
-
-            const played = await monitorStudio();
-            if (!hasBuffer && hasBlob && !played) {
-              ui.warning?.(
-                'Your vocal was recorded and added to the track. Tap PLAY to hear the recorded take.',
-              );
-            }
             consolePanel();
+            ui.warning?.(
+              `Vocal captured: ${Math.max(1, Math.round(bytes / 1024))} KB · ${result.type || 'browser audio'}. Tap PLAY to hear it.`,
+            );
           },
         ],
         [
