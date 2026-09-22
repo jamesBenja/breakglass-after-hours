@@ -106,7 +106,6 @@ test('Neve outboard rack sits beside the tape machine and clear of the console',
   );
 });
 
-
 test('Spectra Vocal station exists once in the back acoustic-panel corner and is interactable', () => {
   const previousDocument = globalThis.document;
   globalThis.document = {
