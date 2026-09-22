@@ -86,7 +86,7 @@
 @media (max-width: 720px) {
   #godModeIndicator {
     left: max(8px, env(safe-area-inset-left));
-    top: calc(max(8px, env(safe-area-inset-top)) + 42px);
+    top: max(8px, env(safe-area-inset-top));
     transform: none;
     max-width: calc(
       100vw - max(16px, env(safe-area-inset-left)) - max(16px, env(safe-area-inset-right))
