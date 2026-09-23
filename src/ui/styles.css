@@ -938,6 +938,49 @@ canvas:focus {
   grid-template-columns: 25px 1fr 13px;
 }
 
+.vocal-source-editor {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.vocal-source-editor > strong,
+.vocal-source-editor > span,
+.vocal-source-editor > small {
+  display: block;
+}
+
+.vocal-source-editor > span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.vocal-source-editor > small {
+  opacity: 0.72;
+  line-height: 1.35;
+}
+
+.vocal-source-editor input[type='range'] {
+  width: 100%;
+  margin: 2px 0;
+}
+
+.vocal-source-editor-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.vocal-source-editor-controls button {
+  min-height: 34px;
+  font-size: 10px;
+}
+
 .spectra-session-view {
   display: grid;
   gap: 8px;
