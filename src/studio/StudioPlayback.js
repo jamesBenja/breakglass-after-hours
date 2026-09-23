@@ -59,48 +59,6 @@ function isMicrophoneRecordingStem(stem) {
   return stem?.kind === 'vocal' || stem?.source === 'browser-microphone';
 }
 
-function loopAlignedMicrophoneBuffer(context, stem, buffer, loopDuration) {
-  if (
-    !isMicrophoneRecordingStem(stem) ||
-    !(loopDuration > 0) ||
-    typeof context?.createBuffer !== 'function' ||
-    typeof buffer?.getChannelData !== 'function'
-  ) {
-    return buffer;
-  }
-
-  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
-  const channels = Math.max(1, Math.floor(Number(buffer.numberOfChannels) || 1));
-  const frames = Math.max(1, Math.round(loopDuration * sampleRate));
-  let aligned = null;
-  try {
-    aligned = context.createBuffer(channels, frames, sampleRate);
-  } catch {
-    return buffer;
-  }
-  if (!aligned?.getChannelData) return buffer;
-
-  const clipStart = Math.max(0, Number(stem.clipStart) || 0);
-  const startFrame = Math.round((clipStart % loopDuration) * sampleRate) % frames;
-
-  for (let channel = 0; channel < channels; channel += 1) {
-    let source = null;
-    let target = null;
-    try {
-      source = buffer.getChannelData(Math.min(channel, channels - 1));
-      target = aligned.getChannelData(channel);
-    } catch {
-      return buffer;
-    }
-    const length = Math.min(source.length, frames);
-    for (let index = 0; index < length; index += 1) {
-      target[(startFrame + index) % frames] = source[index];
-    }
-  }
-
-  return aligned;
-}
-
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -993,18 +951,13 @@ export class StudioPlayback {
       const source = context.createBufferSource();
       const microphoneTake = isMicrophoneRecordingStem(stem);
       const shouldLoop = session.loopEnabled === true || microphoneTake;
-      const playbackBuffer =
-        microphoneTake && shouldLoop
-          ? loopAlignedMicrophoneBuffer(context, stem, buffer, loopDuration)
-          : buffer;
-      source.buffer = playbackBuffer;
+      source.buffer = buffer;
       source.loop = shouldLoop;
       if (source.loop) {
         source.loopStart = 0;
-        source.loopEnd =
-          playbackBuffer !== buffer && microphoneTake
-            ? loopDuration
-            : Math.min(playbackBuffer.duration, loopDuration || playbackBuffer.duration);
+        source.loopEnd = microphoneTake
+          ? buffer.duration
+          : Math.min(buffer.duration, loopDuration || buffer.duration);
       }
       const sourceGate = context.createGain();
       sourceGate.gain.value = 1;
@@ -1024,10 +977,12 @@ export class StudioPlayback {
       this.frozenGates.set(stem.id, sourceGate);
 
       const playableDuration =
-        source.loop && source.loopEnd > 0
-          ? source.loopEnd
-          : Math.max(0.001, playbackBuffer.duration);
-      const startOffset = playableDuration > 0 ? phase % playableDuration : 0;
+        source.loop && source.loopEnd > 0 ? source.loopEnd : Math.max(0.001, buffer.duration);
+      const startOffset = microphoneTake
+        ? 0
+        : playableDuration > 0
+          ? phase % playableDuration
+          : 0;
       source.start(start, startOffset);
       started += 1;
     }
@@ -1066,16 +1021,21 @@ export class StudioPlayback {
 
       const url = URL.createObjectURL(blob);
       const media = new Audio();
+      const microphoneTake = isMicrophoneRecordingStem(stem);
       media.preload = 'auto';
       media.playsInline = true;
-      media.loop = session.loopEnabled === true;
+      media.loop = session.loopEnabled === true || microphoneTake;
       media.src = url;
       media.volume = 0;
 
       const seek = () => {
-        const clipStart = Math.max(0, Number(stem.clipStart) || 0);
-        const relative = Math.max(0, phase - clipStart);
         try {
+          if (microphoneTake) {
+            media.currentTime = 0;
+            return;
+          }
+          const clipStart = Math.max(0, Number(stem.clipStart) || 0);
+          const relative = Math.max(0, phase - clipStart);
           const duration = Number(media.duration);
           media.currentTime =
             Number.isFinite(duration) && duration > 0 ? relative % duration : relative;
