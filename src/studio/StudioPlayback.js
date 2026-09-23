@@ -90,7 +90,10 @@ function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
   const copyFrames = Math.min(loopFrames, Math.max(0, sourceFrames - sourceStartFrame));
   if (!(copyFrames > 0)) return loopBuffer;
 
-  const fadeFrames = Math.min(Math.max(0, Math.round(sampleRate * 0.003)), Math.floor(copyFrames / 2));
+  const fadeFrames = Math.min(
+    Math.max(0, Math.round(sampleRate * 0.003)),
+    Math.floor(copyFrames / 2),
+  );
 
   for (let channel = 0; channel < channels; channel += 1) {
     const source = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
