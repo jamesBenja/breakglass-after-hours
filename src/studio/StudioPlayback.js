@@ -869,9 +869,7 @@ export class StudioPlayback {
   renderStem(stem, step, when) {
     if (this.auditionStemId && stem.id !== this.auditionStemId) return;
     const bus = this.ensureBus(stem).input;
-    // Mute/solo are mixer audibility controls only. Active tracks must keep rendering underneath
-    // the console so they can be unmuted instantly without restarting Spectra playback.
-    if (stem.clipActive === false) return;
+    if (stem.clipActive === false || stem.mute) return;
     const recording = this.session?.recordings.get(stem.id);
     if (recording) return;
     if (this.renderPerformance(stem, step, when)) return;
