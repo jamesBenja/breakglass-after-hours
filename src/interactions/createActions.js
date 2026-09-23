@@ -520,7 +520,9 @@ export function createActions({
       ui.warning?.('Add a Vocal track before recording.');
       return;
     }
+    const resumeMixAfterRecording = studioPlayback?.playing === true;
     studioPlayback?.stopRawAudition?.();
+    studioPlayback?.stopRecordedStemPlayback?.(target.id);
     try {
       const started = await micRecorder.start();
       if (!started) return;
@@ -540,6 +542,9 @@ export function createActions({
               result = await micRecorder.stop();
             } catch (error) {
               ui.warning?.(`Vocal recording failed: ${error?.message ?? 'unknown error'}`);
+              if (resumeMixAfterRecording) {
+                await studioPlayback?.play?.(studio, 0, { restartTransport: true });
+              }
               vocalPanel();
               return;
             }
@@ -548,6 +553,9 @@ export function createActions({
               ui.warning?.(
                 'The microphone opened, but the browser returned a 0-byte recording. Nothing was written to the Vocal track.',
               );
+              if (resumeMixAfterRecording) {
+                await studioPlayback?.play?.(studio, 0, { restartTransport: true });
+              }
               vocalPanel();
               return;
             }
@@ -575,6 +583,10 @@ export function createActions({
               eq: studio.setup.eq,
               compressor: studio.setup.compressor,
             };
+            // Replacement must invalidate every old Vocal source/gate/timer before the new
+            // recording enters the session. Otherwise scrubber edits can leave a dead scheduler
+            // attached to the same mixer channel.
+            studioPlayback?.stopRecordedStemPlayback?.(destination.id);
             studio.replaceRecording?.(destination.id, result.buffer ?? null, result.blob);
             destination.renderedAudio = !!result.buffer;
             destination.renderedAudioAt = result.buffer ? Date.now() : null;
@@ -582,6 +594,9 @@ export function createActions({
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
+            if (resumeMixAfterRecording) {
+              await studioPlayback?.play?.(studio, 0, { restartTransport: true });
+            }
             ui.warning?.(
               `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Use the raw audition below to choose the Spectra loop start point.`,
             );
@@ -590,8 +605,11 @@ export function createActions({
         ],
         [
           'Cancel recording',
-          () => {
+          async () => {
             micRecorder.cancel();
+            if (resumeMixAfterRecording) {
+              await studioPlayback?.play?.(studio, 0, { restartTransport: true });
+            }
             vocalPanel();
           },
         ],
@@ -627,10 +645,16 @@ export function createActions({
     slider.value = String(selectedOffset);
     slider.setAttribute('aria-label', 'Vocal raw take loop start');
     slider.oninput = () => updateReadout(slider.value);
-    slider.onchange = () => {
+    slider.onchange = async () => {
       target.sourceOffset = Math.min(maxOffset, Math.max(0, Number(slider.value) || 0));
       rememberStudio();
       updateReadout(target.sourceOffset);
+
+      // A scrubber edit changes the audio source window itself. If Spectra is already playing,
+      // rebuild playback from bar 1 immediately instead of leaving the old Vocal scheduler alive.
+      if (studioPlayback?.playing) {
+        await studioPlayback.play(studio, 0, { restartTransport: true });
+      }
     };
     const help = ui.document.createElement('small');
     help.textContent =
@@ -641,6 +665,7 @@ export function createActions({
     auditionFromStart.type = 'button';
     auditionFromStart.textContent = '▶ AUDITION RAW FROM START';
     auditionFromStart.onclick = async () => {
+      studioPlayback?.stop?.();
       await studioPlayback?.auditionRawRecording?.(studio, target.id, 0);
     };
     const auditionSelected = ui.document.createElement('button');
@@ -650,12 +675,13 @@ export function createActions({
       const offset = Math.min(maxOffset, Math.max(0, Number(slider.value) || 0));
       target.sourceOffset = offset;
       rememberStudio();
+      studioPlayback?.stop?.();
       await studioPlayback?.auditionRawRecording?.(studio, target.id, offset);
     };
     const useCurrent = ui.document.createElement('button');
     useCurrent.type = 'button';
     useCurrent.textContent = 'SET LOOP START TO CURRENT AUDITION';
-    useCurrent.onclick = () => {
+    useCurrent.onclick = async () => {
       const position = studioPlayback?.rawAuditionPosition?.();
       if (!Number.isFinite(Number(position))) return;
       const offset = Math.min(maxOffset, Math.max(0, Number(position) || 0));
@@ -663,6 +689,8 @@ export function createActions({
       slider.value = String(offset);
       updateReadout(offset);
       rememberStudio();
+      studioPlayback?.stopRawAudition?.();
+      await monitorStudio(target.id);
       ui.warning?.(`Vocal loop source now starts at ${offset.toFixed(2)}s.`);
     };
     const stopAudition = ui.document.createElement('button');
