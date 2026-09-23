@@ -394,7 +394,12 @@ test('native Vocal file wins over a truncated decoded buffer and honors the scru
       2.5,
       'the native recording should seek to the selected raw-source scrubber point',
     );
-    assert.equal(mediaSources.length, 1);
+    assert.equal(
+      mediaSources.length,
+      0,
+      'the complete native Vocal file should not be diverted into Safari MediaElementAudioSource',
+    );
+    assert.equal(playback.blobRoutes.get(vocal.id)?.gate, null);
     assert.equal(vocal.sourceDuration, 6);
 
     playback.stop();
