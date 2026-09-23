@@ -82,6 +82,7 @@ export class StudioPlayback {
     this.blobLoopTimers = new Map();
     this.blobRoutes = new Map();
     this.vocalBufferLoopTimers = new Map();
+    this.vocalBufferSources = new Map();
     this.assetBuffers = new Map();
     this.realSessionPlaying = false;
     this.bpm = 118;
@@ -1015,11 +1016,26 @@ export class StudioPlayback {
     return started;
   }
   clearVocalBufferLoop(stemId = null) {
-    const ids = stemId ? [stemId] : [...this.vocalBufferLoopTimers.keys()];
+    const ids = stemId
+      ? [stemId]
+      : [...new Set([...this.vocalBufferLoopTimers.keys(), ...this.vocalBufferSources.keys()])];
     for (const id of ids) {
       const handle = this.vocalBufferLoopTimers.get(id);
       if (handle != null) this.timers.clearTimeout?.(handle);
       this.vocalBufferLoopTimers.delete(id);
+
+      const sources = this.vocalBufferSources.get(id);
+      for (const source of sources ?? []) {
+        source.onended = null;
+        try {
+          source.stop?.();
+        } catch {
+          // Already ended.
+        }
+        source.disconnect?.();
+        this.sources.delete(source);
+      }
+      this.vocalBufferSources.delete(id);
     }
   }
 
@@ -1049,9 +1065,20 @@ export class StudioPlayback {
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.connect(sourceGate);
+
+      let sources = this.vocalBufferSources.get(stem.id);
+      if (!sources) {
+        sources = new Set();
+        this.vocalBufferSources.set(stem.id, sources);
+      }
+      sources.add(source);
+
       source.onended = () => {
         source.disconnect?.();
         this.sources.delete(source);
+        const active = this.vocalBufferSources.get(stem.id);
+        active?.delete(source);
+        if (active?.size === 0) this.vocalBufferSources.delete(stem.id);
       };
       this.sources.add(source);
       const sourceOffset = rawOffset + segmentOffset;
@@ -1589,29 +1616,31 @@ export class StudioPlayback {
     return true;
   }
 
-  removeStem(session = this.session, stemId) {
-    if (!session || !stemId) return null;
+  stopRecordedStemPlayback(stemId) {
+    if (!stemId) return false;
 
     this.clearVocalBufferLoop(stemId);
+
     const frozen = this.frozenSources.get(stemId);
     if (frozen) {
       frozen.onended = null;
       try {
         frozen.stop?.();
       } catch {
-        // Already stopped.
+        // Already ended.
       }
       frozen.disconnect?.();
       this.sources.delete(frozen);
       this.frozenSources.delete(stemId);
     }
+
     this.frozenGates.get(stemId)?.disconnect?.();
     this.frozenGates.delete(stemId);
 
+    this.clearBlobLoopTimers(stemId);
+    this.clearBlobRoute(stemId);
     const blobMedia = this.blobStems.get(stemId);
     if (blobMedia) {
-      this.clearBlobLoopTimers(stemId);
-      this.clearBlobRoute(stemId);
       blobMedia.pause?.();
       blobMedia.removeAttribute?.('src');
       blobMedia.load?.();
@@ -1622,6 +1651,14 @@ export class StudioPlayback {
       URL.revokeObjectURL?.(blobUrl);
       this.blobUrls.delete(stemId);
     }
+
+    return true;
+  }
+
+  removeStem(session = this.session, stemId) {
+    if (!session || !stemId) return null;
+
+    this.stopRecordedStemPlayback(stemId);
 
     const native = this.nativeStems.get(stemId);
     if (native) {
