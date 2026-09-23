@@ -978,11 +978,7 @@ export class StudioPlayback {
 
       const playableDuration =
         source.loop && source.loopEnd > 0 ? source.loopEnd : Math.max(0.001, buffer.duration);
-      const startOffset = microphoneTake
-        ? 0
-        : playableDuration > 0
-          ? phase % playableDuration
-          : 0;
+      const startOffset = microphoneTake ? 0 : playableDuration > 0 ? phase % playableDuration : 0;
       source.start(start, startOffset);
       started += 1;
     }
