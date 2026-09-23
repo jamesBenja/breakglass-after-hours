@@ -526,7 +526,10 @@ export function createActions({
       ui.warning?.('Add a Vocal track before recording.');
       return;
     }
-    const resumeMixAfterRecording = studioPlayback?.playing === true;
+    // Vocal capture must be isolated from Spectra playback. The raw recording is the source
+    // of truth for the scrubber, so stop mixer playback before opening the microphone and do
+    // not let Spectra grab the new Blob again until the user explicitly presses PLAY.
+    studioPlayback?.stop?.();
     studioPlayback?.stopRawAudition?.();
     studioPlayback?.stopRecordedStemPlayback?.(target.id);
     try {
@@ -548,9 +551,6 @@ export function createActions({
               result = await micRecorder.stop();
             } catch (error) {
               ui.warning?.(`Vocal recording failed: ${error?.message ?? 'unknown error'}`);
-              if (resumeMixAfterRecording) {
-                await studioPlayback?.play?.(studio, 0, { restartTransport: true });
-              }
               vocalPanel();
               return;
             }
@@ -559,9 +559,6 @@ export function createActions({
               ui.warning?.(
                 'The microphone opened, but the browser returned a 0-byte recording. Nothing was written to the Vocal track.',
               );
-              if (resumeMixAfterRecording) {
-                await studioPlayback?.play?.(studio, 0, { restartTransport: true });
-              }
               vocalPanel();
               return;
             }
@@ -593,18 +590,26 @@ export function createActions({
             // recording enters the session. Otherwise scrubber edits can leave a dead scheduler
             // attached to the same mixer channel.
             studioPlayback?.stopRecordedStemPlayback?.(destination.id);
-            studio.replaceRecording?.(destination.id, result.buffer ?? null, result.blob);
+            const committed = studio.replaceRecording?.(
+              destination.id,
+              result.buffer ?? null,
+              result.blob,
+            );
+            if (!committed || studio.recordingBlobs?.get?.(destination.id) !== result.blob) {
+              ui.warning?.(
+                'The Vocal take was captured but could not be committed to the raw scrubber.',
+              );
+              vocalPanel();
+              return;
+            }
             destination.renderedAudio = !!result.buffer;
             destination.renderedAudioAt = result.buffer ? Date.now() : null;
             connectedVocalStemId = destination.id;
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
-            if (resumeMixAfterRecording) {
-              await studioPlayback?.play?.(studio, 0, { restartTransport: true });
-            }
             ui.warning?.(
-              `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Use the raw audition below to choose the Spectra loop start point.`,
+              `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. The raw take is committed to the scrubber. Audition it there, then press Spectra PLAY when you want the mixer loop to use it.`,
             );
             vocalPanel();
           },
@@ -613,9 +618,6 @@ export function createActions({
           'Cancel recording',
           async () => {
             micRecorder.cancel();
-            if (resumeMixAfterRecording) {
-              await studioPlayback?.play?.(studio, 0, { restartTransport: true });
-            }
             vocalPanel();
           },
         ],

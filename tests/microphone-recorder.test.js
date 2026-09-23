@@ -14,12 +14,17 @@ class FakeMediaRecorder {
     this.onstop = null;
     this.onerror = null;
     this.startArgs = null;
+    this.requestDataCalls = 0;
     FakeMediaRecorder.lastOptions = options;
   }
 
   start(...args) {
     this.startArgs = args;
     this.state = 'recording';
+  }
+
+  requestData() {
+    this.requestDataCalls += 1;
   }
 
   stop() {
@@ -82,10 +87,11 @@ test('MicrophoneRecorder keeps the full capture duration when Safari decodes onl
     recorder.startedAt = performance.now() - 5000;
     const nativeRecorder = recorder.recorder;
     assert.equal(FakeMediaRecorder.lastOptions, undefined);
-    assert.deepEqual(nativeRecorder.startArgs, []);
+    assert.deepEqual(nativeRecorder.startArgs, [250]);
     assert.equal(audioSession.type, 'play-and-record');
 
     const result = await recorder.stop();
+    assert.equal(nativeRecorder.requestDataCalls, 1);
     assert.equal(result.buffer, decoded);
     assert.ok(
       result.duration >= 4.9,
