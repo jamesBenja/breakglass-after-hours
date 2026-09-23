@@ -58,7 +58,6 @@ function writeAudioParam(parameter, value, time, { immediate = false, timeConsta
 function isMicrophoneRecordingStem(stem) {
   return stem?.kind === 'vocal' || stem?.source === 'browser-microphone';
 }
-
 function microphoneLoopBuffer(context, stem, buffer, loopDuration) {
   if (
     !isMicrophoneRecordingStem(stem) ||
@@ -68,7 +67,6 @@ function microphoneLoopBuffer(context, stem, buffer, loopDuration) {
   ) {
     return buffer;
   }
-
   const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
   const channels = Math.max(1, Math.floor(Number(buffer.numberOfChannels) || 1));
   const frames = Math.max(1, Math.round(loopDuration * sampleRate));
@@ -79,23 +77,22 @@ function microphoneLoopBuffer(context, stem, buffer, loopDuration) {
     return buffer;
   }
   if (!clip?.getChannelData) return buffer;
-
-  const sourceFrames = Math.max(0, Math.floor(Number(buffer.length) || buffer.duration * sampleRate));
+  const sourceFrames = Math.max(
+    0,
+    Math.floor(Number(buffer.length) || buffer.duration * sampleRate),
+  );
   const requestedOffset = Math.max(0, Number(stem.sourceOffset) || 0);
   const sourceOffset = Math.min(Math.max(0, buffer.duration - 1 / sampleRate), requestedOffset);
   const sourceStart = Math.min(sourceFrames, Math.floor(sourceOffset * sampleRate));
   const available = Math.max(0, sourceFrames - sourceStart);
   const copyLength = Math.min(frames, available);
-
   for (let channel = 0; channel < channels; channel += 1) {
     const source = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
     const target = clip.getChannelData(channel);
     target.set(source.subarray(sourceStart, sourceStart + copyLength), 0);
   }
-
   return clip;
 }
-
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -973,7 +970,6 @@ export class StudioPlayback {
       : this.spectraTransport?.running
         ? this.spectraTransport.positionAtOffset(start - now)
         : Math.max(0, Number(offset) || 0);
-
     let started = 0;
     for (const stem of session.stems) {
       const buffer = session.recordings.get(stem.id);
@@ -991,7 +987,6 @@ export class StudioPlayback {
       const existingGate = this.frozenGates.get(stem.id);
       existingGate?.disconnect?.();
       this.frozenGates.delete(stem.id);
-
       const source = context.createBufferSource();
       const microphoneTake = isMicrophoneRecordingStem(stem);
       const shouldLoop = session.loopEnabled === true || microphoneTake;
@@ -1022,7 +1017,6 @@ export class StudioPlayback {
       this.sources.add(source);
       this.frozenSources.set(stem.id, source);
       this.frozenGates.set(stem.id, sourceGate);
-
       const playableDuration =
         source.loop && source.loopEnd > 0
           ? source.loopEnd
@@ -1034,7 +1028,6 @@ export class StudioPlayback {
     if (started > 0) this.applyChannelAudibility(session);
     return started;
   }
-
   clearBlobLoopTimers(stemId = null) {
     const ids = stemId ? [stemId] : [...this.blobLoopTimers.keys()];
     for (const id of ids) {
@@ -1043,22 +1036,22 @@ export class StudioPlayback {
       this.blobLoopTimers.delete(id);
     }
   }
-
   scheduleBlobVocalLoop(stemId, media, stem, loopDuration, phase = 0) {
     this.clearBlobLoopTimers(stemId);
     if (!(loopDuration > 0)) return false;
-
     const handles = new Set();
     this.blobLoopTimers.set(stemId, handles);
     const schedule = (callback, seconds) => {
-      const handle = this.timers.setTimeout?.(() => {
-        handles.delete(handle);
-        callback();
-      }, Math.max(0, seconds) * 1000);
+      const handle = this.timers.setTimeout?.(
+        () => {
+          handles.delete(handle);
+          callback();
+        },
+        Math.max(0, seconds) * 1000,
+      );
       if (handle != null) handles.add(handle);
       return handle;
     };
-
     const prepare = () => {
       const duration = Number(media.duration);
       if (!(Number.isFinite(duration) && duration > 0)) return false;
@@ -1067,8 +1060,8 @@ export class StudioPlayback {
         Math.max(0, Number(stem.sourceOffset) || 0),
       );
       const audibleDuration = Math.min(loopDuration, Math.max(0, duration - sourceOffset));
-      const phaseInLoop = ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
-
+      const phaseInLoop =
+        ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
       const playSegment = (segmentOffset = 0) => {
         if (!(audibleDuration > segmentOffset)) {
           media.pause?.();
@@ -1082,10 +1075,8 @@ export class StudioPlayback {
         Promise.resolve(media.play?.()).catch(() => {});
         schedule(() => media.pause?.(), audibleDuration - segmentOffset);
       };
-
       if (phaseInLoop < audibleDuration) playSegment(phaseInLoop);
       else media.pause?.();
-
       const cycle = () => {
         playSegment(0);
         schedule(cycle, loopDuration);
@@ -1094,12 +1085,10 @@ export class StudioPlayback {
       schedule(cycle, untilNextCycle);
       return true;
     };
-
     if (media.readyState >= 1) return prepare();
     media.addEventListener?.('loadedmetadata', prepare, { once: true });
     return true;
   }
-
   async startBlobRecordings(session, offset = 0) {
     if (
       typeof Audio === 'undefined' ||
@@ -1109,7 +1098,6 @@ export class StudioPlayback {
     ) {
       return 0;
     }
-
     const phase = this.spectraTransport?.running
       ? this.spectraTransport.position()
       : Math.max(0, Number(offset) || 0);
@@ -1118,12 +1106,10 @@ export class StudioPlayback {
       4 *
       Math.max(1, Number(session.loopBars) || 4);
     const created = [];
-
     for (const stem of session.stems) {
       if (session.recordings?.has?.(stem.id)) continue;
       const blob = session.recordingBlobs.get(stem.id);
       if (!blob) continue;
-
       const old = this.blobStems.get(stem.id);
       if (old) {
         old.pause?.();
@@ -1133,7 +1119,6 @@ export class StudioPlayback {
       this.clearBlobLoopTimers(stem.id);
       const oldUrl = this.blobUrls.get(stem.id);
       if (oldUrl) URL.revokeObjectURL?.(oldUrl);
-
       const url = URL.createObjectURL(blob);
       const media = new Audio();
       const microphoneTake = isMicrophoneRecordingStem(stem);
@@ -1142,7 +1127,6 @@ export class StudioPlayback {
       media.loop = microphoneTake ? false : session.loopEnabled === true;
       media.src = url;
       media.volume = 0;
-
       if (!microphoneTake) {
         const seek = () => {
           const clipStart = Math.max(0, Number(stem.clipStart) || 0);
@@ -1158,18 +1142,14 @@ export class StudioPlayback {
         if (media.readyState >= 1) seek();
         else media.addEventListener?.('loadedmetadata', seek, { once: true });
       }
-
       created.push([stem.id, media, url, microphoneTake, stem]);
     }
-
     if (!created.length) return 0;
-
     for (const [id, media, url] of created) {
       this.blobStems.set(id, media);
       this.blobUrls.set(id, url);
     }
     this.updateBlobMix(session);
-
     try {
       await Promise.all(
         created.map(async ([id, media, , microphoneTake, stem]) => {
@@ -1192,10 +1172,8 @@ export class StudioPlayback {
       }
       return 0;
     }
-
     return created.length;
   }
-
   async loadAlignedAssets(session) {
     const stems = session.stems.filter((stem) => stem.assetId);
     if (!stems.length || stems.length !== session.stems.length || !this.audio.assets) return null;
@@ -1326,21 +1304,18 @@ export class StudioPlayback {
       this.rawAuditionSource.disconnect?.();
     }
     this.rawAuditionSource = null;
-
     if (this.rawAuditionMedia) {
       this.rawAuditionMedia.pause?.();
       this.rawAuditionMedia.removeAttribute?.('src');
       this.rawAuditionMedia.load?.();
     }
     this.rawAuditionMedia = null;
-
     if (this.rawAuditionUrl) URL.revokeObjectURL?.(this.rawAuditionUrl);
     this.rawAuditionUrl = null;
     this.rawAuditionOffset = 0;
     this.rawAuditionStartedAt = 0;
     this.rawAuditionDuration = 0;
   }
-
   rawAuditionPosition() {
     if (this.rawAuditionMedia && Number.isFinite(Number(this.rawAuditionMedia.currentTime))) {
       return Math.max(0, Number(this.rawAuditionMedia.currentTime));
@@ -1351,11 +1326,9 @@ export class StudioPlayback {
     }
     return Math.max(0, this.rawAuditionOffset);
   }
-
   async auditionRawRecording(session, stemId, offset = 0) {
     if (!session || !stemId) return false;
     this.stopRawAudition();
-
     const buffer = session.recordings?.get?.(stemId);
     if (buffer?.duration && this.audio.context?.createBufferSource) {
       const safeOffset = Math.min(
@@ -1376,7 +1349,6 @@ export class StudioPlayback {
       source.start(startTime, safeOffset);
       return true;
     }
-
     const blob = session.recordingBlobs?.get?.(stemId);
     if (
       !blob ||
@@ -1386,7 +1358,6 @@ export class StudioPlayback {
     ) {
       return false;
     }
-
     const url = URL.createObjectURL(blob);
     const media = new Audio();
     media.preload = 'auto';
@@ -1396,15 +1367,15 @@ export class StudioPlayback {
     const safeOffset = Math.max(0, Number(offset) || 0);
     const seek = () => {
       const duration = Number(media.duration);
-      media.currentTime = Number.isFinite(duration) && duration > 0
-        ? Math.min(Math.max(0, duration - 0.01), safeOffset)
-        : safeOffset;
+      media.currentTime =
+        Number.isFinite(duration) && duration > 0
+          ? Math.min(Math.max(0, duration - 0.01), safeOffset)
+          : safeOffset;
       this.rawAuditionDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
     };
     if (media.readyState >= 1) seek();
     else media.addEventListener?.('loadedmetadata', seek, { once: true });
     media.addEventListener?.('ended', () => this.stopRawAudition(), { once: true });
-
     this.rawAuditionMedia = media;
     this.rawAuditionUrl = url;
     this.rawAuditionOffset = safeOffset;
@@ -1416,7 +1387,6 @@ export class StudioPlayback {
       return false;
     }
   }
-
   async play(session, offset = 0, { stemId = null, restartTransport = false } = {}) {
     if (!this.audio.context) return false;
     this.stop();
@@ -1594,7 +1564,6 @@ export class StudioPlayback {
     this.audio.clearExternalTransport?.('studio');
     this.auditionStemId = null;
   }
-
   dispose() {
     this.stop();
     for (const bus of this.buses.values()) {
