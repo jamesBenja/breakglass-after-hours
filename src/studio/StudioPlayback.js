@@ -59,6 +59,13 @@ function isMicrophoneRecordingStem(stem) {
   return stem?.kind === 'vocal' || stem?.source === 'browser-microphone';
 }
 
+function hasNativeMicrophoneRecording(session, stem) {
+  return (
+    isMicrophoneRecordingStem(stem) &&
+    session?.recordingBlobs?.has?.(stem?.id) === true
+  );
+}
+
 function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
   if (
     !context?.createBuffer ||
@@ -921,10 +928,20 @@ export class StudioPlayback {
   renderStem(stem, step, when) {
     if (this.auditionStemId && stem.id !== this.auditionStemId) return;
     const bus = this.ensureBus(stem).input;
-    if (stem.clipActive === false || stem.mute) return;
+    if (stem.clipActive === false) return;
     const recording = this.session?.recordings.get(stem.id);
     if (recording) return;
-    if (this.renderPerformance(stem, step, when)) return;
+
+    // Recorded/event performances must keep their timeline running underneath the mixer.
+    // MUTE/SOLO only close the downstream hard gate, so opening the gate during playback
+    // reveals the current performance without restarting the Spectra transport. Keep the
+    // legacy generated backing voices on their old mute-aware path to avoid reintroducing
+    // the all-track transient regression from the previous broad fix.
+    if (stem.performance?.events?.length) {
+      this.renderPerformance(stem, step, when);
+      return;
+    }
+    if (stem.mute) return;
     // Empty input channels are monitor paths, not canned backing generators.
     if (stem.inputKey) return;
     if (stem.kind === 'drums') {
@@ -1005,6 +1022,12 @@ export class StudioPlayback {
         : Math.max(0, Number(offset) || 0);
     let started = 0;
     for (const stem of session.stems) {
+      // For browser microphone takes the native MediaRecorder file is the source of truth.
+      // Safari can return a decoded AudioBuffer that contains only the first second or so of
+      // an otherwise complete recording. If the native Blob exists, let startBlobRecordings
+      // own Vocal playback and scrubber seeks instead of allowing that partial decode to shadow it.
+      if (hasNativeMicrophoneRecording(session, stem)) continue;
+
       const buffer = session.recordings.get(stem.id);
       if (!buffer?.duration) continue;
       this.clearVocalBufferLoop(stem.id);
@@ -1245,6 +1268,10 @@ export class StudioPlayback {
       const duration = Number(media.duration);
       if (!(Number.isFinite(duration) && duration > 0)) return false;
 
+      // Media metadata is more authoritative than decodeAudioData for Safari microphone files.
+      // Keep the session's raw-source duration current so the Vocal scrubber can span the take.
+      stem.sourceDuration = Math.max(0, Number(stem.sourceDuration) || 0, duration);
+
       const sourceOffset = Math.min(
         Math.max(0, duration - 0.01),
         Math.max(0, Number(stem.sourceOffset) || 0),
@@ -1304,9 +1331,14 @@ export class StudioPlayback {
       Math.max(1, Number(session.loopBars) || 4);
     const created = [];
     for (const stem of session.stems) {
-      if (session.recordings?.has?.(stem.id)) continue;
       const blob = session.recordingBlobs.get(stem.id);
       if (!blob) continue;
+      const microphoneTake = isMicrophoneRecordingStem(stem);
+      // Decoded non-vocal recordings stay on the AudioBuffer path. Vocal is different:
+      // whenever the original MediaRecorder file is present it remains authoritative, because
+      // Safari may expose a valid but truncated decoded buffer for that same file.
+      if (session.recordings?.has?.(stem.id) && !microphoneTake) continue;
+
       const old = this.blobStems.get(stem.id);
       if (old) {
         old.pause?.();
@@ -1319,7 +1351,6 @@ export class StudioPlayback {
       if (oldUrl) URL.revokeObjectURL?.(oldUrl);
       const url = URL.createObjectURL(blob);
       const media = new Audio();
-      const microphoneTake = isMicrophoneRecordingStem(stem);
       media.preload = 'auto';
       media.playsInline = true;
       // Keep the microphone file continuously playing after the user-initiated PLAY gesture.
@@ -1546,8 +1577,12 @@ export class StudioPlayback {
   async auditionRawRecording(session, stemId, offset = 0) {
     if (!session || !stemId) return false;
     this.stopRawAudition();
+    const stem = session.stems?.find?.((item) => item.id === stemId) ?? null;
+    const nativeVocalBlob = hasNativeMicrophoneRecording(session, stem)
+      ? session.recordingBlobs?.get?.(stemId)
+      : null;
     const buffer = session.recordings?.get?.(stemId);
-    if (buffer?.duration && this.audio.context?.createBufferSource) {
+    if (!nativeVocalBlob && buffer?.duration && this.audio.context?.createBufferSource) {
       const safeOffset = Math.min(
         Math.max(0, buffer.duration - 0.01),
         Math.max(0, Number(offset) || 0),
@@ -1566,7 +1601,7 @@ export class StudioPlayback {
       source.start(startTime, safeOffset);
       return true;
     }
-    const blob = session.recordingBlobs?.get?.(stemId);
+    const blob = nativeVocalBlob ?? session.recordingBlobs?.get?.(stemId);
     if (
       !blob ||
       typeof Audio === 'undefined' ||
@@ -1589,6 +1624,13 @@ export class StudioPlayback {
           ? Math.min(Math.max(0, duration - 0.01), safeOffset)
           : safeOffset;
       this.rawAuditionDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
+      if (stem && this.rawAuditionDuration > 0) {
+        stem.sourceDuration = Math.max(
+          0,
+          Number(stem.sourceDuration) || 0,
+          this.rawAuditionDuration,
+        );
+      }
     };
     if (media.readyState >= 1) seek();
     else media.addEventListener?.('loadedmetadata', seek, { once: true });
