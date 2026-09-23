@@ -289,7 +289,11 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     assert.equal(created[0].src, 'blob:recorded-vocal');
     assert.equal(created[0].played, true);
     assert.equal(created[0].playCount, 1, 'the native Vocal file should be started only once');
-    assert.equal(created[0].loop, true, 'the native Vocal file should loop directly');
+    assert.equal(
+      created[0].loop,
+      false,
+      'recorded Vocal must preserve the working non-looping scrubber playback mode',
+    );
     assert.equal(created[0].currentTime, 0.5);
     assert.equal(playback.blobStems.get(vocal.id), created[0]);
     assert.equal(
