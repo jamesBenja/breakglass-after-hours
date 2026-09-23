@@ -60,10 +60,7 @@ function isMicrophoneRecordingStem(stem) {
 }
 
 function hasNativeMicrophoneRecording(session, stem) {
-  return (
-    isMicrophoneRecordingStem(stem) &&
-    session?.recordingBlobs?.has?.(stem?.id) === true
-  );
+  return isMicrophoneRecordingStem(stem) && session?.recordingBlobs?.has?.(stem?.id) === true;
 }
 
 function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
