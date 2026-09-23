@@ -673,7 +673,6 @@ export function createActions({
     auditionFromStart.type = 'button';
     auditionFromStart.textContent = '▶ AUDITION RAW FROM START';
     auditionFromStart.onclick = async () => {
-      studioPlayback?.stop?.();
       await studioPlayback?.auditionRawRecording?.(studio, target.id, 0);
     };
     const auditionSelected = ui.document.createElement('button');
@@ -683,7 +682,6 @@ export function createActions({
       const offset = Math.min(maxOffset, Math.max(0, Number(slider.value) || 0));
       target.sourceOffset = offset;
       rememberStudio();
-      studioPlayback?.stop?.();
       await studioPlayback?.auditionRawRecording?.(studio, target.id, offset);
     };
     const useCurrent = ui.document.createElement('button');
