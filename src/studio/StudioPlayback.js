@@ -58,7 +58,41 @@ function writeAudioParam(parameter, value, time, { immediate = false, timeConsta
 function isMicrophoneRecordingStem(stem) {
   return stem?.kind === 'vocal' || stem?.source === 'browser-microphone';
 }
-
+function microphoneLoopBuffer(context, stem, buffer, loopDuration) {
+  if (
+    !isMicrophoneRecordingStem(stem) ||
+    !(loopDuration > 0) ||
+    typeof context?.createBuffer !== 'function' ||
+    typeof buffer?.getChannelData !== 'function'
+  ) {
+    return buffer;
+  }
+  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
+  const channels = Math.max(1, Math.floor(Number(buffer.numberOfChannels) || 1));
+  const frames = Math.max(1, Math.round(loopDuration * sampleRate));
+  let clip = null;
+  try {
+    clip = context.createBuffer(channels, frames, sampleRate);
+  } catch {
+    return buffer;
+  }
+  if (!clip?.getChannelData) return buffer;
+  const sourceFrames = Math.max(
+    0,
+    Math.floor(Number(buffer.length) || buffer.duration * sampleRate),
+  );
+  const requestedOffset = Math.max(0, Number(stem.sourceOffset) || 0);
+  const sourceOffset = Math.min(Math.max(0, buffer.duration - 1 / sampleRate), requestedOffset);
+  const sourceStart = Math.min(sourceFrames, Math.floor(sourceOffset * sampleRate));
+  const available = Math.max(0, sourceFrames - sourceStart);
+  const copyLength = Math.min(frames, available);
+  for (let channel = 0; channel < channels; channel += 1) {
+    const source = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
+    const target = clip.getChannelData(channel);
+    target.set(source.subarray(sourceStart, sourceStart + copyLength), 0);
+  }
+  return clip;
+}
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -80,6 +114,7 @@ export class StudioPlayback {
     this.nativeStems = new Map();
     this.blobStems = new Map();
     this.blobUrls = new Map();
+    this.blobLoopTimers = new Map();
     this.assetBuffers = new Map();
     this.realSessionPlaying = false;
     this.bpm = 118;
@@ -97,6 +132,12 @@ export class StudioPlayback {
     this.frozenSources = new Map();
     this.frozenGates = new Map();
     this.soloFaderActive = false;
+    this.rawAuditionSource = null;
+    this.rawAuditionMedia = null;
+    this.rawAuditionUrl = null;
+    this.rawAuditionOffset = 0;
+    this.rawAuditionStartedAt = 0;
+    this.rawAuditionDuration = 0;
   }
 
   get playing() {
@@ -929,7 +970,6 @@ export class StudioPlayback {
       : this.spectraTransport?.running
         ? this.spectraTransport.positionAtOffset(start - now)
         : Math.max(0, Number(offset) || 0);
-
     let started = 0;
     for (const stem of session.stems) {
       const buffer = session.recordings.get(stem.id);
@@ -947,17 +987,19 @@ export class StudioPlayback {
       const existingGate = this.frozenGates.get(stem.id);
       existingGate?.disconnect?.();
       this.frozenGates.delete(stem.id);
-
       const source = context.createBufferSource();
       const microphoneTake = isMicrophoneRecordingStem(stem);
       const shouldLoop = session.loopEnabled === true || microphoneTake;
-      source.buffer = buffer;
+      const playbackBuffer = microphoneTake
+        ? microphoneLoopBuffer(context, stem, buffer, loopDuration)
+        : buffer;
+      source.buffer = playbackBuffer;
       source.loop = shouldLoop;
       if (source.loop) {
         source.loopStart = 0;
         source.loopEnd = microphoneTake
-          ? buffer.duration
-          : Math.min(buffer.duration, loopDuration || buffer.duration);
+          ? playbackBuffer.duration
+          : Math.min(playbackBuffer.duration, loopDuration || playbackBuffer.duration);
       }
       const sourceGate = context.createGain();
       sourceGate.gain.value = 1;
@@ -975,17 +1017,78 @@ export class StudioPlayback {
       this.sources.add(source);
       this.frozenSources.set(stem.id, source);
       this.frozenGates.set(stem.id, sourceGate);
-
       const playableDuration =
-        source.loop && source.loopEnd > 0 ? source.loopEnd : Math.max(0.001, buffer.duration);
-      const startOffset = microphoneTake ? 0 : playableDuration > 0 ? phase % playableDuration : 0;
+        source.loop && source.loopEnd > 0
+          ? source.loopEnd
+          : Math.max(0.001, playbackBuffer.duration);
+      const startOffset = playableDuration > 0 ? phase % playableDuration : 0;
       source.start(start, startOffset);
       started += 1;
     }
     if (started > 0) this.applyChannelAudibility(session);
     return started;
   }
-
+  clearBlobLoopTimers(stemId = null) {
+    const ids = stemId ? [stemId] : [...this.blobLoopTimers.keys()];
+    for (const id of ids) {
+      const handles = this.blobLoopTimers.get(id);
+      for (const handle of handles ?? []) this.timers.clearTimeout?.(handle);
+      this.blobLoopTimers.delete(id);
+    }
+  }
+  scheduleBlobVocalLoop(stemId, media, stem, loopDuration, phase = 0) {
+    this.clearBlobLoopTimers(stemId);
+    if (!(loopDuration > 0)) return false;
+    const handles = new Set();
+    this.blobLoopTimers.set(stemId, handles);
+    const schedule = (callback, seconds) => {
+      const handle = this.timers.setTimeout?.(
+        () => {
+          handles.delete(handle);
+          callback();
+        },
+        Math.max(0, seconds) * 1000,
+      );
+      if (handle != null) handles.add(handle);
+      return handle;
+    };
+    const prepare = () => {
+      const duration = Number(media.duration);
+      if (!(Number.isFinite(duration) && duration > 0)) return false;
+      const sourceOffset = Math.min(
+        Math.max(0, duration - 0.01),
+        Math.max(0, Number(stem.sourceOffset) || 0),
+      );
+      const audibleDuration = Math.min(loopDuration, Math.max(0, duration - sourceOffset));
+      const phaseInLoop =
+        ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
+      const playSegment = (segmentOffset = 0) => {
+        if (!(audibleDuration > segmentOffset)) {
+          media.pause?.();
+          return;
+        }
+        try {
+          media.currentTime = sourceOffset + segmentOffset;
+        } catch {
+          // A later metadata-ready cycle can retry.
+        }
+        Promise.resolve(media.play?.()).catch(() => {});
+        schedule(() => media.pause?.(), audibleDuration - segmentOffset);
+      };
+      if (phaseInLoop < audibleDuration) playSegment(phaseInLoop);
+      else media.pause?.();
+      const cycle = () => {
+        playSegment(0);
+        schedule(cycle, loopDuration);
+      };
+      const untilNextCycle = phaseInLoop > 0 ? loopDuration - phaseInLoop : loopDuration;
+      schedule(cycle, untilNextCycle);
+      return true;
+    };
+    if (media.readyState >= 1) return prepare();
+    media.addEventListener?.('loadedmetadata', prepare, { once: true });
+    return true;
+  }
   async startBlobRecordings(session, offset = 0) {
     if (
       typeof Audio === 'undefined' ||
@@ -995,77 +1098,82 @@ export class StudioPlayback {
     ) {
       return 0;
     }
-
     const phase = this.spectraTransport?.running
       ? this.spectraTransport.position()
       : Math.max(0, Number(offset) || 0);
+    const loopDuration =
+      (60 / Math.max(1, Number(session.bpm) || this.bpm)) *
+      4 *
+      Math.max(1, Number(session.loopBars) || 4);
     const created = [];
-
     for (const stem of session.stems) {
       if (session.recordings?.has?.(stem.id)) continue;
       const blob = session.recordingBlobs.get(stem.id);
       if (!blob) continue;
-
       const old = this.blobStems.get(stem.id);
       if (old) {
         old.pause?.();
         old.removeAttribute?.('src');
         old.load?.();
       }
+      this.clearBlobLoopTimers(stem.id);
       const oldUrl = this.blobUrls.get(stem.id);
       if (oldUrl) URL.revokeObjectURL?.(oldUrl);
-
       const url = URL.createObjectURL(blob);
       const media = new Audio();
       const microphoneTake = isMicrophoneRecordingStem(stem);
       media.preload = 'auto';
       media.playsInline = true;
-      media.loop = session.loopEnabled === true || microphoneTake;
+      media.loop = microphoneTake ? false : session.loopEnabled === true;
       media.src = url;
       media.volume = 0;
-
-      const seek = () => {
-        try {
-          if (microphoneTake) {
-            media.currentTime = 0;
-            return;
-          }
+      if (!microphoneTake) {
+        const seek = () => {
           const clipStart = Math.max(0, Number(stem.clipStart) || 0);
           const relative = Math.max(0, phase - clipStart);
-          const duration = Number(media.duration);
-          media.currentTime =
-            Number.isFinite(duration) && duration > 0 ? relative % duration : relative;
-        } catch {
-          // Metadata-loaded retry handles delayed seekability.
-        }
-      };
-      if (media.readyState >= 1) seek();
-      else media.addEventListener?.('loadedmetadata', seek, { once: true });
-
-      created.push([stem.id, media, url]);
-    }
-
-    if (!created.length) return 0;
-    try {
-      await Promise.all(created.map(([, media]) => media.play()));
-    } catch {
-      for (const [, media, url] of created) {
-        media.pause?.();
-        media.removeAttribute?.('src');
-        media.load?.();
-        URL.revokeObjectURL?.(url);
+          try {
+            const duration = Number(media.duration);
+            media.currentTime =
+              Number.isFinite(duration) && duration > 0 ? relative % duration : relative;
+          } catch {
+            // Metadata-loaded retry handles delayed seekability.
+          }
+        };
+        if (media.readyState >= 1) seek();
+        else media.addEventListener?.('loadedmetadata', seek, { once: true });
       }
-      return 0;
+      created.push([stem.id, media, url, microphoneTake, stem]);
     }
-
+    if (!created.length) return 0;
     for (const [id, media, url] of created) {
       this.blobStems.set(id, media);
       this.blobUrls.set(id, url);
     }
     this.updateBlobMix(session);
+    try {
+      await Promise.all(
+        created.map(async ([id, media, , microphoneTake, stem]) => {
+          if (microphoneTake) {
+            this.scheduleBlobVocalLoop(id, media, stem, loopDuration, phase);
+            return;
+          }
+          await media.play();
+        }),
+      );
+    } catch {
+      for (const [id, media, url] of created) {
+        this.clearBlobLoopTimers(id);
+        media.pause?.();
+        media.removeAttribute?.('src');
+        media.load?.();
+        URL.revokeObjectURL?.(url);
+        this.blobStems.delete(id);
+        this.blobUrls.delete(id);
+      }
+      return 0;
+    }
     return created.length;
   }
-
   async loadAlignedAssets(session) {
     const stems = session.stems.filter((stem) => stem.assetId);
     if (!stems.length || stems.length !== session.stems.length || !this.audio.assets) return null;
@@ -1185,6 +1293,100 @@ export class StudioPlayback {
     return true;
   }
 
+  stopRawAudition() {
+    if (this.rawAuditionSource) {
+      this.rawAuditionSource.onended = null;
+      try {
+        this.rawAuditionSource.stop();
+      } catch {
+        // Already ended.
+      }
+      this.rawAuditionSource.disconnect?.();
+    }
+    this.rawAuditionSource = null;
+    if (this.rawAuditionMedia) {
+      this.rawAuditionMedia.pause?.();
+      this.rawAuditionMedia.removeAttribute?.('src');
+      this.rawAuditionMedia.load?.();
+    }
+    this.rawAuditionMedia = null;
+    if (this.rawAuditionUrl) URL.revokeObjectURL?.(this.rawAuditionUrl);
+    this.rawAuditionUrl = null;
+    this.rawAuditionOffset = 0;
+    this.rawAuditionStartedAt = 0;
+    this.rawAuditionDuration = 0;
+  }
+  rawAuditionPosition() {
+    if (this.rawAuditionMedia && Number.isFinite(Number(this.rawAuditionMedia.currentTime))) {
+      return Math.max(0, Number(this.rawAuditionMedia.currentTime));
+    }
+    if (this.rawAuditionSource && this.audio.context) {
+      const elapsed = Math.max(0, this.audio.context.currentTime - this.rawAuditionStartedAt);
+      return Math.min(this.rawAuditionDuration, this.rawAuditionOffset + elapsed);
+    }
+    return Math.max(0, this.rawAuditionOffset);
+  }
+  async auditionRawRecording(session, stemId, offset = 0) {
+    if (!session || !stemId) return false;
+    this.stopRawAudition();
+    const buffer = session.recordings?.get?.(stemId);
+    if (buffer?.duration && this.audio.context?.createBufferSource) {
+      const safeOffset = Math.min(
+        Math.max(0, buffer.duration - 0.01),
+        Math.max(0, Number(offset) || 0),
+      );
+      const source = this.audio.context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.audio.sourceDestination?.('studio') ?? this.audio.master);
+      const startTime = this.audio.context.currentTime + 0.01;
+      this.rawAuditionSource = source;
+      this.rawAuditionOffset = safeOffset;
+      this.rawAuditionStartedAt = startTime;
+      this.rawAuditionDuration = buffer.duration;
+      source.onended = () => {
+        if (this.rawAuditionSource === source) this.stopRawAudition();
+      };
+      source.start(startTime, safeOffset);
+      return true;
+    }
+    const blob = session.recordingBlobs?.get?.(stemId);
+    if (
+      !blob ||
+      typeof Audio === 'undefined' ||
+      typeof URL === 'undefined' ||
+      typeof URL.createObjectURL !== 'function'
+    ) {
+      return false;
+    }
+    const url = URL.createObjectURL(blob);
+    const media = new Audio();
+    media.preload = 'auto';
+    media.playsInline = true;
+    media.src = url;
+    media.loop = false;
+    const safeOffset = Math.max(0, Number(offset) || 0);
+    const seek = () => {
+      const duration = Number(media.duration);
+      media.currentTime =
+        Number.isFinite(duration) && duration > 0
+          ? Math.min(Math.max(0, duration - 0.01), safeOffset)
+          : safeOffset;
+      this.rawAuditionDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
+    };
+    if (media.readyState >= 1) seek();
+    else media.addEventListener?.('loadedmetadata', seek, { once: true });
+    media.addEventListener?.('ended', () => this.stopRawAudition(), { once: true });
+    this.rawAuditionMedia = media;
+    this.rawAuditionUrl = url;
+    this.rawAuditionOffset = safeOffset;
+    try {
+      await media.play();
+      return true;
+    } catch {
+      this.stopRawAudition();
+      return false;
+    }
+  }
   async play(session, offset = 0, { stemId = null, restartTransport = false } = {}) {
     if (!this.audio.context) return false;
     this.stop();
@@ -1322,6 +1524,7 @@ export class StudioPlayback {
   }
 
   stop() {
+    this.stopRawAudition();
     if (this.timer !== null) this.timers.clearInterval(this.timer);
     this.timer = null;
     if (this.transportUnsubscribe) this.transportUnsubscribe();
@@ -1347,6 +1550,7 @@ export class StudioPlayback {
       media.load?.();
     }
     this.nativeStems.clear();
+    this.clearBlobLoopTimers();
     for (const media of this.blobStems.values()) {
       media.pause?.();
       media.removeAttribute?.('src');
@@ -1360,7 +1564,6 @@ export class StudioPlayback {
     this.audio.clearExternalTransport?.('studio');
     this.auditionStemId = null;
   }
-
   dispose() {
     this.stop();
     for (const bus of this.buses.values()) {

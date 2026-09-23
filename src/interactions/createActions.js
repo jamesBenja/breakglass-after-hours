@@ -518,7 +518,7 @@ export function createActions({
       ui.warning?.('Add a Vocal track before recording.');
       return;
     }
-
+    studioPlayback?.stopRawAudition?.();
     try {
       const started = await micRecorder.start();
       if (!started) return;
@@ -526,7 +526,6 @@ export function createActions({
       ui.warning?.(`Microphone recording could not start: ${error?.message ?? 'unknown error'}`);
       return;
     }
-
     panel(
       'SPECTRA VOCAL MIC · RECORDING',
       `Recording the phone/computer microphone directly to ${target.label}. This uses the browser's native microphone recorder with no synthetic fallback.`,
@@ -550,7 +549,6 @@ export function createActions({
               vocalPanel();
               return;
             }
-
             const destination =
               studio.stems.find((stem) => stem.id === target.id) ?? activeVocalTrack();
             if (!destination) {
@@ -558,13 +556,15 @@ export function createActions({
               vocalPanel();
               return;
             }
-
             destination.kind = 'vocal';
             destination.inputKey = 'vocal';
             destination.source = 'browser-microphone';
-            // Vocal takes are committed as exact self-contained loops. Do not offset the
-            // recorded file inside the transport or audition can begin at its tail.
             destination.clipStart = 0;
+            destination.sourceOffset = 0;
+            destination.sourceDuration = Math.max(
+              0,
+              Number(result.duration) || Number(result.buffer?.duration) || 0,
+            );
             destination.processing = {
               mic: studio.setup.mic,
               eq: studio.setup.eq,
@@ -577,11 +577,10 @@ export function createActions({
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
-
             ui.warning?.(
-              `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Tap PLAY on the Spectra mixer to hear the exact recorded microphone file.`,
+              `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Use the raw audition below to choose the Spectra loop start point.`,
             );
-            consolePanel();
+            vocalPanel();
           },
         ],
         [
@@ -594,7 +593,81 @@ export function createActions({
       ],
     );
   };
-
+  const renderVocalSourceEditor = (target) => {
+    if (!target || !ui.document || !ui.buttons) return;
+    const bufferDuration = Number(studio.recordings?.get?.(target.id)?.duration) || 0;
+    const duration = Math.max(0, Number(target.sourceDuration) || bufferDuration);
+    if (!(duration > 0)) return;
+    const maxOffset = Math.max(0, duration - 0.01);
+    const selectedOffset = Math.min(maxOffset, Math.max(0, Number(target.sourceOffset) || 0));
+    target.sourceOffset = selectedOffset;
+    const editor = ui.document.createElement('div');
+    editor.className = 'vocal-source-editor';
+    const title = ui.document.createElement('strong');
+    title.textContent = 'RAW TAKE → SPECTRA LOOP';
+    const readout = ui.document.createElement('span');
+    const loopSeconds =
+      (Math.max(1, Number(studio.loopBars) || 4) * 4 * 60) / Math.max(1, Number(studio.bpm) || 118);
+    const updateReadout = (value) => {
+      readout.textContent = `LOOP SOURCE START · ${Number(value).toFixed(2)}s / ${duration.toFixed(
+        2,
+      )}s · SPECTRA LOOP ${loopSeconds.toFixed(2)}s`;
+    };
+    updateReadout(selectedOffset);
+    const slider = ui.document.createElement('input');
+    slider.type = 'range';
+    slider.min = '0';
+    slider.max = String(maxOffset);
+    slider.step = '0.01';
+    slider.value = String(selectedOffset);
+    slider.setAttribute('aria-label', 'Vocal raw take loop start');
+    slider.oninput = () => updateReadout(slider.value);
+    slider.onchange = () => {
+      target.sourceOffset = Math.min(maxOffset, Math.max(0, Number(slider.value) || 0));
+      rememberStudio();
+      updateReadout(target.sourceOffset);
+    };
+    const help = ui.document.createElement('small');
+    help.textContent =
+      'Choose where the raw vocal begins inside the fixed Spectra loop. If the raw take runs out before the loop ends, the rest stays silent.';
+    const controls = ui.document.createElement('div');
+    controls.className = 'vocal-source-editor-controls';
+    const auditionFromStart = ui.document.createElement('button');
+    auditionFromStart.type = 'button';
+    auditionFromStart.textContent = '▶ AUDITION RAW FROM START';
+    auditionFromStart.onclick = async () => {
+      await studioPlayback?.auditionRawRecording?.(studio, target.id, 0);
+    };
+    const auditionSelected = ui.document.createElement('button');
+    auditionSelected.type = 'button';
+    auditionSelected.textContent = '▶ AUDITION FROM SELECTED POINT';
+    auditionSelected.onclick = async () => {
+      const offset = Math.min(maxOffset, Math.max(0, Number(slider.value) || 0));
+      target.sourceOffset = offset;
+      rememberStudio();
+      await studioPlayback?.auditionRawRecording?.(studio, target.id, offset);
+    };
+    const useCurrent = ui.document.createElement('button');
+    useCurrent.type = 'button';
+    useCurrent.textContent = 'SET LOOP START TO CURRENT AUDITION';
+    useCurrent.onclick = () => {
+      const position = studioPlayback?.rawAuditionPosition?.();
+      if (!Number.isFinite(Number(position))) return;
+      const offset = Math.min(maxOffset, Math.max(0, Number(position) || 0));
+      target.sourceOffset = offset;
+      slider.value = String(offset);
+      updateReadout(offset);
+      rememberStudio();
+      ui.warning?.(`Vocal loop source now starts at ${offset.toFixed(2)}s.`);
+    };
+    const stopAudition = ui.document.createElement('button');
+    stopAudition.type = 'button';
+    stopAudition.textContent = '■ STOP RAW AUDITION';
+    stopAudition.onclick = () => studioPlayback?.stopRawAudition?.();
+    controls.append(auditionFromStart, auditionSelected, useCurrent, stopAudition);
+    editor.append(title, readout, slider, help, controls);
+    ui.buttons.prepend(editor);
+  };
   const vocalPanel = () => {
     const target = activeVocalTrack();
     const mic = gearById(MICS, studio.setup.mic);
@@ -610,14 +683,14 @@ export function createActions({
         ...(hasTake && target
           ? [
               [
-                `▶ Play ${target.label} take`,
+                `▶ Preview ${target.label} in Spectra loop`,
                 async () => {
                   await monitorStudio(target.id);
                   vocalPanel();
                 },
               ],
               [
-                '■ Stop vocal take',
+                '■ Stop Spectra preview',
                 () => {
                   studioPlayback?.stop?.();
                   vocalPanel();
@@ -643,8 +716,8 @@ export function createActions({
         ['Spectra mixer', consolePanel],
       ],
     );
+    if (hasTake && target) renderVocalSourceEditor(target);
   };
-
   const sessionLibraryPanel = () => {
     panel(
       'SPECTRA · BREAKGLASS SESSION LIBRARY',
