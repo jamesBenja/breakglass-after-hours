@@ -1357,21 +1357,11 @@ export class StudioPlayback {
       media.volume = 0;
 
       if (microphoneTake) {
-        let route = { source: null, gate: null, open: false };
-        const context = this.audio.context;
-        if (context && typeof context.createMediaElementSource === 'function') {
-          try {
-            const source = context.createMediaElementSource(media);
-            const gate = context.createGain();
-            gate.gain.value = 0;
-            source.connect(gate);
-            gate.connect(this.ensureBus(stem).input);
-            route = { source, gate, open: false };
-          } catch {
-            // If Safari refuses MediaElementAudioSource, retain volume-based fallback routing.
-          }
-        }
-        this.blobRoutes.set(stem.id, route);
+        // Keep browser-microphone playback on the native media element. iPhone Safari can
+        // successfully create a MediaElementAudioSource and then produce silence after mic
+        // capture. Direct native playback is substantially more reliable. Spectra still owns
+        // level, mute and solo through media.volume + the loop window below.
+        this.blobRoutes.set(stem.id, { source: null, gate: null, open: false });
       }
 
       if (!microphoneTake) {
@@ -1398,12 +1388,13 @@ export class StudioPlayback {
     }
     this.updateBlobMix(session);
     try {
-      // Start every media element exactly once while still inside the console PLAY action.
-      // Timed Vocal looping thereafter is done by seek + gain gating, not new play() calls.
-      await Promise.all(created.map(([, media]) => media.play()));
+      // Prepare Vocal seek + audibility before invoking play(), then start every media element
+      // immediately from the user's PLAY gesture. This avoids losing Safari's transient user
+      // activation to an earlier await and prevents the first playback from beginning silently.
       for (const [id, media, , microphoneTake, stem] of created) {
         if (microphoneTake) this.scheduleBlobVocalLoop(id, media, stem, loopDuration, phase);
       }
+      await Promise.all(created.map(([, media]) => media.play()));
     } catch {
       for (const [id, media, url] of created) {
         this.clearBlobLoopTimers(id);
@@ -1685,6 +1676,12 @@ export class StudioPlayback {
       this.transportStartedAt = this.audio.context.currentTime;
     }
 
+    // Begin browser-recorded media immediately, before any asset-loading await. On iPhone
+    // Safari the native microphone file needs play() to happen in the original PLAY gesture.
+    // Calling the async method without awaiting here runs its setup and play() call synchronously
+    // until its first internal await; we join the result after the synchronous playback paths.
+    const blobPlayback = this.startBlobRecordings(session, safeOffset);
+
     const alignedAssets = await this.loadAlignedAssets(session);
     if (alignedAssets) {
       this.assetBuffers = alignedAssets;
@@ -1692,18 +1689,22 @@ export class StudioPlayback {
         ? this.spectraTransport.position()
         : safeOffset;
       this.startAlignedAssets(session, alignedAssets, alignedOffset);
+      await blobPlayback;
       return true;
     }
     const nativeOffset = this.spectraTransport?.running
       ? this.spectraTransport.position()
       : safeOffset;
-    if (await this.startNativeAssets(session, nativeOffset)) return true;
+    if (await this.startNativeAssets(session, nativeOffset)) {
+      await blobPlayback;
+      return true;
+    }
 
     const frozenCount = this.startFrozenRecordings(session, safeOffset, {
       startTime: sharedStartTime,
       phaseOffset: restartTransport ? safeOffset : null,
     });
-    await this.startBlobRecordings(session, safeOffset);
+    await blobPlayback;
 
     const interval = 60 / this.bpm / 4;
     this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });

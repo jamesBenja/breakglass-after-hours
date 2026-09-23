@@ -291,14 +291,26 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     assert.equal(created[0].loop, true, 'the native file stays alive while Spectra gates its loop');
     assert.equal(created[0].currentTime, 0.5);
     assert.equal(playback.blobStems.get(vocal.id), created[0]);
-    assert.equal(mediaSources.length, 1, 'Safari Vocal fallback should enter the WebAudio mixer');
-    assert.equal(playback.blobRoutes.get(vocal.id)?.gate?.gain?.value, 1);
-    assert.equal(created[0].volume, 1, 'WebAudio-routed media leaves level to the channel fader');
+    assert.equal(
+      mediaSources.length,
+      0,
+      'browser microphone playback must stay on native media instead of Safari WebAudio bridging',
+    );
+    assert.equal(playback.blobRoutes.get(vocal.id)?.gate, null);
+    assert.ok(created[0].volume > 0, 'the open Vocal window should be directly audible');
 
+    const audibleVolume = created[0].volume;
     vocal.mute = true;
     playback.applyChannelAudibility(session);
     assert.equal(playback.buses.get(vocal.id).hardMute.gain.value, 0);
-    assert.equal(created[0].volume, 1);
+    assert.equal(created[0].volume, 0, 'Spectra mute must silence direct native Vocal playback');
+    vocal.mute = false;
+    playback.applyChannelAudibility(session);
+    assert.equal(
+      created[0].volume,
+      audibleVolume,
+      'live unmute must restore direct native Vocal playback without restarting PLAY',
+    );
     playback.stop();
     assert.equal(playback.blobRoutes.size, 0);
   } finally {
@@ -382,7 +394,12 @@ test('native Vocal file wins over a truncated decoded buffer and honors the scru
       2.5,
       'the native recording should seek to the selected raw-source scrubber point',
     );
-    assert.equal(mediaSources.length, 1);
+    assert.equal(
+      mediaSources.length,
+      0,
+      'the complete native Vocal file should not be diverted into Safari MediaElementAudioSource',
+    );
+    assert.equal(playback.blobRoutes.get(vocal.id)?.gate, null);
     assert.equal(vocal.sourceDuration, 6);
 
     playback.stop();
@@ -391,6 +408,37 @@ test('native Vocal file wins over a truncated decoded buffer and honors the scru
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
   }
+});
+
+test('Spectra starts browser-recorded media before any asynchronous asset loading', async () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const session = new StudioSession();
+  const calls = [];
+
+  playback.startBlobRecordings = () => {
+    calls.push('blob-play');
+    return Promise.resolve(1);
+  };
+  playback.loadAlignedAssets = async () => {
+    calls.push('asset-load');
+    return null;
+  };
+  playback.startNativeAssets = async () => {
+    calls.push('native-assets');
+    return false;
+  };
+  playback.startFrozenRecordings = () => 0;
+  playback.hasEventPlayback = () => false;
+
+  await playback.play(session, 0, { restartTransport: true });
+
+  assert.equal(calls[0], 'blob-play');
+  assert.equal(
+    calls[1],
+    'asset-load',
+    'native microphone play must be invoked before the first asset-loading await',
+  );
+  playback.stop();
 });
 
 test('recorded microphone audio becomes one continuous fixed-length Spectra loop source', () => {
