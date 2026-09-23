@@ -58,6 +58,55 @@ function writeAudioParam(parameter, value, time, { immediate = false, timeConsta
 function isMicrophoneRecordingStem(stem) {
   return stem?.kind === 'vocal' || stem?.source === 'browser-microphone';
 }
+
+function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
+  if (
+    !context?.createBuffer ||
+    !buffer?.duration ||
+    !buffer?.numberOfChannels ||
+    !buffer?.getChannelData ||
+    !(loopDuration > 0)
+  ) {
+    return null;
+  }
+
+  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
+  const channels = Math.max(1, Math.floor(Number(buffer.numberOfChannels) || 1));
+  const loopFrames = Math.max(1, Math.round(loopDuration * sampleRate));
+  let loopBuffer = null;
+  try {
+    loopBuffer = context.createBuffer(channels, loopFrames, sampleRate);
+  } catch {
+    return null;
+  }
+
+  const sourceFrames = Math.max(
+    0,
+    Math.floor(Number(buffer.length) || Math.round(buffer.duration * sampleRate)),
+  );
+  const maxOffset = Math.max(0, buffer.duration - 1 / sampleRate);
+  const sourceOffset = Math.min(maxOffset, Math.max(0, Number(stem?.sourceOffset) || 0));
+  const sourceStartFrame = Math.min(sourceFrames, Math.floor(sourceOffset * sampleRate));
+  const copyFrames = Math.min(loopFrames, Math.max(0, sourceFrames - sourceStartFrame));
+  if (!(copyFrames > 0)) return loopBuffer;
+
+  const fadeFrames = Math.min(Math.max(0, Math.round(sampleRate * 0.003)), Math.floor(copyFrames / 2));
+
+  for (let channel = 0; channel < channels; channel += 1) {
+    const source = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
+    const target = loopBuffer.getChannelData(channel);
+    target.set(source.subarray(sourceStartFrame, sourceStartFrame + copyFrames), 0);
+
+    // Tiny edge fades avoid clicks when the selected source point or the raw take ends off-zero.
+    for (let frame = 0; frame < fadeFrames; frame += 1) {
+      const gain = (frame + 1) / (fadeFrames + 1);
+      target[frame] *= gain;
+      target[copyFrames - 1 - frame] *= gain;
+    }
+  }
+
+  return loopBuffer;
+}
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -975,19 +1024,41 @@ export class StudioPlayback {
       sourceGate.connect(this.ensureBus(stem).input);
       this.frozenGates.set(stem.id, sourceGate);
 
+      const source = context.createBufferSource();
+
       if (microphoneTake) {
-        started += this.scheduleVocalBufferLoop(
-          stem,
-          buffer,
-          sourceGate,
-          loopDuration,
-          phase,
-          start,
-        );
+        const vocalLoopBuffer = buildVocalLoopBuffer(context, stem, buffer, loopDuration);
+        if (!vocalLoopBuffer?.duration) {
+          sourceGate.disconnect?.();
+          this.frozenGates.delete(stem.id);
+          continue;
+        }
+
+        source.buffer = vocalLoopBuffer;
+        source.loop = true;
+        source.loopStart = 0;
+        source.loopEnd = vocalLoopBuffer.duration;
+        source.connect(sourceGate);
+        source.onended = () => {
+          source.disconnect?.();
+          this.sources.delete(source);
+          if (this.frozenSources.get(stem.id) === source) {
+            this.frozenSources.delete(stem.id);
+            this.frozenGates.delete(stem.id);
+            sourceGate.disconnect?.();
+          }
+        };
+        this.sources.add(source);
+        this.frozenSources.set(stem.id, source);
+        const phaseInLoop =
+          ((Math.max(0, Number(phase) || 0) % vocalLoopBuffer.duration) +
+            vocalLoopBuffer.duration) %
+          vocalLoopBuffer.duration;
+        source.start(start, phaseInLoop);
+        started += 1;
         continue;
       }
 
-      const source = context.createBufferSource();
       source.buffer = buffer;
       source.loop = session.loopEnabled === true;
       if (source.loop) {
