@@ -58,41 +58,6 @@ function writeAudioParam(parameter, value, time, { immediate = false, timeConsta
 function isMicrophoneRecordingStem(stem) {
   return stem?.kind === 'vocal' || stem?.source === 'browser-microphone';
 }
-function microphoneLoopBuffer(context, stem, buffer, loopDuration) {
-  if (
-    !isMicrophoneRecordingStem(stem) ||
-    !(loopDuration > 0) ||
-    typeof context?.createBuffer !== 'function' ||
-    typeof buffer?.getChannelData !== 'function'
-  ) {
-    return buffer;
-  }
-  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
-  const channels = Math.max(1, Math.floor(Number(buffer.numberOfChannels) || 1));
-  const frames = Math.max(1, Math.round(loopDuration * sampleRate));
-  let clip = null;
-  try {
-    clip = context.createBuffer(channels, frames, sampleRate);
-  } catch {
-    return buffer;
-  }
-  if (!clip?.getChannelData) return buffer;
-  const sourceFrames = Math.max(
-    0,
-    Math.floor(Number(buffer.length) || buffer.duration * sampleRate),
-  );
-  const requestedOffset = Math.max(0, Number(stem.sourceOffset) || 0);
-  const sourceOffset = Math.min(Math.max(0, buffer.duration - 1 / sampleRate), requestedOffset);
-  const sourceStart = Math.min(sourceFrames, Math.floor(sourceOffset * sampleRate));
-  const available = Math.max(0, sourceFrames - sourceStart);
-  const copyLength = Math.min(frames, available);
-  for (let channel = 0; channel < channels; channel += 1) {
-    const source = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
-    const target = clip.getChannelData(channel);
-    target.set(source.subarray(sourceStart, sourceStart + copyLength), 0);
-  }
-  return clip;
-}
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -116,6 +81,7 @@ export class StudioPlayback {
     this.blobUrls = new Map();
     this.blobLoopTimers = new Map();
     this.blobRoutes = new Map();
+    this.vocalBufferLoopTimers = new Map();
     this.assetBuffers = new Map();
     this.realSessionPlaying = false;
     this.bpm = 118;
@@ -148,7 +114,8 @@ export class StudioPlayback {
       this.realSessionPlaying ||
       this.nativeStems.size > 0 ||
       this.blobStems.size > 0 ||
-      this.frozenSources.size > 0
+      this.frozenSources.size > 0 ||
+      this.vocalBufferLoopTimers.size > 0
     );
   }
 
@@ -987,6 +954,7 @@ export class StudioPlayback {
     for (const stem of session.stems) {
       const buffer = session.recordings.get(stem.id);
       if (!buffer?.duration) continue;
+      this.clearVocalBufferLoop(stem.id);
       const existing = this.frozenSources.get(stem.id);
       if (existing) {
         try {
@@ -1000,40 +968,45 @@ export class StudioPlayback {
       const existingGate = this.frozenGates.get(stem.id);
       existingGate?.disconnect?.();
       this.frozenGates.delete(stem.id);
-      const source = context.createBufferSource();
       const microphoneTake = isMicrophoneRecordingStem(stem);
-      const shouldLoop = session.loopEnabled === true || microphoneTake;
-      const playbackBuffer = microphoneTake
-        ? microphoneLoopBuffer(context, stem, buffer, loopDuration)
-        : buffer;
-      source.buffer = playbackBuffer;
-      source.loop = shouldLoop;
-      if (source.loop) {
-        source.loopStart = 0;
-        source.loopEnd = microphoneTake
-          ? playbackBuffer.duration
-          : Math.min(playbackBuffer.duration, loopDuration || playbackBuffer.duration);
-      }
       const sourceGate = context.createGain();
       sourceGate.gain.value = 1;
-      source.connect(sourceGate);
       sourceGate.connect(this.ensureBus(stem).input);
+      this.frozenGates.set(stem.id, sourceGate);
+
+      if (microphoneTake) {
+        started += this.scheduleVocalBufferLoop(
+          stem,
+          buffer,
+          sourceGate,
+          loopDuration,
+          phase,
+          start,
+        );
+        continue;
+      }
+
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = session.loopEnabled === true;
+      if (source.loop) {
+        source.loopStart = 0;
+        source.loopEnd = Math.min(buffer.duration, loopDuration || buffer.duration);
+      }
+      source.connect(sourceGate);
       source.onended = () => {
         source.disconnect?.();
-        sourceGate.disconnect?.();
         this.sources.delete(source);
         if (this.frozenSources.get(stem.id) === source) {
           this.frozenSources.delete(stem.id);
           this.frozenGates.delete(stem.id);
+          sourceGate.disconnect?.();
         }
       };
       this.sources.add(source);
       this.frozenSources.set(stem.id, source);
-      this.frozenGates.set(stem.id, sourceGate);
       const playableDuration =
-        source.loop && source.loopEnd > 0
-          ? source.loopEnd
-          : Math.max(0.001, playbackBuffer.duration);
+        source.loop && source.loopEnd > 0 ? source.loopEnd : Math.max(0.001, buffer.duration);
       const startOffset = playableDuration > 0 ? phase % playableDuration : 0;
       source.start(start, startOffset);
       started += 1;
@@ -1041,6 +1014,73 @@ export class StudioPlayback {
     if (started > 0) this.applyChannelAudibility(session);
     return started;
   }
+  clearVocalBufferLoop(stemId = null) {
+    const ids = stemId ? [stemId] : [...this.vocalBufferLoopTimers.keys()];
+    for (const id of ids) {
+      const handle = this.vocalBufferLoopTimers.get(id);
+      if (handle != null) this.timers.clearTimeout?.(handle);
+      this.vocalBufferLoopTimers.delete(id);
+    }
+  }
+
+  scheduleVocalBufferLoop(stem, buffer, sourceGate, loopDuration, phase = 0, startTime = null) {
+    const context = this.audio.context;
+    if (!context || !buffer?.duration || !(loopDuration > 0) || !sourceGate) return 0;
+
+    this.clearVocalBufferLoop(stem.id);
+
+    const rawOffset = Math.min(
+      Math.max(0, buffer.duration - 0.01),
+      Math.max(0, Number(stem.sourceOffset) || 0),
+    );
+    const audibleDuration = Math.min(loopDuration, Math.max(0, buffer.duration - rawOffset));
+    if (!(audibleDuration > 0)) return 0;
+
+    const now = context.currentTime;
+    const firstStart =
+      Number.isFinite(Number(startTime)) && Number(startTime) >= now
+        ? Number(startTime)
+        : now + 0.045;
+    const phaseInLoop =
+      ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
+
+    const playSegment = (when, segmentOffset = 0) => {
+      if (!(audibleDuration > segmentOffset)) return null;
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(sourceGate);
+      source.onended = () => {
+        source.disconnect?.();
+        this.sources.delete(source);
+      };
+      this.sources.add(source);
+      const sourceOffset = rawOffset + segmentOffset;
+      const duration = audibleDuration - segmentOffset;
+      source.start(when, sourceOffset, duration);
+      return source;
+    };
+
+    if (phaseInLoop < audibleDuration) {
+      playSegment(firstStart, phaseInLoop);
+    }
+
+    const nextBoundary = firstStart + (phaseInLoop > 0 ? loopDuration - phaseInLoop : loopDuration);
+
+    const scheduleCycle = (boundaryTime) => {
+      const lead = 0.12;
+      const delaySeconds = Math.max(0, boundaryTime - context.currentTime - lead);
+      const handle = this.timers.setTimeout?.(() => {
+        if (this.vocalBufferLoopTimers.get(stem.id) !== handle) return;
+        playSegment(boundaryTime, 0);
+        scheduleCycle(boundaryTime + loopDuration);
+      }, delaySeconds * 1000);
+      if (handle != null) this.vocalBufferLoopTimers.set(stem.id, handle);
+    };
+
+    scheduleCycle(nextBoundary);
+    return 1;
+  }
+
   clearBlobRoute(stemId) {
     const route = this.blobRoutes.get(stemId);
     if (!route) return false;
@@ -1552,6 +1592,7 @@ export class StudioPlayback {
   removeStem(session = this.session, stemId) {
     if (!session || !stemId) return null;
 
+    this.clearVocalBufferLoop(stemId);
     const frozen = this.frozenSources.get(stemId);
     if (frozen) {
       frozen.onended = null;
@@ -1620,6 +1661,7 @@ export class StudioPlayback {
     }
     this.sources.clear();
     this.frozenSources.clear();
+    this.clearVocalBufferLoop();
     for (const gate of this.frozenGates.values()) gate.disconnect?.();
     this.frozenGates.clear();
     for (const media of this.nativeStems.values()) {

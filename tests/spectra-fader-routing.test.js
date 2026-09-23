@@ -251,47 +251,50 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
   }
 });
 
-test('recorded microphone audio maps the selected raw start into the fixed Spectra loop', () => {
+test('recorded microphone audio schedules the original decoded take directly on the Spectra loop', () => {
   const createdSources = [];
   const audio = fakeAudio(createdSources);
   const playback = new StudioPlayback(audio);
   const session = new StudioSession();
   session.bpm = 60;
   session.loopBars = 1;
-  session.loopEnabled = false;
+  session.loopEnabled = true;
 
   const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
   vocal.source = 'browser-microphone';
   vocal.sourceOffset = 1.2;
   vocal.sourceDuration = 5;
 
-  const samples = Float32Array.from({ length: 50 }, (_, index) => index / 100);
   const recording = {
     duration: 5,
     length: 50,
     numberOfChannels: 1,
     sampleRate: 10,
-    getChannelData: () => samples,
+    getChannelData: () => new Float32Array(50),
   };
   session.recordings.set(vocal.id, recording);
   playback.session = session;
   playback.updateMix(session);
 
-  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 3.5 }), 1);
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
 
   const source = createdSources[0];
-  assert.equal(source.loop, true, 'microphone takes remain locked to the Spectra loop');
-  assert.equal(source.loopStart, 0);
-  assert.equal(source.loopEnd, 4);
-  assert.equal(source.buffer.duration, 4);
-  assert.notEqual(source.buffer, recording);
-  assert.deepEqual(source.startArgs, [0, 3.5]);
+  assert.equal(source.buffer, recording, 'Spectra should play the original decoded Vocal buffer');
+  assert.notEqual(source.loop, true, 'the raw take itself must not become an independent loop');
+  assert.deepEqual(
+    source.startArgs,
+    [0, 1.2, 3.8],
+    'selected raw offset should play only the portion that fits in the fixed 4s loop',
+  );
+  assert.equal(playback.frozenGates.has(vocal.id), true);
+  assert.equal(playback.vocalBufferLoopTimers.has(vocal.id), true);
 
-  const clip = source.buffer.getChannelData(0);
-  assert.equal(clip[0], samples[12]);
-  assert.equal(clip[37], samples[49]);
-  assert.equal(clip[38], 0);
-  assert.equal(clip[39], 0);
+  vocal.mute = true;
+  playback.applyChannelAudibility(session);
+  assert.equal(playback.frozenGates.get(vocal.id).gain.value, 0);
+
+  playback.stop();
+  assert.equal(playback.vocalBufferLoopTimers.size, 0);
 });
 
 test('raw vocal audition starts at the selected source point without looping', async () => {
