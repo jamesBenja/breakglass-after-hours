@@ -127,3 +127,99 @@ test('Vocal capture commits to the raw scrubber before Spectra can resume playba
     'committing a Vocal take must not auto-restart Spectra and steal the raw scrubber Blob',
   );
 });
+
+
+test('Vocal raw scrubber audition overlays the running Spectra loop', async () => {
+  const studio = new StudioSession();
+  const vocal = studio.stems.find((stem) => stem.inputKey === 'vocal');
+  const blob = new Blob(['raw-vocal'], { type: 'audio/webm' });
+  studio.replaceRecording(vocal.id, null, blob);
+  vocal.source = 'browser-microphone';
+  vocal.sourceDuration = 3;
+  vocal.sourceOffset = 0.75;
+
+  const created = [];
+  const makeElement = (tag) => {
+    const element = {
+      tag,
+      children: [],
+      textContent: '',
+      value: '',
+      style: {},
+      append(...items) {
+        this.children.push(...items);
+      },
+      appendChild(item) {
+        this.children.push(item);
+      },
+      setAttribute() {},
+    };
+    created.push(element);
+    return element;
+  };
+
+  const ui = {
+    document: { createElement: makeElement },
+    buttons: {
+      prepend() {},
+      appendChild() {},
+    },
+    panel() {},
+    warning() {},
+  };
+  const calls = [];
+  const studioPlayback = {
+    playing: true,
+    stop() {
+      calls.push(['stop']);
+      this.playing = false;
+    },
+    async auditionRawRecording(_session, stemId, offset) {
+      calls.push(['audition', stemId, offset]);
+      return true;
+    },
+    stopRawAudition() {},
+    rawAuditionPosition() {
+      return 1.25;
+    },
+    updateMix() {},
+  };
+
+  createActions({
+    audio: {},
+    spatialAudio: null,
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    player: null,
+    ui,
+    state: { data: {} },
+    studio,
+    studioPlayback,
+    micRecorder: { supported: true },
+    keyboardPerformance: null,
+    photos: null,
+    dj: null,
+    saveState() {},
+    canAct: () => true,
+  });
+
+  ui._spectraStudioNavigation.vocal();
+
+  const fromStart = created.find((element) => element.textContent === '▶ AUDITION RAW FROM START');
+  const selected = created.find(
+    (element) => element.textContent === '▶ AUDITION FROM SELECTED POINT',
+  );
+  assert.ok(fromStart);
+  assert.ok(selected);
+
+  await fromStart.onclick();
+  await selected.onclick();
+
+  assert.equal(
+    calls.some(([name]) => name === 'stop'),
+    false,
+    'raw Vocal audition must not stop the running Spectra loop',
+  );
+  assert.deepEqual(calls[0], ['audition', vocal.id, 0]);
+  assert.deepEqual(calls[1], ['audition', vocal.id, 0.75]);
+  assert.equal(studioPlayback.playing, true);
+});
