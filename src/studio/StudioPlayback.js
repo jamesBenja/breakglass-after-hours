@@ -1064,8 +1064,7 @@ export class StudioPlayback {
       playSegment(firstStart, phaseInLoop);
     }
 
-    const nextBoundary =
-      firstStart + (phaseInLoop > 0 ? loopDuration - phaseInLoop : loopDuration);
+    const nextBoundary = firstStart + (phaseInLoop > 0 ? loopDuration - phaseInLoop : loopDuration);
 
     const scheduleCycle = (boundaryTime) => {
       const lead = 0.12;
