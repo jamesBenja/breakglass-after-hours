@@ -9,8 +9,8 @@ test('emit canonical Vocal single loop formatting', async () => {
   const output = await prettier.format(input, { ...config, filepath: path });
   const encoded = Buffer.from(output, 'utf8').toString('base64');
   console.log('PRETTIER_START:' + path + ':' + encoded.length);
-  for (let index = 0; index < encoded.length; index += 3000) {
-    console.log('PRETTIER_CHUNK:' + path + ':' + index + ':' + encoded.slice(index, index + 3000));
+  for (let index = 0; index < encoded.length; index += 1000) {
+    console.log('PRETTIER_CHUNK:' + path + ':' + index + ':' + encoded.slice(index, index + 1000));
   }
   console.log('PRETTIER_END:' + path);
 });
