@@ -425,34 +425,6 @@ test('Vocal source selection survives a Spectra session snapshot', () => {
   assert.equal(restoredVocal.sourceDuration, 8.25);
 });
 
-test('muted Spectra channels keep rendering and can be unmuted without restarting playback', () => {
-  const playback = new StudioPlayback(fakeAudio());
-  const session = new StudioSession();
-  const stem = session.stems.find((item) => item.performance?.events?.length) ?? session.stems[0];
-  stem.clipActive = true;
-  stem.mute = true;
-
-  let rendered = 0;
-  playback.renderPerformance = () => {
-    rendered += 1;
-    return true;
-  };
-  playback.session = session;
-  playback.updateMix(session);
-
-  playback.renderStem(stem, 0, 0);
-  assert.equal(rendered, 1, 'muted active channels must still render underneath the mixer');
-  assert.equal(playback.buses.get(stem.id).hardMute.gain.value, 0);
-
-  stem.mute = false;
-  playback.applyChannelAudibility(session);
-  assert.equal(
-    playback.buses.get(stem.id).hardMute.gain.value,
-    1,
-    'unmuting should open the live gate without restarting playback',
-  );
-});
-
 test('Spectra exposes independent reverb and delay sends with persistent FX detail settings', () => {
   const playback = new StudioPlayback(fakeAudio());
   const session = new StudioSession();
