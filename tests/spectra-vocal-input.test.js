@@ -26,7 +26,6 @@ test('Vocal appears in the Spectra + ADD TRACK source menu', () => {
   );
 });
 
-
 test('Vocal capture commits to the raw scrubber before Spectra can resume playback', async () => {
   const studio = new StudioSession();
   const vocalStem = studio.stems.find((stem) => stem.inputKey === 'vocal');
