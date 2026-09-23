@@ -111,7 +111,13 @@ export function createActions({
 
   const monitorStudio = async (stemId = null) => {
     if (!studio || !studioPlayback) return false;
-    await audio.init?.();
+
+    // Do not insert an async AudioEngine init ahead of Spectra PLAY when the shared context is
+    // already running. Safari ties native MediaRecorder playback permission to the user's tap,
+    // and yielding here can make the saved Vocal file permanently silent for that PLAY attempt.
+    if (!audio.context) await audio.init?.();
+    else if (audio.context.state === 'suspended') await audio.resume?.();
+
     return studioPlayback.play(studio, 0, {
       ...(stemId ? { stemId } : {}),
       restartTransport: true,
