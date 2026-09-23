@@ -98,7 +98,14 @@ export class MicrophoneRecorder {
       this.timelineStart = 0;
     }
 
-    this.recorder.start();
+    // Request regular chunks instead of relying on one final browser event at STOP.
+    // This is more robust across Chrome/Safari and guarantees that a real take already has
+    // recorded bytes before the user commits it to the raw scrubber.
+    try {
+      this.recorder.start(250);
+    } catch {
+      this.recorder.start();
+    }
     return true;
   }
 
@@ -112,12 +119,18 @@ export class MicrophoneRecorder {
       recorder.onstop = resolve;
     });
 
+    // Ask the recorder to flush whatever is currently buffered before STOP. Some browsers
+    // deliver the last MediaRecorder chunk after onstop, so also give that final event a short
+    // bounded window to land before building the raw take Blob.
+    try {
+      recorder.requestData?.();
+    } catch {
+      // requestData is optional; periodic chunks above are still sufficient.
+    }
     recorder.stop();
     await stopped;
 
-    // Safari can dispatch its final dataavailable immediately before or just after stop.
-    // Give the event queue one turn before declaring the take empty.
-    await new Promise((resolve) => globalThis.setTimeout?.(resolve, 0) ?? resolve());
+    await new Promise((resolve) => globalThis.setTimeout?.(resolve, 40) ?? resolve());
 
     const duration = Math.max(0, (performance.now() - this.startedAt) / 1000);
     const type = this.chunks[0]?.type || recorder.mimeType || 'audio/mp4';
