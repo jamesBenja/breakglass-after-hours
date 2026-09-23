@@ -58,7 +58,7 @@ class FakeAnalyser extends FakeNode {
   }
 }
 
-function fakeAudio(createdSources = []) {
+function fakeAudio(createdSources = [], { mediaSources = null } = {}) {
   const context = {
     currentTime: 0,
     sampleRate: 10,
@@ -87,6 +87,16 @@ function fakeAudio(createdSources = []) {
       createdSources.push(source);
       return source;
     },
+    ...(mediaSources
+      ? {
+          createMediaElementSource: (media) => {
+            const source = new FakeNode();
+            source.media = media;
+            mediaSources.push(source);
+            return source;
+          },
+        }
+      : {}),
   };
   const destination = new FakeNode();
   return {
@@ -175,12 +185,14 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
       this.duration = 2;
       this.currentTime = 0;
       this.played = false;
+      this.playCount = 0;
       this.paused = false;
       created.push(this);
     }
 
     play() {
       this.played = true;
+      this.playCount += 1;
       return Promise.resolve();
     }
 
@@ -201,7 +213,8 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
   URL.revokeObjectURL = () => {};
 
   try {
-    const playback = new StudioPlayback(fakeAudio());
+    const mediaSources = [];
+    const playback = new StudioPlayback(fakeAudio([], { mediaSources }));
     const session = new StudioSession();
     const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
     assert.ok(vocal, 'default Spectra session should expose a Vocal input channel');
@@ -217,14 +230,20 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     assert.equal(created.length, 1);
     assert.equal(created[0].src, 'blob:recorded-vocal');
     assert.equal(created[0].played, true);
-    assert.equal(created[0].loop, false, 'fallback media should be scheduled on the Spectra loop');
+    assert.equal(created[0].playCount, 1, 'the native Vocal file should be started only once');
+    assert.equal(created[0].loop, true, 'the native file stays alive while Spectra gates its loop');
     assert.equal(created[0].currentTime, 0.5);
     assert.equal(playback.blobStems.get(vocal.id), created[0]);
+    assert.equal(mediaSources.length, 1, 'Safari Vocal fallback should enter the WebAudio mixer');
+    assert.equal(playback.blobRoutes.get(vocal.id)?.gate?.gain?.value, 1);
+    assert.equal(created[0].volume, 1, 'WebAudio-routed media leaves level to the channel fader');
 
     vocal.mute = true;
     playback.applyChannelAudibility(session);
-    assert.equal(created[0].volume, 0);
+    assert.equal(playback.buses.get(vocal.id).hardMute.gain.value, 0);
+    assert.equal(created[0].volume, 1);
     playback.stop();
+    assert.equal(playback.blobRoutes.size, 0);
   } finally {
     globalThis.Audio = OriginalAudio;
     URL.createObjectURL = originalCreateObjectURL;

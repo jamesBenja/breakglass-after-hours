@@ -112,8 +112,10 @@ export function createActions({
   const monitorStudio = async (stemId = null) => {
     if (!studio || !studioPlayback) return false;
     await audio.init?.();
-    if (stemId) studioPlayback.spectraTransport?.restart?.(0);
-    return studioPlayback.play(studio, 0, stemId ? { stemId } : {});
+    return studioPlayback.play(studio, 0, {
+      ...(stemId ? { stemId } : {}),
+      restartTransport: true,
+    });
   };
 
   const choose = (title, collection, current, onSelect, back) =>

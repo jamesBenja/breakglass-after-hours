@@ -115,6 +115,7 @@ export class StudioPlayback {
     this.blobStems = new Map();
     this.blobUrls = new Map();
     this.blobLoopTimers = new Map();
+    this.blobRoutes = new Map();
     this.assetBuffers = new Map();
     this.realSessionPlaying = false;
     this.bpm = 118;
@@ -407,7 +408,19 @@ export class StudioPlayback {
       if (!media) continue;
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const active = selected && stem.clipActive !== false;
-      media.volume = clamp(active && stem.mute !== true ? stem.level * environment * 0.88 : 0);
+      const route = this.blobRoutes.get(stem.id);
+
+      if (route?.gate) {
+        // A MediaElementAudioSource routes the Safari/native microphone file through the
+        // real Spectra channel strip. The channel fader + hard mute own level/audibility.
+        media.volume = 1;
+        continue;
+      }
+
+      const timelineOpen = route ? route.open === true : true;
+      media.volume = clamp(
+        timelineOpen && active && stem.mute !== true ? stem.level * environment * 0.88 : 0,
+      );
     }
   }
 
@@ -1028,6 +1041,39 @@ export class StudioPlayback {
     if (started > 0) this.applyChannelAudibility(session);
     return started;
   }
+  clearBlobRoute(stemId) {
+    const route = this.blobRoutes.get(stemId);
+    if (!route) return false;
+    try {
+      route.source?.disconnect?.();
+    } catch {
+      // Already disconnected.
+    }
+    try {
+      route.gate?.disconnect?.();
+    } catch {
+      // Already disconnected.
+    }
+    this.blobRoutes.delete(stemId);
+    return true;
+  }
+
+  setBlobVocalWindow(stemId, stem, media, open) {
+    const route = this.blobRoutes.get(stemId);
+    if (route) route.open = open === true;
+
+    if (route?.gate?.gain && this.audio.context) {
+      writeSwitchParam(route.gate.gain, open ? 1 : 0, this.audio.context.currentTime);
+      return true;
+    }
+
+    const selected = !this.auditionStemId || stem.id === this.auditionStemId;
+    const active = selected && stem.clipActive !== false && stem.mute !== true;
+    const environment = this.audio.sourceGain?.('studio') ?? this.audio.environment?.gain ?? 1;
+    media.volume = clamp(open && active ? stem.level * environment * 0.88 : 0);
+    return true;
+  }
+
   clearBlobLoopTimers(stemId = null) {
     const ids = stemId ? [stemId] : [...this.blobLoopTimers.keys()];
     for (const id of ids) {
@@ -1039,6 +1085,7 @@ export class StudioPlayback {
   scheduleBlobVocalLoop(stemId, media, stem, loopDuration, phase = 0) {
     this.clearBlobLoopTimers(stemId);
     if (!(loopDuration > 0)) return false;
+
     const handles = new Set();
     this.blobLoopTimers.set(stemId, handles);
     const schedule = (callback, seconds) => {
@@ -1052,9 +1099,11 @@ export class StudioPlayback {
       if (handle != null) handles.add(handle);
       return handle;
     };
+
     const prepare = () => {
       const duration = Number(media.duration);
       if (!(Number.isFinite(duration) && duration > 0)) return false;
+
       const sourceOffset = Math.min(
         Math.max(0, duration - 0.01),
         Math.max(0, Number(stem.sourceOffset) || 0),
@@ -1062,29 +1111,36 @@ export class StudioPlayback {
       const audibleDuration = Math.min(loopDuration, Math.max(0, duration - sourceOffset));
       const phaseInLoop =
         ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
-      const playSegment = (segmentOffset = 0) => {
+
+      const openAt = (segmentOffset = 0) => {
         if (!(audibleDuration > segmentOffset)) {
-          media.pause?.();
+          this.setBlobVocalWindow(stemId, stem, media, false);
           return;
         }
         try {
           media.currentTime = sourceOffset + segmentOffset;
         } catch {
-          // A later metadata-ready cycle can retry.
+          // A later metadata-ready pass can retry the seek.
         }
-        Promise.resolve(media.play?.()).catch(() => {});
-        schedule(() => media.pause?.(), audibleDuration - segmentOffset);
+        this.setBlobVocalWindow(stemId, stem, media, true);
+        schedule(
+          () => this.setBlobVocalWindow(stemId, stem, media, false),
+          audibleDuration - segmentOffset,
+        );
       };
-      if (phaseInLoop < audibleDuration) playSegment(phaseInLoop);
-      else media.pause?.();
+
+      if (phaseInLoop < audibleDuration) openAt(phaseInLoop);
+      else this.setBlobVocalWindow(stemId, stem, media, false);
+
       const cycle = () => {
-        playSegment(0);
+        openAt(0);
         schedule(cycle, loopDuration);
       };
       const untilNextCycle = phaseInLoop > 0 ? loopDuration - phaseInLoop : loopDuration;
       schedule(cycle, untilNextCycle);
       return true;
     };
+
     if (media.readyState >= 1) return prepare();
     media.addEventListener?.('loadedmetadata', prepare, { once: true });
     return true;
@@ -1117,6 +1173,7 @@ export class StudioPlayback {
         old.load?.();
       }
       this.clearBlobLoopTimers(stem.id);
+      this.clearBlobRoute(stem.id);
       const oldUrl = this.blobUrls.get(stem.id);
       if (oldUrl) URL.revokeObjectURL?.(oldUrl);
       const url = URL.createObjectURL(blob);
@@ -1124,9 +1181,30 @@ export class StudioPlayback {
       const microphoneTake = isMicrophoneRecordingStem(stem);
       media.preload = 'auto';
       media.playsInline = true;
-      media.loop = microphoneTake ? false : session.loopEnabled === true;
+      // Keep the microphone file continuously playing after the user-initiated PLAY gesture.
+      // A dedicated gate below exposes only the selected source window on each Spectra loop.
+      media.loop = microphoneTake ? true : session.loopEnabled === true;
       media.src = url;
       media.volume = 0;
+
+      if (microphoneTake) {
+        let route = { source: null, gate: null, open: false };
+        const context = this.audio.context;
+        if (context && typeof context.createMediaElementSource === 'function') {
+          try {
+            const source = context.createMediaElementSource(media);
+            const gate = context.createGain();
+            gate.gain.value = 0;
+            source.connect(gate);
+            gate.connect(this.ensureBus(stem).input);
+            route = { source, gate, open: false };
+          } catch {
+            // If Safari refuses MediaElementAudioSource, retain volume-based fallback routing.
+          }
+        }
+        this.blobRoutes.set(stem.id, route);
+      }
+
       if (!microphoneTake) {
         const seek = () => {
           const clipStart = Math.max(0, Number(stem.clipStart) || 0);
@@ -1151,18 +1229,16 @@ export class StudioPlayback {
     }
     this.updateBlobMix(session);
     try {
-      await Promise.all(
-        created.map(async ([id, media, , microphoneTake, stem]) => {
-          if (microphoneTake) {
-            this.scheduleBlobVocalLoop(id, media, stem, loopDuration, phase);
-            return;
-          }
-          await media.play();
-        }),
-      );
+      // Start every media element exactly once while still inside the console PLAY action.
+      // Timed Vocal looping thereafter is done by seek + gain gating, not new play() calls.
+      await Promise.all(created.map(([, media]) => media.play()));
+      for (const [id, media, , microphoneTake, stem] of created) {
+        if (microphoneTake) this.scheduleBlobVocalLoop(id, media, stem, loopDuration, phase);
+      }
     } catch {
       for (const [id, media, url] of created) {
         this.clearBlobLoopTimers(id);
+        this.clearBlobRoute(id);
         media.pause?.();
         media.removeAttribute?.('src');
         media.load?.();
@@ -1493,6 +1569,8 @@ export class StudioPlayback {
 
     const blobMedia = this.blobStems.get(stemId);
     if (blobMedia) {
+      this.clearBlobLoopTimers(stemId);
+      this.clearBlobRoute(stemId);
       blobMedia.pause?.();
       blobMedia.removeAttribute?.('src');
       blobMedia.load?.();
@@ -1551,6 +1629,7 @@ export class StudioPlayback {
     }
     this.nativeStems.clear();
     this.clearBlobLoopTimers();
+    for (const id of [...this.blobRoutes.keys()]) this.clearBlobRoute(id);
     for (const media of this.blobStems.values()) {
       media.pause?.();
       media.removeAttribute?.('src');
