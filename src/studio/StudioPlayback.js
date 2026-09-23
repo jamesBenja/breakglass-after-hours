@@ -1139,7 +1139,7 @@ export class StudioPlayback {
       const microphoneTake = isMicrophoneRecordingStem(stem);
       media.preload = 'auto';
       media.playsInline = true;
-      media.loop = false;
+      media.loop = microphoneTake ? false : session.loopEnabled === true;
       media.src = url;
       media.volume = 0;
 
