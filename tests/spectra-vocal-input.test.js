@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createActions } from '../src/interactions/createActions.js';
 import { StudioSession } from '../src/studio/StudioSession.js';
 import { spectraInputKey, spectraInputStem } from '../src/studio/SpectraInputs.js';
 import { SPECTRA_ADD_TRACK_CHOICES } from '../src/ui/Hud.js';
@@ -22,5 +23,108 @@ test('Vocal appears in the Spectra + ADD TRACK source menu', () => {
   assert.deepEqual(
     SPECTRA_ADD_TRACK_CHOICES.find(([, inputKey]) => inputKey === 'vocal'),
     ['VOCAL / PHONE MIC', 'vocal'],
+  );
+});
+
+
+test('Vocal capture commits to the raw scrubber before Spectra can resume playback', async () => {
+  const studio = new StudioSession();
+  const vocalStem = studio.stems.find((stem) => stem.inputKey === 'vocal');
+  const rawBlob = new Blob(['captured-vocal'], { type: 'audio/webm' });
+  const calls = [];
+  const ui = {
+    lastPanel: null,
+    warning() {},
+    panel(title, text, actions) {
+      this.lastPanel = { title, text, actions };
+    },
+  };
+  const sceneManager = {
+    current: {
+      definition: { id: 'upstairs' },
+    },
+  };
+  const studioPlayback = {
+    playing: true,
+    stop() {
+      calls.push('stop-playback');
+      this.playing = false;
+    },
+    stopRawAudition() {
+      calls.push('stop-raw-audition');
+    },
+    stopRecordedStemPlayback() {
+      calls.push('stop-recorded-stem');
+    },
+    updateMix() {
+      calls.push('update-mix');
+    },
+    async play() {
+      calls.push('play');
+      this.playing = true;
+      return true;
+    },
+  };
+  const micRecorder = {
+    supported: true,
+    async start() {
+      calls.push('recorder-start');
+      return true;
+    },
+    async stop() {
+      calls.push('recorder-stop');
+      return {
+        blob: rawBlob,
+        buffer: null,
+        duration: 2.5,
+      };
+    },
+    cancel() {},
+  };
+  const audio = {
+    async recoverAfterMicrophoneCapture() {
+      calls.push('recover-audio');
+      return true;
+    },
+  };
+  const state = { data: {} };
+
+  createActions({
+    audio,
+    spatialAudio: null,
+    sceneManager,
+    player: null,
+    ui,
+    state,
+    studio,
+    studioPlayback,
+    micRecorder,
+    keyboardPerformance: null,
+    photos: null,
+    dj: null,
+    saveState() {},
+    canAct: () => true,
+  });
+
+  ui._spectraStudioNavigation.vocal();
+  const recordAction = ui.lastPanel.actions.find(([label]) => label.startsWith('Record to'));
+  assert.ok(recordAction);
+  await recordAction[1]();
+
+  assert.equal(ui.lastPanel.title, 'SPECTRA VOCAL MIC · RECORDING');
+  assert.ok(calls.indexOf('stop-playback') < calls.indexOf('recorder-start'));
+
+  const commitAction = ui.lastPanel.actions.find(([label]) => label.startsWith('Stop + commit'));
+  assert.ok(commitAction);
+  await commitAction[1]();
+
+  assert.equal(studio.recordingBlobs.get(vocalStem.id), rawBlob);
+  assert.equal(vocalStem.sourceDuration, 2.5);
+  assert.equal(vocalStem.sourceOffset, 0);
+  assert.equal(vocalStem.source, 'browser-microphone');
+  assert.equal(
+    calls.includes('play'),
+    false,
+    'committing a Vocal take must not auto-restart Spectra and steal the raw scrubber Blob',
   );
 });
