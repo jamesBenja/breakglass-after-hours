@@ -561,6 +561,9 @@ export function createActions({
             destination.kind = 'vocal';
             destination.inputKey = 'vocal';
             destination.source = 'browser-microphone';
+            destination.assetId = null;
+            destination.performance = null;
+            destination.clipActive = true;
             destination.clipStart = 0;
             destination.sourceOffset = 0;
             destination.sourceDuration = Math.max(
