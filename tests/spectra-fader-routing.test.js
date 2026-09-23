@@ -294,13 +294,21 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     assert.equal(created.length, 1);
     assert.equal(created[0].src, 'blob:recorded-vocal');
     assert.equal(created[0].played, true);
-    assert.equal(rawAuditionCalls, 1, 'Spectra Vocal must reuse the working raw-audition player');
+    assert.equal(
+      rawAuditionCalls,
+      1,
+      'Spectra Vocal must reuse the working raw-audition player',
+    );
     assert.equal(
       created[0].playCount,
       1,
       'the same raw-audition media element must be transferred into Spectra without replaying it',
     );
-    assert.equal(created[0].loop, true, 'the transferred raw-audition media should loop in Spectra');
+    assert.equal(
+      created[0].loop,
+      true,
+      'the transferred raw-audition media should loop in Spectra',
+    );
     assert.equal(created[0].currentTime, 0.5);
     assert.equal(playback.blobStems.get(vocal.id), created[0]);
     assert.equal(
