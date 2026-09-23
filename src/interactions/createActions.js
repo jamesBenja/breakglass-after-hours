@@ -562,7 +562,9 @@ export function createActions({
             destination.kind = 'vocal';
             destination.inputKey = 'vocal';
             destination.source = 'browser-microphone';
-            destination.clipStart = Math.max(0, Number(result.timelineStart) || 0);
+            // Vocal takes are committed as exact self-contained loops. Do not offset the
+            // recorded file inside the transport or audition can begin at its tail.
+            destination.clipStart = 0;
             destination.processing = {
               mic: studio.setup.mic,
               eq: studio.setup.eq,
