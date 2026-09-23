@@ -138,7 +138,10 @@ export class MicrophoneRecorder {
     return {
       blob,
       buffer,
-      duration: buffer?.duration || duration,
+      // Wall-clock capture duration is authoritative for the raw-take scrubber. Safari may
+      // successfully decode only a prefix of its own MediaRecorder file, so never shrink the
+      // source duration to a shorter decoded AudioBuffer.
+      duration: Math.max(duration, Number(buffer?.duration) || 0),
       type: blob.type || type,
       timelineStart: this.timelineStart,
       bytes: blob.size,
