@@ -81,8 +81,12 @@ function fakeAudio(createdSources = [], { mediaSources = null } = {}) {
       const source = new FakeNode();
       source.buffer = null;
       source.startArgs = null;
+      source.stopped = false;
       source.start = (...args) => {
         source.startArgs = args;
+      };
+      source.stop = () => {
+        source.stopped = true;
       };
       createdSources.push(source);
       return source;
@@ -295,6 +299,92 @@ test('recorded microphone audio schedules the original decoded take directly on 
 
   playback.stop();
   assert.equal(playback.vocalBufferLoopTimers.size, 0);
+});
+
+test('changing Vocal source offset fully replaces the old loop scheduler and source', () => {
+  const createdSources = [];
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  vocal.sourceOffset = 1.2;
+
+  const firstRecording = {
+    duration: 5,
+    length: 50,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => new Float32Array(50),
+  };
+  session.recordings.set(vocal.id, firstRecording);
+  playback.session = session;
+  playback.updateMix(session);
+
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
+  const firstSource = createdSources[0];
+  assert.deepEqual(firstSource.startArgs, [0, 1.2, 3.8]);
+  assert.equal(playback.vocalBufferSources.get(vocal.id)?.has(firstSource), true);
+
+  vocal.sourceOffset = 0.5;
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
+
+  const secondSource = createdSources[1];
+  assert.equal(firstSource.stopped, true, 'old Vocal source must be stopped on scrubber rebuild');
+  assert.deepEqual(secondSource.startArgs, [0, 0.5, 4]);
+  assert.equal(playback.vocalBufferSources.get(vocal.id)?.has(firstSource), false);
+  assert.equal(playback.vocalBufferSources.get(vocal.id)?.has(secondSource), true);
+
+  playback.stopRecordedStemPlayback(vocal.id);
+  assert.equal(secondSource.stopped, true);
+  assert.equal(playback.vocalBufferLoopTimers.has(vocal.id), false);
+  assert.equal(playback.vocalBufferSources.has(vocal.id), false);
+  assert.equal(playback.frozenGates.has(vocal.id), false);
+});
+
+test('a replacement Vocal recording cannot inherit the previous take playback state', () => {
+  const createdSources = [];
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+
+  const firstRecording = {
+    duration: 3,
+    length: 30,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => new Float32Array(30),
+  };
+  session.replaceRecording(vocal.id, firstRecording);
+  playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
+  const firstSource = createdSources[0];
+
+  playback.stopRecordedStemPlayback(vocal.id);
+  const secondRecording = {
+    duration: 6,
+    length: 60,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => new Float32Array(60),
+  };
+  vocal.sourceOffset = 2;
+  session.replaceRecording(vocal.id, secondRecording);
+  playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
+
+  const secondSource = createdSources[1];
+  assert.equal(firstSource.stopped, true);
+  assert.equal(secondSource.buffer, secondRecording);
+  assert.deepEqual(secondSource.startArgs, [0, 2, 4]);
+  playback.stop();
 });
 
 test('raw vocal audition starts at the selected source point without looping', async () => {
