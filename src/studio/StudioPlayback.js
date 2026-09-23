@@ -1316,10 +1316,6 @@ export class StudioPlayback {
     const phase = this.spectraTransport?.running
       ? this.spectraTransport.position()
       : Math.max(0, Number(offset) || 0);
-    const loopDuration =
-      (60 / Math.max(1, Number(session.bpm) || this.bpm)) *
-      4 *
-      Math.max(1, Number(session.loopBars) || 4);
     const created = [];
     for (const stem of session.stems) {
       const blob = session.recordingBlobs.get(stem.id);
@@ -1340,11 +1336,43 @@ export class StudioPlayback {
       this.clearBlobRoute(stem.id);
       const oldUrl = this.blobUrls.get(stem.id);
       if (oldUrl) URL.revokeObjectURL?.(oldUrl);
+
+      if (microphoneTake) {
+        // The raw scrubber audition is already proven to play this exact microphone Blob.
+        // Use that exact player and exact play() call for Spectra instead of maintaining a
+        // second implementation that can diverge or silently fail.
+        const started = await this.auditionRawRecording(
+          session,
+          stem.id,
+          Math.max(0, Number(stem.sourceOffset) || 0),
+        );
+        const media = this.rawAuditionMedia;
+        const url = this.rawAuditionUrl;
+        if (!started || !media || !url) {
+          this.stopRawAudition();
+          continue;
+        }
+
+        media.loop = true;
+        media.onended = null;
+
+        // Transfer ownership from "raw audition" to the Spectra playback collection without
+        // stopping or recreating the working media element.
+        this.rawAuditionMedia = null;
+        this.rawAuditionUrl = null;
+        this.rawAuditionOffset = 0;
+        this.rawAuditionStartedAt = 0;
+        this.rawAuditionDuration = 0;
+
+        created.push([stem.id, media, url, microphoneTake, stem, true]);
+        continue;
+      }
+
       const url = URL.createObjectURL(blob);
       const media = new Audio();
       media.preload = 'auto';
       media.playsInline = true;
-      media.loop = microphoneTake ? true : session.loopEnabled === true;
+      media.loop = session.loopEnabled === true;
       media.src = url;
       media.muted = false;
       media.defaultMuted = false;
@@ -1353,18 +1381,6 @@ export class StudioPlayback {
       const seek = () => {
         try {
           const duration = Number(media.duration);
-          if (microphoneTake) {
-            if (Number.isFinite(duration) && duration > 0) {
-              stem.sourceDuration = Math.max(0, Number(stem.sourceDuration) || 0, duration);
-            }
-            const sourceOffset = Math.max(0, Number(stem.sourceOffset) || 0);
-            media.currentTime =
-              Number.isFinite(duration) && duration > 0
-                ? Math.min(Math.max(0, duration - 0.01), sourceOffset)
-                : sourceOffset;
-            return;
-          }
-
           const clipStart = Math.max(0, Number(stem.clipStart) || 0);
           const relative = Math.max(0, phase - clipStart);
           media.currentTime =
@@ -1375,7 +1391,7 @@ export class StudioPlayback {
       };
       if (media.readyState >= 1) seek();
       else media.addEventListener?.('loadedmetadata', seek, { once: true });
-      created.push([stem.id, media, url, microphoneTake, stem]);
+      created.push([stem.id, media, url, microphoneTake, stem, false]);
     }
     if (!created.length) return 0;
     for (const [id, media, url] of created) {
@@ -1384,9 +1400,13 @@ export class StudioPlayback {
     }
     this.updateBlobMix(session);
     try {
-      // The Vocal reliability path is intentionally minimal: one native Audio element, audible
-      // immediately, looping its recording, with only fader/mute/solo controlling volume.
-      await Promise.all(created.map(([, media]) => media.play()));
+      // Vocal is already playing because it came directly from the working raw-audition path.
+      // Only non-vocal Blob media still needs a new play() call here.
+      await Promise.all(
+        created
+          .filter(([, , , , , alreadyPlaying]) => !alreadyPlaying)
+          .map(([, media]) => media.play()),
+      );
     } catch {
       for (const [id, media, url] of created) {
         this.clearBlobLoopTimers(id);
@@ -1614,7 +1634,7 @@ export class StudioPlayback {
     };
     if (media.readyState >= 1) seek();
     else media.addEventListener?.('loadedmetadata', seek, { once: true });
-    media.addEventListener?.('ended', () => this.stopRawAudition(), { once: true });
+    media.onended = () => this.stopRawAudition();
     this.rawAuditionMedia = media;
     this.rawAuditionUrl = url;
     this.rawAuditionOffset = safeOffset;

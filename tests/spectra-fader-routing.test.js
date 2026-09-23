@@ -273,6 +273,12 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     const mediaSources = [];
     const playback = new StudioPlayback(fakeAudio([], { mediaSources }));
     playback.audio.sourceGain = () => 0;
+    let rawAuditionCalls = 0;
+    const rawAudition = playback.auditionRawRecording.bind(playback);
+    playback.auditionRawRecording = async (...args) => {
+      rawAuditionCalls += 1;
+      return rawAudition(...args);
+    };
     const session = new StudioSession();
     const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
     assert.ok(vocal, 'default Spectra session should expose a Vocal input channel');
@@ -288,10 +294,28 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     assert.equal(created.length, 1);
     assert.equal(created[0].src, 'blob:recorded-vocal');
     assert.equal(created[0].played, true);
-    assert.equal(created[0].playCount, 1, 'the native Vocal file should be started only once');
-    assert.equal(created[0].loop, true, 'the native Vocal file should loop directly');
+    assert.equal(
+      rawAuditionCalls,
+      1,
+      'Spectra Vocal must reuse the working raw-audition player',
+    );
+    assert.equal(
+      created[0].playCount,
+      1,
+      'the same raw-audition media element must be transferred into Spectra without replaying it',
+    );
+    assert.equal(
+      created[0].loop,
+      true,
+      'the transferred raw-audition media should loop in Spectra',
+    );
     assert.equal(created[0].currentTime, 0.5);
     assert.equal(playback.blobStems.get(vocal.id), created[0]);
+    assert.equal(
+      playback.rawAuditionMedia,
+      null,
+      'ownership must transfer from the scrubber audition slot to Spectra without stopping audio',
+    );
     assert.equal(
       mediaSources.length,
       0,
