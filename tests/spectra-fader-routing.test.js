@@ -173,6 +173,59 @@ test('recorded Spectra stems use the same mute path for MUTE and SOLO', () => {
   assert.equal(playback.buses.get(second.id).hardMute.gain.value, 1);
 });
 
+test('muted recorded performance keeps its timeline running for live unmute', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const session = new StudioSession({
+    project: true,
+    stems: [stem('recorded-performance', 0.75)],
+  });
+  const recorded = session.stems[0];
+  recorded.mute = true;
+
+  let renderCalls = 0;
+  playback.renderPerformance = () => {
+    renderCalls += 1;
+    return true;
+  };
+  playback.session = session;
+  playback.updateMix(session);
+
+  playback.renderStem(recorded, 0, 0);
+  assert.equal(
+    renderCalls,
+    1,
+    'muted recorded/event tracks must keep advancing underneath the mixer',
+  );
+  assert.equal(playback.buses.get(recorded.id).hardMute.gain.value, 0);
+
+  recorded.mute = false;
+  playback.applyChannelAudibility(session);
+  assert.equal(
+    playback.buses.get(recorded.id).hardMute.gain.value,
+    1,
+    'live unmute should open the existing channel gate without restarting PLAY',
+  );
+
+  const legacyGenerated = {
+    ...stem('legacy-generated', 0.7),
+    performance: null,
+    inputKey: null,
+    kind: 'bass',
+    mute: true,
+  };
+  playback.session = { stems: [legacyGenerated], recordings: new Map() };
+  let generatedNotes = 0;
+  playback.oscillator = () => {
+    generatedNotes += 1;
+  };
+  playback.renderStem(legacyGenerated, 0, 0);
+  assert.equal(
+    generatedNotes,
+    0,
+    'legacy generated backing voices stay mute-aware to avoid the prior transient regression',
+  );
+});
+
 test('blob-only vocal takes are treated as playable Spectra audio', async () => {
   const OriginalAudio = globalThis.Audio;
   const originalCreateObjectURL = URL.createObjectURL;
@@ -248,6 +301,91 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     assert.equal(created[0].volume, 1);
     playback.stop();
     assert.equal(playback.blobRoutes.size, 0);
+  } finally {
+    globalThis.Audio = OriginalAudio;
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  }
+});
+
+test('native Vocal file wins over a truncated decoded buffer and honors the scrubber offset', async () => {
+  const OriginalAudio = globalThis.Audio;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  const created = [];
+
+  class FakeMedia {
+    constructor() {
+      this.src = '';
+      this.volume = 0;
+      this.loop = false;
+      this.playsInline = false;
+      this.readyState = 1;
+      this.duration = 6;
+      this.currentTime = 0;
+      created.push(this);
+    }
+    play() {
+      return Promise.resolve();
+    }
+    pause() {}
+    removeAttribute(name) {
+      if (name === 'src') this.src = '';
+    }
+    load() {}
+    addEventListener() {}
+  }
+
+  globalThis.Audio = FakeMedia;
+  URL.createObjectURL = () => 'blob:full-native-vocal';
+  URL.revokeObjectURL = () => {};
+
+  try {
+    const createdSources = [];
+    const mediaSources = [];
+    const playback = new StudioPlayback(fakeAudio(createdSources, { mediaSources }));
+    const session = new StudioSession();
+    session.bpm = 60;
+    session.loopBars = 1;
+    const vocal = session.stems.find((item) => item.inputKey === 'vocal');
+    vocal.source = 'browser-microphone';
+    vocal.sourceOffset = 2.5;
+    vocal.sourceDuration = 6;
+
+    const truncatedDecode = {
+      duration: 1,
+      length: 10,
+      numberOfChannels: 1,
+      sampleRate: 10,
+      getChannelData: () => new Float32Array(10),
+    };
+    session.replaceRecording(
+      vocal.id,
+      truncatedDecode,
+      new Blob(['complete-native-vocal'], { type: 'audio/mp4' }),
+    );
+    playback.session = session;
+    playback.updateMix(session);
+
+    assert.equal(
+      playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }),
+      0,
+      'the partial decoded buffer must not shadow a real microphone file',
+    );
+    assert.equal(createdSources.length, 0);
+
+    assert.equal(await playback.startBlobRecordings(session, 0), 1);
+    assert.equal(created.length, 1);
+    assert.equal(created[0].src, 'blob:full-native-vocal');
+    assert.equal(
+      created[0].currentTime,
+      2.5,
+      'the native recording should seek to the selected raw-source scrubber point',
+    );
+    assert.equal(mediaSources.length, 1);
+    assert.equal(vocal.sourceDuration, 6);
+
+    playback.stop();
   } finally {
     globalThis.Audio = OriginalAudio;
     URL.createObjectURL = originalCreateObjectURL;
