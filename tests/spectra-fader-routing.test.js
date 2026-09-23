@@ -272,6 +272,7 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
   try {
     const mediaSources = [];
     const playback = new StudioPlayback(fakeAudio([], { mediaSources }));
+    playback.audio.sourceGain = () => 0;
     const session = new StudioSession();
     const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
     assert.ok(vocal, 'default Spectra session should expose a Vocal input channel');
@@ -288,7 +289,7 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     assert.equal(created[0].src, 'blob:recorded-vocal');
     assert.equal(created[0].played, true);
     assert.equal(created[0].playCount, 1, 'the native Vocal file should be started only once');
-    assert.equal(created[0].loop, true, 'the native file stays alive while Spectra gates its loop');
+    assert.equal(created[0].loop, true, 'the native Vocal file should loop directly');
     assert.equal(created[0].currentTime, 0.5);
     assert.equal(playback.blobStems.get(vocal.id), created[0]);
     assert.equal(
@@ -296,8 +297,15 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
       0,
       'browser microphone playback must stay on native media instead of Safari WebAudio bridging',
     );
-    assert.equal(playback.blobRoutes.get(vocal.id)?.gate, null);
-    assert.ok(created[0].volume > 0, 'the open Vocal window should be directly audible');
+    assert.equal(
+      playback.blobRoutes.has(vocal.id),
+      false,
+      'minimal Vocal playback must not depend on a hidden route/gate state',
+    );
+    assert.ok(
+      created[0].volume > 0,
+      'Vocal must remain audible even when unrelated studio spatial/source gain is zero',
+    );
 
     const audibleVolume = created[0].volume;
     vocal.mute = true;
@@ -399,7 +407,7 @@ test('native Vocal file wins over a truncated decoded buffer and honors the scru
       0,
       'the complete native Vocal file should not be diverted into Safari MediaElementAudioSource',
     );
-    assert.equal(playback.blobRoutes.get(vocal.id)?.gate, null);
+    assert.equal(playback.blobRoutes.has(vocal.id), false);
     assert.equal(vocal.sourceDuration, 6);
 
     playback.stop();
