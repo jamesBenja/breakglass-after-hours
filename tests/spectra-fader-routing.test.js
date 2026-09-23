@@ -252,7 +252,11 @@ test('recorded microphone audio loops the exact take from sample zero', () => {
   assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 3.5 }), 1);
 
   const source = createdSources[0];
-  assert.equal(source.loop, true, 'microphone takes should loop even if the saved loop flag is off');
+  assert.equal(
+    source.loop,
+    true,
+    'microphone takes should loop even if the saved loop flag is off',
+  );
   assert.equal(source.loopStart, 0);
   assert.equal(source.loopEnd, recording.duration);
   assert.equal(source.buffer, recording, 'the exact decoded microphone take should be played');
