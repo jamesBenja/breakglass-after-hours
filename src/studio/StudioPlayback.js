@@ -117,6 +117,7 @@ export class StudioPlayback {
     this.nativeStems = new Map();
     this.blobStems = new Map();
     this.blobUrls = new Map();
+    this.blobLoopTimers = new Map();
     this.assetBuffers = new Map();
     this.realSessionPlaying = false;
     this.bpm = 118;
@@ -1034,6 +1035,71 @@ export class StudioPlayback {
     return started;
   }
 
+  clearBlobLoopTimers(stemId = null) {
+    const ids = stemId ? [stemId] : [...this.blobLoopTimers.keys()];
+    for (const id of ids) {
+      const handles = this.blobLoopTimers.get(id);
+      for (const handle of handles ?? []) this.timers.clearTimeout?.(handle);
+      this.blobLoopTimers.delete(id);
+    }
+  }
+
+  scheduleBlobVocalLoop(stemId, media, stem, loopDuration, phase = 0) {
+    this.clearBlobLoopTimers(stemId);
+    if (!(loopDuration > 0)) return false;
+
+    const handles = new Set();
+    this.blobLoopTimers.set(stemId, handles);
+    const schedule = (callback, seconds) => {
+      const handle = this.timers.setTimeout?.(() => {
+        handles.delete(handle);
+        callback();
+      }, Math.max(0, seconds) * 1000);
+      if (handle != null) handles.add(handle);
+      return handle;
+    };
+
+    const prepare = () => {
+      const duration = Number(media.duration);
+      if (!(Number.isFinite(duration) && duration > 0)) return false;
+      const sourceOffset = Math.min(
+        Math.max(0, duration - 0.01),
+        Math.max(0, Number(stem.sourceOffset) || 0),
+      );
+      const audibleDuration = Math.min(loopDuration, Math.max(0, duration - sourceOffset));
+      const phaseInLoop = ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
+
+      const playSegment = (segmentOffset = 0) => {
+        if (!(audibleDuration > segmentOffset)) {
+          media.pause?.();
+          return;
+        }
+        try {
+          media.currentTime = sourceOffset + segmentOffset;
+        } catch {
+          // A later metadata-ready cycle can retry.
+        }
+        Promise.resolve(media.play?.()).catch(() => {});
+        schedule(() => media.pause?.(), audibleDuration - segmentOffset);
+      };
+
+      if (phaseInLoop < audibleDuration) playSegment(phaseInLoop);
+      else media.pause?.();
+
+      const cycle = () => {
+        playSegment(0);
+        schedule(cycle, loopDuration);
+      };
+      const untilNextCycle = phaseInLoop > 0 ? loopDuration - phaseInLoop : loopDuration;
+      schedule(cycle, untilNextCycle);
+      return true;
+    };
+
+    if (media.readyState >= 1) return prepare();
+    media.addEventListener?.('loadedmetadata', prepare, { once: true });
+    return true;
+  }
+
   async startBlobRecordings(session, offset = 0) {
     if (
       typeof Audio === 'undefined' ||
@@ -1047,6 +1113,10 @@ export class StudioPlayback {
     const phase = this.spectraTransport?.running
       ? this.spectraTransport.position()
       : Math.max(0, Number(offset) || 0);
+    const loopDuration =
+      (60 / Math.max(1, Number(session.bpm) || this.bpm)) *
+      4 *
+      Math.max(1, Number(session.loopBars) || 4);
     const created = [];
 
     for (const stem of session.stems) {
@@ -1060,6 +1130,7 @@ export class StudioPlayback {
         old.removeAttribute?.('src');
         old.load?.();
       }
+      this.clearBlobLoopTimers(stem.id);
       const oldUrl = this.blobUrls.get(stem.id);
       if (oldUrl) URL.revokeObjectURL?.(oldUrl);
 
@@ -1068,49 +1139,60 @@ export class StudioPlayback {
       const microphoneTake = isMicrophoneRecordingStem(stem);
       media.preload = 'auto';
       media.playsInline = true;
-      media.loop = session.loopEnabled === true || microphoneTake;
+      media.loop = false;
       media.src = url;
       media.volume = 0;
 
-      const seek = () => {
-        try {
-          if (microphoneTake) {
-            media.currentTime = 0;
-            return;
-          }
+      if (!microphoneTake) {
+        const seek = () => {
           const clipStart = Math.max(0, Number(stem.clipStart) || 0);
           const relative = Math.max(0, phase - clipStart);
-          const duration = Number(media.duration);
-          media.currentTime =
-            Number.isFinite(duration) && duration > 0 ? relative % duration : relative;
-        } catch {
-          // Metadata-loaded retry handles delayed seekability.
-        }
-      };
-      if (media.readyState >= 1) seek();
-      else media.addEventListener?.('loadedmetadata', seek, { once: true });
+          try {
+            const duration = Number(media.duration);
+            media.currentTime =
+              Number.isFinite(duration) && duration > 0 ? relative % duration : relative;
+          } catch {
+            // Metadata-loaded retry handles delayed seekability.
+          }
+        };
+        if (media.readyState >= 1) seek();
+        else media.addEventListener?.('loadedmetadata', seek, { once: true });
+      }
 
-      created.push([stem.id, media, url]);
+      created.push([stem.id, media, url, microphoneTake, stem]);
     }
 
     if (!created.length) return 0;
-    try {
-      await Promise.all(created.map(([, media]) => media.play()));
-    } catch {
-      for (const [, media, url] of created) {
-        media.pause?.();
-        media.removeAttribute?.('src');
-        media.load?.();
-        URL.revokeObjectURL?.(url);
-      }
-      return 0;
-    }
 
     for (const [id, media, url] of created) {
       this.blobStems.set(id, media);
       this.blobUrls.set(id, url);
     }
     this.updateBlobMix(session);
+
+    try {
+      await Promise.all(
+        created.map(async ([id, media, , microphoneTake, stem]) => {
+          if (microphoneTake) {
+            this.scheduleBlobVocalLoop(id, media, stem, loopDuration, phase);
+            return;
+          }
+          await media.play();
+        }),
+      );
+    } catch {
+      for (const [id, media, url] of created) {
+        this.clearBlobLoopTimers(id);
+        media.pause?.();
+        media.removeAttribute?.('src');
+        media.load?.();
+        URL.revokeObjectURL?.(url);
+        this.blobStems.delete(id);
+        this.blobUrls.delete(id);
+      }
+      return 0;
+    }
+
     return created.length;
   }
 
@@ -1498,6 +1580,7 @@ export class StudioPlayback {
       media.load?.();
     }
     this.nativeStems.clear();
+    this.clearBlobLoopTimers();
     for (const media of this.blobStems.values()) {
       media.pause?.();
       media.removeAttribute?.('src');
