@@ -206,6 +206,9 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
     assert.ok(vocal, 'default Spectra session should expose a Vocal input channel');
     vocal.source = 'browser-microphone';
+    vocal.sourceOffset = 0.5;
+    session.bpm = 60;
+    session.loopBars = 1;
     session.replaceRecording(vocal.id, null, new Blob(['voice'], { type: 'audio/mp4' }));
     playback.session = session;
 
@@ -214,8 +217,8 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
     assert.equal(created.length, 1);
     assert.equal(created[0].src, 'blob:recorded-vocal');
     assert.equal(created[0].played, true);
-    assert.equal(created[0].loop, true);
-    assert.equal(created[0].currentTime, 0);
+    assert.equal(created[0].loop, false, 'fallback media should be scheduled on the Spectra loop');
+    assert.equal(created[0].currentTime, 0.5);
     assert.equal(playback.blobStems.get(vocal.id), created[0]);
 
     vocal.mute = true;
@@ -229,21 +232,27 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
   }
 });
 
-test('recorded microphone audio loops the exact take from sample zero', () => {
+test('recorded microphone audio maps the selected raw start into the fixed Spectra loop', () => {
   const createdSources = [];
-  const playback = new StudioPlayback(fakeAudio(createdSources));
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
   const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
   session.loopEnabled = false;
 
   const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
   vocal.source = 'browser-microphone';
-  vocal.clipStart = 2;
+  vocal.sourceOffset = 1.2;
+  vocal.sourceDuration = 5;
 
+  const samples = Float32Array.from({ length: 50 }, (_, index) => index / 100);
   const recording = {
-    duration: 1,
+    duration: 5,
+    length: 50,
     numberOfChannels: 1,
     sampleRate: 10,
-    getChannelData: () => Float32Array.from([0.2, 0.4, 0.6]),
+    getChannelData: () => samples,
   };
   session.recordings.set(vocal.id, recording);
   playback.session = session;
@@ -252,15 +261,56 @@ test('recorded microphone audio loops the exact take from sample zero', () => {
   assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 3.5 }), 1);
 
   const source = createdSources[0];
-  assert.equal(
-    source.loop,
-    true,
-    'microphone takes should loop even if the saved loop flag is off',
-  );
+  assert.equal(source.loop, true, 'microphone takes remain locked to the Spectra loop');
   assert.equal(source.loopStart, 0);
-  assert.equal(source.loopEnd, recording.duration);
-  assert.equal(source.buffer, recording, 'the exact decoded microphone take should be played');
-  assert.deepEqual(source.startArgs, [0, 0], 'vocal playback must always begin at sample zero');
+  assert.equal(source.loopEnd, 4);
+  assert.equal(source.buffer.duration, 4);
+  assert.notEqual(source.buffer, recording);
+  assert.deepEqual(source.startArgs, [0, 3.5]);
+
+  const clip = source.buffer.getChannelData(0);
+  assert.equal(clip[0], samples[12]);
+  assert.equal(clip[37], samples[49]);
+  assert.equal(clip[38], 0);
+  assert.equal(clip[39], 0);
+});
+
+test('raw vocal audition starts at the selected source point without looping', async () => {
+  const createdSources = [];
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
+  const session = new StudioSession();
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  const recording = {
+    duration: 5,
+    length: 50,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => new Float32Array(50),
+  };
+  session.recordings.set(vocal.id, recording);
+
+  assert.equal(await playback.auditionRawRecording(session, vocal.id, 1.5), true);
+  const source = createdSources[0];
+  assert.deepEqual(source.startArgs, [0.01, 1.5]);
+  assert.equal(source.loop, undefined);
+  assert.equal(playback.rawAuditionPosition(), 1.5);
+
+  audio.context.currentTime = 0.51;
+  assert.equal(playback.rawAuditionPosition(), 2);
+  playback.stopRawAudition();
+});
+
+test('Vocal source selection survives a Spectra session snapshot', () => {
+  const session = new StudioSession();
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.sourceOffset = 1.37;
+  vocal.sourceDuration = 8.25;
+
+  const restored = new StudioSession(session.snapshot());
+  const restoredVocal = restored.stems.find((stem) => stem.inputKey === 'vocal');
+  assert.equal(restoredVocal.sourceOffset, 1.37);
+  assert.equal(restoredVocal.sourceDuration, 8.25);
 });
 
 test('Spectra exposes independent reverb and delay sends with persistent FX detail settings', () => {
