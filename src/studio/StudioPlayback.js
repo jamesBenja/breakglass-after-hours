@@ -734,3 +734,649 @@ export class StudioPlayback {
         this.noise(bus, when, 0.022, 0.025 * level);
         return;
       }
+    }
+
+    switch (normalized) {
+      case 'kick':
+        this.kick(bus, when, level);
+        break;
+      case 'snare':
+        this.oscillator(185, 0.09, bus, {
+          type: 'triangle',
+          volume: 0.075 * level,
+          when,
+        });
+        this.noise(bus, when + 0.008, 0.08, 0.085 * level);
+        break;
+      case 'closed-hat':
+        this.noise(bus, when, 0.035, 0.06 * level);
+        break;
+      case 'open-hat':
+        this.noise(bus, when, 0.14, 0.07 * level);
+        break;
+      case 'low-tom':
+        this.oscillator(112, 0.22, bus, { type: 'sine', volume: 0.1 * level, when });
+        break;
+      case 'high-tom':
+        this.oscillator(176, 0.18, bus, { type: 'sine', volume: 0.085 * level, when });
+        break;
+      case 'crash':
+        this.noise(bus, when, 0.42, 0.08 * level);
+        this.oscillator(420, 0.34, bus, {
+          type: 'triangle',
+          volume: 0.035 * level,
+          when,
+        });
+        break;
+    }
+  }
+
+  performanceEventsForStep(stem, performance, step, loopSteps, sourceStepDuration) {
+    let cache = this.performanceIndex.get(performance);
+    if (
+      !cache ||
+      cache.events !== performance.events ||
+      cache.loopSteps !== loopSteps ||
+      cache.stepDuration !== sourceStepDuration
+    ) {
+      const byStep = new Map();
+      for (const event of performance.events) {
+        const eventTime = Math.max(0, Number(event.time) || 0);
+        const absoluteStep = Math.round(eventTime / sourceStepDuration);
+        const eventStep = ((absoluteStep % loopSteps) + loopSteps) % loopSteps;
+        const microOffset = Math.max(0, eventTime - absoluteStep * sourceStepDuration);
+        const bucket = byStep.get(eventStep) ?? [];
+        bucket.push({ event, microOffset });
+        byStep.set(eventStep, bucket);
+      }
+      cache = {
+        events: performance.events,
+        loopSteps,
+        stepDuration: sourceStepDuration,
+        byStep,
+      };
+      this.performanceIndex.set(performance, cache);
+    }
+    return cache.byStep.get(((step % loopSteps) + loopSteps) % loopSteps) ?? [];
+  }
+
+  renderPerformance(stem, step, when) {
+    const performance = stem.performance;
+    if (!performance?.events?.length) return false;
+    const bus = this.ensureBus(stem).input;
+    const sourceBpm = performance.bpm || this.bpm;
+    const sourceStepDuration = 60 / sourceBpm / 4;
+    const loopSteps = this.session?.loopEnabled
+      ? Math.max(16, Math.max(1, Number(this.session.loopBars) || 4) * 16)
+      : Math.max(16, Math.min(256, Math.ceil((performance.duration || 4) / sourceStepDuration)));
+    const events = this.performanceEventsForStep(
+      stem,
+      performance,
+      step,
+      loopSteps,
+      sourceStepDuration,
+    );
+
+    for (const { event, microOffset } of events) {
+      const eventWhen = when + microOffset;
+      if (event.drum) {
+        this.renderDrumEvent(event.drum, bus, eventWhen);
+        continue;
+      }
+      this.oscillator(event.frequency || 440, performance.noteDuration || 0.42, bus, {
+        type: performance.wave || 'triangle',
+        volume: performance.volume || 0.065,
+        when: eventWhen,
+      });
+      if (performance.octaveLayer) {
+        this.oscillator(
+          (event.frequency || 440) * 2,
+          (performance.noteDuration || 0.42) * 0.72,
+          bus,
+          {
+            type: 'triangle',
+            volume: (performance.volume || 0.065) * 0.22,
+            when: eventWhen + 0.012,
+          },
+        );
+      }
+    }
+    return true;
+  }
+
+  renderStem(stem, step, when) {
+    if (this.auditionStemId && stem.id !== this.auditionStemId) return;
+    const bus = this.ensureBus(stem).input;
+    if (stem.clipActive === false || stem.mute) return;
+    const recording = this.session?.recordings.get(stem.id);
+    if (recording) return;
+    if (this.renderPerformance(stem, step, when)) return;
+    // Empty input channels are monitor paths, not canned backing generators.
+    if (stem.inputKey) return;
+    if (stem.kind === 'drums') {
+      if (step % 4 === 0) this.kick(bus, when);
+      if (step % 2 === 1) this.noise(bus, when + 0.01, 0.035, 0.055);
+      if (step % 8 === 4) this.noise(bus, when, 0.11, 0.095);
+      return;
+    }
+    if (stem.kind === 'bass') {
+      if (step % 2 === 0) {
+        const notes = [NOTE.C2, NOTE.C2, NOTE.G2, NOTE.A2, NOTE.E2, NOTE.G2, NOTE.D2, NOTE.A2];
+        this.oscillator(notes[(step / 2) % notes.length], 0.22, bus, {
+          type: 'sawtooth',
+          volume: 0.08,
+          when,
+        });
+      }
+      return;
+    }
+    if (stem.kind === 'guitar') {
+      if (step % 4 === 0) {
+        const roots = [NOTE.C3, NOTE.A2, NOTE.G2, NOTE.E2];
+        const root = roots[(step / 4) % roots.length];
+        for (const ratio of [1, 1.25, 1.5]) {
+          this.oscillator(root * ratio, 0.34, bus, {
+            type: 'triangle',
+            volume: 0.045,
+            when,
+          });
+        }
+      }
+      return;
+    }
+    // Microphone takes must never fall back to the old generated demo phrase. If a browser cannot
+    // decode the MediaRecorder container, the raw recording blob is handled by startBlobRecordings.
+    if (stem.kind === 'vocal' || stem.source === 'browser-microphone') return;
+    if (stem.kind === 'synth' || stem.kind === 'keys') {
+      if (step % 8 === 0) {
+        const root = step % 16 === 0 ? NOTE.C4 : NOTE.A3;
+        for (const ratio of [1, 1.25, 1.5]) {
+          this.oscillator(root * ratio, 0.7, bus, {
+            type: 'sawtooth',
+            volume: 0.035,
+            when,
+          });
+        }
+      }
+    }
+  }
+
+  hasEventPlayback(session = this.session) {
+    return (session?.stems ?? []).some((stem) => {
+      if (session?.recordings?.has?.(stem.id)) return false;
+      if (session?.recordingBlobs?.has?.(stem.id)) return false;
+      if (stem.performance?.events?.length) return true;
+      if (stem.inputKey) return false;
+      if (stem.kind === 'vocal' || stem.source === 'browser-microphone') return false;
+      return !stem.assetId;
+    });
+  }
+
+  startFrozenRecordings(session, offset = 0, { startTime = null, phaseOffset = null } = {}) {
+    const context = this.audio.context;
+    if (!context || !session?.recordings?.size) return 0;
+    const now = context.currentTime;
+    const start =
+      Number.isFinite(Number(startTime)) && Number(startTime) >= now
+        ? Number(startTime)
+        : now + 0.045;
+    const loopDuration =
+      (60 / Math.max(1, Number(session.bpm) || this.bpm)) *
+      4 *
+      Math.max(1, Number(session.loopBars) || 4);
+    const phase = Number.isFinite(Number(phaseOffset))
+      ? Math.max(0, Number(phaseOffset))
+      : this.spectraTransport?.running
+        ? this.spectraTransport.positionAtOffset(start - now)
+        : Math.max(0, Number(offset) || 0);
+
+    let started = 0;
+    for (const stem of session.stems) {
+      const buffer = session.recordings.get(stem.id);
+      if (!buffer?.duration) continue;
+      const existing = this.frozenSources.get(stem.id);
+      if (existing) {
+        try {
+          existing.stop();
+        } catch {
+          // Already stopped.
+        }
+        existing.disconnect?.();
+        this.sources.delete(existing);
+      }
+      const existingGate = this.frozenGates.get(stem.id);
+      existingGate?.disconnect?.();
+      this.frozenGates.delete(stem.id);
+
+      const source = context.createBufferSource();
+      const microphoneTake = isMicrophoneRecordingStem(stem);
+      const shouldLoop = session.loopEnabled === true || microphoneTake;
+      source.buffer = buffer;
+      source.loop = shouldLoop;
+      if (source.loop) {
+        source.loopStart = 0;
+        source.loopEnd = microphoneTake
+          ? buffer.duration
+          : Math.min(buffer.duration, loopDuration || buffer.duration);
+      }
+      const sourceGate = context.createGain();
+      sourceGate.gain.value = 1;
+      source.connect(sourceGate);
+      sourceGate.connect(this.ensureBus(stem).input);
+      source.onended = () => {
+        source.disconnect?.();
+        sourceGate.disconnect?.();
+        this.sources.delete(source);
+        if (this.frozenSources.get(stem.id) === source) {
+          this.frozenSources.delete(stem.id);
+          this.frozenGates.delete(stem.id);
+        }
+      };
+      this.sources.add(source);
+      this.frozenSources.set(stem.id, source);
+      this.frozenGates.set(stem.id, sourceGate);
+
+      const playableDuration =
+        source.loop && source.loopEnd > 0 ? source.loopEnd : Math.max(0.001, buffer.duration);
+      const startOffset = microphoneTake
+        ? 0
+        : playableDuration > 0
+          ? phase % playableDuration
+          : 0;
+      source.start(start, startOffset);
+      started += 1;
+    }
+    if (started > 0) this.applyChannelAudibility(session);
+    return started;
+  }
+
+  async startBlobRecordings(session, offset = 0) {
+    if (
+      typeof Audio === 'undefined' ||
+      typeof URL === 'undefined' ||
+      typeof URL.createObjectURL !== 'function' ||
+      !session?.recordingBlobs?.size
+    ) {
+      return 0;
+    }
+
+    const phase = this.spectraTransport?.running
+      ? this.spectraTransport.position()
+      : Math.max(0, Number(offset) || 0);
+    const created = [];
+
+    for (const stem of session.stems) {
+      if (session.recordings?.has?.(stem.id)) continue;
+      const blob = session.recordingBlobs.get(stem.id);
+      if (!blob) continue;
+
+      const old = this.blobStems.get(stem.id);
+      if (old) {
+        old.pause?.();
+        old.removeAttribute?.('src');
+        old.load?.();
+      }
+      const oldUrl = this.blobUrls.get(stem.id);
+      if (oldUrl) URL.revokeObjectURL?.(oldUrl);
+
+      const url = URL.createObjectURL(blob);
+      const media = new Audio();
+      const microphoneTake = isMicrophoneRecordingStem(stem);
+      media.preload = 'auto';
+      media.playsInline = true;
+      media.loop = session.loopEnabled === true || microphoneTake;
+      media.src = url;
+      media.volume = 0;
+
+      const seek = () => {
+        try {
+          if (microphoneTake) {
+            media.currentTime = 0;
+            return;
+          }
+          const clipStart = Math.max(0, Number(stem.clipStart) || 0);
+          const relative = Math.max(0, phase - clipStart);
+          const duration = Number(media.duration);
+          media.currentTime =
+            Number.isFinite(duration) && duration > 0 ? relative % duration : relative;
+        } catch {
+          // Metadata-loaded retry handles delayed seekability.
+        }
+      };
+      if (media.readyState >= 1) seek();
+      else media.addEventListener?.('loadedmetadata', seek, { once: true });
+
+      created.push([stem.id, media, url]);
+    }
+
+    if (!created.length) return 0;
+    try {
+      await Promise.all(created.map(([, media]) => media.play()));
+    } catch {
+      for (const [, media, url] of created) {
+        media.pause?.();
+        media.removeAttribute?.('src');
+        media.load?.();
+        URL.revokeObjectURL?.(url);
+      }
+      return 0;
+    }
+
+    for (const [id, media, url] of created) {
+      this.blobStems.set(id, media);
+      this.blobUrls.set(id, url);
+    }
+    this.updateBlobMix(session);
+    return created.length;
+  }
+
+  async loadAlignedAssets(session) {
+    const stems = session.stems.filter((stem) => stem.assetId);
+    if (!stems.length || stems.length !== session.stems.length || !this.audio.assets) return null;
+    const loaded = await Promise.all(
+      stems.map(async (stem) => [
+        stem.id,
+        await this.audio.assets.audio(stem.assetId, this.audio.context),
+      ]),
+    );
+    const buffers = new Map(loaded.filter(([, buffer]) => !!buffer));
+    return buffers.size === stems.length ? buffers : null;
+  }
+
+  startAlignedAssets(session, buffers, offset = 0) {
+    const start = this.audio.context.currentTime + 0.06;
+    const safeOffset = Math.max(0, Number(offset) || 0);
+    const phaseOffset = this.spectraTransport?.running
+      ? this.spectraTransport.positionAtOffset(start - this.audio.context.currentTime)
+      : safeOffset;
+    this.transportOffset = phaseOffset;
+    this.transportStartedAt = start;
+    for (const stem of session.stems) {
+      if (!stem.assetId) continue;
+      const buffer = buffers.get(stem.id);
+      if (!buffer) continue;
+      const source = this.audio.context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(this.ensureBus(stem).input);
+      source.onended = () => {
+        source.disconnect();
+        this.sources.delete(source);
+      };
+      this.sources.add(source);
+      const startOffset = buffer.duration > 0 ? phaseOffset % buffer.duration : 0;
+      source.start(start, startOffset);
+    }
+    this.realSessionPlaying = true;
+    this.audio.setExternalTransport?.(
+      'studio',
+      `${session.name} · real multitrack`,
+      60 / this.bpm / 4,
+      {
+        vibe: 0.58,
+        mixQuality: 0.92,
+      },
+    );
+  }
+
+  async startNativeAssets(session, offset = 0) {
+    if (typeof Audio === 'undefined' || !this.audio.assets?.mediaUrl) return false;
+    const safeOffset = Math.max(0, Number(offset) || 0);
+    this.transportOffset = safeOffset;
+    this.transportStartedAt = this.audio.context?.currentTime ?? 0;
+    const stems = session.stems.filter((stem) => stem.assetId);
+    if (!stems.length || stems.length !== session.stems.length) return false;
+    const created = [];
+    for (const stem of stems) {
+      const url = this.audio.assets.mediaUrl(stem.assetId);
+      if (!url) {
+        for (const [, media] of created) media.pause();
+        return false;
+      }
+      const media = new Audio();
+      media.preload = 'auto';
+      media.loop = true;
+      media.playsInline = true;
+      media.src = url;
+      media.volume = 0;
+      const seek = () => {
+        if (!(safeOffset > 0)) return;
+        try {
+          const duration = Number(media.duration);
+          media.currentTime =
+            Number.isFinite(duration) && duration > 0 ? safeOffset % duration : safeOffset;
+        } catch {
+          // loadedmetadata will try again when a remote source delays seekability.
+        }
+      };
+      if (media.readyState >= 1) seek();
+      else media.addEventListener?.('loadedmetadata', seek, { once: true });
+      created.push([stem.id, media]);
+    }
+    try {
+      await Promise.all(created.map(([, media]) => media.play()));
+    } catch {
+      for (const [, media] of created) {
+        media.pause();
+        media.removeAttribute('src');
+        media.load?.();
+      }
+      return false;
+    }
+    this.nativeStems = new Map(created);
+    if (this.spectraTransport?.running) {
+      const phase = this.spectraTransport.position();
+      for (const media of this.nativeStems.values()) {
+        try {
+          const duration = Number(media.duration);
+          media.currentTime = Number.isFinite(duration) && duration > 0 ? phase % duration : phase;
+        } catch {
+          // The periodic native sync pass retries once the stream becomes seekable.
+        }
+      }
+    }
+    this.realSessionPlaying = true;
+    this.updateNativeMix(session);
+    this.audio.setExternalTransport?.(
+      'studio',
+      `${session.name} · real archive stream`,
+      60 / this.bpm / 4,
+      {
+        vibe: 0.58,
+        mixQuality: 0.88,
+      },
+    );
+    return true;
+  }
+
+  async play(session, offset = 0, { stemId = null, restartTransport = false } = {}) {
+    if (!this.audio.context) return false;
+    this.stop();
+    this.auditionStemId = stemId || null;
+    const requestedOffset = Math.max(0, Number(offset) || 0);
+    this.session = session;
+    this.bpm = session.bpm ?? 118;
+    this.updateMix(session);
+
+    let safeOffset = requestedOffset;
+    let sharedStartTime = null;
+    if (this.spectraTransport) {
+      safeOffset = this.spectraTransport.running
+        ? this.spectraTransport.position()
+        : requestedOffset;
+      if (this.hasEventPlayback(session)) {
+        this.transportUnsubscribe = this.spectraTransport.subscribe(
+          'studio-playback',
+          (transportEvent) => {
+            if (this.session !== session || this.realSessionPlaying || this.nativeStems.size)
+              return;
+            for (const stem of session.stems) {
+              if (session.recordings.has(stem.id)) continue;
+              this.renderStem(stem, transportEvent.loopStep, transportEvent.when);
+            }
+          },
+        );
+      }
+      this.spectraTransport.acquire('studio-playback', { position: safeOffset });
+      if (restartTransport) {
+        safeOffset = requestedOffset;
+        sharedStartTime = this.audio.context.currentTime + 0.06;
+        this.spectraTransport.restart(safeOffset, sharedStartTime);
+      }
+      this.transportOffset = safeOffset;
+      this.transportStartedAt =
+        this.audio.context.currentTime - Math.max(0, this.spectraTransport.position());
+    } else {
+      this.transportOffset = safeOffset;
+      this.transportStartedAt = this.audio.context.currentTime;
+    }
+
+    const alignedAssets = await this.loadAlignedAssets(session);
+    if (alignedAssets) {
+      this.assetBuffers = alignedAssets;
+      const alignedOffset = this.spectraTransport?.running
+        ? this.spectraTransport.position()
+        : safeOffset;
+      this.startAlignedAssets(session, alignedAssets, alignedOffset);
+      return true;
+    }
+    const nativeOffset = this.spectraTransport?.running
+      ? this.spectraTransport.position()
+      : safeOffset;
+    if (await this.startNativeAssets(session, nativeOffset)) return true;
+
+    const frozenCount = this.startFrozenRecordings(session, safeOffset, {
+      startTime: sharedStartTime,
+      phaseOffset: restartTransport ? safeOffset : null,
+    });
+    await this.startBlobRecordings(session, safeOffset);
+
+    const interval = 60 / this.bpm / 4;
+    this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
+
+    if (this.spectraTransport) return true;
+
+    this.step = Math.floor(safeOffset / interval) % 256;
+    const remainder = safeOffset % interval;
+    this.nextTime = this.audio.context.currentTime + (remainder > 0 ? interval - remainder : 0);
+    const schedule = () => {
+      if (!this.audio.context || this.audio.context.state !== 'running') return;
+      this.nextTime = Math.max(this.nextTime, this.audio.context.currentTime);
+      this.updateMix(session);
+      while (this.nextTime < this.audio.context.currentTime + 0.1) {
+        const when = this.nextTime - this.audio.context.currentTime;
+        for (const stem of session.stems) this.renderStem(stem, this.step, when);
+        this.step = (this.step + 1) % 256;
+        this.nextTime += interval;
+      }
+    };
+    schedule();
+    this.timer = this.timers.setInterval(schedule, 25);
+    return true;
+  }
+
+  removeStem(session = this.session, stemId) {
+    if (!session || !stemId) return null;
+
+    const frozen = this.frozenSources.get(stemId);
+    if (frozen) {
+      frozen.onended = null;
+      try {
+        frozen.stop?.();
+      } catch {
+        // Already stopped.
+      }
+      frozen.disconnect?.();
+      this.sources.delete(frozen);
+      this.frozenSources.delete(stemId);
+    }
+    this.frozenGates.get(stemId)?.disconnect?.();
+    this.frozenGates.delete(stemId);
+
+    const blobMedia = this.blobStems.get(stemId);
+    if (blobMedia) {
+      blobMedia.pause?.();
+      blobMedia.removeAttribute?.('src');
+      blobMedia.load?.();
+      this.blobStems.delete(stemId);
+    }
+    const blobUrl = this.blobUrls.get(stemId);
+    if (blobUrl) {
+      URL.revokeObjectURL?.(blobUrl);
+      this.blobUrls.delete(stemId);
+    }
+
+    const native = this.nativeStems.get(stemId);
+    if (native) {
+      native.pause?.();
+      native.removeAttribute?.('src');
+      native.load?.();
+      this.nativeStems.delete(stemId);
+    }
+
+    const bus = this.buses.get(stemId);
+    if (bus) {
+      for (const node of Object.values(bus)) node?.disconnect?.();
+      this.buses.delete(stemId);
+    }
+
+    const removed = session.removeTrack?.(stemId) ?? null;
+    this.updateMix(session, { immediate: true });
+    return removed;
+  }
+
+  stop() {
+    if (this.timer !== null) this.timers.clearInterval(this.timer);
+    this.timer = null;
+    if (this.transportUnsubscribe) this.transportUnsubscribe();
+    this.transportUnsubscribe = null;
+    this.spectraTransport?.release?.('studio-playback');
+    this.realSessionPlaying = false;
+    for (const source of this.sources) {
+      source.onended = null;
+      try {
+        source.stop();
+      } catch {
+        // Already-ended one shots only need disconnection.
+      }
+      source.disconnect();
+    }
+    this.sources.clear();
+    this.frozenSources.clear();
+    for (const gate of this.frozenGates.values()) gate.disconnect?.();
+    this.frozenGates.clear();
+    for (const media of this.nativeStems.values()) {
+      media.pause();
+      media.removeAttribute('src');
+      media.load?.();
+    }
+    this.nativeStems.clear();
+    for (const media of this.blobStems.values()) {
+      media.pause?.();
+      media.removeAttribute?.('src');
+      media.load?.();
+    }
+    this.blobStems.clear();
+    for (const url of this.blobUrls.values()) URL.revokeObjectURL?.(url);
+    this.blobUrls.clear();
+    this.transportOffset = 0;
+    this.transportStartedAt = 0;
+    this.audio.clearExternalTransport?.('studio');
+    this.auditionStemId = null;
+  }
+
+  dispose() {
+    this.stop();
+    for (const bus of this.buses.values()) {
+      for (const node of Object.values(bus)) node?.disconnect?.();
+    }
+    this.buses.clear();
+    this.previewDrumInput?.disconnect?.();
+    this.previewDrumInput = null;
+    this.assetBuffers.clear();
+    this.performanceIndex = new WeakMap();
+    this.noiseBuffer = null;
+    this.noiseBufferContext = null;
+    this.session = null;
+  }
+}
