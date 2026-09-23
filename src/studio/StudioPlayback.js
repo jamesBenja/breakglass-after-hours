@@ -432,19 +432,13 @@ export class StudioPlayback {
       if (!media) continue;
       const selected = !this.auditionStemId || stem.id === this.auditionStemId;
       const active = selected && stem.clipActive !== false;
-      const route = this.blobRoutes.get(stem.id);
+      const microphoneTake = isMicrophoneRecordingStem(stem);
 
-      if (route?.gate) {
-        // A MediaElementAudioSource routes the Safari/native microphone file through the
-        // real Spectra channel strip. The channel fader + hard mute own level/audibility.
-        media.volume = 1;
-        continue;
-      }
-
-      const timelineOpen = route ? route.open === true : true;
-      media.volume = clamp(
-        timelineOpen && active && stem.mute !== true ? stem.level * environment * 0.88 : 0,
-      );
+      // Browser-recorded Vocal is deliberately independent of building/spatial source gain.
+      // Its audible level is only the Spectra fader + mute/solo state. This guarantees that a
+      // successfully playing native recording cannot be silenced by unrelated room routing.
+      const sourceLevel = microphoneTake ? 1 : environment;
+      media.volume = clamp(active && stem.mute !== true ? stem.level * sourceLevel * 0.88 : 0);
     }
   }
 
@@ -1350,35 +1344,37 @@ export class StudioPlayback {
       const media = new Audio();
       media.preload = 'auto';
       media.playsInline = true;
-      // Keep the microphone file continuously playing after the user-initiated PLAY gesture.
-      // A dedicated gate below exposes only the selected source window on each Spectra loop.
       media.loop = microphoneTake ? true : session.loopEnabled === true;
       media.src = url;
+      media.muted = false;
+      media.defaultMuted = false;
       media.volume = 0;
 
-      if (microphoneTake) {
-        // Keep browser-microphone playback on the native media element. iPhone Safari can
-        // successfully create a MediaElementAudioSource and then produce silence after mic
-        // capture. Direct native playback is substantially more reliable. Spectra still owns
-        // level, mute and solo through media.volume + the loop window below.
-        this.blobRoutes.set(stem.id, { source: null, gate: null, open: false });
-      }
+      const seek = () => {
+        try {
+          const duration = Number(media.duration);
+          if (microphoneTake) {
+            if (Number.isFinite(duration) && duration > 0) {
+              stem.sourceDuration = Math.max(0, Number(stem.sourceDuration) || 0, duration);
+            }
+            const sourceOffset = Math.max(0, Number(stem.sourceOffset) || 0);
+            media.currentTime =
+              Number.isFinite(duration) && duration > 0
+                ? Math.min(Math.max(0, duration - 0.01), sourceOffset)
+                : sourceOffset;
+            return;
+          }
 
-      if (!microphoneTake) {
-        const seek = () => {
           const clipStart = Math.max(0, Number(stem.clipStart) || 0);
           const relative = Math.max(0, phase - clipStart);
-          try {
-            const duration = Number(media.duration);
-            media.currentTime =
-              Number.isFinite(duration) && duration > 0 ? relative % duration : relative;
-          } catch {
-            // Metadata-loaded retry handles delayed seekability.
-          }
-        };
-        if (media.readyState >= 1) seek();
-        else media.addEventListener?.('loadedmetadata', seek, { once: true });
-      }
+          media.currentTime =
+            Number.isFinite(duration) && duration > 0 ? relative % duration : relative;
+        } catch {
+          // Metadata-loaded retry handles delayed seekability.
+        }
+      };
+      if (media.readyState >= 1) seek();
+      else media.addEventListener?.('loadedmetadata', seek, { once: true });
       created.push([stem.id, media, url, microphoneTake, stem]);
     }
     if (!created.length) return 0;
@@ -1388,12 +1384,8 @@ export class StudioPlayback {
     }
     this.updateBlobMix(session);
     try {
-      // Prepare Vocal seek + audibility before invoking play(), then start every media element
-      // immediately from the user's PLAY gesture. This avoids losing Safari's transient user
-      // activation to an earlier await and prevents the first playback from beginning silently.
-      for (const [id, media, , microphoneTake, stem] of created) {
-        if (microphoneTake) this.scheduleBlobVocalLoop(id, media, stem, loopDuration, phase);
-      }
+      // The Vocal reliability path is intentionally minimal: one native Audio element, audible
+      // immediately, looping its recording, with only fader/mute/solo controlling volume.
       await Promise.all(created.map(([, media]) => media.play()));
     } catch {
       for (const [id, media, url] of created) {
