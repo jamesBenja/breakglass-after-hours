@@ -596,7 +596,9 @@ export function createActions({
               result.blob,
             );
             if (!committed || studio.recordingBlobs?.get?.(destination.id) !== result.blob) {
-              ui.warning?.('The Vocal take was captured but could not be committed to the raw scrubber.');
+              ui.warning?.(
+                'The Vocal take was captured but could not be committed to the raw scrubber.',
+              );
               vocalPanel();
               return;
             }
