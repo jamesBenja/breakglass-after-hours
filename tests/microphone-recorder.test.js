@@ -33,7 +33,7 @@ class FakeMediaRecorder {
   }
 }
 
-test('MicrophoneRecorder uses the browser native MediaRecorder format and returns one real file', async () => {
+test('MicrophoneRecorder keeps the full capture duration when Safari decodes only a prefix', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
   const track = {
@@ -78,6 +78,8 @@ test('MicrophoneRecorder uses the browser native MediaRecorder format and return
     const recorder = new MicrophoneRecorder(audio);
 
     assert.equal(await recorder.start(), true);
+    // Model Safari returning a one-second decode for a much longer native microphone file.
+    recorder.startedAt = performance.now() - 5000;
     const nativeRecorder = recorder.recorder;
     assert.equal(FakeMediaRecorder.lastOptions, undefined);
     assert.deepEqual(nativeRecorder.startArgs, []);
@@ -85,7 +87,10 @@ test('MicrophoneRecorder uses the browser native MediaRecorder format and return
 
     const result = await recorder.stop();
     assert.equal(result.buffer, decoded);
-    assert.equal(result.duration, decoded.duration);
+    assert.ok(
+      result.duration >= 4.9,
+      'raw capture duration must not collapse to the shorter decoded AudioBuffer duration',
+    );
     assert.ok(result.blob instanceof Blob);
     assert.ok(result.blob.size > 0);
     assert.equal(result.bytes, result.blob.size);
