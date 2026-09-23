@@ -128,7 +128,6 @@ test('Vocal capture commits to the raw scrubber before Spectra can resume playba
   );
 });
 
-
 test('Vocal raw scrubber audition overlays the running Spectra loop', async () => {
   const studio = new StudioSession();
   const vocal = studio.stems.find((stem) => stem.inputKey === 'vocal');
