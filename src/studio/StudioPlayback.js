@@ -1239,7 +1239,7 @@ export class StudioPlayback {
   }
   scheduleBlobVocalLoop(stemId, media, stem, loopDuration, phase = 0) {
     this.clearBlobLoopTimers(stemId);
-    if (!(loopDuration > 0)) return false;
+    if (!(loopDuration > 0) || !media || !stem) return false;
 
     const handles = new Set();
     this.blobLoopTimers.set(stemId, handles);
@@ -1259,40 +1259,49 @@ export class StudioPlayback {
       const duration = Number(media.duration);
       if (!(Number.isFinite(duration) && duration > 0)) return false;
 
-      // Media metadata is more authoritative than decodeAudioData for Safari microphone files.
-      // Keep the session's raw-source duration current so the Vocal scrubber can span the take.
       stem.sourceDuration = Math.max(0, Number(stem.sourceDuration) || 0, duration);
 
       const sourceOffset = Math.min(
         Math.max(0, duration - 0.01),
         Math.max(0, Number(stem.sourceOffset) || 0),
       );
-      const audibleDuration = Math.min(loopDuration, Math.max(0, duration - sourceOffset));
+      const playableDuration = Math.max(0, duration - sourceOffset);
+      if (!(playableDuration > 0)) return false;
+
       const phaseInLoop =
         ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
 
-      const openAt = (segmentOffset = 0) => {
-        if (!(audibleDuration > segmentOffset)) {
-          this.setBlobVocalWindow(stemId, stem, media, false);
-          return;
+      const restartFrom = (segmentOffset = 0) => {
+        // Vocal is a Spectra clip, not a browser media loop. Every Spectra loop boundary
+        // explicitly seeks the same raw recording back to the scrubber-selected start point.
+        // If the take ends before the session loop, the remainder of that loop is silence.
+        media.loop = false;
+        const sourcePosition = sourceOffset + Math.max(0, segmentOffset);
+        if (sourcePosition >= duration) {
+          media.pause?.();
+          return false;
         }
         try {
-          media.currentTime = sourceOffset + segmentOffset;
+          media.currentTime = Math.min(Math.max(0, duration - 0.01), sourcePosition);
         } catch {
-          // A later metadata-ready pass can retry the seek.
+          return false;
         }
-        this.setBlobVocalWindow(stemId, stem, media, true);
-        schedule(
-          () => this.setBlobVocalWindow(stemId, stem, media, false),
-          audibleDuration - segmentOffset,
-        );
+        this.updateBlobMix(this.session);
+        if (media.paused === true || media.ended === true) {
+          const play = media.play?.();
+          play?.catch?.(() => {});
+        }
+        return true;
       };
 
-      if (phaseInLoop < audibleDuration) openAt(phaseInLoop);
-      else this.setBlobVocalWindow(stemId, stem, media, false);
+      if (phaseInLoop < playableDuration) {
+        restartFrom(phaseInLoop);
+      } else {
+        media.pause?.();
+      }
 
       const cycle = () => {
-        openAt(0);
+        restartFrom(0);
         schedule(cycle, loopDuration);
       };
       const untilNextCycle = phaseInLoop > 0 ? loopDuration - phaseInLoop : loopDuration;
@@ -1316,6 +1325,10 @@ export class StudioPlayback {
     const phase = this.spectraTransport?.running
       ? this.spectraTransport.position()
       : Math.max(0, Number(offset) || 0);
+    const loopDuration =
+      (60 / Math.max(1, Number(session.bpm) || this.bpm)) *
+      4 *
+      Math.max(1, Number(session.loopBars) || 4);
     const created = [];
     for (const stem of session.stems) {
       const blob = session.recordingBlobs.get(stem.id);
@@ -1402,6 +1415,9 @@ export class StudioPlayback {
       this.blobUrls.set(id, url);
     }
     this.updateBlobMix(session);
+    for (const [id, media, , microphoneTake, stem] of created) {
+      if (microphoneTake) this.scheduleBlobVocalLoop(id, media, stem, loopDuration, phase);
+    }
     try {
       // Vocal is already playing because it came directly from the working raw-audition path.
       // Only non-vocal Blob media still needs a new play() call here.

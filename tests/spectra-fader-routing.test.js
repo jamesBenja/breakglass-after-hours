@@ -244,12 +244,15 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
       this.played = false;
       this.playCount = 0;
       this.paused = false;
+      this.ended = false;
       created.push(this);
     }
 
     play() {
       this.played = true;
       this.playCount += 1;
+      this.paused = false;
+      this.ended = false;
       return Promise.resolve();
     }
 
@@ -271,7 +274,23 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
 
   try {
     const mediaSources = [];
-    const playback = new StudioPlayback(fakeAudio([], { mediaSources }));
+    const scheduled = [];
+    const timers = {
+      setTimeout(callback, ms) {
+        const handle = { callback, ms };
+        scheduled.push(handle);
+        return handle;
+      },
+      clearTimeout(handle) {
+        const index = scheduled.indexOf(handle);
+        if (index >= 0) scheduled.splice(index, 1);
+      },
+      setInterval() {
+        return null;
+      },
+      clearInterval() {},
+    };
+    const playback = new StudioPlayback(fakeAudio([], { mediaSources }), timers);
     playback.audio.sourceGain = () => 0;
     const session = new StudioSession();
     const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
@@ -295,6 +314,27 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
       'recorded Vocal must preserve the working non-looping scrubber playback mode',
     );
     assert.equal(created[0].currentTime, 0.5);
+    assert.equal(scheduled.length, 1);
+    assert.equal(
+      scheduled[0].ms,
+      4000,
+      'Vocal restart must be scheduled at the exact four-second Spectra loop boundary',
+    );
+
+    created[0].paused = true;
+    created[0].ended = true;
+    const firstBoundary = scheduled[0];
+    firstBoundary.callback();
+    assert.equal(
+      created[0].currentTime,
+      0.5,
+      'every Spectra loop must restart Vocal from the scrubber-selected source point',
+    );
+    assert.equal(
+      created[0].playCount,
+      2,
+      'a Vocal take that ended early must be explicitly restarted by the Spectra transport',
+    );
     assert.equal(playback.blobStems.get(vocal.id), created[0]);
     assert.equal(
       mediaSources.length,
