@@ -1353,7 +1353,10 @@ export class StudioPlayback {
           continue;
         }
 
-        media.loop = true;
+        // Keep the exact working scrubber/audition playback semantics. Native looping on
+        // MediaRecorder Blobs can collapse to a tiny fragment or stall when duration metadata
+        // is incomplete. Spectra must not change the player into loop mode here.
+        media.loop = false;
         media.onended = null;
 
         // Transfer ownership from "raw audition" to the Spectra playback collection without
