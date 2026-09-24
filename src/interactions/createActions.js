@@ -604,12 +604,24 @@ export function createActions({
             }
             destination.renderedAudio = !!result.buffer;
             destination.renderedAudioAt = result.buffer ? Date.now() : null;
+            destination.vocalCaptureMode =
+              result.captureMode ?? (result.buffer ? 'direct-pcm' : 'raw-only');
+            destination.vocalPcmDuration = Math.max(
+              0,
+              Number(result.pcmDuration) || Number(result.buffer?.duration) || 0,
+            );
             connectedVocalStemId = destination.id;
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
+            const pcmSeconds = Math.max(
+              0,
+              Number(result.pcmDuration) || Number(result.buffer?.duration) || 0,
+            );
             ui.warning?.(
-              `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. The raw take is committed to the scrubber. Audition it there, then press Spectra PLAY when you want the mixer loop to use it.`,
+              pcmSeconds > 0
+                ? `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Raw take: ${destination.sourceDuration.toFixed(2)}s. Spectra PCM: ${pcmSeconds.toFixed(2)}s. The scrubber uses the raw file; the mixer uses only this PCM capture.`
+                : `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}, but direct PCM capture was unavailable. The raw scrubber will work, but Spectra Vocal playback is disabled for this take rather than falling back to the broken one-second media path.`,
             );
             vocalPanel();
           },
@@ -640,9 +652,10 @@ export function createActions({
     const loopSeconds =
       (Math.max(1, Number(studio.loopBars) || 4) * 4 * 60) / Math.max(1, Number(studio.bpm) || 118);
     const updateReadout = (value) => {
-      readout.textContent = `LOOP SOURCE START · ${Number(value).toFixed(2)}s / ${duration.toFixed(
-        2,
-      )}s · SPECTRA LOOP ${loopSeconds.toFixed(2)}s`;
+      const pcmLabel = bufferDuration > 0 ? `${bufferDuration.toFixed(2)}s` : 'UNAVAILABLE';
+      readout.textContent = `RAW ${duration.toFixed(2)}s · SPECTRA PCM ${pcmLabel} · START ${Number(
+        value,
+      ).toFixed(2)}s · LOOP ${loopSeconds.toFixed(2)}s`;
     };
     updateReadout(selectedOffset);
     const slider = ui.document.createElement('input');
@@ -666,7 +679,7 @@ export function createActions({
     };
     const help = ui.document.createElement('small');
     help.textContent =
-      'Choose where the raw vocal begins inside the fixed Spectra loop. If the raw take runs out before the loop ends, the rest stays silent.';
+      'The scrubber auditions the raw MediaRecorder file. Spectra loops the separate direct PCM capture from the same microphone stream. The selected start point is applied to that PCM loop; any remaining loop time stays silent.';
     const controls = ui.document.createElement('div');
     controls.className = 'vocal-source-editor-controls';
     const auditionFromStart = ui.document.createElement('button');

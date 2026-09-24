@@ -63,20 +63,6 @@ function hasNativeMicrophoneRecording(session, stem) {
   return isMicrophoneRecordingStem(stem) && session?.recordingBlobs?.has?.(stem?.id) === true;
 }
 
-function hasCompleteDecodedMicrophoneRecording(session, stem) {
-  if (!isMicrophoneRecordingStem(stem)) return false;
-  const buffer = session?.recordings?.get?.(stem?.id);
-  if (!buffer?.duration) return false;
-
-  const expected = Math.max(0, Number(stem?.sourceDuration) || 0);
-  if (!(expected > 0)) return true;
-
-  // Treat the decoded recording as complete when it covers essentially the whole captured take.
-  // This rejects the Safari failure mode where decodeAudioData returns only the first second or so.
-  const tolerance = Math.max(0.12, expected * 0.08);
-  return buffer.duration >= expected - tolerance;
-}
-
 function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
   if (
     !context?.createBuffer ||
@@ -1027,16 +1013,8 @@ export class StudioPlayback {
         : Math.max(0, Number(offset) || 0);
     let started = 0;
     for (const stem of session.stems) {
-      // Prefer a complete decoded Vocal take because it can become a deterministic fixed-length
-      // Spectra AudioBuffer loop routed through the real channel strip. Only fall back to the
-      // native MediaRecorder Blob when decoding is missing or clearly truncated.
-      if (
-        hasNativeMicrophoneRecording(session, stem) &&
-        !hasCompleteDecodedMicrophoneRecording(session, stem)
-      ) {
-        continue;
-      }
-
+      // Vocal recordings stored here are direct microphone PCM. The MediaRecorder Blob is kept
+      // only for raw scrubber audition and is never a Spectra playback source.
       const buffer = session.recordings.get(stem.id);
       if (!buffer?.duration) continue;
       this.clearVocalBufferLoop(stem.id);
@@ -1343,24 +1321,15 @@ export class StudioPlayback {
     const phase = this.spectraTransport?.running
       ? this.spectraTransport.position()
       : Math.max(0, Number(offset) || 0);
-    const loopDuration =
-      (60 / Math.max(1, Number(session.bpm) || this.bpm)) *
-      4 *
-      Math.max(1, Number(session.loopBars) || 4);
     const created = [];
     for (const stem of session.stems) {
       const blob = session.recordingBlobs.get(stem.id);
       if (!blob) continue;
       const microphoneTake = isMicrophoneRecordingStem(stem);
-      // Any complete decoded recording belongs to the WebAudio/frozen path. For Vocal this is
-      // the preferred path because it gives us an exact session-length loop and the full Spectra
-      // channel strip. The Blob path is only the safety fallback for truncated/failed decoding.
-      if (
-        session.recordings?.has?.(stem.id) &&
-        (!microphoneTake || hasCompleteDecodedMicrophoneRecording(session, stem))
-      ) {
-        continue;
-      }
+      // The raw Vocal Blob belongs exclusively to the scrubber. Spectra Vocal playback always
+      // comes from direct PCM in session.recordings.
+      if (microphoneTake) continue;
+      if (session.recordings?.has?.(stem.id)) continue;
 
       const old = this.blobStems.get(stem.id);
       if (old) {
@@ -1372,40 +1341,6 @@ export class StudioPlayback {
       this.clearBlobRoute(stem.id);
       const oldUrl = this.blobUrls.get(stem.id);
       if (oldUrl) URL.revokeObjectURL?.(oldUrl);
-
-      if (microphoneTake) {
-        // The raw scrubber audition is already proven to play this exact microphone Blob.
-        // Use that exact player and exact play() call for Spectra instead of maintaining a
-        // second implementation that can diverge or silently fail.
-        const started = await this.auditionRawRecording(
-          session,
-          stem.id,
-          Math.max(0, Number(stem.sourceOffset) || 0),
-        );
-        const media = this.rawAuditionMedia;
-        const url = this.rawAuditionUrl;
-        if (!started || !media || !url) {
-          this.stopRawAudition();
-          continue;
-        }
-
-        // Keep the exact working scrubber/audition playback semantics. Native looping on
-        // MediaRecorder Blobs can collapse to a tiny fragment or stall when duration metadata
-        // is incomplete. Spectra must not change the player into loop mode here.
-        media.loop = false;
-        media.onended = null;
-
-        // Transfer ownership from "raw audition" to the Spectra playback collection without
-        // stopping or recreating the working media element.
-        this.rawAuditionMedia = null;
-        this.rawAuditionUrl = null;
-        this.rawAuditionOffset = 0;
-        this.rawAuditionStartedAt = 0;
-        this.rawAuditionDuration = 0;
-
-        created.push([stem.id, media, url, microphoneTake, stem, true]);
-        continue;
-      }
 
       const url = URL.createObjectURL(blob);
       const media = new Audio();
@@ -1430,7 +1365,7 @@ export class StudioPlayback {
       };
       if (media.readyState >= 1) seek();
       else media.addEventListener?.('loadedmetadata', seek, { once: true });
-      created.push([stem.id, media, url, microphoneTake, stem, false]);
+      created.push([stem.id, media, url]);
     }
     if (!created.length) return 0;
     for (const [id, media, url] of created) {
@@ -1438,17 +1373,8 @@ export class StudioPlayback {
       this.blobUrls.set(id, url);
     }
     this.updateBlobMix(session);
-    for (const [id, media, , microphoneTake, stem] of created) {
-      if (microphoneTake) this.scheduleBlobVocalLoop(id, media, stem, loopDuration, phase);
-    }
     try {
-      // Vocal is already playing because it came directly from the working raw-audition path.
-      // Only non-vocal Blob media still needs a new play() call here.
-      await Promise.all(
-        created
-          .filter(([, , , , , alreadyPlaying]) => !alreadyPlaying)
-          .map(([, media]) => media.play()),
-      );
+      await Promise.all(created.map(([, media]) => media.play()));
     } catch {
       for (const [id, media, url] of created) {
         this.clearBlobLoopTimers(id);

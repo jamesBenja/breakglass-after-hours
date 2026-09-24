@@ -1,38 +1,9 @@
-async function decodeRecordingBlob(audio, blob) {
-  const context = audio?.context;
-  if (!context?.decodeAudioData || !blob?.size || typeof blob.arrayBuffer !== 'function') {
-    return null;
-  }
-
-  let bytes = null;
-  try {
-    bytes = await blob.arrayBuffer();
-  } catch {
-    return null;
-  }
-
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (value) => {
-      if (settled) return;
-      settled = true;
-      resolve(value ?? null);
-    };
-    try {
-      const result = context.decodeAudioData(bytes.slice(0), finish, () => finish(null));
-      if (result?.then) result.then(finish, () => finish(null));
-    } catch {
-      finish(null);
-    }
-  });
-}
-
 /**
- * Minimal browser microphone recorder for Spectra vocal takes.
+ * Browser microphone recorder for Spectra Vocal.
  *
- * Uses the browser's native MediaRecorder format with no forced mime type, AudioWorklet or
- * ScriptProcessor. Safari produces the recording file; Spectra decodes it into its normal
- * channel path when possible and keeps the native Blob as a fallback.
+ * The raw MediaRecorder Blob exists for scrubber audition only.
+ * Spectra itself uses direct PCM captured from the same microphone stream, so mixer playback
+ * never depends on MediaRecorder duration metadata or decodeAudioData().
  */
 export class MicrophoneRecorder {
   constructor(audio) {
@@ -44,6 +15,12 @@ export class MicrophoneRecorder {
     this.spectraTransport = null;
     this.transportOwner = 'microphone-recorder';
     this.timelineStart = 0;
+
+    this.pcmSource = null;
+    this.pcmProcessor = null;
+    this.pcmSink = null;
+    this.pcmChunks = [];
+    this.pcmSampleRate = 0;
   }
 
   get supported() {
@@ -52,6 +29,97 @@ export class MicrophoneRecorder {
 
   get recording() {
     return this.recorder?.state === 'recording';
+  }
+
+  async startPcmCapture() {
+    const context = this.audio?.context;
+    if (
+      !context?.createMediaStreamSource ||
+      !context?.createScriptProcessor ||
+      !context?.createBuffer ||
+      !this.stream
+    ) {
+      return false;
+    }
+
+    try {
+      if (context.state === 'suspended') await context.resume?.();
+      this.pcmChunks = [];
+      this.pcmSampleRate = Math.max(1, Number(context.sampleRate) || 48000);
+
+      const source = context.createMediaStreamSource(this.stream);
+      const processor = context.createScriptProcessor(4096, 1, 1);
+      const sink = context.createGain();
+      // Keep the processor connected to an effectively inaudible sink. A literal zero-gain
+      // branch may be optimized away by some browser audio engines, preventing PCM callbacks.
+      sink.gain.value = 0.000001;
+
+      processor.onaudioprocess = (event) => {
+        const input = event?.inputBuffer;
+        if (!input?.numberOfChannels || typeof input.getChannelData !== 'function') return;
+        const channel = input.getChannelData(0);
+        if (!channel?.length) return;
+        this.pcmChunks.push(Float32Array.from(channel));
+        this.pcmSampleRate = Math.max(
+          1,
+          Number(input.sampleRate) || Number(context.sampleRate) || this.pcmSampleRate || 48000,
+        );
+      };
+
+      source.connect(processor);
+      processor.connect(sink);
+      sink.connect(context.destination ?? this.audio.master);
+
+      this.pcmSource = source;
+      this.pcmProcessor = processor;
+      this.pcmSink = sink;
+      return true;
+    } catch {
+      this.clearPcmCapture();
+      return false;
+    }
+  }
+
+  clearPcmCapture() {
+    if (this.pcmProcessor) this.pcmProcessor.onaudioprocess = null;
+    this.pcmSource?.disconnect?.();
+    this.pcmProcessor?.disconnect?.();
+    this.pcmSink?.disconnect?.();
+    this.pcmSource = null;
+    this.pcmProcessor = null;
+    this.pcmSink = null;
+  }
+
+  finishPcmCapture() {
+    const context = this.audio?.context;
+    const chunks = this.pcmChunks;
+    const sampleRate = Math.max(
+      1,
+      Number(this.pcmSampleRate) || Number(context?.sampleRate) || 48000,
+    );
+
+    this.clearPcmCapture();
+    this.pcmChunks = [];
+    this.pcmSampleRate = 0;
+
+    if (!context?.createBuffer || !chunks.length) return null;
+    const frames = chunks.reduce((sum, chunk) => sum + (chunk?.length ?? 0), 0);
+    if (!(frames > 0)) return null;
+
+    let buffer = null;
+    try {
+      buffer = context.createBuffer(1, frames, sampleRate);
+      const target = buffer.getChannelData(0);
+      let cursor = 0;
+      for (const chunk of chunks) {
+        if (!chunk?.length) continue;
+        target.set(chunk, cursor);
+        cursor += chunk.length;
+      }
+    } catch {
+      return null;
+    }
+    return buffer;
   }
 
   async start() {
@@ -67,9 +135,10 @@ export class MicrophoneRecorder {
       }
     }
 
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
+    await this.audio?.init?.();
+    if (this.audio?.context?.state === 'suspended') await this.audio?.resume?.();
+
+    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     this.chunks = [];
     this.recorder = new MediaRecorder(this.stream);
@@ -77,10 +146,10 @@ export class MicrophoneRecorder {
       if (event.data?.size > 0) this.chunks.push(event.data);
     };
 
+    await this.startPcmCapture();
+
     this.startedAt = performance.now();
     if (this.spectraTransport) {
-      // Vocal takes are Spectra loops just like armed instrument recordings. Force the same
-      // loop-grid invariant before capturing so clipStart is wrapped to the active bar cycle.
       const session = this.spectraTransport.session;
       if (session) {
         session.loopEnabled = true;
@@ -98,9 +167,8 @@ export class MicrophoneRecorder {
       this.timelineStart = 0;
     }
 
-    // Request regular chunks instead of relying on one final browser event at STOP.
-    // This is more robust across Chrome/Safari and guarantees that a real take already has
-    // recorded bytes before the user commits it to the raw scrubber.
+    // Keep periodic raw-file chunks for reliable scrubber capture. Spectra does not consume
+    // these chunks anymore; it uses the direct PCM path above.
     try {
       this.recorder.start(250);
     } catch {
@@ -119,30 +187,22 @@ export class MicrophoneRecorder {
       recorder.onstop = resolve;
     });
 
-    // Ask the recorder to flush whatever is currently buffered before STOP. Some browsers
-    // deliver the last MediaRecorder chunk after onstop, so also give that final event a short
-    // bounded window to land before building the raw take Blob.
     try {
       recorder.requestData?.();
     } catch {
-      // requestData is optional; periodic chunks above are still sufficient.
+      // Optional MediaRecorder API.
     }
     recorder.stop();
     await stopped;
-
     await new Promise((resolve) => globalThis.setTimeout?.(resolve, 40) ?? resolve());
 
     const duration = Math.max(0, (performance.now() - this.startedAt) / 1000);
     const type = this.chunks[0]?.type || recorder.mimeType || 'audio/mp4';
     const blob = new Blob(this.chunks, { type });
+    const buffer = this.finishPcmCapture();
 
     this.cleanupStream();
     await this.audio.recoverAfterMicrophoneCapture?.();
-
-    // Prefer a decoded AudioBuffer so the take enters the exact same WebAudio/Spectra bus,
-    // fader, mute/solo, FX, meters and spatial path as every other recorded track. Keep the
-    // native MediaRecorder Blob too so Safari still has a raw-file fallback if decoding fails.
-    const buffer = await decodeRecordingBlob(this.audio, blob);
 
     this.recorder = null;
     this.chunks = [];
@@ -151,10 +211,9 @@ export class MicrophoneRecorder {
     return {
       blob,
       buffer,
-      // Wall-clock capture duration is authoritative for the raw-take scrubber. Safari may
-      // successfully decode only a prefix of its own MediaRecorder file, so never shrink the
-      // source duration to a shorter decoded AudioBuffer.
       duration: Math.max(duration, Number(buffer?.duration) || 0),
+      pcmDuration: Math.max(0, Number(buffer?.duration) || 0),
+      captureMode: buffer ? 'direct-pcm' : 'raw-only',
       type: blob.type || type,
       timelineStart: this.timelineStart,
       bytes: blob.size,
@@ -169,6 +228,9 @@ export class MicrophoneRecorder {
         // Already stopping.
       }
     }
+    this.clearPcmCapture();
+    this.pcmChunks = [];
+    this.pcmSampleRate = 0;
     this.cleanupStream();
     void this.audio.recoverAfterMicrophoneCapture?.();
     this.recorder = null;

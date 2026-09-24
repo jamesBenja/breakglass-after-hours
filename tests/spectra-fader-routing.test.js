@@ -226,7 +226,7 @@ test('muted recorded performance keeps its timeline running for live unmute', ()
   );
 });
 
-test('blob-only vocal takes are treated as playable Spectra audio', async () => {
+test('raw Vocal Blob is scrubber-only and never becomes Spectra playback audio', async () => {
   const OriginalAudio = globalThis.Audio;
   const originalCreateObjectURL = URL.createObjectURL;
   const originalRevokeObjectURL = URL.revokeObjectURL;
@@ -235,157 +235,11 @@ test('blob-only vocal takes are treated as playable Spectra audio', async () => 
   class FakeMedia {
     constructor() {
       this.src = '';
-      this.volume = 0;
+      this.volume = 1;
       this.loop = false;
       this.playsInline = false;
       this.readyState = 1;
-      this.duration = 2;
-      this.currentTime = 0;
-      this.played = false;
-      this.playCount = 0;
-      this.paused = false;
-      this.ended = false;
-      created.push(this);
-    }
-
-    play() {
-      this.played = true;
-      this.playCount += 1;
-      this.paused = false;
-      this.ended = false;
-      return Promise.resolve();
-    }
-
-    pause() {
-      this.paused = true;
-    }
-
-    removeAttribute(name) {
-      if (name === 'src') this.src = '';
-    }
-
-    load() {}
-    addEventListener() {}
-  }
-
-  globalThis.Audio = FakeMedia;
-  URL.createObjectURL = () => 'blob:recorded-vocal';
-  URL.revokeObjectURL = () => {};
-
-  try {
-    const mediaSources = [];
-    const scheduled = [];
-    const timers = {
-      setTimeout(callback, ms) {
-        const handle = { callback, ms };
-        scheduled.push(handle);
-        return handle;
-      },
-      clearTimeout(handle) {
-        const index = scheduled.indexOf(handle);
-        if (index >= 0) scheduled.splice(index, 1);
-      },
-      setInterval() {
-        return null;
-      },
-      clearInterval() {},
-    };
-    const playback = new StudioPlayback(fakeAudio([], { mediaSources }), timers);
-    playback.audio.sourceGain = () => 0;
-    const session = new StudioSession();
-    const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
-    assert.ok(vocal, 'default Spectra session should expose a Vocal input channel');
-    vocal.source = 'browser-microphone';
-    vocal.sourceOffset = 0.5;
-    session.bpm = 60;
-    session.loopBars = 1;
-    session.replaceRecording(vocal.id, null, new Blob(['voice'], { type: 'audio/mp4' }));
-    playback.session = session;
-
-    const started = await playback.startBlobRecordings(session, 0);
-    assert.equal(started, 1);
-    assert.equal(created.length, 1);
-    assert.equal(created[0].src, 'blob:recorded-vocal');
-    assert.equal(created[0].played, true);
-    assert.equal(created[0].playCount, 1, 'the native Vocal file should be started only once');
-    assert.equal(
-      created[0].loop,
-      false,
-      'recorded Vocal must preserve the working non-looping scrubber playback mode',
-    );
-    assert.equal(created[0].currentTime, 0.5);
-    assert.equal(scheduled.length, 1);
-    assert.equal(
-      scheduled[0].ms,
-      4000,
-      'Vocal restart must be scheduled at the exact four-second Spectra loop boundary',
-    );
-
-    created[0].paused = true;
-    created[0].ended = true;
-    const firstBoundary = scheduled[0];
-    firstBoundary.callback();
-    assert.equal(
-      created[0].currentTime,
-      0.5,
-      'every Spectra loop must restart Vocal from the scrubber-selected source point',
-    );
-    assert.equal(
-      created[0].playCount,
-      2,
-      'a Vocal take that ended early must be explicitly restarted by the Spectra transport',
-    );
-    assert.equal(playback.blobStems.get(vocal.id), created[0]);
-    assert.equal(
-      mediaSources.length,
-      0,
-      'browser microphone playback must stay on native media instead of Safari WebAudio bridging',
-    );
-    assert.equal(
-      playback.blobRoutes.has(vocal.id),
-      false,
-      'minimal Vocal playback must not depend on a hidden route/gate state',
-    );
-    assert.ok(
-      created[0].volume > 0,
-      'Vocal must remain audible even when unrelated studio spatial/source gain is zero',
-    );
-
-    const audibleVolume = created[0].volume;
-    vocal.mute = true;
-    playback.applyChannelAudibility(session);
-    assert.equal(playback.buses.get(vocal.id).hardMute.gain.value, 0);
-    assert.equal(created[0].volume, 0, 'Spectra mute must silence direct native Vocal playback');
-    vocal.mute = false;
-    playback.applyChannelAudibility(session);
-    assert.equal(
-      created[0].volume,
-      audibleVolume,
-      'live unmute must restore direct native Vocal playback without restarting PLAY',
-    );
-    playback.stop();
-    assert.equal(playback.blobRoutes.size, 0);
-  } finally {
-    globalThis.Audio = OriginalAudio;
-    URL.createObjectURL = originalCreateObjectURL;
-    URL.revokeObjectURL = originalRevokeObjectURL;
-  }
-});
-
-test('native Vocal file wins over a truncated decoded buffer and honors the scrubber offset', async () => {
-  const OriginalAudio = globalThis.Audio;
-  const originalCreateObjectURL = URL.createObjectURL;
-  const originalRevokeObjectURL = URL.revokeObjectURL;
-  const created = [];
-
-  class FakeMedia {
-    constructor() {
-      this.src = '';
-      this.volume = 0;
-      this.loop = false;
-      this.playsInline = false;
-      this.readyState = 1;
-      this.duration = 6;
+      this.duration = 5;
       this.currentTime = 0;
       created.push(this);
     }
@@ -401,60 +255,33 @@ test('native Vocal file wins over a truncated decoded buffer and honors the scru
   }
 
   globalThis.Audio = FakeMedia;
-  URL.createObjectURL = () => 'blob:full-native-vocal';
+  URL.createObjectURL = () => 'blob:raw-vocal';
   URL.revokeObjectURL = () => {};
 
   try {
-    const createdSources = [];
-    const mediaSources = [];
-    const playback = new StudioPlayback(fakeAudio(createdSources, { mediaSources }));
+    const playback = new StudioPlayback(fakeAudio());
     const session = new StudioSession();
-    session.bpm = 60;
-    session.loopBars = 1;
-    const vocal = session.stems.find((item) => item.inputKey === 'vocal');
+    const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
     vocal.source = 'browser-microphone';
-    vocal.sourceOffset = 2.5;
-    vocal.sourceDuration = 6;
-
-    const truncatedDecode = {
-      duration: 1,
-      length: 10,
-      numberOfChannels: 1,
-      sampleRate: 10,
-      getChannelData: () => new Float32Array(10),
-    };
-    session.replaceRecording(
-      vocal.id,
-      truncatedDecode,
-      new Blob(['complete-native-vocal'], { type: 'audio/mp4' }),
-    );
+    vocal.sourceOffset = 1.25;
+    vocal.sourceDuration = 5;
+    session.replaceRecording(vocal.id, null, new Blob(['raw-vocal'], { type: 'audio/webm' }));
     playback.session = session;
-    playback.updateMix(session);
 
     assert.equal(
-      playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }),
+      await playback.startBlobRecordings(session, 0),
       0,
-      'the partial decoded buffer must not shadow a real microphone file',
+      'MediaRecorder Vocal Blob must never be used by the Spectra mixer',
     );
-    assert.equal(createdSources.length, 0);
+    assert.equal(playback.blobStems.has(vocal.id), false);
+    assert.equal(created.length, 0);
 
-    assert.equal(await playback.startBlobRecordings(session, 0), 1);
+    assert.equal(await playback.auditionRawRecording(session, vocal.id, vocal.sourceOffset), true);
     assert.equal(created.length, 1);
-    assert.equal(created[0].src, 'blob:full-native-vocal');
-    assert.equal(
-      created[0].currentTime,
-      2.5,
-      'the native recording should seek to the selected raw-source scrubber point',
-    );
-    assert.equal(
-      mediaSources.length,
-      0,
-      'the complete native Vocal file should not be diverted into Safari MediaElementAudioSource',
-    );
-    assert.equal(playback.blobRoutes.has(vocal.id), false);
-    assert.equal(vocal.sourceDuration, 6);
+    assert.equal(created[0].src, 'blob:raw-vocal');
+    assert.equal(created[0].currentTime, 1.25, 'the raw Blob remains available to the scrubber');
 
-    playback.stop();
+    playback.stopRawAudition();
   } finally {
     globalThis.Audio = OriginalAudio;
     URL.createObjectURL = originalCreateObjectURL;

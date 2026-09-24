@@ -38,132 +38,191 @@ class FakeMediaRecorder {
   }
 }
 
-test('MicrophoneRecorder keeps the full capture duration when Safari decodes only a prefix', async () => {
-  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  const originalMediaRecorder = globalThis.MediaRecorder;
-  const track = {
-    stopped: false,
-    stop() {
-      this.stopped = true;
-    },
-  };
-  const stream = { getTracks: () => [track] };
-  const audioSession = { type: 'playback' };
-  let recovered = 0;
-
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: {
-      audioSession,
-      mediaDevices: {
-        async getUserMedia(constraints) {
-          assert.deepEqual(constraints, { audio: true });
-          return stream;
-        },
-      },
-    },
-  });
-  globalThis.MediaRecorder = FakeMediaRecorder;
-
-  try {
-    const decoded = { duration: 1.25, numberOfChannels: 1 };
-    const audio = {
-      context: {
-        decodeAudioData(_bytes, success) {
-          success?.(decoded);
-          return Promise.resolve(decoded);
-        },
-      },
-      async recoverAfterMicrophoneCapture() {
-        recovered += 1;
-        audioSession.type = 'playback';
-        return true;
+test(
+  'MicrophoneRecorder captures canonical Spectra PCM directly from the microphone stream',
+  async () => {
+    const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    const originalMediaRecorder = globalThis.MediaRecorder;
+    const track = {
+      stopped: false,
+      stop() {
+        this.stopped = true;
       },
     };
-    const recorder = new MicrophoneRecorder(audio);
+    const stream = { getTracks: () => [track] };
+    const audioSession = { type: 'playback' };
+    let recovered = 0;
+    let processor = null;
 
-    assert.equal(await recorder.start(), true);
-    // Model Safari returning a one-second decode for a much longer native microphone file.
-    recorder.startedAt = performance.now() - 5000;
-    const nativeRecorder = recorder.recorder;
-    assert.equal(FakeMediaRecorder.lastOptions, undefined);
-    assert.deepEqual(nativeRecorder.startArgs, [250]);
-    assert.equal(audioSession.type, 'play-and-record');
+    const makeNode = () => ({
+      gain: { value: 1 },
+      connect() {},
+      disconnect() {},
+    });
 
-    const result = await recorder.stop();
-    assert.equal(nativeRecorder.requestDataCalls, 1);
-    assert.equal(result.buffer, decoded);
-    assert.ok(
-      result.duration >= 4.9,
-      'raw capture duration must not collapse to the shorter decoded AudioBuffer duration',
-    );
-    assert.ok(result.blob instanceof Blob);
-    assert.ok(result.blob.size > 0);
-    assert.equal(result.bytes, result.blob.size);
-    assert.equal(result.type, 'audio/mp4');
-    assert.equal(track.stopped, true);
-    assert.equal(audioSession.type, 'playback');
-    assert.equal(recovered, 1);
-  } finally {
-    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
-    else delete globalThis.navigator;
-    globalThis.MediaRecorder = originalMediaRecorder;
-    FakeMediaRecorder.lastOptions = Symbol('unset');
-  }
-});
-
-test('MicrophoneRecorder forces the Spectra loop grid on before capturing a vocal take', async () => {
-  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  const originalMediaRecorder = globalThis.MediaRecorder;
-  const stream = { getTracks: () => [{ stop() {} }] };
-
-  Object.defineProperty(globalThis, 'navigator', {
-    configurable: true,
-    value: {
-      mediaDevices: {
-        async getUserMedia() {
-          return stream;
-        },
+    const context = {
+      state: 'running',
+      sampleRate: 4,
+      destination: makeNode(),
+      createMediaStreamSource() {
+        return makeNode();
       },
-    },
-  });
-  globalThis.MediaRecorder = FakeMediaRecorder;
-
-  try {
-    const session = { loopEnabled: false, loopBars: 3 };
-    const calls = [];
-    const recorder = new MicrophoneRecorder({});
-    recorder.spectraTransport = {
-      session,
-      acquire(owner, options) {
-        calls.push(['acquire', owner, options]);
+      createScriptProcessor() {
+        processor = makeNode();
+        processor.onaudioprocess = null;
+        return processor;
       },
-      position() {
-        return 6.4;
-      },
-      quantizeTime(position, options) {
-        calls.push(['quantize', position, options]);
-        return 2.5;
-      },
-      release(owner) {
-        calls.push(['release', owner]);
+      createGain: makeNode,
+      createBuffer(channels, length, sampleRate) {
+        const data = Array.from({ length: channels }, () => new Float32Array(length));
+        return {
+          duration: length / sampleRate,
+          length,
+          numberOfChannels: channels,
+          sampleRate,
+          getChannelData(channel) {
+            return data[channel];
+          },
+        };
       },
     };
 
-    assert.equal(await recorder.start(), true);
-    assert.equal(session.loopEnabled, true);
-    assert.equal(session.loopBars, 4);
-    assert.equal(recorder.timelineStart, 2.5);
-    assert.deepEqual(calls[1], ['quantize', 6.4, { wrap: true, includeSwing: true }]);
-    recorder.cancel();
-  } finally {
-    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
-    else delete globalThis.navigator;
-    globalThis.MediaRecorder = originalMediaRecorder;
-  }
-});
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        audioSession,
+        mediaDevices: {
+          async getUserMedia(constraints) {
+            assert.deepEqual(constraints, { audio: true });
+            return stream;
+          },
+        },
+      },
+    });
+    globalThis.MediaRecorder = FakeMediaRecorder;
 
-test('MicrophoneRecorder keeps the native vocal Blob when WebAudio decoding is unavailable', async () => {
+    try {
+      const audio = {
+        context,
+        async recoverAfterMicrophoneCapture() {
+          recovered += 1;
+          audioSession.type = 'playback';
+          return true;
+        },
+      };
+      const recorder = new MicrophoneRecorder(audio);
+
+      assert.equal(await recorder.start(), true);
+      assert.ok(
+        processor?.onaudioprocess,
+        'direct PCM processor should be active during recording',
+      );
+
+      for (let chunk = 0; chunk < 5; chunk += 1) {
+        const samples = Float32Array.from(
+          { length: 4 },
+          (_, index) => (chunk * 4 + index + 1) / 100,
+        );
+        processor.onaudioprocess({
+          inputBuffer: {
+            numberOfChannels: 1,
+            sampleRate: 4,
+            getChannelData() {
+              return samples;
+            },
+          },
+        });
+      }
+
+      recorder.startedAt = performance.now() - 5000;
+      const nativeRecorder = recorder.recorder;
+      assert.equal(FakeMediaRecorder.lastOptions, undefined);
+      assert.deepEqual(nativeRecorder.startArgs, [250]);
+      assert.equal(audioSession.type, 'play-and-record');
+
+      const result = await recorder.stop();
+      assert.equal(nativeRecorder.requestDataCalls, 1);
+      assert.ok(
+        result.buffer,
+        'Spectra should receive direct PCM instead of decoded MediaRecorder audio',
+      );
+      assert.equal(result.buffer.duration, 5);
+      assert.equal(result.pcmDuration, 5);
+      assert.equal(result.captureMode, 'direct-pcm');
+      assert.ok(Math.abs(result.buffer.getChannelData(0)[0] - 0.01) < 1e-6);
+      assert.ok(Math.abs(result.buffer.getChannelData(0)[19] - 0.2) < 1e-6);
+      assert.ok(result.duration >= 4.9);
+      assert.ok(result.blob instanceof Blob);
+      assert.ok(result.blob.size > 0);
+      assert.equal(result.bytes, result.blob.size);
+      assert.equal(result.type, 'audio/mp4');
+      assert.equal(track.stopped, true);
+      assert.equal(audioSession.type, 'playback');
+      assert.equal(recovered, 1);
+    } finally {
+      if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+      else delete globalThis.navigator;
+      globalThis.MediaRecorder = originalMediaRecorder;
+      FakeMediaRecorder.lastOptions = Symbol('unset');
+    }
+  },
+);
+
+test(
+  'MicrophoneRecorder forces the Spectra loop grid on before capturing a vocal take',
+  async () => {
+    const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    const originalMediaRecorder = globalThis.MediaRecorder;
+    const stream = { getTracks: () => [{ stop() {} }] };
+
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        mediaDevices: {
+          async getUserMedia() {
+            return stream;
+          },
+        },
+      },
+    });
+    globalThis.MediaRecorder = FakeMediaRecorder;
+
+    try {
+      const session = { loopEnabled: false, loopBars: 3 };
+      const calls = [];
+      const recorder = new MicrophoneRecorder({});
+      recorder.spectraTransport = {
+        session,
+        acquire(owner, options) {
+          calls.push(['acquire', owner, options]);
+        },
+        position() {
+          return 6.4;
+        },
+        quantizeTime(position, options) {
+          calls.push(['quantize', position, options]);
+          return 2.5;
+        },
+        release(owner) {
+          calls.push(['release', owner]);
+        },
+      };
+
+      assert.equal(await recorder.start(), true);
+      assert.equal(session.loopEnabled, true);
+      assert.equal(session.loopBars, 4);
+      assert.equal(recorder.timelineStart, 2.5);
+      assert.deepEqual(calls[1], ['quantize', 6.4, { wrap: true, includeSwing: true }]);
+      recorder.cancel();
+    } finally {
+      if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+      else delete globalThis.navigator;
+      globalThis.MediaRecorder = originalMediaRecorder;
+    }
+  },
+);
+
+test('MicrophoneRecorder keeps the raw Blob when direct PCM capture is unavailable', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
   const stream = { getTracks: () => [{ stop() {} }] };
@@ -182,11 +241,7 @@ test('MicrophoneRecorder keeps the native vocal Blob when WebAudio decoding is u
 
   try {
     const recorder = new MicrophoneRecorder({
-      context: {
-        decodeAudioData() {
-          return Promise.reject(new Error('unsupported container'));
-        },
-      },
+      context: {},
       async recoverAfterMicrophoneCapture() {
         return true;
       },
@@ -195,6 +250,8 @@ test('MicrophoneRecorder keeps the native vocal Blob when WebAudio decoding is u
     assert.equal(await recorder.start(), true);
     const result = await recorder.stop();
     assert.equal(result.buffer, null);
+    assert.equal(result.captureMode, 'raw-only');
+    assert.equal(result.pcmDuration, 0);
     assert.ok(result.blob instanceof Blob);
     assert.ok(result.blob.size > 0);
   } finally {
