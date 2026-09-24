@@ -579,7 +579,7 @@ export class AudioEngine {
     if (this.context?.state === 'running') await this.context.suspend();
   }
 
-  async recoverAfterMicrophoneCapture({ settleMs = 80 } = {}) {
+  async recoverAfterMicrophoneCapture() {
     const audioSession = globalThis.navigator?.audioSession;
     if (audioSession) {
       try {
@@ -591,28 +591,21 @@ export class AudioEngine {
 
     this.setPrioritySource(null);
 
+    // Do not suspend a healthy AudioContext after microphone capture. Cycling the shared
+    // context here can strand Safari in an interrupted/inaudible output route even though
+    // recording completed successfully. If the context is already non-running, request a
+    // resume and let the next explicit playback gesture retry if the browser defers it.
     const context = this.context;
-    if (context && context.state !== 'closed') {
+    if (
+      context &&
+      context.state !== 'running' &&
+      context.state !== 'closed' &&
+      typeof context.resume === 'function'
+    ) {
       try {
-        if (context.state === 'running' && typeof context.suspend === 'function') {
-          await context.suspend();
-        }
-        if (settleMs > 0 && typeof globalThis.setTimeout === 'function') {
-          await new Promise((resolve) => globalThis.setTimeout(resolve, settleMs));
-        }
-        if (context.state !== 'running' && typeof context.resume === 'function') {
-          await context.resume();
-        }
+        await context.resume();
       } catch {
-        // Normal gesture recovery remains installed if Safari rejects the immediate route cycle.
-      }
-    }
-
-    if (audioSession) {
-      try {
-        audioSession.type = 'playback';
-      } catch {
-        // Ignore unsupported Audio Session writes.
+        // The normal gesture recovery path will retry on the next user playback action.
       }
     }
 
