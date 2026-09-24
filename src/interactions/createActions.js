@@ -652,8 +652,7 @@ export function createActions({
     const loopSeconds =
       (Math.max(1, Number(studio.loopBars) || 4) * 4 * 60) / Math.max(1, Number(studio.bpm) || 118);
     const updateReadout = (value) => {
-      const pcmLabel =
-        bufferDuration > 0 ? `${bufferDuration.toFixed(2)}s` : 'UNAVAILABLE';
+      const pcmLabel = bufferDuration > 0 ? `${bufferDuration.toFixed(2)}s` : 'UNAVAILABLE';
       readout.textContent = `RAW ${duration.toFixed(2)}s · SPECTRA PCM ${pcmLabel} · START ${Number(
         value,
       ).toFixed(2)}s · LOOP ${loopSeconds.toFixed(2)}s`;
