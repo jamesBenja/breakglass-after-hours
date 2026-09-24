@@ -137,7 +137,10 @@ test('MicrophoneRecorder captures canonical Spectra PCM directly from the microp
 
     const result = await recorder.stop();
     assert.equal(nativeRecorder.requestDataCalls, 1);
-    assert.ok(result.buffer, 'Spectra should receive direct PCM instead of decoded MediaRecorder audio');
+    assert.ok(
+      result.buffer,
+      'Spectra should receive direct PCM instead of decoded MediaRecorder audio',
+    );
     assert.equal(result.buffer.duration, 5);
     assert.equal(result.pcmDuration, 5);
     assert.equal(result.captureMode, 'direct-pcm');
