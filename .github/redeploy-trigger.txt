@@ -1,2 +1,2 @@
 canonical-live redeploy trigger
-Direct PCM Vocal architecture validated and formatted
+Vocal playback route recovery validation
