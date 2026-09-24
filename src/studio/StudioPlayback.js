@@ -63,6 +63,20 @@ function hasNativeMicrophoneRecording(session, stem) {
   return isMicrophoneRecordingStem(stem) && session?.recordingBlobs?.has?.(stem?.id) === true;
 }
 
+function hasCompleteDecodedMicrophoneRecording(session, stem) {
+  if (!isMicrophoneRecordingStem(stem)) return false;
+  const buffer = session?.recordings?.get?.(stem?.id);
+  if (!buffer?.duration) return false;
+
+  const expected = Math.max(0, Number(stem?.sourceDuration) || 0);
+  if (!(expected > 0)) return true;
+
+  // Treat the decoded recording as complete when it covers essentially the whole captured take.
+  // This rejects the Safari failure mode where decodeAudioData returns only the first second or so.
+  const tolerance = Math.max(0.12, expected * 0.08);
+  return buffer.duration >= expected - tolerance;
+}
+
 function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
   if (
     !context?.createBuffer ||
@@ -1013,11 +1027,15 @@ export class StudioPlayback {
         : Math.max(0, Number(offset) || 0);
     let started = 0;
     for (const stem of session.stems) {
-      // For browser microphone takes the native MediaRecorder file is the source of truth.
-      // Safari can return a decoded AudioBuffer that contains only the first second or so of
-      // an otherwise complete recording. If the native Blob exists, let startBlobRecordings
-      // own Vocal playback and scrubber seeks instead of allowing that partial decode to shadow it.
-      if (hasNativeMicrophoneRecording(session, stem)) continue;
+      // Prefer a complete decoded Vocal take because it can become a deterministic fixed-length
+      // Spectra AudioBuffer loop routed through the real channel strip. Only fall back to the
+      // native MediaRecorder Blob when decoding is missing or clearly truncated.
+      if (
+        hasNativeMicrophoneRecording(session, stem) &&
+        !hasCompleteDecodedMicrophoneRecording(session, stem)
+      ) {
+        continue;
+      }
 
       const buffer = session.recordings.get(stem.id);
       if (!buffer?.duration) continue;
@@ -1334,10 +1352,15 @@ export class StudioPlayback {
       const blob = session.recordingBlobs.get(stem.id);
       if (!blob) continue;
       const microphoneTake = isMicrophoneRecordingStem(stem);
-      // Decoded non-vocal recordings stay on the AudioBuffer path. Vocal is different:
-      // whenever the original MediaRecorder file is present it remains authoritative, because
-      // Safari may expose a valid but truncated decoded buffer for that same file.
-      if (session.recordings?.has?.(stem.id) && !microphoneTake) continue;
+      // Any complete decoded recording belongs to the WebAudio/frozen path. For Vocal this is
+      // the preferred path because it gives us an exact session-length loop and the full Spectra
+      // channel strip. The Blob path is only the safety fallback for truncated/failed decoding.
+      if (
+        session.recordings?.has?.(stem.id) &&
+        (!microphoneTake || hasCompleteDecodedMicrophoneRecording(session, stem))
+      ) {
+        continue;
+      }
 
       const old = this.blobStems.get(stem.id);
       if (old) {
