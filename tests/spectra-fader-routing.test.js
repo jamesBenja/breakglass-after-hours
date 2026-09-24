@@ -60,6 +60,7 @@ class FakeAnalyser extends FakeNode {
 
 function fakeAudio(createdSources = [], { mediaSources = null } = {}) {
   const context = {
+    state: 'running',
     currentTime: 0,
     sampleRate: 10,
     createGain: () => new FakeNode(),
@@ -226,11 +227,12 @@ test('muted recorded performance keeps its timeline running for live unmute', ()
   );
 });
 
-test('raw Vocal Blob is scrubber-only and never becomes Spectra playback audio', async () => {
+test('Vocal scrubber auditions canonical PCM before the MediaRecorder fallback', async () => {
   const OriginalAudio = globalThis.Audio;
   const originalCreateObjectURL = URL.createObjectURL;
   const originalRevokeObjectURL = URL.revokeObjectURL;
-  const created = [];
+  const createdMedia = [];
+  const createdSources = [];
 
   class FakeMedia {
     constructor() {
@@ -241,7 +243,84 @@ test('raw Vocal Blob is scrubber-only and never becomes Spectra playback audio',
       this.readyState = 1;
       this.duration = 5;
       this.currentTime = 0;
-      created.push(this);
+      createdMedia.push(this);
+    }
+    play() {
+      return Promise.resolve();
+    }
+    pause() {}
+    removeAttribute(name) {
+      if (name === 'src') this.src = '';
+    }
+    load() {}
+    addEventListener() {}
+  }
+
+  globalThis.Audio = FakeMedia;
+  URL.createObjectURL = () => 'blob:raw-vocal';
+  URL.revokeObjectURL = () => {};
+
+  try {
+    const playback = new StudioPlayback(fakeAudio(createdSources));
+    const session = new StudioSession();
+    const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+    vocal.source = 'browser-microphone';
+    vocal.sourceOffset = 1.25;
+    vocal.sourceDuration = 5;
+
+    const samples = Float32Array.from({ length: 50 }, (_, index) => index / 100);
+    const recording = {
+      duration: 5,
+      length: 50,
+      numberOfChannels: 1,
+      sampleRate: 10,
+      getChannelData: () => samples,
+    };
+    const rawBlob = new Blob(['raw-vocal'], { type: 'audio/webm' });
+    session.replaceRecording(vocal.id, recording, rawBlob);
+    playback.session = session;
+
+    assert.equal(
+      await playback.startBlobRecordings(session, 0),
+      0,
+      'MediaRecorder Vocal Blob must never be used by the Spectra mixer',
+    );
+    assert.equal(playback.blobStems.has(vocal.id), false);
+    assert.equal(createdMedia.length, 0);
+
+    assert.equal(await playback.auditionRawRecording(session, vocal.id, vocal.sourceOffset), true);
+    assert.equal(createdMedia.length, 0, 'PCM audition must not instantiate the MediaRecorder file');
+    assert.equal(createdSources.length, 1);
+    assert.equal(createdSources[0].buffer, recording);
+    assert.deepEqual(createdSources[0].startArgs, [0.01, 1.25]);
+    assert.equal(session.recordingBlobs.get(vocal.id), rawBlob, 'raw file remains available as fallback');
+
+    playback.stopRawAudition();
+  } finally {
+    globalThis.Audio = OriginalAudio;
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  }
+});
+
+test('Vocal scrubber falls back to the raw MediaRecorder file only when PCM is unavailable', async () => {
+  const OriginalAudio = globalThis.Audio;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  const createdMedia = [];
+
+  class FakeMedia {
+    constructor() {
+      this.src = '';
+      this.volume = 1;
+      this.muted = false;
+      this.defaultMuted = false;
+      this.loop = false;
+      this.playsInline = false;
+      this.readyState = 1;
+      this.duration = 5;
+      this.currentTime = 0;
+      createdMedia.push(this);
     }
     play() {
       return Promise.resolve();
@@ -266,20 +345,13 @@ test('raw Vocal Blob is scrubber-only and never becomes Spectra playback audio',
     vocal.sourceOffset = 1.25;
     vocal.sourceDuration = 5;
     session.replaceRecording(vocal.id, null, new Blob(['raw-vocal'], { type: 'audio/webm' }));
-    playback.session = session;
-
-    assert.equal(
-      await playback.startBlobRecordings(session, 0),
-      0,
-      'MediaRecorder Vocal Blob must never be used by the Spectra mixer',
-    );
-    assert.equal(playback.blobStems.has(vocal.id), false);
-    assert.equal(created.length, 0);
 
     assert.equal(await playback.auditionRawRecording(session, vocal.id, vocal.sourceOffset), true);
-    assert.equal(created.length, 1);
-    assert.equal(created[0].src, 'blob:raw-vocal');
-    assert.equal(created[0].currentTime, 1.25, 'the raw Blob remains available to the scrubber');
+    assert.equal(createdMedia.length, 1);
+    assert.equal(createdMedia[0].src, 'blob:raw-vocal');
+    assert.equal(createdMedia[0].currentTime, 1.25);
+    assert.equal(createdMedia[0].volume, 1);
+    assert.equal(createdMedia[0].muted, false);
 
     playback.stopRawAudition();
   } finally {
@@ -287,6 +359,30 @@ test('raw Vocal Blob is scrubber-only and never becomes Spectra playback audio',
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
   }
+});
+
+test('Spectra PLAY restores an interrupted output route before starting sources', async () => {
+  const audio = fakeAudio();
+  audio.context.state = 'interrupted';
+  let recoverCalls = 0;
+  audio.recoverAfterMicrophoneCapture = async () => {
+    recoverCalls += 1;
+    audio.context.state = 'running';
+    return true;
+  };
+
+  const playback = new StudioPlayback(audio);
+  const session = new StudioSession();
+  playback.startBlobRecordings = () => Promise.resolve(0);
+  playback.loadAlignedAssets = async () => null;
+  playback.startNativeAssets = async () => false;
+  playback.startFrozenRecordings = () => 0;
+  playback.hasEventPlayback = () => false;
+
+  assert.equal(await playback.play(session, 0, { restartTransport: true }), true);
+  assert.equal(recoverCalls, 1);
+  assert.equal(audio.context.state, 'running');
+  playback.stop();
 });
 
 test('Spectra starts browser-recorded media before any asynchronous asset loading', async () => {
