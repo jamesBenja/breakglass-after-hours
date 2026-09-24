@@ -157,6 +157,7 @@ export class StudioPlayback {
     this.frozenGates = new Map();
     this.soloFaderActive = false;
     this.rawAuditionSource = null;
+    this.rawAuditionGain = null;
     this.rawAuditionMedia = null;
     this.rawAuditionUrl = null;
     this.rawAuditionOffset = 0;
@@ -1520,6 +1521,8 @@ export class StudioPlayback {
       this.rawAuditionSource.disconnect?.();
     }
     this.rawAuditionSource = null;
+    this.rawAuditionGain?.disconnect?.();
+    this.rawAuditionGain = null;
     if (this.rawAuditionMedia) {
       this.rawAuditionMedia.pause?.();
       this.rawAuditionMedia.removeAttribute?.('src');
@@ -1545,21 +1548,44 @@ export class StudioPlayback {
   async auditionRawRecording(session, stemId, offset = 0) {
     if (!session || !stemId) return false;
     this.stopRawAudition();
+
+    const audioSession = globalThis.navigator?.audioSession;
+    if (audioSession) {
+      try {
+        audioSession.type = 'playback';
+      } catch {
+        // Ignore browsers without writable Audio Session support.
+      }
+    }
+
+    await this.audio.recoverAfterMicrophoneCapture?.();
+
     const stem = session.stems?.find?.((item) => item.id === stemId) ?? null;
-    const nativeVocalBlob = hasNativeMicrophoneRecording(session, stem)
-      ? session.recordingBlobs?.get?.(stemId)
-      : null;
     const buffer = session.recordings?.get?.(stemId);
-    if (!nativeVocalBlob && buffer?.duration && this.audio.context?.createBufferSource) {
+    const context = this.audio.context;
+
+    // The captured PCM is the canonical take. Prefer it for scrubber audition as well as Spectra
+    // playback so neither path depends on browser MediaRecorder container playback.
+    if (buffer?.duration && context?.createBufferSource) {
       const safeOffset = Math.min(
         Math.max(0, buffer.duration - 0.01),
         Math.max(0, Number(offset) || 0),
       );
-      const source = this.audio.context.createBufferSource();
+      const source = context.createBufferSource();
+      const auditionGain = context.createGain?.() ?? null;
       source.buffer = buffer;
-      source.connect(this.audio.sourceDestination?.('studio') ?? this.audio.master);
-      const startTime = this.audio.context.currentTime + 0.01;
+
+      if (auditionGain) {
+        auditionGain.gain.value = 0.9;
+        source.connect(auditionGain);
+        auditionGain.connect(context.destination ?? this.audio.master);
+      } else {
+        source.connect(context.destination ?? this.audio.master);
+      }
+
+      const startTime = context.currentTime + 0.01;
       this.rawAuditionSource = source;
+      this.rawAuditionGain = auditionGain;
       this.rawAuditionOffset = safeOffset;
       this.rawAuditionStartedAt = startTime;
       this.rawAuditionDuration = buffer.duration;
@@ -1569,7 +1595,8 @@ export class StudioPlayback {
       source.start(startTime, safeOffset);
       return true;
     }
-    const blob = nativeVocalBlob ?? session.recordingBlobs?.get?.(stemId);
+
+    const blob = session.recordingBlobs?.get?.(stemId);
     if (
       !blob ||
       typeof Audio === 'undefined' ||
@@ -1578,12 +1605,17 @@ export class StudioPlayback {
     ) {
       return false;
     }
+
     const url = URL.createObjectURL(blob);
     const media = new Audio();
     media.preload = 'auto';
     media.playsInline = true;
     media.src = url;
     media.loop = false;
+    media.muted = false;
+    media.defaultMuted = false;
+    media.volume = 1;
+
     const safeOffset = Math.max(0, Number(offset) || 0);
     const seek = () => {
       const duration = Number(media.duration);
@@ -1614,8 +1646,21 @@ export class StudioPlayback {
       return false;
     }
   }
+
   async play(session, offset = 0, { stemId = null, restartTransport = false } = {}) {
     if (!this.audio.context) return false;
+
+    const audioSession = globalThis.navigator?.audioSession;
+    if (audioSession) {
+      try {
+        audioSession.type = 'playback';
+      } catch {
+        // Ignore browsers without writable Audio Session support.
+      }
+    }
+    await this.audio.recoverAfterMicrophoneCapture?.();
+    if (this.audio.context.state !== 'running') return false;
+
     this.stop();
     this.auditionStemId = stemId || null;
     const requestedOffset = Math.max(0, Number(offset) || 0);
