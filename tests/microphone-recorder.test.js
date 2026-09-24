@@ -141,6 +141,8 @@ test('MicrophoneRecorder captures canonical Spectra PCM directly from the microp
     assert.equal(result.buffer.duration, 5);
     assert.equal(result.pcmDuration, 5);
     assert.equal(result.captureMode, 'direct-pcm');
+    assert.ok(Math.abs(result.pcmPeak - 0.2) < 1e-6);
+    assert.ok(result.pcmRms > 0.1);
     assert.ok(Math.abs(result.buffer.getChannelData(0)[0] - 0.01) < 1e-6);
     assert.ok(Math.abs(result.buffer.getChannelData(0)[19] - 0.2) < 1e-6);
     assert.ok(result.duration >= 4.9);
@@ -150,7 +152,7 @@ test('MicrophoneRecorder captures canonical Spectra PCM directly from the microp
     assert.equal(result.type, 'audio/mp4');
     assert.equal(track.stopped, true);
     assert.equal(audioSession.type, 'playback');
-    assert.equal(recovered, 1);
+    assert.equal(recovered, 0, 'stopping capture must not cycle the playback route');
   } finally {
     if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
     else delete globalThis.navigator;
@@ -260,10 +262,12 @@ test('AudioEngine restores playback mode after mic capture', async () => {
   try {
     const engine = new AudioEngine();
     const values = [];
+    let suspendCalls = 0;
     engine.context = {
       state: 'running',
       currentTime: 1,
       async suspend() {
+        suspendCalls += 1;
         this.state = 'suspended';
       },
       async resume() {
@@ -315,6 +319,7 @@ test('AudioEngine restores playback mode after mic capture', async () => {
     assert.equal(result, true);
     assert.equal(audioSession.type, 'playback');
     assert.equal(engine.prioritySource, null);
+    assert.equal(suspendCalls, 0, 'recovery must never suspend a healthy AudioContext');
     assert.ok(values.some(([name, value]) => name === 'gain' && value === 0.9));
     assert.ok(values.some(([name, value]) => name === 'source' && value === 0.8));
   } finally {

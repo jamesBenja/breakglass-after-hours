@@ -112,11 +112,8 @@ export function createActions({
   const monitorStudio = async (stemId = null) => {
     if (!studio || !studioPlayback) return false;
 
-    // Do not insert an async AudioEngine init ahead of Spectra PLAY when the shared context is
-    // already running. Safari ties native MediaRecorder playback permission to the user's tap,
-    // and yielding here can make the saved Vocal file permanently silent for that PLAY attempt.
     if (!audio.context) await audio.init?.();
-    else if (audio.context.state === 'suspended') await audio.resume?.();
+    await audio.recoverAfterMicrophoneCapture?.();
 
     return studioPlayback.play(studio, 0, {
       ...(stemId ? { stemId } : {}),
@@ -610,6 +607,8 @@ export function createActions({
               0,
               Number(result.pcmDuration) || Number(result.buffer?.duration) || 0,
             );
+            destination.vocalPcmPeak = Math.max(0, Number(result.pcmPeak) || 0);
+            destination.vocalPcmRms = Math.max(0, Number(result.pcmRms) || 0);
             connectedVocalStemId = destination.id;
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
@@ -618,10 +617,12 @@ export function createActions({
               0,
               Number(result.pcmDuration) || Number(result.buffer?.duration) || 0,
             );
+            const peak = Math.max(0, Number(result.pcmPeak) || 0);
+            const signal = peak < 0.001 ? 'near-silent' : `${Math.round(peak * 100)}% peak`;
             ui.warning?.(
               pcmSeconds > 0
-                ? `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Raw take: ${destination.sourceDuration.toFixed(2)}s. Spectra PCM: ${pcmSeconds.toFixed(2)}s. The scrubber uses the raw file; the mixer uses only this PCM capture.`
-                : `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}, but direct PCM capture was unavailable. The raw scrubber will work, but Spectra Vocal playback is disabled for this take rather than falling back to the broken one-second media path.`,
+                ? `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Raw file: ${destination.sourceDuration.toFixed(2)}s. PCM take: ${pcmSeconds.toFixed(2)}s. Mic signal: ${signal}. Scrubber and Spectra now both use the captured PCM for playback.`
+                : `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}, but direct PCM capture was unavailable. The raw MediaRecorder file is retained as fallback.`,
             );
             vocalPanel();
           },
@@ -647,7 +648,7 @@ export function createActions({
     const editor = ui.document.createElement('div');
     editor.className = 'vocal-source-editor';
     const title = ui.document.createElement('strong');
-    title.textContent = 'RAW TAKE → SPECTRA LOOP';
+    title.textContent = 'VOCAL TAKE → SPECTRA LOOP';
     const readout = ui.document.createElement('span');
     const loopSeconds =
       (Math.max(1, Number(studio.loopBars) || 4) * 4 * 60) / Math.max(1, Number(studio.bpm) || 118);
@@ -679,18 +680,18 @@ export function createActions({
     };
     const help = ui.document.createElement('small');
     help.textContent =
-      'The scrubber auditions the raw MediaRecorder file. Spectra loops the separate direct PCM capture from the same microphone stream. The selected start point is applied to that PCM loop; any remaining loop time stays silent.';
+      'The scrubber and Spectra both use the captured PCM take. The MediaRecorder file is retained only as a fallback. The selected start point is applied to the Spectra loop; any remaining loop time stays silent.';
     const controls = ui.document.createElement('div');
     controls.className = 'vocal-source-editor-controls';
     const auditionFromStart = ui.document.createElement('button');
     auditionFromStart.type = 'button';
-    auditionFromStart.textContent = '▶ AUDITION RAW FROM START';
+    auditionFromStart.textContent = '▶ AUDITION TAKE FROM START';
     auditionFromStart.onclick = async () => {
       await studioPlayback?.auditionRawRecording?.(studio, target.id, 0);
     };
     const auditionSelected = ui.document.createElement('button');
     auditionSelected.type = 'button';
-    auditionSelected.textContent = '▶ AUDITION FROM SELECTED POINT';
+    auditionSelected.textContent = '▶ AUDITION TAKE FROM SELECTED POINT';
     auditionSelected.onclick = async () => {
       const offset = Math.min(maxOffset, Math.max(0, Number(slider.value) || 0));
       target.sourceOffset = offset;
@@ -714,7 +715,7 @@ export function createActions({
     };
     const stopAudition = ui.document.createElement('button');
     stopAudition.type = 'button';
-    stopAudition.textContent = '■ STOP RAW AUDITION';
+    stopAudition.textContent = '■ STOP TAKE AUDITION';
     stopAudition.onclick = () => studioPlayback?.stopRawAudition?.();
     controls.append(auditionFromStart, auditionSelected, useCurrent, stopAudition);
     editor.append(title, readout, slider, help, controls);
