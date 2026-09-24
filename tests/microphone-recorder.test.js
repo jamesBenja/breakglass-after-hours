@@ -38,7 +38,9 @@ class FakeMediaRecorder {
   }
 }
 
-test('MicrophoneRecorder captures canonical Spectra PCM directly from the microphone stream', async () => {
+test(
+  'MicrophoneRecorder captures canonical Spectra PCM directly from the microphone stream',
+  async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
   const track = {
@@ -159,10 +161,12 @@ test('MicrophoneRecorder captures canonical Spectra PCM directly from the microp
     else delete globalThis.navigator;
     globalThis.MediaRecorder = originalMediaRecorder;
     FakeMediaRecorder.lastOptions = Symbol('unset');
-  }
-});
+  },
+);
 
-test('MicrophoneRecorder forces the Spectra loop grid on before capturing a vocal take', async () => {
+test(
+  'MicrophoneRecorder forces the Spectra loop grid on before capturing a vocal take',
+  async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
   const stream = { getTracks: () => [{ stop() {} }] };
@@ -210,8 +214,8 @@ test('MicrophoneRecorder forces the Spectra loop grid on before capturing a voca
     if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
     else delete globalThis.navigator;
     globalThis.MediaRecorder = originalMediaRecorder;
-  }
-});
+  },
+);
 
 test('MicrophoneRecorder keeps the raw Blob when direct PCM capture is unavailable', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
