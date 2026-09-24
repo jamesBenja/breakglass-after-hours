@@ -164,6 +164,7 @@ test(
       else delete globalThis.navigator;
       globalThis.MediaRecorder = originalMediaRecorder;
       FakeMediaRecorder.lastOptions = Symbol('unset');
+    }
   },
 );
 
@@ -217,6 +218,7 @@ test(
       if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
       else delete globalThis.navigator;
       globalThis.MediaRecorder = originalMediaRecorder;
+    }
   },
 );
 
