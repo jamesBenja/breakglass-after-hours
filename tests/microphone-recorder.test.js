@@ -114,9 +114,9 @@ test(
 
       assert.equal(await recorder.start(), true);
       assert.ok(
-      processor?.onaudioprocess,
-      'direct PCM processor should be active during recording',
-    );
+        processor?.onaudioprocess,
+        'direct PCM processor should be active during recording',
+      );
 
       for (let chunk = 0; chunk < 5; chunk += 1) {
         const samples = Float32Array.from(
