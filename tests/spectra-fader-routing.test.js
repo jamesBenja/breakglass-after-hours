@@ -515,11 +515,19 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
     sampleRate: 10,
     getChannelData: () => samples,
   };
-  session.recordings.set(vocal.id, recording);
+  session.replaceRecording(
+    vocal.id,
+    recording,
+    new Blob(['same-complete-vocal-take'], { type: 'audio/webm' }),
+  );
   playback.session = session;
   playback.updateMix(session);
 
-  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
+  assert.equal(
+    playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }),
+    1,
+    'a complete decoded Vocal take must use the deterministic WebAudio loop even when its raw Blob is retained for the scrubber',
+  );
 
   const source = createdSources[0];
   assert.equal(source.loop, true);
@@ -538,6 +546,11 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
   assert.equal(playback.frozenSources.get(vocal.id), source);
   assert.equal(playback.frozenGates.has(vocal.id), true);
   assert.equal(playback.vocalBufferLoopTimers.has(vocal.id), false);
+  assert.equal(
+    playback.blobStems.has(vocal.id),
+    false,
+    'the raw scrubber Blob must not become a second Spectra playback source when the decode is complete',
+  );
 
   vocal.mute = true;
   playback.applyChannelAudibility(session);
