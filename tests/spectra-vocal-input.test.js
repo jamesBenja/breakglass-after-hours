@@ -203,7 +203,9 @@ test('Vocal take audition overlays the running Spectra loop', async () => {
 
   ui._spectraStudioNavigation.vocal();
 
-  const fromStart = created.find((element) => element.textContent === '▶ AUDITION TAKE FROM START');
+  const fromStart = created.find(
+    (element) => element.textContent === '▶ AUDITION TAKE FROM START',
+  );
   const selected = created.find(
     (element) => element.textContent === '▶ AUDITION TAKE FROM SELECTED POINT',
   );

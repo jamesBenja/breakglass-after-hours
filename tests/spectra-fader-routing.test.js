@@ -289,11 +289,19 @@ test('Vocal scrubber auditions canonical PCM before the MediaRecorder fallback',
     assert.equal(createdMedia.length, 0);
 
     assert.equal(await playback.auditionRawRecording(session, vocal.id, vocal.sourceOffset), true);
-    assert.equal(createdMedia.length, 0, 'PCM audition must not instantiate the MediaRecorder file');
+    assert.equal(
+      createdMedia.length,
+      0,
+      'PCM audition must not instantiate the MediaRecorder file',
+    );
     assert.equal(createdSources.length, 1);
     assert.equal(createdSources[0].buffer, recording);
     assert.deepEqual(createdSources[0].startArgs, [0.01, 1.25]);
-    assert.equal(session.recordingBlobs.get(vocal.id), rawBlob, 'raw file remains available as fallback');
+    assert.equal(
+      session.recordingBlobs.get(vocal.id),
+      rawBlob,
+      'raw file remains available as fallback',
+    );
 
     playback.stopRawAudition();
   } finally {
