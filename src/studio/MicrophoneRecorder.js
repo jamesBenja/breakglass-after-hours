@@ -201,8 +201,26 @@ export class MicrophoneRecorder {
     const blob = new Blob(this.chunks, { type });
     const buffer = this.finishPcmCapture();
 
+    let pcmPeak = 0;
+    let pcmRms = 0;
+    if (buffer?.numberOfChannels && buffer?.getChannelData) {
+      let squares = 0;
+      let samples = 0;
+      for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+        const data = buffer.getChannelData(channel);
+        for (let index = 0; index < data.length; index += 1) {
+          const value = Number(data[index]) || 0;
+          pcmPeak = Math.max(pcmPeak, Math.abs(value));
+          squares += value * value;
+          samples += 1;
+        }
+      }
+      pcmRms = samples > 0 ? Math.sqrt(squares / samples) : 0;
+    }
+
+    // End capture cleanly, but do not suspend/resume the shared AudioContext here. Playback
+    // recovery is performed from the next explicit user playback gesture.
     this.cleanupStream();
-    await this.audio.recoverAfterMicrophoneCapture?.();
 
     this.recorder = null;
     this.chunks = [];
@@ -214,6 +232,8 @@ export class MicrophoneRecorder {
       duration: Math.max(duration, Number(buffer?.duration) || 0),
       pcmDuration: Math.max(0, Number(buffer?.duration) || 0),
       captureMode: buffer ? 'direct-pcm' : 'raw-only',
+      pcmPeak,
+      pcmRms,
       type: blob.type || type,
       timelineStart: this.timelineStart,
       bytes: blob.size,
@@ -232,7 +252,6 @@ export class MicrophoneRecorder {
     this.pcmChunks = [];
     this.pcmSampleRate = 0;
     this.cleanupStream();
-    void this.audio.recoverAfterMicrophoneCapture?.();
     this.recorder = null;
     this.chunks = [];
     this.spectraTransport?.release?.(this.transportOwner);
