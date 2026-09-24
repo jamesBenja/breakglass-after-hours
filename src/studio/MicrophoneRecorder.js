@@ -133,6 +133,9 @@ export class MicrophoneRecorder {
       }
     }
 
+    await this.audio?.init?.();
+    if (this.audio?.context?.state === 'suspended') await this.audio?.resume?.();
+
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     this.chunks = [];
