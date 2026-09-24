@@ -50,7 +50,9 @@ export class MicrophoneRecorder {
       const source = context.createMediaStreamSource(this.stream);
       const processor = context.createScriptProcessor(4096, 1, 1);
       const sink = context.createGain();
-      sink.gain.value = 0;
+      // Keep the processor connected to an effectively inaudible sink. A literal zero-gain
+      // branch may be optimized away by some browser audio engines, preventing PCM callbacks.
+      sink.gain.value = 0.000001;
 
       processor.onaudioprocess = (event) => {
         const input = event?.inputBuffer;
