@@ -38,7 +38,7 @@ class FakeMediaRecorder {
   }
 }
 
-test('MicrophoneRecorder keeps the full capture duration when Safari decodes only a prefix', async () => {
+test('MicrophoneRecorder captures canonical Spectra PCM directly from the microphone stream', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
   const track = {
@@ -50,6 +50,40 @@ test('MicrophoneRecorder keeps the full capture duration when Safari decodes onl
   const stream = { getTracks: () => [track] };
   const audioSession = { type: 'playback' };
   let recovered = 0;
+  let processor = null;
+
+  const makeNode = () => ({
+    gain: { value: 1 },
+    connect() {},
+    disconnect() {},
+  });
+
+  const context = {
+    state: 'running',
+    sampleRate: 4,
+    destination: makeNode(),
+    createMediaStreamSource() {
+      return makeNode();
+    },
+    createScriptProcessor() {
+      processor = makeNode();
+      processor.onaudioprocess = null;
+      return processor;
+    },
+    createGain: makeNode,
+    createBuffer(channels, length, sampleRate) {
+      const data = Array.from({ length: channels }, () => new Float32Array(length));
+      return {
+        duration: length / sampleRate,
+        length,
+        numberOfChannels: channels,
+        sampleRate,
+        getChannelData(channel) {
+          return data[channel];
+        },
+      };
+    },
+  };
 
   Object.defineProperty(globalThis, 'navigator', {
     configurable: true,
@@ -66,14 +100,8 @@ test('MicrophoneRecorder keeps the full capture duration when Safari decodes onl
   globalThis.MediaRecorder = FakeMediaRecorder;
 
   try {
-    const decoded = { duration: 1.25, numberOfChannels: 1 };
     const audio = {
-      context: {
-        decodeAudioData(_bytes, success) {
-          success?.(decoded);
-          return Promise.resolve(decoded);
-        },
-      },
+      context,
       async recoverAfterMicrophoneCapture() {
         recovered += 1;
         audioSession.type = 'playback';
@@ -83,7 +111,24 @@ test('MicrophoneRecorder keeps the full capture duration when Safari decodes onl
     const recorder = new MicrophoneRecorder(audio);
 
     assert.equal(await recorder.start(), true);
-    // Model Safari returning a one-second decode for a much longer native microphone file.
+    assert.ok(processor?.onaudioprocess, 'direct PCM processor should be active during recording');
+
+    for (let chunk = 0; chunk < 5; chunk += 1) {
+      const samples = Float32Array.from(
+        { length: 4 },
+        (_, index) => (chunk * 4 + index + 1) / 100,
+      );
+      processor.onaudioprocess({
+        inputBuffer: {
+          numberOfChannels: 1,
+          sampleRate: 4,
+          getChannelData() {
+            return samples;
+          },
+        },
+      });
+    }
+
     recorder.startedAt = performance.now() - 5000;
     const nativeRecorder = recorder.recorder;
     assert.equal(FakeMediaRecorder.lastOptions, undefined);
@@ -92,11 +137,13 @@ test('MicrophoneRecorder keeps the full capture duration when Safari decodes onl
 
     const result = await recorder.stop();
     assert.equal(nativeRecorder.requestDataCalls, 1);
-    assert.equal(result.buffer, decoded);
-    assert.ok(
-      result.duration >= 4.9,
-      'raw capture duration must not collapse to the shorter decoded AudioBuffer duration',
-    );
+    assert.ok(result.buffer, 'Spectra should receive direct PCM instead of decoded MediaRecorder audio');
+    assert.equal(result.buffer.duration, 5);
+    assert.equal(result.pcmDuration, 5);
+    assert.equal(result.captureMode, 'direct-pcm');
+    assert.equal(result.buffer.getChannelData(0)[0], 0.01);
+    assert.equal(result.buffer.getChannelData(0)[19], 0.2);
+    assert.ok(result.duration >= 4.9);
     assert.ok(result.blob instanceof Blob);
     assert.ok(result.blob.size > 0);
     assert.equal(result.bytes, result.blob.size);
@@ -163,7 +210,7 @@ test('MicrophoneRecorder forces the Spectra loop grid on before capturing a voca
   }
 });
 
-test('MicrophoneRecorder keeps the native vocal Blob when WebAudio decoding is unavailable', async () => {
+test('MicrophoneRecorder keeps the raw Blob when direct PCM capture is unavailable', async () => {
   const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const originalMediaRecorder = globalThis.MediaRecorder;
   const stream = { getTracks: () => [{ stop() {} }] };
@@ -182,11 +229,7 @@ test('MicrophoneRecorder keeps the native vocal Blob when WebAudio decoding is u
 
   try {
     const recorder = new MicrophoneRecorder({
-      context: {
-        decodeAudioData() {
-          return Promise.reject(new Error('unsupported container'));
-        },
-      },
+      context: {},
       async recoverAfterMicrophoneCapture() {
         return true;
       },
@@ -195,6 +238,8 @@ test('MicrophoneRecorder keeps the native vocal Blob when WebAudio decoding is u
     assert.equal(await recorder.start(), true);
     const result = await recorder.stop();
     assert.equal(result.buffer, null);
+    assert.equal(result.captureMode, 'raw-only');
+    assert.equal(result.pcmDuration, 0);
     assert.ok(result.blob instanceof Blob);
     assert.ok(result.blob.size > 0);
   } finally {
