@@ -1,0 +1,47 @@
+name: One-shot format Vocal test
+
+on:
+  push:
+    branches:
+      - feat/multiplayer-phase-2-shared-world
+    paths:
+      - .github/workflows/one-shot-format-vocal.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout canonical branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/multiplayer-phase-2-shared-world
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format Vocal recorder test exactly
+        run: pnpm exec prettier --write tests/microphone-recorder.test.js
+
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/one-shot-format-vocal.yml
+
+      - name: Commit canonical formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/microphone-recorder.test.js .github/workflows/one-shot-format-vocal.yml
+          git commit -m "Apply canonical Prettier formatting to Vocal PCM tests"
+          git push origin HEAD:feat/multiplayer-phase-2-shared-world
