@@ -128,7 +128,7 @@ test('Vocal capture commits to the raw scrubber before Spectra can resume playba
   );
 });
 
-test('Vocal raw scrubber audition overlays the running Spectra loop', async () => {
+test('Vocal take audition overlays the running Spectra loop', async () => {
   const studio = new StudioSession();
   const vocal = studio.stems.find((stem) => stem.inputKey === 'vocal');
   const blob = new Blob(['raw-vocal'], { type: 'audio/webm' });
@@ -203,9 +203,9 @@ test('Vocal raw scrubber audition overlays the running Spectra loop', async () =
 
   ui._spectraStudioNavigation.vocal();
 
-  const fromStart = created.find((element) => element.textContent === '▶ AUDITION RAW FROM START');
+  const fromStart = created.find((element) => element.textContent === '▶ AUDITION TAKE FROM START');
   const selected = created.find(
-    (element) => element.textContent === '▶ AUDITION FROM SELECTED POINT',
+    (element) => element.textContent === '▶ AUDITION TAKE FROM SELECTED POINT',
   );
   assert.ok(fromStart);
   assert.ok(selected);
@@ -216,7 +216,7 @@ test('Vocal raw scrubber audition overlays the running Spectra loop', async () =
   assert.equal(
     calls.some(([name]) => name === 'stop'),
     false,
-    'raw Vocal audition must not stop the running Spectra loop',
+    'Vocal take audition must not stop the running Spectra loop',
   );
   assert.deepEqual(calls[0], ['audition', vocal.id, 0]);
   assert.deepEqual(calls[1], ['audition', vocal.id, 0.75]);
