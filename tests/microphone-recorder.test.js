@@ -141,8 +141,8 @@ test('MicrophoneRecorder captures canonical Spectra PCM directly from the microp
     assert.equal(result.buffer.duration, 5);
     assert.equal(result.pcmDuration, 5);
     assert.equal(result.captureMode, 'direct-pcm');
-    assert.equal(result.buffer.getChannelData(0)[0], 0.01);
-    assert.equal(result.buffer.getChannelData(0)[19], 0.2);
+    assert.ok(Math.abs(result.buffer.getChannelData(0)[0] - 0.01) < 1e-6);
+    assert.ok(Math.abs(result.buffer.getChannelData(0)[19] - 0.2) < 1e-6);
     assert.ok(result.duration >= 4.9);
     assert.ok(result.blob instanceof Blob);
     assert.ok(result.blob.size > 0);
