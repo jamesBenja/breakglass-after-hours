@@ -604,7 +604,8 @@ export function createActions({
             }
             destination.renderedAudio = !!result.buffer;
             destination.renderedAudioAt = result.buffer ? Date.now() : null;
-            destination.vocalCaptureMode = result.captureMode ?? (result.buffer ? 'direct-pcm' : 'raw-only');
+            destination.vocalCaptureMode =
+              result.captureMode ?? (result.buffer ? 'direct-pcm' : 'raw-only');
             destination.vocalPcmDuration = Math.max(
               0,
               Number(result.pcmDuration) || Number(result.buffer?.duration) || 0,
