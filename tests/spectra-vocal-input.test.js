@@ -65,12 +65,8 @@ test('Vocal capture overdubs while Spectra keeps playing and joins the live loop
     updateMix() {
       calls.push('update-mix');
     },
-    async ensureLivePlaybackRunning() {
-      calls.push('ensure-live');
-      return true;
-    },
-    rebuildRecordedStemPlayback(_session, stemId) {
-      calls.push(['rebuild', stemId]);
+    async recoverLivePlaybackAfterMicrophoneRouteChange() {
+      calls.push('recover-live-vocals');
       return true;
     },
     async play() {
@@ -133,7 +129,7 @@ test('Vocal capture overdubs while Spectra keeps playing and joins the live loop
     'opening the Vocal microphone must not stop the Spectra backing mix',
   );
   assert.equal(studioPlayback.playing, true);
-  assert.ok(calls.indexOf('recorder-start') < calls.indexOf('ensure-live'));
+  assert.ok(calls.indexOf('recorder-start') < calls.indexOf('recover-live-vocals'));
 
   const commitAction = ui.lastPanel.actions.find(([label]) => label.startsWith('Stop + commit'));
   assert.ok(commitAction);
@@ -149,10 +145,14 @@ test('Vocal capture overdubs while Spectra keeps playing and joins the live loop
     false,
     'committing an overdub must not restart or rebuild the whole Spectra session',
   );
-  assert.deepEqual(
-    calls.find((call) => Array.isArray(call) && call[0] === 'rebuild'),
-    ['rebuild', vocalStem.id],
-    'the new take should join the already-running loop by rebuilding only its Vocal source',
+  assert.equal(
+    calls.filter((call) => call === 'recover-live-vocals').length,
+    2,
+    'recorded Vocal PCM is rehydrated once after the mic route opens and again after it closes',
+  );
+  assert.ok(
+    calls.indexOf('recorder-stop') < calls.lastIndexOf('recover-live-vocals'),
+    'the post-capture Vocal rehydrate happens after the microphone has stopped',
   );
   assert.equal(studioPlayback.playing, true);
 });
