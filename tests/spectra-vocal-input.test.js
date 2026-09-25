@@ -177,7 +177,13 @@ test('Vocal take audition overlays the running Spectra loop', async () => {
       calls.push(['audition', stemId, offset]);
       return true;
     },
-    stopRawAudition() {},
+    rebuildRecordedStemPlayback(_session, stemId) {
+      calls.push(['rebuild', stemId]);
+      return true;
+    },
+    stopRawAudition() {
+      calls.push(['stop-raw-audition']);
+    },
     rawAuditionPosition() {
       return 1.25;
     },
@@ -222,5 +228,35 @@ test('Vocal take audition overlays the running Spectra loop', async () => {
   );
   assert.deepEqual(calls[0], ['audition', vocal.id, 0]);
   assert.deepEqual(calls[1], ['audition', vocal.id, 0.75]);
+  assert.equal(studioPlayback.playing, true);
+
+  const slider = created.find((element) => element.tag === 'input' && element.type === 'range');
+  assert.ok(slider);
+  slider.value = '1.1';
+  await slider.onchange();
+
+  assert.deepEqual(
+    calls.find(([name]) => name === 'rebuild'),
+    ['rebuild', vocal.id],
+    'moving the scrubber must rebuild only the Vocal source',
+  );
+  assert.equal(
+    calls.some(([name]) => name === 'play'),
+    false,
+    'moving the scrubber must never restart the whole Spectra transport',
+  );
+  assert.equal(studioPlayback.playing, true);
+
+  const setCurrent = created.find(
+    (element) => element.textContent === 'SET LOOP START TO CURRENT AUDITION',
+  );
+  assert.ok(setCurrent);
+  await setCurrent.onclick();
+
+  assert.equal(
+    calls.filter(([name]) => name === 'rebuild').length,
+    2,
+    'setting the audition point while Spectra is running must also rebuild only Vocal',
+  );
   assert.equal(studioPlayback.playing, true);
 });

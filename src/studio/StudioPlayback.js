@@ -163,6 +163,7 @@ export class StudioPlayback {
     this.rawAuditionOffset = 0;
     this.rawAuditionStartedAt = 0;
     this.rawAuditionDuration = 0;
+    this.playGeneration = 0;
   }
 
   get playing() {
@@ -995,7 +996,11 @@ export class StudioPlayback {
     });
   }
 
-  startFrozenRecordings(session, offset = 0, { startTime = null, phaseOffset = null } = {}) {
+  startFrozenRecordings(
+    session,
+    offset = 0,
+    { startTime = null, phaseOffset = null, onlyStemId = null } = {},
+  ) {
     const context = this.audio.context;
     if (!context || !session?.recordings?.size) return 0;
     const now = context.currentTime;
@@ -1014,6 +1019,7 @@ export class StudioPlayback {
         : Math.max(0, Number(offset) || 0);
     let started = 0;
     for (const stem of session.stems) {
+      if (onlyStemId && stem.id !== onlyStemId) continue;
       // Vocal recordings stored here are direct microphone PCM. The MediaRecorder Blob is kept
       // only for raw scrubber audition and is never a Spectra playback source.
       const buffer = session.recordings.get(stem.id);
@@ -1099,6 +1105,34 @@ export class StudioPlayback {
     }
     if (started > 0) this.applyChannelAudibility(session);
     return started;
+  }
+
+  rebuildRecordedStemPlayback(session = this.session, stemId, { leadSeconds = 0.018 } = {}) {
+    const context = this.audio.context;
+    if (!context || context.state !== 'running' || !session || !stemId) return false;
+    const stem = session.stems?.find?.((item) => item.id === stemId);
+    const buffer = session.recordings?.get?.(stemId);
+    if (!stem || !buffer?.duration) return false;
+
+    // Rebuild only this frozen source. Scrubber edits must never stop/restart Spectra, because
+    // doing so tears down unrelated instruments and creates async restart races on mobile Safari.
+    // The replacement source joins the *existing* musical phase so every other track keeps running.
+    const now = context.currentTime;
+    const startTime = now + Math.max(0.005, Number(leadSeconds) || 0.018);
+    const phase = this.spectraTransport?.running
+      ? this.spectraTransport.positionAtOffset(startTime - now)
+      : this.position() + (startTime - now);
+
+    this.session = session;
+    this.bpm = session.bpm ?? this.bpm;
+    this.updateStemMix(session, stemId, { immediate: true });
+
+    const started = this.startFrozenRecordings(session, phase, {
+      startTime,
+      phaseOffset: phase,
+      onlyStemId: stemId,
+    });
+    return started > 0;
   }
   clearVocalBufferLoop(stemId = null) {
     const ids = stemId
@@ -1661,7 +1695,9 @@ export class StudioPlayback {
     await this.audio.recoverAfterMicrophoneCapture?.();
     if (this.audio.context.state !== 'running') return false;
 
+    // Invalidate any older asynchronous PLAY still waiting on asset/native-media work.
     this.stop();
+    const playGeneration = ++this.playGeneration;
     this.auditionStemId = stemId || null;
     const requestedOffset = Math.max(0, Number(offset) || 0);
     this.session = session;
@@ -1708,6 +1744,7 @@ export class StudioPlayback {
     const blobPlayback = this.startBlobRecordings(session, safeOffset);
 
     const alignedAssets = await this.loadAlignedAssets(session);
+    if (playGeneration !== this.playGeneration) return false;
     if (alignedAssets) {
       this.assetBuffers = alignedAssets;
       const alignedOffset = this.spectraTransport?.running
@@ -1715,21 +1752,24 @@ export class StudioPlayback {
         : safeOffset;
       this.startAlignedAssets(session, alignedAssets, alignedOffset);
       await blobPlayback;
-      return true;
+      return playGeneration === this.playGeneration;
     }
     const nativeOffset = this.spectraTransport?.running
       ? this.spectraTransport.position()
       : safeOffset;
     if (await this.startNativeAssets(session, nativeOffset)) {
+      if (playGeneration !== this.playGeneration) return false;
       await blobPlayback;
-      return true;
+      return playGeneration === this.playGeneration;
     }
+    if (playGeneration !== this.playGeneration) return false;
 
     const frozenCount = this.startFrozenRecordings(session, safeOffset, {
       startTime: sharedStartTime,
       phaseOffset: restartTransport ? safeOffset : null,
     });
     await blobPlayback;
+    if (playGeneration !== this.playGeneration) return false;
 
     const interval = 60 / this.bpm / 4;
     this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
@@ -1819,6 +1859,7 @@ export class StudioPlayback {
   }
 
   stop() {
+    this.playGeneration += 1;
     this.stopRawAudition();
     if (this.timer !== null) this.timers.clearInterval(this.timer);
     this.timer = null;

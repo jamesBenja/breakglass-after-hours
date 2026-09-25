@@ -672,15 +672,19 @@ export function createActions({
       rememberStudio();
       updateReadout(target.sourceOffset);
 
-      // A scrubber edit changes the audio source window itself. If Spectra is already playing,
-      // rebuild playback from bar 1 immediately instead of leaving the old Vocal scheduler alive.
+      // A scrubber edit changes only the Vocal source window. Keep the shared Spectra transport,
+      // every other instrument, mixer state, FX and spatial routing alive, and atomically replace
+      // this Vocal loop at the current musical phase.
       if (studioPlayback?.playing) {
-        await studioPlayback.play(studio, 0, { restartTransport: true });
+        const rebuilt = studioPlayback.rebuildRecordedStemPlayback?.(studio, target.id);
+        if (rebuilt === false) {
+          ui.warning?.('The Vocal loop could not be rebuilt from this take.');
+        }
       }
     };
     const help = ui.document.createElement('small');
     help.textContent =
-      'The scrubber and Spectra both use the captured PCM take. The MediaRecorder file is retained only as a fallback. The selected start point is applied to the Spectra loop; any remaining loop time stays silent.';
+      'The scrubber and Spectra both use the captured PCM take. The MediaRecorder file is retained only as a fallback. Moving the start point replaces only the Vocal loop at the current Spectra phase; the rest of the mixer keeps running. Any remaining loop time stays silent.';
     const controls = ui.document.createElement('div');
     controls.className = 'vocal-source-editor-controls';
     const auditionFromStart = ui.document.createElement('button');
@@ -709,8 +713,17 @@ export function createActions({
       slider.value = String(offset);
       updateReadout(offset);
       rememberStudio();
+      const wasSpectraPlaying = studioPlayback?.playing === true;
       studioPlayback?.stopRawAudition?.();
-      await monitorStudio(target.id);
+      if (wasSpectraPlaying) {
+        const rebuilt = studioPlayback.rebuildRecordedStemPlayback?.(studio, target.id);
+        if (rebuilt === false) {
+          ui.warning?.('The Vocal loop could not be rebuilt from this take.');
+          return;
+        }
+      } else {
+        await monitorStudio(target.id);
+      }
       ui.warning?.(`Vocal loop source now starts at ${offset.toFixed(2)}s.`);
     };
     const stopAudition = ui.document.createElement('button');
