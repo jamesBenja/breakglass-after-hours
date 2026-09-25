@@ -453,6 +453,7 @@ export function createActions({
   };
 
   let connectedVocalStemId = null;
+  let selectedVocalStemId = null;
 
   const vocalTracks = () => studio?.stems?.filter((stem) => stem.inputKey === 'vocal') ?? [];
 
@@ -463,15 +464,14 @@ export function createActions({
     const added = studio?.addInputTrack?.('vocal') ?? null;
     if (added) {
       connectedVocalStemId = added.id;
+      selectedVocalStemId = added.id;
       rememberStudio();
       studioPlayback?.updateMix?.(studio, { immediate: true });
     }
     return added;
   };
 
-  const activeVocalTrack = () => {
-    const armed = vocalTracks().find((stem) => stem.recordArm === true);
-    if (armed) return armed;
+  const connectedVocalTrack = () => {
     const connected = vocalTracks().find((stem) => stem.id === connectedVocalStemId);
     if (connected) return connected;
     const fallback = ensureVocalTrack();
@@ -479,9 +479,22 @@ export function createActions({
     return fallback;
   };
 
+  const recordingVocalTrack = () => {
+    const armed = vocalTracks().find((stem) => stem.recordArm === true);
+    return armed ?? connectedVocalTrack();
+  };
+
+  const selectedVocalTrack = () => {
+    const selected = vocalTracks().find((stem) => stem.id === selectedVocalStemId);
+    if (selected) return selected;
+    const connected = connectedVocalTrack();
+    if (connected) selectedVocalStemId = connected.id;
+    return connected;
+  };
+
   const vocalConnectionPanel = () => {
     const tracks = vocalTracks();
-    const connected = activeVocalTrack();
+    const connected = connectedVocalTrack();
     panel(
       'SPECTRA VOCAL · CONNECTION',
       `Phone/computer microphone input. Connected destination: ${connected?.label ?? 'none'}. An armed Vocal channel takes priority over the selected connection.`,
@@ -490,6 +503,7 @@ export function createActions({
           `${stem.id === connected?.id ? '✓ ' : ''}Connect to ${stem.label}`,
           () => {
             connectedVocalStemId = stem.id;
+            selectedVocalStemId = stem.id;
             vocalPanel();
           },
         ]),
@@ -502,6 +516,7 @@ export function createActions({
               return;
             }
             connectedVocalStemId = stem.id;
+            selectedVocalStemId = stem.id;
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
             vocalPanel();
@@ -518,7 +533,7 @@ export function createActions({
       ui.warning?.('This browser cannot record its microphone here.');
       return;
     }
-    const target = activeVocalTrack();
+    const target = recordingVocalTrack();
     if (!target) {
       ui.warning?.('Add a Vocal track before recording.');
       return;
@@ -560,7 +575,7 @@ export function createActions({
               return;
             }
             const destination =
-              studio.stems.find((stem) => stem.id === target.id) ?? activeVocalTrack();
+              studio.stems.find((stem) => stem.id === target.id) ?? recordingVocalTrack();
             if (!destination) {
               ui.warning?.('The Vocal destination track no longer exists.');
               vocalPanel();
@@ -610,6 +625,7 @@ export function createActions({
             destination.vocalPcmPeak = Math.max(0, Number(result.pcmPeak) || 0);
             destination.vocalPcmRms = Math.max(0, Number(result.pcmRms) || 0);
             connectedVocalStemId = destination.id;
+            selectedVocalStemId = destination.id;
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
@@ -648,7 +664,7 @@ export function createActions({
     const editor = ui.document.createElement('div');
     editor.className = 'vocal-source-editor';
     const title = ui.document.createElement('strong');
-    title.textContent = 'VOCAL TAKE → SPECTRA LOOP';
+    title.textContent = `${target.label.toUpperCase()} TAKE → SPECTRA LOOP`;
     const readout = ui.document.createElement('span');
     const loopSeconds =
       (Math.max(1, Number(studio.loopBars) || 4) * 4 * 60) / Math.max(1, Number(studio.bpm) || 118);
@@ -665,7 +681,7 @@ export function createActions({
     slider.max = String(maxOffset);
     slider.step = '0.01';
     slider.value = String(selectedOffset);
-    slider.setAttribute('aria-label', 'Vocal raw take loop start');
+    slider.setAttribute('aria-label', `${target.label} loop start`);
     slider.oninput = () => updateReadout(slider.value);
     slider.onchange = async () => {
       target.sourceOffset = Math.min(maxOffset, Math.max(0, Number(slider.value) || 0));
@@ -734,8 +750,33 @@ export function createActions({
     editor.append(title, readout, slider, help, controls);
     ui.buttons.prepend(editor);
   };
+  const vocalTrackEditorPanel = () => {
+    const tracks = vocalTracks();
+    const selected = selectedVocalTrack();
+    panel(
+      'SPECTRA VOCAL · TRACKS',
+      'Choose a Vocal track to edit its take and loop start. Changing the editor selection does not mute, solo, reconnect, or restart any Vocal track.',
+      [
+        ...tracks.map((stem) => {
+          const hasTake =
+            studio.recordings?.has?.(stem.id) === true ||
+            studio.recordingBlobs?.has?.(stem.id) === true;
+          return [
+            `${stem.id === selected?.id ? '✓ ' : ''}${stem.label}${hasTake ? ' · recorded' : ' · empty'}`,
+            () => {
+              selectedVocalStemId = stem.id;
+              vocalPanel();
+            },
+          ];
+        }),
+        ['Back to Vocal station', vocalPanel],
+      ],
+    );
+  };
+
   const vocalPanel = () => {
-    const target = activeVocalTrack();
+    const target = selectedVocalTrack();
+    const recordTarget = recordingVocalTrack();
     const mic = gearById(MICS, studio.setup.mic);
     const hasTake =
       !!target &&
@@ -743,9 +784,10 @@ export function createActions({
         studio.recordingBlobs?.has?.(target.id) === true);
     panel(
       'SPECTRA VOCAL STATION · RCA 44',
-      `Phone/computer microphone → ${target?.label ?? 'Vocal'}. Modeled mic chain: ${mic.label} → ${gearById(PROCESSORS.eq, studio.setup.eq).label} → ${gearById(PROCESSORS.compressor, studio.setup.compressor).label}. ${hasTake ? 'This track already has a vocal take; recording again replaces it.' : 'Ready for a vocal take.'}`,
+      `Editing: ${target?.label ?? 'Vocal'}. Phone/computer microphone destination: ${recordTarget?.label ?? 'Vocal'}. Modeled mic chain: ${mic.label} → ${gearById(PROCESSORS.eq, studio.setup.eq).label} → ${gearById(PROCESSORS.compressor, studio.setup.compressor).label}. ${hasTake ? 'This track has a recorded take and its scrubber is shown below.' : 'This track has no take yet.'}`,
       [
-        [`Record to ${target?.label ?? 'Vocal'}`, startVocalRecording],
+        [`Record to ${recordTarget?.label ?? 'Vocal'}`, startVocalRecording],
+        ...(vocalTracks().length > 1 ? [['Edit / scrub Vocal track…', vocalTrackEditorPanel]] : []),
         ...(hasTake && target
           ? [
               [
@@ -774,6 +816,7 @@ export function createActions({
               return;
             }
             connectedVocalStemId = stem.id;
+            selectedVocalStemId = stem.id;
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
             vocalPanel();
