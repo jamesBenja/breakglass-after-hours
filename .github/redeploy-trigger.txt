@@ -1,2 +1,2 @@
 canonical-live redeploy trigger
-Vocal iOS route resync validation
+Vocal iOS route resync deployment
