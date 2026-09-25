@@ -702,10 +702,7 @@ test('iOS microphone route resync rebuilds recorded Vocals without touching othe
     return true;
   };
 
-  assert.equal(
-    await playback.resyncRecordedVocalPlayback(session, { settleMs: 120 }),
-    1,
-  );
+  assert.equal(await playback.resyncRecordedVocalPlayback(session, { settleMs: 120 }), 1);
 
   const rebuiltVocal = playback.frozenSources.get(vocal.id);
   assert.notEqual(

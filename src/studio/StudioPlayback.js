@@ -263,9 +263,7 @@ export class StudioPlayback {
     if (context.state !== 'running') return 0;
 
     const vocalStems = session.stems.filter(
-      (stem) =>
-        isMicrophoneRecordingStem(stem) &&
-        session.recordings?.get?.(stem.id)?.duration > 0,
+      (stem) => isMicrophoneRecordingStem(stem) && session.recordings?.get?.(stem.id)?.duration > 0,
     );
     if (!vocalStems.length) return 0;
 

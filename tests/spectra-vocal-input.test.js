@@ -156,9 +156,7 @@ test('Vocal capture overdubs while Spectra keeps playing and joins the live loop
     false,
     'committing an overdub must not restart or rebuild the whole Spectra session',
   );
-  const resyncCalls = calls.filter(
-    (call) => Array.isArray(call) && call[0] === 'resync-vocals',
-  );
+  const resyncCalls = calls.filter((call) => Array.isArray(call) && call[0] === 'resync-vocals');
   assert.equal(
     resyncCalls.length,
     2,
