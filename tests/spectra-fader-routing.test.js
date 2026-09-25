@@ -515,7 +515,10 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
   assert.equal(loop[39], 0);
 
   assert.equal(playback.frozenSources.get(vocal.id), source);
-  assert.equal(playback.frozenGates.has(vocal.id), true);
+  assert.equal(playback.frozenGates.has(vocal.id), false);
+  assert.equal(playback.vocalDirectRoutes.has(vocal.id), true);
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).destination, audio.master);
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
   assert.equal(playback.vocalBufferLoopTimers.has(vocal.id), false);
   assert.equal(
     playback.blobStems.has(vocal.id),
@@ -525,10 +528,16 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
 
   vocal.mute = true;
   playback.applyChannelAudibility(session);
-  assert.equal(playback.frozenGates.get(vocal.id).gain.value, 0);
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, 0);
   vocal.mute = false;
   playback.applyChannelAudibility(session);
-  assert.equal(playback.frozenGates.get(vocal.id).gain.value, 1);
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
+
+  vocal.level = 0.31;
+  vocal.pan = -0.4;
+  playback.updateStemMix(session, vocal.id, { immediate: true });
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, 0.31);
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).pan.pan.value, -0.4);
 
   playback.stop();
   assert.equal(source.stopped, true);
@@ -576,6 +585,7 @@ test('changing Vocal source offset replaces the continuous loop source cleanly',
   assert.equal(secondSource.stopped, true);
   assert.equal(playback.frozenSources.has(vocal.id), false);
   assert.equal(playback.frozenGates.has(vocal.id), false);
+  assert.equal(playback.vocalDirectRoutes.has(vocal.id), false);
 });
 
 test('live Vocal scrub rebuild replaces only Vocal and preserves every other frozen source', () => {
@@ -619,6 +629,7 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
 
   assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 2);
   const firstVocal = playback.frozenSources.get(vocal.id);
+  const firstVocalRoute = playback.vocalDirectRoutes.get(vocal.id);
   const untouchedOther = playback.frozenSources.get(other.id);
 
   audio.context.currentTime = 5;
@@ -626,7 +637,13 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
   assert.equal(playback.rebuildRecordedStemPlayback(session, vocal.id), true);
 
   const rebuiltVocal = playback.frozenSources.get(vocal.id);
+  const rebuiltVocalRoute = playback.vocalDirectRoutes.get(vocal.id);
   assert.notEqual(rebuiltVocal, firstVocal);
+  assert.notEqual(
+    rebuiltVocalRoute,
+    firstVocalRoute,
+    'scrubbing Vocal recreates its minimal direct PCM output route with the source',
+  );
   assert.equal(firstVocal.stopped, true, 'old Vocal source is retired');
   assert.equal(
     playback.frozenSources.get(other.id),
@@ -694,6 +711,7 @@ test('iOS microphone route resync rebuilds recorded Vocals without touching othe
   playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
 
   const originalVocal = playback.frozenSources.get(vocal.id);
+  const originalVocalRoute = playback.vocalDirectRoutes.get(vocal.id);
   const untouchedOther = playback.frozenSources.get(other.id);
 
   audio.context.state = 'suspended';
@@ -705,11 +723,18 @@ test('iOS microphone route resync rebuilds recorded Vocals without touching othe
   assert.equal(await playback.resyncRecordedVocalPlayback(session, { settleMs: 120 }), 1);
 
   const rebuiltVocal = playback.frozenSources.get(vocal.id);
+  const rebuiltVocalRoute = playback.vocalDirectRoutes.get(vocal.id);
   assert.notEqual(
     rebuiltVocal,
     originalVocal,
     'recorded Vocal must be recreated after the microphone hardware route changes',
   );
+  assert.notEqual(
+    rebuiltVocalRoute,
+    originalVocalRoute,
+    'the Vocal output route must also be recreated; retaining the old downstream graph is the real-device failure mode',
+  );
+  assert.equal(rebuiltVocalRoute.destination, audio.master);
   assert.equal(originalVocal.stopped, true);
   assert.equal(rebuiltVocal.stopped, false);
   assert.equal(
@@ -746,8 +771,9 @@ test('adding another Vocal channel does not mute or replace an existing live Voc
   assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
 
   const originalSource = playback.frozenSources.get(first.id);
-  const originalGate = playback.frozenGates.get(first.id);
-  assert.equal(originalGate.gain.value, 1);
+  const originalRoute = playback.vocalDirectRoutes.get(first.id);
+  assert.ok(originalRoute);
+  assert.equal(originalRoute.gain.gain.value, first.level);
 
   const second = session.addInputTrack('vocal');
   assert.ok(second);
@@ -759,8 +785,12 @@ test('adding another Vocal channel does not mute or replace an existing live Voc
     'creating a second Vocal channel must not replace the first Vocal source',
   );
   assert.equal(originalSource.stopped, false);
-  assert.equal(playback.frozenGates.get(first.id), originalGate);
-  assert.equal(originalGate.gain.value, 1, 'existing Vocal remains audible after channel creation');
+  assert.equal(playback.vocalDirectRoutes.get(first.id), originalRoute);
+  assert.equal(
+    originalRoute.gain.gain.value,
+    first.level,
+    'existing Vocal remains audible after channel creation',
+  );
   assert.equal(first.mute, false);
   assert.equal(second.mute, false);
 });
