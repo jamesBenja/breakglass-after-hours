@@ -43,7 +43,7 @@ export class MicrophoneRecorder {
     }
 
     try {
-      if (context.state === 'suspended') await context.resume?.();
+      if (context.state !== 'running' && context.state !== 'closed') await context.resume?.();
       this.pcmChunks = [];
       this.pcmSampleRate = Math.max(1, Number(context.sampleRate) || 48000);
 
@@ -139,6 +139,18 @@ export class MicrophoneRecorder {
     if (this.audio?.context?.state === 'suspended') await this.audio?.resume?.();
 
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    // Opening the microphone can briefly interrupt the current WebAudio output route on
+    // Safari/iOS. Resume that same context in-place so an already-running Spectra mix keeps
+    // sounding while capture begins; never stop or recreate its sources here.
+    if (this.audio?.context?.state !== 'running' && this.audio?.context?.state !== 'closed') {
+      try {
+        if (typeof this.audio?.resume === 'function') await this.audio.resume();
+        else await this.audio.context.resume?.();
+      } catch {
+        // The caller can retry route recovery from the same recording gesture.
+      }
+    }
 
     this.chunks = [];
     this.recorder = new MediaRecorder(this.stream);
