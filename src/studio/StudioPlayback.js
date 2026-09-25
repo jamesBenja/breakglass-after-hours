@@ -217,7 +217,9 @@ export class StudioPlayback {
 
     // Safari may pause HTMLMediaElement-backed stems when the microphone route opens even
     // though the Spectra transport itself never stopped. Resume those elements in place and
-    // resync them to the shared musical phase. WebAudio BufferSource loops need no rebuild.
+    // resync them to the shared musical phase. Recorded Vocal PCM is handled separately by
+    // recoverLivePlaybackAfterMicrophoneRouteChange(), because those WebAudio sources can remain
+    // logically alive while becoming inaudible across an iOS hardware-route transition.
     let mediaOk = true;
     for (const media of this.nativeStems.values()) {
       try {
@@ -1199,10 +1201,15 @@ export class StudioPlayback {
   }
 
   async recoverLivePlaybackAfterMicrophoneRouteChange(session = this.session) {
-    const routeOk = await this.ensureLivePlaybackRunning(session);
-    if (!routeOk || !session || this.audio.context?.state !== 'running') return false;
-    this.rehydrateMicrophoneRecordings(session);
-    return true;
+    await this.ensureLivePlaybackRunning(session);
+    if (!session || this.audio.context?.state !== 'running') return false;
+
+    const expectedVocals = (session.stems ?? []).filter(
+      (stem) =>
+        isMicrophoneRecordingStem(stem) && session.recordings?.get?.(stem.id)?.duration > 0,
+    ).length;
+    const rebuiltVocals = this.rehydrateMicrophoneRecordings(session);
+    return rebuiltVocals === expectedVocals;
   }
 
   rebuildRecordedStemPlayback(session = this.session, stemId, { leadSeconds = 0.018 } = {}) {
