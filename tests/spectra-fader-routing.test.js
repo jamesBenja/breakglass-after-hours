@@ -642,6 +642,50 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
   );
 });
 
+test('adding another Vocal channel does not mute or replace an existing live Vocal loop', () => {
+  const createdSources = [];
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const first = session.stems.find((stem) => stem.inputKey === 'vocal');
+  first.source = 'browser-microphone';
+  first.sourceOffset = 0;
+  session.recordings.set(first.id, {
+    duration: 3,
+    length: 30,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 30 }, () => 0.2),
+  });
+
+  playback.session = session;
+  playback.updateMix(session);
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
+
+  const originalSource = playback.frozenSources.get(first.id);
+  const originalGate = playback.frozenGates.get(first.id);
+  assert.equal(originalGate.gain.value, 1);
+
+  const second = session.addInputTrack('vocal');
+  assert.ok(second);
+  playback.updateMix(session, { immediate: true });
+
+  assert.equal(
+    playback.frozenSources.get(first.id),
+    originalSource,
+    'creating a second Vocal channel must not replace the first Vocal source',
+  );
+  assert.equal(originalSource.stopped, false);
+  assert.equal(playback.frozenGates.get(first.id), originalGate);
+  assert.equal(originalGate.gain.value, 1, 'existing Vocal remains audible after channel creation');
+  assert.equal(first.mute, false);
+  assert.equal(second.mute, false);
+});
+
 test('a replacement Vocal recording cannot inherit the previous take playback state', () => {
   const createdSources = [];
   const audio = fakeAudio(createdSources);
