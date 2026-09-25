@@ -549,11 +549,11 @@ export function createActions({
       const started = await micRecorder.start();
       if (!started) return;
 
-      // Opening a microphone can make iOS/Safari briefly change the hardware audio route.
-      // Recover that route in-place without calling StudioPlayback.play(), which would rebuild
-      // the mix. Existing WebAudio sources and the shared Spectra clock remain authoritative.
+      // Opening the mic can move iOS/Safari onto a new hardware route. Keep the transport and
+      // backing mix running, but rebuild recorded Vocal BufferSource nodes against that new route;
+      // Safari can leave the old nodes logically alive while they produce no sound.
       if (spectraWasPlaying) {
-        await studioPlayback?.ensureLivePlaybackRunning?.(studio);
+        await studioPlayback?.resyncRecordedVocalPlayback?.(studio, { settleMs: 120 });
       }
     } catch (error) {
       ui.warning?.(`Microphone recording could not start: ${error?.message ?? 'unknown error'}`);
@@ -583,6 +583,9 @@ export function createActions({
 
             const bytes = Number(result?.blob?.size) || 0;
             if (!bytes) {
+              if (spectraWasPlaying) {
+                await studioPlayback?.resyncRecordedVocalPlayback?.(studio, { settleMs: 120 });
+              }
               ui.warning?.(
                 'The microphone opened, but the browser returned a 0-byte recording. Nothing was written to the Vocal track.',
               );
@@ -593,6 +596,9 @@ export function createActions({
             const destination =
               studio.stems.find((stem) => stem.id === target.id) ?? recordingVocalTrack();
             if (!destination) {
+              if (spectraWasPlaying) {
+                await studioPlayback?.resyncRecordedVocalPlayback?.(studio, { settleMs: 120 });
+              }
               ui.warning?.('The Vocal destination track no longer exists.');
               vocalPanel();
               return;
@@ -625,6 +631,9 @@ export function createActions({
               result.blob,
             );
             if (!committed || studio.recordingBlobs?.get?.(destination.id) !== result.blob) {
+              if (spectraWasPlaying) {
+                await studioPlayback?.resyncRecordedVocalPlayback?.(studio, { settleMs: 120 });
+              }
               ui.warning?.(
                 'The Vocal take was captured but could not be committed to the scrubber.',
               );
@@ -647,12 +656,18 @@ export function createActions({
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
 
-            // If the mix was already rolling, insert just this freshly recorded Vocal into the
-            // current transport phase. Do not restart the session or touch any other track.
+            // Closing the microphone switches iOS back to the playback route. Rebuild all
+            // recorded Vocal sources together on that final route, at one shared transport phase.
+            // This repairs older Vocal nodes that Safari may have invalidated during the mic route
+            // change and inserts the new take without restarting any backing track or transport.
             let joinedLiveMix = false;
+            let resyncedVocals = 0;
             if (spectraWasPlaying && result.buffer?.duration) {
-              joinedLiveMix =
-                studioPlayback?.rebuildRecordedStemPlayback?.(studio, destination.id) === true;
+              resyncedVocals =
+                (await studioPlayback?.resyncRecordedVocalPlayback?.(studio, {
+                  settleMs: 120,
+                })) ?? 0;
+              joinedLiveMix = resyncedVocals > 0;
             }
 
             const pcmSeconds = Math.max(
@@ -663,7 +678,7 @@ export function createActions({
             const signal = peak < 0.001 ? 'near-silent' : `${Math.round(peak * 100)}% peak`;
             ui.warning?.(
               pcmSeconds > 0
-                ? `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Raw file: ${destination.sourceDuration.toFixed(2)}s. PCM take: ${pcmSeconds.toFixed(2)}s. Mic signal: ${signal}. Scrubber and Spectra both use the captured PCM.${spectraWasPlaying ? (joinedLiveMix ? ' The new Vocal joined the running Spectra loop.' : ' The backing mix stayed running; press PLAY only if this new Vocal did not join automatically.') : ''}`
+                ? `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Raw file: ${destination.sourceDuration.toFixed(2)}s. PCM take: ${pcmSeconds.toFixed(2)}s. Mic signal: ${signal}. Scrubber and Spectra both use the captured PCM.${spectraWasPlaying ? (joinedLiveMix ? ` ${resyncedVocals} Vocal loop${resyncedVocals === 1 ? '' : 's'} resynced to the running Spectra transport.` : ' The backing mix stayed running; press PLAY only if Vocal playback did not recover automatically.') : ''}`
                 : `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}, but direct PCM capture was unavailable. The raw MediaRecorder file is retained as fallback.`,
             );
             vocalPanel();
@@ -674,7 +689,9 @@ export function createActions({
           async () => {
             micRecorder.cancel();
             await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
-            if (spectraWasPlaying) await studioPlayback?.ensureLivePlaybackRunning?.(studio);
+            if (spectraWasPlaying) {
+              await studioPlayback?.resyncRecordedVocalPlayback?.(studio, { settleMs: 120 });
+            }
             vocalPanel();
           },
         ],

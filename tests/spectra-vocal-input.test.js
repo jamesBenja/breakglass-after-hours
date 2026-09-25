@@ -69,6 +69,10 @@ test('Vocal capture overdubs while Spectra keeps playing and joins the live loop
       calls.push('ensure-live');
       return true;
     },
+    async resyncRecordedVocalPlayback(_session, options) {
+      calls.push(['resync-vocals', options]);
+      return 1;
+    },
     rebuildRecordedStemPlayback(_session, stemId) {
       calls.push(['rebuild', stemId]);
       return true;
@@ -133,7 +137,10 @@ test('Vocal capture overdubs while Spectra keeps playing and joins the live loop
     'opening the Vocal microphone must not stop the Spectra backing mix',
   );
   assert.equal(studioPlayback.playing, true);
-  assert.ok(calls.indexOf('recorder-start') < calls.indexOf('ensure-live'));
+  const startResyncIndex = calls.findIndex(
+    (call) => Array.isArray(call) && call[0] === 'resync-vocals',
+  );
+  assert.ok(calls.indexOf('recorder-start') < startResyncIndex);
 
   const commitAction = ui.lastPanel.actions.find(([label]) => label.startsWith('Stop + commit'));
   assert.ok(commitAction);
@@ -149,10 +156,18 @@ test('Vocal capture overdubs while Spectra keeps playing and joins the live loop
     false,
     'committing an overdub must not restart or rebuild the whole Spectra session',
   );
-  assert.deepEqual(
-    calls.find((call) => Array.isArray(call) && call[0] === 'rebuild'),
-    ['rebuild', vocalStem.id],
-    'the new take should join the already-running loop by rebuilding only its Vocal source',
+  const resyncCalls = calls.filter((call) => Array.isArray(call) && call[0] === 'resync-vocals');
+  assert.equal(
+    resyncCalls.length,
+    2,
+    'recorded Vocals must resync once after the mic route opens and again after it closes',
+  );
+  assert.deepEqual(resyncCalls[0], ['resync-vocals', { settleMs: 120 }]);
+  assert.deepEqual(resyncCalls[1], ['resync-vocals', { settleMs: 120 }]);
+  assert.equal(
+    calls.some((call) => Array.isArray(call) && call[0] === 'rebuild'),
+    false,
+    'route recovery owns Vocal rebuilds; commit must not separately rebuild one Vocal',
   );
   assert.equal(studioPlayback.playing, true);
 });

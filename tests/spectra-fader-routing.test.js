@@ -642,16 +642,28 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
   );
 });
 
-test('microphone route recovery keeps existing WebAudio Vocal sources alive', async () => {
+test('iOS microphone route resync rebuilds recorded Vocals without touching other Spectra sources', async () => {
   const createdSources = [];
   const audio = fakeAudio(createdSources);
-  const playback = new StudioPlayback(audio);
+  const timers = {
+    setTimeout(callback) {
+      callback();
+      return 1;
+    },
+    clearTimeout() {},
+    setInterval() {
+      return null;
+    },
+    clearInterval() {},
+  };
+  const playback = new StudioPlayback(audio, timers);
   const session = new StudioSession();
   session.bpm = 60;
   session.loopBars = 1;
   session.loopEnabled = true;
 
   const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  const other = session.stems.find((stem) => stem.id !== vocal.id);
   vocal.source = 'browser-microphone';
   session.recordings.set(vocal.id, {
     duration: 3,
@@ -660,19 +672,29 @@ test('microphone route recovery keeps existing WebAudio Vocal sources alive', as
     sampleRate: 10,
     getChannelData: () => Float32Array.from({ length: 30 }, () => 0.2),
   });
+  session.recordings.set(other.id, {
+    duration: 4,
+    length: 40,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 40 }, () => 0.15),
+  });
 
   playback.session = session;
   playback.updateMix(session);
   playback.spectraTransport = {
     running: true,
+    positionAtOffset(offset) {
+      return 1.25 + offset;
+    },
     position() {
       return 1.25;
     },
   };
   playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
 
-  const originalSource = playback.frozenSources.get(vocal.id);
-  const originalCount = createdSources.length;
+  const originalVocal = playback.frozenSources.get(vocal.id);
+  const untouchedOther = playback.frozenSources.get(other.id);
 
   audio.context.state = 'suspended';
   audio.resume = async () => {
@@ -680,19 +702,23 @@ test('microphone route recovery keeps existing WebAudio Vocal sources alive', as
     return true;
   };
 
-  assert.equal(await playback.ensureLivePlaybackRunning(session), true);
+  assert.equal(await playback.resyncRecordedVocalPlayback(session, { settleMs: 120 }), 1);
+
+  const rebuiltVocal = playback.frozenSources.get(vocal.id);
+  assert.notEqual(
+    rebuiltVocal,
+    originalVocal,
+    'recorded Vocal must be recreated after the microphone hardware route changes',
+  );
+  assert.equal(originalVocal.stopped, true);
+  assert.equal(rebuiltVocal.stopped, false);
+  assert.equal(
+    playback.frozenSources.get(other.id),
+    untouchedOther,
+    'non-Vocal Spectra recordings must keep their exact existing source node',
+  );
+  assert.equal(untouchedOther.stopped, false);
   assert.equal(audio.context.state, 'running');
-  assert.equal(
-    playback.frozenSources.get(vocal.id),
-    originalSource,
-    'route recovery must keep the existing Vocal BufferSource instead of rebuilding it',
-  );
-  assert.equal(originalSource.stopped, false);
-  assert.equal(
-    createdSources.length,
-    originalCount,
-    'route recovery must not create replacement WebAudio sources',
-  );
 });
 
 test('adding another Vocal channel does not mute or replace an existing live Vocal loop', () => {
