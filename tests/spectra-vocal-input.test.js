@@ -26,7 +26,7 @@ test('Vocal appears in the Spectra + ADD TRACK source menu', () => {
   );
 });
 
-test('Vocal capture commits to the raw scrubber before Spectra can resume playback', async () => {
+test('Vocal capture resumes the full Spectra mix after committing a take', async () => {
   const studio = new StudioSession();
   const vocalStem = studio.stems.find((stem) => stem.inputKey === 'vocal');
   const rawBlob = new Blob(['captured-vocal'], { type: 'audio/webm' });
@@ -58,8 +58,12 @@ test('Vocal capture commits to the raw scrubber before Spectra can resume playba
     updateMix() {
       calls.push('update-mix');
     },
-    async play() {
-      calls.push('play');
+    position() {
+      calls.push('position');
+      return 1.75;
+    },
+    async play(_session, offset, options) {
+      calls.push(['play', offset, options]);
       this.playing = true;
       return true;
     },
@@ -121,11 +125,132 @@ test('Vocal capture commits to the raw scrubber before Spectra can resume playba
   assert.equal(vocalStem.sourceDuration, 2.5);
   assert.equal(vocalStem.sourceOffset, 0);
   assert.equal(vocalStem.source, 'browser-microphone');
-  assert.equal(
-    calls.includes('play'),
-    false,
-    'committing a Vocal take must not auto-restart Spectra and steal the raw scrubber Blob',
+  const resumed = calls.find((call) => Array.isArray(call) && call[0] === 'play');
+  assert.deepEqual(resumed, ['play', 1.75, { restartTransport: false }]);
+  assert.ok(
+    calls.indexOf('recorder-stop') < calls.findIndex((call) => Array.isArray(call) && call[0] === 'play'),
+    'the mix resumes only after microphone capture has stopped and committed',
   );
+  assert.equal(studioPlayback.playing, true);
+});
+
+test('every recorded Vocal track keeps an independently accessible scrubber', () => {
+  const studio = new StudioSession();
+  const first = studio.stems.find((stem) => stem.inputKey === 'vocal');
+  first.source = 'browser-microphone';
+  first.sourceDuration = 3;
+  first.sourceOffset = 0.4;
+  studio.recordings.set(first.id, {
+    duration: 3,
+    length: 30,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => new Float32Array(30),
+  });
+
+  const second = studio.addInputTrack('vocal');
+  second.source = 'browser-microphone';
+  second.sourceDuration = 4;
+  second.sourceOffset = 1.2;
+  studio.recordings.set(second.id, {
+    duration: 4,
+    length: 40,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => new Float32Array(40),
+  });
+
+  const created = [];
+  const makeElement = (tag) => {
+    const element = {
+      tag,
+      children: [],
+      textContent: '',
+      value: '',
+      style: {},
+      append(...items) {
+        this.children.push(...items);
+      },
+      appendChild(item) {
+        this.children.push(item);
+      },
+      setAttribute(name, value) {
+        this[name] = value;
+      },
+    };
+    created.push(element);
+    return element;
+  };
+  const ui = {
+    lastPanel: null,
+    document: { createElement: makeElement },
+    buttons: {
+      prepend() {},
+      appendChild() {},
+    },
+    panel(title, text, actions) {
+      this.lastPanel = { title, text, actions };
+    },
+    warning() {},
+  };
+  const studioPlayback = {
+    playing: false,
+    updateMix() {},
+    stop() {},
+    stopRawAudition() {},
+    auditionRawRecording: async () => true,
+    rawAuditionPosition: () => 0,
+    rebuildRecordedStemPlayback: () => true,
+  };
+
+  createActions({
+    audio: {},
+    spatialAudio: null,
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    player: null,
+    ui,
+    state: { data: {} },
+    studio,
+    studioPlayback,
+    micRecorder: { supported: true },
+    keyboardPerformance: null,
+    photos: null,
+    dj: null,
+    saveState() {},
+    canAct: () => true,
+  });
+
+  ui._spectraStudioNavigation.vocal();
+  let selector = ui.lastPanel.actions.find(([label]) => label === 'Edit / scrub Vocal track…');
+  assert.ok(selector);
+  selector[1]();
+  assert.equal(ui.lastPanel.title, 'SPECTRA VOCAL · TRACKS');
+
+  const chooseSecond = ui.lastPanel.actions.find(([label]) => label.includes(second.label));
+  assert.ok(chooseSecond);
+  chooseSecond[1]();
+
+  let editorTitle = [...created]
+    .reverse()
+    .find((element) => element.tag === 'strong' && element.textContent.includes('TAKE → SPECTRA LOOP'));
+  let slider = [...created].reverse().find((element) => element.tag === 'input' && element.type === 'range');
+  assert.equal(editorTitle.textContent, 'VOCAL 2 TAKE → SPECTRA LOOP');
+  assert.equal(slider.value, '1.2');
+  assert.equal(slider['aria-label'], 'Vocal 2 loop start');
+
+  selector = ui.lastPanel.actions.find(([label]) => label === 'Edit / scrub Vocal track…');
+  selector[1]();
+  const chooseFirst = ui.lastPanel.actions.find(([label]) => label.startsWith('Vocal · recorded'));
+  assert.ok(chooseFirst);
+  chooseFirst[1]();
+
+  editorTitle = [...created]
+    .reverse()
+    .find((element) => element.tag === 'strong' && element.textContent.includes('TAKE → SPECTRA LOOP'));
+  slider = [...created].reverse().find((element) => element.tag === 'input' && element.type === 'range');
+  assert.equal(editorTitle.textContent, 'VOCAL TAKE → SPECTRA LOOP');
+  assert.equal(slider.value, '0.4');
+  assert.equal(slider['aria-label'], 'Vocal loop start');
 });
 
 test('Vocal take audition overlays the running Spectra loop', async () => {
