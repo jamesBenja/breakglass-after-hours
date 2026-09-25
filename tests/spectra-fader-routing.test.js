@@ -424,7 +424,11 @@ test('a stale asynchronous Spectra PLAY cannot overwrite a newer playback reques
   releaseFirstLoad();
 
   assert.equal(await secondPlay, true);
-  assert.equal(await firstPlay, false, 'older PLAY must abort after a newer request takes ownership');
+  assert.equal(
+    await firstPlay,
+    false,
+    'older PLAY must abort after a newer request takes ownership',
+  );
   assert.equal(frozenStarts, 1, 'only the newest PLAY may create recorded sources');
   playback.stop();
 });
