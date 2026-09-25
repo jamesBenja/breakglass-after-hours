@@ -642,6 +642,59 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
   );
 });
 
+test('microphone route recovery keeps existing WebAudio Vocal sources alive', async () => {
+  const createdSources = [];
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  session.recordings.set(vocal.id, {
+    duration: 3,
+    length: 30,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 30 }, () => 0.2),
+  });
+
+  playback.session = session;
+  playback.updateMix(session);
+  playback.spectraTransport = {
+    running: true,
+    position() {
+      return 1.25;
+    },
+  };
+  playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
+
+  const originalSource = playback.frozenSources.get(vocal.id);
+  const originalCount = createdSources.length;
+
+  audio.context.state = 'suspended';
+  audio.resume = async () => {
+    audio.context.state = 'running';
+    return true;
+  };
+
+  assert.equal(await playback.ensureLivePlaybackRunning(session), true);
+  assert.equal(audio.context.state, 'running');
+  assert.equal(
+    playback.frozenSources.get(vocal.id),
+    originalSource,
+    'route recovery must keep the existing Vocal BufferSource instead of rebuilding it',
+  );
+  assert.equal(originalSource.stopped, false);
+  assert.equal(
+    createdSources.length,
+    originalCount,
+    'route recovery must not create replacement WebAudio sources',
+  );
+});
+
 test('adding another Vocal channel does not mute or replace an existing live Vocal loop', () => {
   const createdSources = [];
   const audio = fakeAudio(createdSources);

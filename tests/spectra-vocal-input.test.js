@@ -26,10 +26,17 @@ test('Vocal appears in the Spectra + ADD TRACK source menu', () => {
   );
 });
 
-test('Vocal capture resumes the full Spectra mix after committing a take', async () => {
+test('Vocal capture overdubs while Spectra keeps playing and joins the live loop on commit', async () => {
   const studio = new StudioSession();
   const vocalStem = studio.stems.find((stem) => stem.inputKey === 'vocal');
   const rawBlob = new Blob(['captured-vocal'], { type: 'audio/webm' });
+  const pcmBuffer = {
+    duration: 2.5,
+    length: 25,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => new Float32Array(25),
+  };
   const calls = [];
   const ui = {
     lastPanel: null,
@@ -52,19 +59,22 @@ test('Vocal capture resumes the full Spectra mix after committing a take', async
     stopRawAudition() {
       calls.push('stop-raw-audition');
     },
-    stopRecordedStemPlayback() {
-      calls.push('stop-recorded-stem');
+    stopRecordedStemPlayback(stemId) {
+      calls.push(['stop-recorded-stem', stemId]);
     },
     updateMix() {
       calls.push('update-mix');
     },
-    position() {
-      calls.push('position');
-      return 1.75;
+    async ensureLivePlaybackRunning() {
+      calls.push('ensure-live');
+      return true;
     },
-    async play(_session, offset, options) {
-      calls.push(['play', offset, options]);
-      this.playing = true;
+    rebuildRecordedStemPlayback(_session, stemId) {
+      calls.push(['rebuild', stemId]);
+      return true;
+    },
+    async play() {
+      calls.push('play');
       return true;
     },
   };
@@ -78,8 +88,10 @@ test('Vocal capture resumes the full Spectra mix after committing a take', async
       calls.push('recorder-stop');
       return {
         blob: rawBlob,
-        buffer: null,
+        buffer: pcmBuffer,
         duration: 2.5,
+        pcmDuration: 2.5,
+        pcmPeak: 0.77,
       };
     },
     cancel() {},
@@ -115,22 +127,32 @@ test('Vocal capture resumes the full Spectra mix after committing a take', async
   await recordAction[1]();
 
   assert.equal(ui.lastPanel.title, 'SPECTRA VOCAL MIC · RECORDING');
-  assert.ok(calls.indexOf('stop-playback') < calls.indexOf('recorder-start'));
+  assert.equal(
+    calls.includes('stop-playback'),
+    false,
+    'opening the Vocal microphone must not stop the Spectra backing mix',
+  );
+  assert.equal(studioPlayback.playing, true);
+  assert.ok(calls.indexOf('recorder-start') < calls.indexOf('ensure-live'));
 
   const commitAction = ui.lastPanel.actions.find(([label]) => label.startsWith('Stop + commit'));
   assert.ok(commitAction);
   await commitAction[1]();
 
   assert.equal(studio.recordingBlobs.get(vocalStem.id), rawBlob);
+  assert.equal(studio.recordings.get(vocalStem.id), pcmBuffer);
   assert.equal(vocalStem.sourceDuration, 2.5);
   assert.equal(vocalStem.sourceOffset, 0);
   assert.equal(vocalStem.source, 'browser-microphone');
-  const resumed = calls.find((call) => Array.isArray(call) && call[0] === 'play');
-  assert.deepEqual(resumed, ['play', 1.75, { restartTransport: false }]);
-  assert.ok(
-    calls.indexOf('recorder-stop') <
-      calls.findIndex((call) => Array.isArray(call) && call[0] === 'play'),
-    'the mix resumes only after microphone capture has stopped and committed',
+  assert.equal(
+    calls.includes('play'),
+    false,
+    'committing an overdub must not restart or rebuild the whole Spectra session',
+  );
+  assert.deepEqual(
+    calls.find((call) => Array.isArray(call) && call[0] === 'rebuild'),
+    ['rebuild', vocalStem.id],
+    'the new take should join the already-running loop by rebuilding only its Vocal source',
   );
   assert.equal(studioPlayback.playing, true);
 });
