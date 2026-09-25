@@ -128,7 +128,8 @@ test('Vocal capture resumes the full Spectra mix after committing a take', async
   const resumed = calls.find((call) => Array.isArray(call) && call[0] === 'play');
   assert.deepEqual(resumed, ['play', 1.75, { restartTransport: false }]);
   assert.ok(
-    calls.indexOf('recorder-stop') < calls.findIndex((call) => Array.isArray(call) && call[0] === 'play'),
+    calls.indexOf('recorder-stop') <
+      calls.findIndex((call) => Array.isArray(call) && call[0] === 'play'),
     'the mix resumes only after microphone capture has stopped and committed',
   );
   assert.equal(studioPlayback.playing, true);
@@ -232,8 +233,12 @@ test('every recorded Vocal track keeps an independently accessible scrubber', ()
 
   let editorTitle = [...created]
     .reverse()
-    .find((element) => element.tag === 'strong' && element.textContent.includes('TAKE → SPECTRA LOOP'));
-  let slider = [...created].reverse().find((element) => element.tag === 'input' && element.type === 'range');
+    .find(
+      (element) => element.tag === 'strong' && element.textContent.includes('TAKE → SPECTRA LOOP'),
+    );
+  let slider = [...created]
+    .reverse()
+    .find((element) => element.tag === 'input' && element.type === 'range');
   assert.equal(editorTitle.textContent, 'VOCAL 2 TAKE → SPECTRA LOOP');
   assert.equal(slider.value, '1.2');
   assert.equal(slider['aria-label'], 'Vocal 2 loop start');
@@ -246,8 +251,12 @@ test('every recorded Vocal track keeps an independently accessible scrubber', ()
 
   editorTitle = [...created]
     .reverse()
-    .find((element) => element.tag === 'strong' && element.textContent.includes('TAKE → SPECTRA LOOP'));
-  slider = [...created].reverse().find((element) => element.tag === 'input' && element.type === 'range');
+    .find(
+      (element) => element.tag === 'strong' && element.textContent.includes('TAKE → SPECTRA LOOP'),
+    );
+  slider = [...created]
+    .reverse()
+    .find((element) => element.tag === 'input' && element.type === 'range');
   assert.equal(editorTitle.textContent, 'VOCAL TAKE → SPECTRA LOOP');
   assert.equal(slider.value, '0.4');
   assert.equal(slider['aria-label'], 'Vocal loop start');
