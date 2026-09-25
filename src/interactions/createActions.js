@@ -538,16 +538,35 @@ export function createActions({
       ui.warning?.('Add a Vocal track before recording.');
       return;
     }
-    // Vocal capture must be isolated from Spectra playback. The raw recording is the source
-    // of truth for the scrubber, so stop mixer playback before opening the microphone and do
-    // not let Spectra grab the new Blob again until the user explicitly presses PLAY.
+    // Isolate microphone capture from the room mix so the phone/computer mic does not record
+    // Spectra itself. Unlike the old Blob-era workaround, remember the live transport state and
+    // resume the complete mix after capture finishes.
+    const resumeSpectraAfterCapture = studioPlayback?.playing === true;
+    const resumePosition = resumeSpectraAfterCapture
+      ? Math.max(0, Number(studioPlayback?.position?.()) || 0)
+      : 0;
+    let capturePlaybackSettled = false;
+    const settleCapturePlayback = async () => {
+      if (capturePlaybackSettled) return false;
+      capturePlaybackSettled = true;
+      await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
+      if (!resumeSpectraAfterCapture) return false;
+      return (
+        (await studioPlayback?.play?.(studio, resumePosition, { restartTransport: false })) === true
+      );
+    };
+
     studioPlayback?.stop?.();
     studioPlayback?.stopRawAudition?.();
     studioPlayback?.stopRecordedStemPlayback?.(target.id);
     try {
       const started = await micRecorder.start();
-      if (!started) return;
+      if (!started) {
+        await settleCapturePlayback();
+        return;
+      }
     } catch (error) {
+      await settleCapturePlayback();
       ui.warning?.(`Microphone recording could not start: ${error?.message ?? 'unknown error'}`);
       return;
     }
@@ -562,12 +581,14 @@ export function createActions({
             try {
               result = await micRecorder.stop();
             } catch (error) {
+              await settleCapturePlayback();
               ui.warning?.(`Vocal recording failed: ${error?.message ?? 'unknown error'}`);
               vocalPanel();
               return;
             }
             const bytes = Number(result?.blob?.size) || 0;
             if (!bytes) {
+              await settleCapturePlayback();
               ui.warning?.(
                 'The microphone opened, but the browser returned a 0-byte recording. Nothing was written to the Vocal track.',
               );
@@ -577,6 +598,7 @@ export function createActions({
             const destination =
               studio.stems.find((stem) => stem.id === target.id) ?? recordingVocalTrack();
             if (!destination) {
+              await settleCapturePlayback();
               ui.warning?.('The Vocal destination track no longer exists.');
               vocalPanel();
               return;
@@ -608,8 +630,9 @@ export function createActions({
               result.blob,
             );
             if (!committed || studio.recordingBlobs?.get?.(destination.id) !== result.blob) {
+              await settleCapturePlayback();
               ui.warning?.(
-                'The Vocal take was captured but could not be committed to the raw scrubber.',
+                'The Vocal take was captured but could not be committed to the scrubber.',
               );
               vocalPanel();
               return;
@@ -628,7 +651,7 @@ export function createActions({
             selectedVocalStemId = destination.id;
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
-            await audio.recoverAfterMicrophoneCapture?.({ settleMs: 0 });
+            const resumed = await settleCapturePlayback();
             const pcmSeconds = Math.max(
               0,
               Number(result.pcmDuration) || Number(result.buffer?.duration) || 0,
@@ -637,7 +660,7 @@ export function createActions({
             const signal = peak < 0.001 ? 'near-silent' : `${Math.round(peak * 100)}% peak`;
             ui.warning?.(
               pcmSeconds > 0
-                ? `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Raw file: ${destination.sourceDuration.toFixed(2)}s. PCM take: ${pcmSeconds.toFixed(2)}s. Mic signal: ${signal}. Scrubber and Spectra now both use the captured PCM for playback.`
+                ? `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Raw file: ${destination.sourceDuration.toFixed(2)}s. PCM take: ${pcmSeconds.toFixed(2)}s. Mic signal: ${signal}. Scrubber and Spectra both use the captured PCM.${resumeSpectraAfterCapture ? (resumed ? ' Spectra playback resumed.' : ' Spectra could not resume automatically; press PLAY.') : ''}`
                 : `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}, but direct PCM capture was unavailable. The raw MediaRecorder file is retained as fallback.`,
             );
             vocalPanel();
@@ -647,6 +670,7 @@ export function createActions({
           'Cancel recording',
           async () => {
             micRecorder.cancel();
+            await settleCapturePlayback();
             vocalPanel();
           },
         ],
