@@ -197,6 +197,56 @@ export class StudioPlayback {
     return value;
   }
 
+  async ensureLivePlaybackRunning(session = this.session) {
+    if (!session || !this.audio?.context) return false;
+
+    const context = this.audio.context;
+    if (context.state !== 'running' && context.state !== 'closed') {
+      try {
+        if (typeof this.audio.resume === 'function') await this.audio.resume();
+        else await context.resume?.();
+      } catch {
+        // A browser may defer route recovery until the current user gesture completes.
+      }
+    }
+    if (context.state !== 'running') return false;
+
+    const phase = this.spectraTransport?.running
+      ? this.spectraTransport.position()
+      : this.position();
+
+    // Safari may pause HTMLMediaElement-backed stems when the microphone route opens even
+    // though the Spectra transport itself never stopped. Resume those elements in place and
+    // resync them to the shared musical phase. WebAudio BufferSource loops need no rebuild.
+    let mediaOk = true;
+    for (const media of this.nativeStems.values()) {
+      try {
+        const duration = Number(media.duration);
+        if (Number.isFinite(duration) && duration > 0) media.currentTime = phase % duration;
+        if (media.paused === true) await media.play?.();
+      } catch {
+        mediaOk = false;
+      }
+    }
+
+    for (const [stemId, media] of this.blobStems) {
+      try {
+        const stem = session.stems?.find?.((item) => item.id === stemId);
+        const duration = Number(media.duration);
+        const clipStart = Math.max(0, Number(stem?.clipStart) || 0);
+        const relative = Math.max(0, phase - clipStart);
+        if (Number.isFinite(duration) && duration > 0) media.currentTime = relative % duration;
+        if (media.paused === true) await media.play?.();
+      } catch {
+        mediaOk = false;
+      }
+    }
+
+    this.session = session;
+    this.updateMix(session, { immediate: true });
+    return mediaOk;
+  }
+
   ensureBus(stem) {
     let bus = this.buses.get(stem.id);
     if (bus) return bus;
