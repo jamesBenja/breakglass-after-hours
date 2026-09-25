@@ -1157,6 +1157,54 @@ export class StudioPlayback {
     return started;
   }
 
+  rehydrateMicrophoneRecordings(
+    session = this.session,
+    { leadSeconds = 0.028 } = {},
+  ) {
+    const context = this.audio.context;
+    if (!context || context.state !== 'running' || !session) return 0;
+
+    const vocalStemIds = (session.stems ?? [])
+      .filter(
+        (stem) =>
+          isMicrophoneRecordingStem(stem) && session.recordings?.get?.(stem.id)?.duration > 0,
+      )
+      .map((stem) => stem.id);
+    if (!vocalStemIds.length) return 0;
+
+    // iOS can keep old AudioBufferSourceNodes in a logically running state after switching
+    // between playback and play-and-record while their output has become inaudible. Recreate
+    // only recorded Vocal PCM sources after that hardware-route transition. Every Vocal uses
+    // the same start time/transport phase, preserving each track's own sourceOffset while all
+    // non-Vocal sources, mixer buses and the shared Spectra transport remain untouched.
+    const now = context.currentTime;
+    const startTime = now + Math.max(0.008, Number(leadSeconds) || 0.028);
+    const phase = this.spectraTransport?.running
+      ? this.spectraTransport.positionAtOffset(startTime - now)
+      : this.position() + (startTime - now);
+
+    this.session = session;
+    this.bpm = session.bpm ?? this.bpm;
+    this.updateMix(session, { immediate: true });
+
+    let rebuilt = 0;
+    for (const stemId of vocalStemIds) {
+      rebuilt += this.startFrozenRecordings(session, phase, {
+        startTime,
+        phaseOffset: phase,
+        onlyStemId: stemId,
+      });
+    }
+    return rebuilt;
+  }
+
+  async recoverLivePlaybackAfterMicrophoneRouteChange(session = this.session) {
+    const routeOk = await this.ensureLivePlaybackRunning(session);
+    if (!routeOk || !session || this.audio.context?.state !== 'running') return false;
+    this.rehydrateMicrophoneRecordings(session);
+    return true;
+  }
+
   rebuildRecordedStemPlayback(session = this.session, stemId, { leadSeconds = 0.018 } = {}) {
     const context = this.audio.context;
     if (!context || context.state !== 'running' || !session || !stemId) return false;
