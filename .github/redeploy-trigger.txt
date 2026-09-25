@@ -1,2 +1,2 @@
 canonical-live redeploy trigger
-Multi Vocal resume and scrubber navigation validation
+Vocal iOS route resync validation
