@@ -393,6 +393,42 @@ test('Spectra PLAY restores an interrupted output route before starting sources'
   playback.stop();
 });
 
+test('a stale asynchronous Spectra PLAY cannot overwrite a newer playback request', async () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const session = new StudioSession();
+  let releaseFirstLoad = null;
+  let loadCalls = 0;
+  let frozenStarts = 0;
+
+  playback.startBlobRecordings = () => Promise.resolve(0);
+  playback.loadAlignedAssets = async () => {
+    loadCalls += 1;
+    if (loadCalls === 1) {
+      await new Promise((resolve) => {
+        releaseFirstLoad = resolve;
+      });
+    }
+    return null;
+  };
+  playback.startNativeAssets = async () => false;
+  playback.startFrozenRecordings = () => {
+    frozenStarts += 1;
+    return 0;
+  };
+  playback.hasEventPlayback = () => false;
+
+  const firstPlay = playback.play(session, 0, { restartTransport: true });
+  await Promise.resolve();
+  const secondPlay = playback.play(session, 0, { restartTransport: true });
+  await Promise.resolve();
+  releaseFirstLoad();
+
+  assert.equal(await secondPlay, true);
+  assert.equal(await firstPlay, false, 'older PLAY must abort after a newer request takes ownership');
+  assert.equal(frozenStarts, 1, 'only the newest PLAY may create recorded sources');
+  playback.stop();
+});
+
 test('Spectra starts browser-recorded media before any asynchronous asset loading', async () => {
   const playback = new StudioPlayback(fakeAudio());
   const session = new StudioSession();
