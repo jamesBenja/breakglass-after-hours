@@ -642,7 +642,7 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
   );
 });
 
-test('microphone route recovery keeps existing WebAudio Vocal sources alive', async () => {
+test('microphone route recovery rehydrates all recorded Vocals but preserves non-Vocal sources', async () => {
   const createdSources = [];
   const audio = fakeAudio(createdSources);
   const playback = new StudioPlayback(audio);
@@ -651,14 +651,34 @@ test('microphone route recovery keeps existing WebAudio Vocal sources alive', as
   session.loopBars = 1;
   session.loopEnabled = true;
 
-  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
-  vocal.source = 'browser-microphone';
-  session.recordings.set(vocal.id, {
+  const firstVocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  firstVocal.source = 'browser-microphone';
+  firstVocal.sourceOffset = 0.4;
+  const secondVocal = session.addInputTrack('vocal');
+  secondVocal.source = 'browser-microphone';
+  secondVocal.sourceOffset = 1.1;
+  const other = session.stems.find((stem) => stem.inputKey !== 'vocal');
+
+  session.recordings.set(firstVocal.id, {
     duration: 3,
     length: 30,
     numberOfChannels: 1,
     sampleRate: 10,
-    getChannelData: () => Float32Array.from({ length: 30 }, () => 0.2),
+    getChannelData: () => Float32Array.from({ length: 30 }, (_, index) => index / 100),
+  });
+  session.recordings.set(secondVocal.id, {
+    duration: 4,
+    length: 40,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 40 }, (_, index) => index / 100),
+  });
+  session.recordings.set(other.id, {
+    duration: 4,
+    length: 40,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => new Float32Array(40),
   });
 
   playback.session = session;
@@ -668,31 +688,46 @@ test('microphone route recovery keeps existing WebAudio Vocal sources alive', as
     position() {
       return 1.25;
     },
+    positionAtOffset(offset) {
+      return 1.25 + offset;
+    },
   };
   playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
 
-  const originalSource = playback.frozenSources.get(vocal.id);
-  const originalCount = createdSources.length;
+  const oldFirst = playback.frozenSources.get(firstVocal.id);
+  const oldSecond = playback.frozenSources.get(secondVocal.id);
+  const untouchedOther = playback.frozenSources.get(other.id);
+  const oldCount = createdSources.length;
 
+  audio.context.currentTime = 5;
   audio.context.state = 'suspended';
   audio.resume = async () => {
     audio.context.state = 'running';
     return true;
   };
 
-  assert.equal(await playback.ensureLivePlaybackRunning(session), true);
+  assert.equal(await playback.recoverLivePlaybackAfterMicrophoneRouteChange(session), true);
   assert.equal(audio.context.state, 'running');
+
+  const newFirst = playback.frozenSources.get(firstVocal.id);
+  const newSecond = playback.frozenSources.get(secondVocal.id);
+  assert.notEqual(newFirst, oldFirst);
+  assert.notEqual(newSecond, oldSecond);
+  assert.equal(oldFirst.stopped, true, 'first pre-route Vocal node is retired');
+  assert.equal(oldSecond.stopped, true, 'second pre-route Vocal node is retired');
   assert.equal(
-    playback.frozenSources.get(vocal.id),
-    originalSource,
-    'route recovery must keep the existing Vocal BufferSource instead of rebuilding it',
+    playback.frozenSources.get(other.id),
+    untouchedOther,
+    'non-Vocal recorded playback must not be rebuilt during microphone route recovery',
   );
-  assert.equal(originalSource.stopped, false);
-  assert.equal(
-    createdSources.length,
-    originalCount,
-    'route recovery must not create replacement WebAudio sources',
-  );
+  assert.equal(untouchedOther.stopped, false);
+  assert.equal(createdSources.length, oldCount + 2, 'only the two recorded Vocals are recreated');
+  assert.equal(newFirst.loop, true);
+  assert.equal(newSecond.loop, true);
+  assert.equal(newFirst.buffer.getChannelData(0)[0], 0.04);
+  assert.equal(newSecond.buffer.getChannelData(0)[0], 0.11);
+  assert.ok(Math.abs(newFirst.startArgs[1] - 1.278) < 0.001);
+  assert.ok(Math.abs(newSecond.startArgs[1] - 1.278) < 0.001);
 });
 
 test('adding another Vocal channel does not mute or replace an existing live Vocal loop', () => {
