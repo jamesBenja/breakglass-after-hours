@@ -155,6 +155,11 @@ export class StudioPlayback {
     this.noiseBufferContext = null;
     this.frozenSources = new Map();
     this.frozenGates = new Map();
+    // Browser-microphone Vocal uses a deliberately minimal direct PCM output route. The exact
+    // same AudioContext destination is proven by the scrubber audition on real iPhone Safari.
+    // Recreate this tiny route with every Vocal source so no stale Spectra channel-strip node can
+    // survive a microphone hardware-route transition and silently strand the take.
+    this.vocalDirectRoutes = new Map();
     this.soloFaderActive = false;
     this.rawAuditionSource = null;
     this.rawAuditionGain = null;
@@ -291,6 +296,76 @@ export class StudioPlayback {
     }
 
     return rebuilt;
+  }
+
+  clearVocalDirectRoute(stemId = null) {
+    const ids = stemId ? [stemId] : [...this.vocalDirectRoutes.keys()];
+    for (const id of ids) {
+      const route = this.vocalDirectRoutes.get(id);
+      if (!route) continue;
+      try {
+        route.source?.disconnect?.();
+      } catch {
+        // Already disconnected.
+      }
+      route.gain?.disconnect?.();
+      route.meter?.disconnect?.();
+      route.pan?.disconnect?.();
+      this.vocalDirectRoutes.delete(id);
+    }
+  }
+
+  createVocalDirectRoute(stem, source) {
+    const context = this.audio?.context;
+    if (!context || !stem || !source) return null;
+
+    this.clearVocalDirectRoute(stem.id);
+
+    const gain = context.createGain();
+    gain.gain.value = 0;
+    const pan =
+      typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
+    const meter = typeof context.createAnalyser === 'function' ? context.createAnalyser() : null;
+    if (meter) {
+      meter.fftSize = 64;
+      meter.smoothingTimeConstant = 0.62;
+    }
+    const destination = context.destination ?? this.audio.master;
+    if (!destination) return null;
+
+    source.connect(gain);
+    if (meter) {
+      gain.connect(meter);
+      meter.connect(pan ?? destination);
+    } else {
+      gain.connect(pan ?? destination);
+    }
+    pan?.connect(destination);
+
+    const route = {
+      source,
+      gain,
+      pan,
+      meter,
+      meterData: meter ? new Float32Array(meter.fftSize) : null,
+      destination,
+    };
+    this.vocalDirectRoutes.set(stem.id, route);
+    return route;
+  }
+
+  updateVocalDirectRoute(session = this.session, stemId, { immediate = true } = {}) {
+    if (!session || !this.audio?.context || !stemId) return false;
+    const stem = session.stems?.find?.((item) => item.id === stemId);
+    const route = this.vocalDirectRoutes.get(stemId);
+    if (!stem || !route) return false;
+
+    const selected = !this.auditionStemId || stem.id === this.auditionStemId;
+    const audible = selected && stem.clipActive !== false && stem.mute !== true;
+    const time = this.audio.context.currentTime;
+    writeAudioParam(route.gain?.gain, audible ? stem.level : 0, time, { immediate });
+    if (route.pan) writeAudioParam(route.pan.pan, stem.pan ?? 0, time, { immediate });
+    return true;
   }
 
   ensureBus(stem) {
@@ -491,11 +566,21 @@ export class StudioPlayback {
       // audibility rule here: the exact same mute path controls manual mute and solo.
       const gateOpen = active && stem.mute !== true;
 
+      const directVocalRoute = this.vocalDirectRoutes.get(stem.id);
+      if (directVocalRoute) {
+        // The direct Vocal path deliberately bypasses the larger Spectra channel graph that has
+        // repeatedly gone silent after iOS microphone route changes. Keep mixer behavior here:
+        // fader + mute/solo + pan still update live without restarting the loop.
+        writeSwitchParam(directVocalRoute.gain?.gain, gateOpen ? stem.level : 0, time);
+        if (directVocalRoute.pan) {
+          writeAudioParam(directVocalRoute.pan.pan, stem.pan ?? 0, time, { immediate: true });
+        }
+      }
+
       const frozenGate = this.frozenGates.get(stem.id);
       if (frozenGate) {
-        // Frozen recordings get their own source gate. Keep the shared downstream switch open so
-        // Safari cannot accidentally silence the soloed recording while non-solo recordings are
-        // being gated off.
+        // Frozen non-Vocal recordings get their own source gate. Keep the shared downstream
+        // switch open so Safari cannot accidentally silence a soloed recording.
         writeSwitchParam(frozenGate.gain, gateOpen ? 1 : 0, time);
         writeSwitchParam(bus?.hardMute?.gain, 1, time);
       } else {
@@ -552,6 +637,7 @@ export class StudioPlayback {
     writeAudioParam(bus.fader.gain, stem.level, time, { immediate });
     this.configureFx(stem, bus, { immediate });
     if (bus.pan) writeAudioParam(bus.pan.pan, stem.pan ?? 0, time, { immediate });
+    this.updateVocalDirectRoute(session, stem.id, { immediate });
     this.spatialMixer?.updateStem?.(stem, bus, { immediate });
     this.applyChannelAudibility(session);
     return true;
@@ -572,6 +658,7 @@ export class StudioPlayback {
       writeSwitchParam(bus.gate.gain, 1, time);
       this.configureFx(stem, bus, { immediate });
       if (bus.pan) writeAudioParam(bus.pan.pan, stem.pan ?? 0, time, { immediate });
+      this.updateVocalDirectRoute(session, stem.id, { immediate });
       this.spatialMixer?.updateStem?.(stem, bus, { immediate });
     }
     for (const [id, bus] of this.buses) {
@@ -612,7 +699,8 @@ export class StudioPlayback {
     let rightPower = 0;
     for (const stem of session?.stems ?? []) {
       const bus = this.buses.get(stem.id);
-      const level = this.busMeterLevel(bus);
+      const directVocalRoute = this.vocalDirectRoutes.get(stem.id);
+      const level = this.busMeterLevel(directVocalRoute ?? bus);
       channels[stem.id] = level;
       const pan = clamp(Number(stem.pan) || 0, -1, 1);
       const angle = ((pan + 1) * Math.PI) / 4;
@@ -1114,15 +1202,19 @@ export class StudioPlayback {
         ? this.spectraTransport.positionAtOffset(start - now)
         : Math.max(0, Number(offset) || 0);
     let started = 0;
+
     for (const stem of session.stems) {
       if (onlyStemId && stem.id !== onlyStemId) continue;
-      // Vocal recordings stored here are direct microphone PCM. The MediaRecorder Blob is kept
-      // only for raw scrubber audition and is never a Spectra playback source.
       const buffer = session.recordings.get(stem.id);
       if (!buffer?.duration) continue;
+
       this.clearVocalBufferLoop(stem.id);
+      const microphoneTake = isMicrophoneRecordingStem(stem);
+      if (microphoneTake) this.clearVocalDirectRoute(stem.id);
+
       const existing = this.frozenSources.get(stem.id);
       if (existing) {
+        existing.onended = null;
         try {
           existing.stop();
         } catch {
@@ -1130,40 +1222,43 @@ export class StudioPlayback {
         }
         existing.disconnect?.();
         this.sources.delete(existing);
+        this.frozenSources.delete(stem.id);
       }
+
       const existingGate = this.frozenGates.get(stem.id);
       existingGate?.disconnect?.();
       this.frozenGates.delete(stem.id);
-      const microphoneTake = isMicrophoneRecordingStem(stem);
-      const sourceGate = context.createGain();
-      sourceGate.gain.value = 1;
-      sourceGate.connect(this.ensureBus(stem).input);
-      this.frozenGates.set(stem.id, sourceGate);
 
       const source = context.createBufferSource();
 
       if (microphoneTake) {
+        // Browser-microphone PCM takes use the exact output family proven by scrubber audition:
+        // a fresh BufferSource + tiny gain/pan/meter route straight to AudioContext.destination.
+        // Do not reuse the larger Spectra processing/spatial graph here; real iPhone tests proved
+        // that graph can remain logically present while Vocal output is completely inaudible.
         const vocalLoopBuffer = buildVocalLoopBuffer(context, stem, buffer, loopDuration);
-        if (!vocalLoopBuffer?.duration) {
-          sourceGate.disconnect?.();
-          this.frozenGates.delete(stem.id);
-          continue;
-        }
+        if (!vocalLoopBuffer?.duration) continue;
 
         source.buffer = vocalLoopBuffer;
         source.loop = true;
         source.loopStart = 0;
         source.loopEnd = vocalLoopBuffer.duration;
-        source.connect(sourceGate);
+
+        const directRoute = this.createVocalDirectRoute(stem, source);
+        if (!directRoute) {
+          source.disconnect?.();
+          continue;
+        }
+
         source.onended = () => {
           source.disconnect?.();
           this.sources.delete(source);
           if (this.frozenSources.get(stem.id) === source) {
             this.frozenSources.delete(stem.id);
-            this.frozenGates.delete(stem.id);
-            sourceGate.disconnect?.();
+            this.clearVocalDirectRoute(stem.id);
           }
         };
+
         this.sources.add(source);
         this.frozenSources.set(stem.id, source);
         const phaseInLoop =
@@ -1174,6 +1269,11 @@ export class StudioPlayback {
         started += 1;
         continue;
       }
+
+      const sourceGate = context.createGain();
+      sourceGate.gain.value = 1;
+      sourceGate.connect(this.ensureBus(stem).input);
+      this.frozenGates.set(stem.id, sourceGate);
 
       source.buffer = buffer;
       source.loop = session.loopEnabled === true;
@@ -1199,6 +1299,7 @@ export class StudioPlayback {
       source.start(start, startOffset);
       started += 1;
     }
+
     if (started > 0) this.applyChannelAudibility(session);
     return started;
   }
@@ -1895,6 +1996,7 @@ export class StudioPlayback {
     if (!stemId) return false;
 
     this.clearVocalBufferLoop(stemId);
+    this.clearVocalDirectRoute(stemId);
 
     const frozen = this.frozenSources.get(stemId);
     if (frozen) {
@@ -1975,6 +2077,7 @@ export class StudioPlayback {
     this.sources.clear();
     this.frozenSources.clear();
     this.clearVocalBufferLoop();
+    this.clearVocalDirectRoute();
     for (const gate of this.frozenGates.values()) gate.disconnect?.();
     this.frozenGates.clear();
     for (const media of this.nativeStems.values()) {
