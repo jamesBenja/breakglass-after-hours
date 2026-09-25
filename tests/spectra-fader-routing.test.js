@@ -538,6 +538,70 @@ test('changing Vocal source offset replaces the continuous loop source cleanly',
   assert.equal(playback.frozenGates.has(vocal.id), false);
 });
 
+test('live Vocal scrub rebuild replaces only Vocal and preserves every other frozen source', () => {
+  const createdSources = [];
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  const other = session.stems.find((stem) => stem.id !== vocal.id);
+  vocal.source = 'browser-microphone';
+  vocal.sourceOffset = 0;
+
+  const vocalSamples = Float32Array.from({ length: 50 }, (_, index) => index / 100);
+  session.recordings.set(vocal.id, {
+    duration: 5,
+    length: 50,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => vocalSamples,
+  });
+  session.recordings.set(other.id, {
+    duration: 4,
+    length: 40,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => new Float32Array(40),
+  });
+
+  playback.session = session;
+  playback.updateMix(session);
+  playback.spectraTransport = {
+    running: true,
+    positionAtOffset(offset) {
+      return 1.5 + offset;
+    },
+  };
+
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 2);
+  const firstVocal = playback.frozenSources.get(vocal.id);
+  const untouchedOther = playback.frozenSources.get(other.id);
+
+  audio.context.currentTime = 5;
+  vocal.sourceOffset = 0.7;
+  assert.equal(playback.rebuildRecordedStemPlayback(session, vocal.id), true);
+
+  const rebuiltVocal = playback.frozenSources.get(vocal.id);
+  assert.notEqual(rebuiltVocal, firstVocal);
+  assert.equal(firstVocal.stopped, true, 'old Vocal source is retired');
+  assert.equal(
+    playback.frozenSources.get(other.id),
+    untouchedOther,
+    'scrubbing Vocal must not replace another Spectra recording',
+  );
+  assert.equal(untouchedOther.stopped, false, 'other Spectra recording keeps running');
+  assert.equal(rebuiltVocal.loop, true);
+  assert.equal(rebuiltVocal.buffer.getChannelData(0)[0], vocalSamples[7]);
+  assert.ok(
+    Math.abs(rebuiltVocal.startArgs[1] - 1.518) < 0.001,
+    'replacement Vocal rejoins the current shared transport phase',
+  );
+});
+
 test('a replacement Vocal recording cannot inherit the previous take playback state', () => {
   const createdSources = [];
   const audio = fakeAudio(createdSources);
