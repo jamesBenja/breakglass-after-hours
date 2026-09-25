@@ -247,6 +247,54 @@ export class StudioPlayback {
     return mediaOk;
   }
 
+  async resyncRecordedVocalPlayback(
+    session = this.session,
+    { settleMs = 120, leadSeconds = 0.035 } = {},
+  ) {
+    const context = this.audio?.context;
+    if (!session || !context) return 0;
+
+    const waitMs = Math.max(0, Number(settleMs) || 0);
+    if (waitMs > 0) {
+      await new Promise((resolve) => this.timers.setTimeout?.(resolve, waitMs) ?? resolve());
+    }
+
+    await this.ensureLivePlaybackRunning(session);
+    if (context.state !== 'running') return 0;
+
+    const vocalStems = session.stems.filter(
+      (stem) =>
+        isMicrophoneRecordingStem(stem) &&
+        session.recordings?.get?.(stem.id)?.duration > 0,
+    );
+    if (!vocalStems.length) return 0;
+
+    // iOS can keep old AudioBufferSourceNode objects looking "alive" in JavaScript after a
+    // microphone hardware-route transition even though they no longer produce output. Rebuild
+    // only recorded Vocal sources against the current route. The shared transport, backing
+    // tracks, mixer buses, FX and spatial graph remain untouched.
+    const now = context.currentTime;
+    const startTime = now + Math.max(0.01, Number(leadSeconds) || 0.035);
+    const phase = this.spectraTransport?.running
+      ? this.spectraTransport.positionAtOffset(startTime - now)
+      : this.position() + (startTime - now);
+
+    this.session = session;
+    this.bpm = session.bpm ?? this.bpm;
+
+    let rebuilt = 0;
+    for (const stem of vocalStems) {
+      this.updateStemMix(session, stem.id, { immediate: true });
+      rebuilt += this.startFrozenRecordings(session, phase, {
+        startTime,
+        phaseOffset: phase,
+        onlyStemId: stem.id,
+      });
+    }
+
+    return rebuilt;
+  }
+
   ensureBus(stem) {
     let bus = this.buses.get(stem.id);
     if (bus) return bus;
