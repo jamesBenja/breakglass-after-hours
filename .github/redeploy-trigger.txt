@@ -1,2 +1,2 @@
 canonical-live redeploy trigger
-Vocal live scrub lifecycle validation
+Multi Vocal resume and scrubber navigation validation
