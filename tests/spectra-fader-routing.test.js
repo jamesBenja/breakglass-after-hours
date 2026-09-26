@@ -426,6 +426,53 @@ test('Spectra PLAY restores an interrupted output route before starting sources'
   playback.stop();
 });
 
+test('a stopped Spectra transport is started exactly once even when restartTransport is requested', async () => {
+  const createdSources = [];
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
+  const session = new StudioSession();
+  const calls = [];
+
+  playback.spectraTransport = {
+    running: false,
+    position: () => 0,
+    positionAtOffset: (offset) => Math.max(0, Number(offset) || 0),
+    subscribe: () => () => {},
+    acquire(_owner, options = {}) {
+      calls.push(['acquire', options]);
+      this.running = true;
+      return true;
+    },
+    restart(position, contextTime) {
+      calls.push(['restart', position, contextTime]);
+      this.running = true;
+      return true;
+    },
+    release() {
+      calls.push(['release']);
+      this.running = false;
+      return true;
+    },
+  };
+  playback.startBlobRecordings = async () => 0;
+  playback.loadAlignedAssets = async () => null;
+  playback.startNativeAssets = async () => false;
+  playback.hasEventPlayback = () => false;
+
+  assert.equal(await playback.play(session, 0, { restartTransport: true }), true);
+
+  const starts = calls.filter(([name]) => name === 'acquire' || name === 'restart');
+  assert.equal(starts.length, 1);
+  assert.equal(starts[0][0], 'acquire');
+  assert.equal(starts[0][1].position, 0);
+  assert.ok(
+    Number(starts[0][1].contextTime) >= audio.context.currentTime,
+    'the one transport start may still use the shared future anchor',
+  );
+
+  playback.stop();
+});
+
 test('a stale asynchronous Spectra PLAY cannot overwrite a newer playback request', async () => {
   const playback = new StudioPlayback(fakeAudio());
   const session = new StudioSession();
@@ -1274,7 +1321,7 @@ test('first PLAY then STOP then second PLAY rebuilds Vocal on a fresh graph', as
   playback.startNativeAssets = async () => false;
   playback.startBlobRecordings = async () => 0;
 
-  assert.equal(await playback.play(session, 0, { restartTransport: true }), true);
+  assert.equal(await playback.play(session, 0), true);
   const firstVocalSource = playback.frozenSources.get(vocal.id);
   const firstBus = playback.buses.get(other.id);
   assert.ok(firstVocalSource);
@@ -1289,7 +1336,7 @@ test('first PLAY then STOP then second PLAY rebuilds Vocal on a fresh graph', as
   );
   assert.equal(playback.buses.size, 0, 'STOP must dispose the old Spectra channel graph');
 
-  assert.equal(await playback.play(session, 0, { restartTransport: true }), true);
+  assert.equal(await playback.play(session, 0), true);
   const secondVocalSource = playback.frozenSources.get(vocal.id);
   const secondBus = playback.buses.get(other.id);
   assert.ok(secondVocalSource);
