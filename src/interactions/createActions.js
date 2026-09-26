@@ -661,9 +661,8 @@ export function createActions({
             studioPlayback?.updateMix?.(studio, { immediate: true });
 
             // Closing the microphone switches iOS back to the playback route. Rebuild all
-            // recorded Vocal sources together on that final route, at one shared transport phase.
-            // This repairs older Vocal nodes that Safari may have invalidated during the mic route
-            // change and inserts the new take without restarting any backing track or transport.
+            // recorded Vocal sources together on that final route, each from its own PCM scrubber
+            // start. This repairs older Vocal nodes without restarting any backing track or transport.
             let joinedLiveMix = false;
             let resyncedVocals = 0;
             if (spectraWasPlaying && result.buffer?.duration) {
@@ -682,7 +681,7 @@ export function createActions({
             const signal = peak < 0.001 ? 'near-silent' : `${Math.round(peak * 100)}% peak`;
             ui.warning?.(
               pcmSeconds > 0
-                ? `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Raw file: ${destination.sourceDuration.toFixed(2)}s. PCM take: ${pcmSeconds.toFixed(2)}s. Mic signal: ${signal}. Scrubber and Spectra both use the captured PCM.${spectraWasPlaying ? (joinedLiveMix ? ` ${resyncedVocals} Vocal loop${resyncedVocals === 1 ? '' : 's'} resynced to the running Spectra transport.` : ' The backing mix stayed running; press PLAY only if Vocal playback did not recover automatically.') : ''}`
+                ? `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}. Raw file: ${destination.vocalRawDuration.toFixed(2)}s. PCM take: ${pcmSeconds.toFixed(2)}s. Mic signal: ${signal}. Scrubber and Spectra both use the captured PCM.${spectraWasPlaying ? (joinedLiveMix ? ` ${resyncedVocals} Vocal loop${resyncedVocals === 1 ? '' : 's'} rebuilt while the Spectra transport kept running.` : ' The backing mix stayed running; press PLAY only if Vocal playback did not recover automatically.') : ''}`
                 : `Recorded ${Math.max(1, Math.round(bytes / 1024))} KB to ${destination.label}, but direct PCM capture was unavailable. The raw MediaRecorder file is retained as fallback.`,
             );
             vocalPanel();
