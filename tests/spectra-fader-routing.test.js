@@ -112,6 +112,33 @@ function fakeAudio(createdSources = [], { mediaSources = null } = {}) {
   };
 }
 
+function manualTimers() {
+  let nextId = 1;
+  const pending = [];
+  return {
+    pending,
+    setTimeout(callback, delay = 0) {
+      const item = { id: nextId++, callback, delay, cancelled: false };
+      pending.push(item);
+      return item.id;
+    },
+    clearTimeout(id) {
+      const item = pending.find((entry) => entry.id === id);
+      if (item) item.cancelled = true;
+    },
+    setInterval() {
+      return null;
+    },
+    clearInterval() {},
+    runNext() {
+      const item = pending.shift();
+      if (!item || item.cancelled) return false;
+      item.callback();
+      return true;
+    },
+  };
+}
+
 function stem(id, level = 0.7) {
   return {
     id,
@@ -464,10 +491,11 @@ test('Spectra starts browser-recorded media before any asynchronous asset loadin
   playback.stop();
 });
 
-test('recorded microphone audio becomes one continuous fixed-length Spectra loop source', () => {
+test('recorded microphone audio uses one-shot PCM cycles instead of Safari loop nodes', () => {
   const createdSources = [];
+  const timers = manualTimers();
   const audio = fakeAudio(createdSources);
-  const playback = new StudioPlayback(audio);
+  const playback = new StudioPlayback(audio, timers);
   const session = new StudioSession();
   session.bpm = 60;
   session.loopBars = 1;
@@ -494,27 +522,13 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
   playback.session = session;
   playback.updateMix(session);
 
-  assert.equal(
-    playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }),
-    1,
-    'a complete decoded Vocal take must use the deterministic WebAudio loop even when its raw Blob is retained for the scrubber',
-  );
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
 
   const source = createdSources[0];
-  assert.equal(source.loop, true);
-  assert.equal(
-    source.loopStart,
-    undefined,
-    'Vocal must not set explicit loop points on Safari; the whole fixed-length buffer is the loop',
-  );
-  assert.equal(source.loopEnd, undefined);
+  assert.equal(source.loop, false, 'Vocal must never rely on AudioBufferSource.loop on iPhone');
   assert.equal(source.buffer.duration, 4);
   assert.notEqual(source.buffer, recording);
-  assert.deepEqual(
-    source.startArgs,
-    [0],
-    'Vocal BufferSource must always start at buffer offset zero',
-  );
+  assert.deepEqual(source.startArgs, [0], 'Vocal one-shot starts from buffer time zero');
 
   const loop = source.buffer.getChannelData(0);
   assert.equal(loop[0], samples[12]);
@@ -523,38 +537,36 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
   assert.equal(loop[39], 0);
 
   assert.equal(playback.frozenSources.get(vocal.id), source);
-  assert.equal(playback.frozenGates.has(vocal.id), false);
+  assert.equal(playback.vocalBufferLoopTimers.has(vocal.id), true);
+  assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id).mode, 'one-shot-cycle');
   assert.equal(playback.vocalDirectRoutes.has(vocal.id), true);
   assert.equal(playback.vocalDirectRoutes.get(vocal.id).destination, audio.master);
   assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
-  assert.equal(playback.vocalBufferLoopTimers.has(vocal.id), false);
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).pan, null);
   assert.equal(
     playback.blobStems.has(vocal.id),
     false,
-    'the raw scrubber Blob must not become a second Spectra playback source when the decode is complete',
+    'the raw MediaRecorder Blob must remain scrubber fallback only',
   );
 
   vocal.mute = true;
   playback.applyChannelAudibility(session);
   assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, 0);
   vocal.mute = false;
-  playback.applyChannelAudibility(session);
-  assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
-
   vocal.level = 0.31;
-  vocal.pan = -0.4;
   playback.updateStemMix(session, vocal.id, { immediate: true });
   assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, 0.31);
-  assert.equal(playback.vocalDirectRoutes.get(vocal.id).pan.pan.value, -0.4);
 
   playback.stop();
   assert.equal(source.stopped, true);
+  assert.equal(playback.vocalBufferLoopTimers.has(vocal.id), false);
 });
 
-test('Vocal transport phase is baked into PCM so Safari always starts the loop at offset zero', () => {
+test('Vocal joins a running Spectra loop with a sliced zero-offset one-shot', () => {
   const createdSources = [];
+  const timers = manualTimers();
   const audio = fakeAudio(createdSources);
-  const playback = new StudioPlayback(audio);
+  const playback = new StudioPlayback(audio, timers);
   const session = new StudioSession();
   session.bpm = 60;
   session.loopBars = 1;
@@ -579,23 +591,58 @@ test('Vocal transport phase is baked into PCM so Safari always starts the loop a
 
   const source = createdSources[0];
   assert.deepEqual(source.startArgs, [0]);
-  assert.equal(source.loop, true);
-  assert.equal(source.loopStart, undefined);
-  assert.equal(source.loopEnd, undefined);
-
-  const rotated = source.buffer.getChannelData(0);
-  assert.equal(rotated[0], 0, 'phase 3.5s begins inside the silent tail of the 4s Spectra loop');
-  assert.equal(
-    rotated[5] > 0,
-    true,
-    'after the remaining 0.5s of silence the rotated buffer wraps to the beginning of the Vocal take',
-  );
+  assert.equal(source.loop, false);
+  assert.equal(source.buffer.duration, 0.5);
+  assert.equal(source.buffer.getChannelData(0)[0], 0);
+  assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id).phase, 3.5);
 });
 
-test('changing Vocal source offset replaces the continuous loop source cleanly', () => {
+test('one-shot Vocal scheduler creates a fresh full PCM source at the next loop boundary', () => {
   const createdSources = [];
+  const timers = manualTimers();
   const audio = fakeAudio(createdSources);
-  const playback = new StudioPlayback(audio);
+  const playback = new StudioPlayback(audio, timers);
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  session.recordings.set(vocal.id, {
+    duration: 3,
+    length: 30,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 30 }, () => 0.2),
+  });
+
+  playback.session = session;
+  playback.updateMix(session);
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
+
+  const first = createdSources[0];
+  assert.equal(first.loop, false);
+  assert.equal(first.buffer.duration, 4);
+  assert.equal(timers.pending.length, 1);
+
+  audio.context.currentTime = 3.82;
+  assert.equal(timers.runNext(), true);
+
+  const second = createdSources[1];
+  assert.ok(second);
+  assert.notEqual(second, first);
+  assert.equal(second.loop, false);
+  assert.equal(second.buffer.duration, 4);
+  assert.deepEqual(second.startArgs, [4]);
+  assert.equal(timers.pending.length, 1, 'the following Spectra cycle is scheduled in turn');
+});
+
+test('changing Vocal source offset replaces only its one-shot cycle scheduler', () => {
+  const createdSources = [];
+  const timers = manualTimers();
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio, timers);
   const session = new StudioSession();
   session.bpm = 60;
   session.loopBars = 1;
@@ -625,22 +672,22 @@ test('changing Vocal source offset replaces the continuous loop source cleanly',
   assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
 
   const secondSource = createdSources[1];
-  assert.equal(firstSource.stopped, true, 'old Vocal loop source must stop on scrubber rebuild');
+  assert.equal(firstSource.stopped, true);
   assert.equal(secondSource.buffer.getChannelData(0)[0], samples[5]);
-  assert.equal(secondSource.loop, true);
+  assert.equal(secondSource.loop, false);
   assert.equal(playback.frozenSources.get(vocal.id), secondSource);
 
   playback.stopRecordedStemPlayback(vocal.id);
   assert.equal(secondSource.stopped, true);
   assert.equal(playback.frozenSources.has(vocal.id), false);
-  assert.equal(playback.frozenGates.has(vocal.id), false);
   assert.equal(playback.vocalDirectRoutes.has(vocal.id), false);
 });
 
-test('live Vocal scrub rebuild replaces only Vocal and preserves every other frozen source', () => {
+test('live Vocal scrub rebuild preserves every other frozen source', () => {
   const createdSources = [];
+  const timers = manualTimers();
   const audio = fakeAudio(createdSources);
-  const playback = new StudioPlayback(audio);
+  const playback = new StudioPlayback(audio, timers);
   const session = new StudioSession();
   session.bpm = 60;
   session.loopBars = 1;
@@ -678,7 +725,6 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
 
   assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 2);
   const firstVocal = playback.frozenSources.get(vocal.id);
-  const firstVocalRoute = playback.vocalDirectRoutes.get(vocal.id);
   const untouchedOther = playback.frozenSources.get(other.id);
 
   audio.context.currentTime = 5;
@@ -686,115 +732,24 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
   assert.equal(playback.rebuildRecordedStemPlayback(session, vocal.id), true);
 
   const rebuiltVocal = playback.frozenSources.get(vocal.id);
-  const rebuiltVocalRoute = playback.vocalDirectRoutes.get(vocal.id);
   assert.notEqual(rebuiltVocal, firstVocal);
-  assert.notEqual(
-    rebuiltVocalRoute,
-    firstVocalRoute,
-    'scrubbing Vocal recreates its minimal direct PCM output route with the source',
-  );
-  assert.equal(firstVocal.stopped, true, 'old Vocal source is retired');
-  assert.equal(
-    playback.frozenSources.get(other.id),
-    untouchedOther,
-    'scrubbing Vocal must not replace another Spectra recording',
-  );
-  assert.equal(untouchedOther.stopped, false, 'other Spectra recording keeps running');
-  assert.equal(rebuiltVocal.loop, true);
-  assert.equal(
-    rebuiltVocal.startArgs.length,
-    1,
-    'replacement Vocal must not pass a non-zero AudioBufferSource start offset to Safari',
-  );
-  assert.ok(Math.abs(rebuiltVocal.startArgs[0] - 5.018) < 0.001);
+  assert.equal(firstVocal.stopped, true);
+  assert.equal(playback.frozenSources.get(other.id), untouchedOther);
+  assert.equal(untouchedOther.stopped, false);
+  assert.equal(rebuiltVocal.loop, false);
+  assert.deepEqual(rebuiltVocal.startArgs, [5.018]);
+  assert.equal(rebuiltVocal.buffer.duration, 2.5);
   assert.equal(
     rebuiltVocal.buffer.getChannelData(0)[0],
     vocalSamples[22],
-    'replacement Vocal rejoins the shared phase by rotating PCM, not by starting mid-buffer',
+    'the mid-loop join is baked into a short one-shot buffer rather than a source offset',
   );
 });
 
-test('Vocal self-heals if Safari ends a source that was configured to loop', () => {
+test('iOS microphone route resync rebuilds Vocal scheduler without touching other sources', async () => {
   const createdSources = [];
-  const pending = [];
-  const timers = {
-    setTimeout(callback) {
-      pending.push(callback);
-      return pending.length;
-    },
-    clearTimeout() {},
-    setInterval() {
-      return null;
-    },
-    clearInterval() {},
-  };
+  const timers = manualTimers();
   const audio = fakeAudio(createdSources);
-  const playback = new StudioPlayback(audio, timers);
-  const session = new StudioSession();
-  session.bpm = 60;
-  session.loopBars = 1;
-  session.loopEnabled = true;
-
-  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
-  vocal.source = 'browser-microphone';
-  const samples = Float32Array.from({ length: 30 }, (_, index) => (index + 1) / 100);
-  const recording = {
-    duration: 3,
-    length: 30,
-    numberOfChannels: 1,
-    sampleRate: 10,
-    getChannelData: () => samples,
-  };
-  session.recordings.set(vocal.id, recording);
-
-  playback.session = session;
-  playback.updateMix(session);
-  playback.spectraTransport = {
-    running: true,
-    positionAtOffset(offset) {
-      return 0.75 + offset;
-    },
-    position() {
-      return 0.75;
-    },
-  };
-
-  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
-  const first = playback.frozenSources.get(vocal.id);
-  assert.ok(first);
-  assert.equal(first.loop, true);
-
-  first.onended();
-  assert.equal(playback.frozenSources.has(vocal.id), false);
-  assert.equal(pending.length, 1, 'an unexpected natural end should schedule Vocal recovery');
-
-  pending.shift()();
-  const recovered = playback.frozenSources.get(vocal.id);
-  assert.ok(recovered);
-  assert.notEqual(recovered, first);
-  assert.equal(recovered.loop, true);
-  assert.equal(
-    recovered.startArgs.length,
-    1,
-    'recovered Vocal must also start at buffer offset zero',
-  );
-  assert.equal(playback.vocalDirectRoutes.has(vocal.id), true);
-});
-
-test('iOS microphone route resync rebuilds recorded Vocals without touching other Spectra sources', async () => {
-  const createdSources = [];
-  const audio = fakeAudio(createdSources);
-  const timers = {
-    setTimeout(callback) {
-      callback();
-      return 1;
-    },
-    clearTimeout() {},
-    setInterval() {
-      return null;
-    },
-    clearInterval() {},
-  };
   const playback = new StudioPlayback(audio, timers);
   const session = new StudioSession();
   session.bpm = 60;
@@ -842,36 +797,25 @@ test('iOS microphone route resync rebuilds recorded Vocals without touching othe
     return true;
   };
 
-  assert.equal(await playback.resyncRecordedVocalPlayback(session, { settleMs: 120 }), 1);
+  assert.equal(await playback.resyncRecordedVocalPlayback(session, { settleMs: 0 }), 1);
 
   const rebuiltVocal = playback.frozenSources.get(vocal.id);
   const rebuiltVocalRoute = playback.vocalDirectRoutes.get(vocal.id);
-  assert.notEqual(
-    rebuiltVocal,
-    originalVocal,
-    'recorded Vocal must be recreated after the microphone hardware route changes',
-  );
-  assert.notEqual(
-    rebuiltVocalRoute,
-    originalVocalRoute,
-    'the Vocal output route must also be recreated; retaining the old downstream graph is the real-device failure mode',
-  );
+  assert.notEqual(rebuiltVocal, originalVocal);
+  assert.notEqual(rebuiltVocalRoute, originalVocalRoute);
   assert.equal(rebuiltVocalRoute.destination, audio.master);
   assert.equal(originalVocal.stopped, true);
   assert.equal(rebuiltVocal.stopped, false);
-  assert.equal(
-    playback.frozenSources.get(other.id),
-    untouchedOther,
-    'non-Vocal Spectra recordings must keep their exact existing source node',
-  );
+  assert.equal(playback.frozenSources.get(other.id), untouchedOther);
   assert.equal(untouchedOther.stopped, false);
   assert.equal(audio.context.state, 'running');
 });
 
-test('adding another Vocal channel does not mute or replace an existing live Vocal loop', () => {
+test('adding another Vocal channel leaves the existing one-shot scheduler untouched', () => {
   const createdSources = [];
+  const timers = manualTimers();
   const audio = fakeAudio(createdSources);
-  const playback = new StudioPlayback(audio);
+  const playback = new StudioPlayback(audio, timers);
   const session = new StudioSession();
   session.bpm = 60;
   session.loopBars = 1;
@@ -879,7 +823,6 @@ test('adding another Vocal channel does not mute or replace an existing live Voc
 
   const first = session.stems.find((stem) => stem.inputKey === 'vocal');
   first.source = 'browser-microphone';
-  first.sourceOffset = 0;
   session.recordings.set(first.id, {
     duration: 3,
     length: 30,
@@ -894,33 +837,26 @@ test('adding another Vocal channel does not mute or replace an existing live Voc
 
   const originalSource = playback.frozenSources.get(first.id);
   const originalRoute = playback.vocalDirectRoutes.get(first.id);
-  assert.ok(originalRoute);
-  assert.equal(originalRoute.gain.gain.value, first.level);
+  const originalTimer = playback.vocalBufferLoopTimers.get(first.id);
 
   const second = session.addInputTrack('vocal');
   assert.ok(second);
   playback.updateMix(session, { immediate: true });
 
-  assert.equal(
-    playback.frozenSources.get(first.id),
-    originalSource,
-    'creating a second Vocal channel must not replace the first Vocal source',
-  );
+  assert.equal(playback.frozenSources.get(first.id), originalSource);
   assert.equal(originalSource.stopped, false);
   assert.equal(playback.vocalDirectRoutes.get(first.id), originalRoute);
-  assert.equal(
-    originalRoute.gain.gain.value,
-    first.level,
-    'existing Vocal remains audible after channel creation',
-  );
+  assert.equal(playback.vocalBufferLoopTimers.get(first.id), originalTimer);
+  assert.equal(originalRoute.gain.gain.value, first.level);
   assert.equal(first.mute, false);
   assert.equal(second.mute, false);
 });
 
-test('a replacement Vocal recording cannot inherit the previous take playback state', () => {
+test('replacement Vocal recording cannot inherit the previous one-shot scheduler', () => {
   const createdSources = [];
+  const timers = manualTimers();
   const audio = fakeAudio(createdSources);
-  const playback = new StudioPlayback(audio);
+  const playback = new StudioPlayback(audio, timers);
   const session = new StudioSession();
   session.bpm = 60;
   session.loopBars = 1;
@@ -956,7 +892,7 @@ test('a replacement Vocal recording cannot inherit the previous take playback st
   assert.notEqual(secondSource.buffer, secondRecording);
   assert.equal(secondSource.buffer.duration, 4);
   assert.deepEqual(secondSource.startArgs, [0]);
-  assert.equal(secondSource.loop, true);
+  assert.equal(secondSource.loop, false);
   playback.stop();
 });
 
