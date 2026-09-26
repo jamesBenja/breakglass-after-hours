@@ -114,6 +114,48 @@ function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
 
   return loopBuffer;
 }
+
+function rotateLoopBufferToPhase(context, buffer, phaseSeconds = 0) {
+  if (
+    !context?.createBuffer ||
+    !buffer?.duration ||
+    !buffer?.numberOfChannels ||
+    !buffer?.getChannelData
+  ) {
+    return buffer ?? null;
+  }
+
+  const duration = Math.max(0, Number(buffer.duration) || 0);
+  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
+  const firstChannel = buffer.getChannelData(0);
+  const frames = Math.max(
+    1,
+    Math.floor(Number(buffer.length) || Number(firstChannel?.length) || duration * sampleRate),
+  );
+  const phase =
+    duration > 0 ? ((Math.max(0, Number(phaseSeconds) || 0) % duration) + duration) % duration : 0;
+  const phaseFrame = Math.min(frames - 1, Math.max(0, Math.floor(phase * sampleRate)));
+
+  // A zero phase already has the desired layout. Avoid an unnecessary allocation.
+  if (phaseFrame === 0) return buffer;
+
+  let rotated = null;
+  try {
+    rotated = context.createBuffer(buffer.numberOfChannels, frames, sampleRate);
+  } catch {
+    return buffer;
+  }
+
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const source = buffer.getChannelData(channel);
+    const target = rotated.getChannelData(channel);
+    const tail = source.subarray(phaseFrame);
+    target.set(tail, 0);
+    target.set(source.subarray(0, phaseFrame), tail.length);
+  }
+
+  return rotated;
+}
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -160,6 +202,7 @@ export class StudioPlayback {
     // Recreate this tiny route with every Vocal source so no stale Spectra channel-strip node can
     // survive a microphone hardware-route transition and silently strand the take.
     this.vocalDirectRoutes = new Map();
+    this.vocalUnexpectedEndTimers = new Map();
     this.soloFaderActive = false;
     this.rawAuditionSource = null;
     this.rawAuditionGain = null;
@@ -296,6 +339,53 @@ export class StudioPlayback {
     }
 
     return rebuilt;
+  }
+
+  clearVocalUnexpectedEndTimer(stemId = null) {
+    const ids = stemId ? [stemId] : [...this.vocalUnexpectedEndTimers.keys()];
+    for (const id of ids) {
+      const handle = this.vocalUnexpectedEndTimers.get(id);
+      if (handle != null) this.timers.clearTimeout?.(handle);
+      this.vocalUnexpectedEndTimers.delete(id);
+    }
+  }
+
+  recoverUnexpectedVocalEnd(session, stemId, buffer) {
+    const context = this.audio?.context;
+    if (!context || context.state !== 'running' || !session || !stemId || !buffer?.duration) {
+      return false;
+    }
+    if (this.session !== session || session.recordings?.get?.(stemId) !== buffer) return false;
+    const transportRunning =
+      this.spectraTransport?.running === true ||
+      this.transportUnsubscribe !== null ||
+      this.timer !== null ||
+      this.realSessionPlaying === true;
+    if (!transportRunning) return false;
+
+    this.clearVocalUnexpectedEndTimer(stemId);
+    const handle = this.timers.setTimeout?.(() => {
+      this.vocalUnexpectedEndTimers.delete(stemId);
+      if (
+        this.session !== session ||
+        session.recordings?.get?.(stemId) !== buffer ||
+        this.audio?.context?.state !== 'running'
+      ) {
+        return;
+      }
+      const now = this.audio.context.currentTime;
+      const startTime = now + 0.012;
+      const phase = this.spectraTransport?.running
+        ? this.spectraTransport.positionAtOffset(startTime - now)
+        : this.position() + (startTime - now);
+      this.startFrozenRecordings(session, phase, {
+        startTime,
+        phaseOffset: phase,
+        onlyStemId: stemId,
+      });
+    }, 0);
+    if (handle != null) this.vocalUnexpectedEndTimers.set(stemId, handle);
+    return true;
   }
 
   clearVocalDirectRoute(stemId = null) {
@@ -1210,7 +1300,10 @@ export class StudioPlayback {
 
       this.clearVocalBufferLoop(stem.id);
       const microphoneTake = isMicrophoneRecordingStem(stem);
-      if (microphoneTake) this.clearVocalDirectRoute(stem.id);
+      if (microphoneTake) {
+        this.clearVocalUnexpectedEndTimer(stem.id);
+        this.clearVocalDirectRoute(stem.id);
+      }
 
       const existing = this.frozenSources.get(stem.id);
       if (existing) {
@@ -1239,10 +1332,15 @@ export class StudioPlayback {
         const vocalLoopBuffer = buildVocalLoopBuffer(context, stem, buffer, loopDuration);
         if (!vocalLoopBuffer?.duration) continue;
 
-        source.buffer = vocalLoopBuffer;
+        const phaseInLoop =
+          ((Math.max(0, Number(phase) || 0) % vocalLoopBuffer.duration) +
+            vocalLoopBuffer.duration) %
+          vocalLoopBuffer.duration;
+        const phaseAlignedLoop = rotateLoopBufferToPhase(context, vocalLoopBuffer, phaseInLoop);
+        if (!phaseAlignedLoop?.duration) continue;
+
+        source.buffer = phaseAlignedLoop;
         source.loop = true;
-        source.loopStart = 0;
-        source.loopEnd = vocalLoopBuffer.duration;
 
         const directRoute = this.createVocalDirectRoute(stem, source);
         if (!directRoute) {
@@ -1253,19 +1351,27 @@ export class StudioPlayback {
         source.onended = () => {
           source.disconnect?.();
           this.sources.delete(source);
-          if (this.frozenSources.get(stem.id) === source) {
+          const wasCurrent = this.frozenSources.get(stem.id) === source;
+          if (wasCurrent) {
             this.frozenSources.delete(stem.id);
             this.clearVocalDirectRoute(stem.id);
           }
+          // A looping AudioBufferSource should never end on its own. Real iPhone Safari has
+          // nevertheless produced exactly that failure after microphone capture: a tiny opening
+          // fragment, then silence. Treat any natural end of the current Vocal loop as a browser
+          // playback failure and immediately rebuild only this Vocal against the live transport.
+          if (wasCurrent) this.recoverUnexpectedVocalEnd(session, stem.id, buffer);
         };
 
         this.sources.add(source);
         this.frozenSources.set(stem.id, source);
-        const phaseInLoop =
-          ((Math.max(0, Number(phase) || 0) % vocalLoopBuffer.duration) +
-            vocalLoopBuffer.duration) %
-          vocalLoopBuffer.duration;
-        source.start(start, phaseInLoop);
+
+        // Critical Safari/iOS reliability rule: never begin a looping Vocal BufferSource from a
+        // non-zero source offset. Real-device testing showed that Safari can play only the short
+        // tail from that offset and then end instead of wrapping. The PCM buffer has already been
+        // rotated to the current Spectra phase above, so starting at buffer time 0 preserves sync
+        // while using the same zero-offset BufferSource behavior as the working scrubber path.
+        source.start(start);
         started += 1;
         continue;
       }
@@ -1996,6 +2102,7 @@ export class StudioPlayback {
     if (!stemId) return false;
 
     this.clearVocalBufferLoop(stemId);
+    this.clearVocalUnexpectedEndTimer(stemId);
     this.clearVocalDirectRoute(stemId);
 
     const frozen = this.frozenSources.get(stemId);
@@ -2077,6 +2184,7 @@ export class StudioPlayback {
     this.sources.clear();
     this.frozenSources.clear();
     this.clearVocalBufferLoop();
+    this.clearVocalUnexpectedEndTimer();
     this.clearVocalDirectRoute();
     for (const gate of this.frozenGates.values()) gate.disconnect?.();
     this.frozenGates.clear();
