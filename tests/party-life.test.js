@@ -14,6 +14,7 @@ const requestedHouseDjs = [
   'Lunice',
   'Kaytranada',
   'James Benjamin',
+  'DJ FLLEUR',
   'Siren Mars',
   'Monib',
   'Hydra',

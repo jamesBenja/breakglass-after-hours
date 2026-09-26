@@ -131,3 +131,344 @@
     background: rgba(91, 62, 39, 0.5);
   }
 }
+
+/* Live modular sequencer */
+.modular-transport-row,
+.modular-patch-row,
+.modular-voice-row,
+.modular-pitch-row,
+.modular-pattern-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.modular-transport-row {
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.modular-transport-row button,
+.modular-patch-row button,
+.modular-voice-row button,
+.modular-pitch-row button,
+.modular-pattern-tools button {
+  min-height: 34px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+}
+
+.modular-transport-readout:disabled {
+  opacity: 1;
+  color: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.modular-patch.active,
+.modular-pitch.active {
+  background: rgba(177, 110, 48, 0.78);
+  border-color: rgba(255, 216, 164, 0.65);
+}
+
+.modular-step-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.modular-step {
+  min-width: 0;
+  min-height: 46px;
+  padding: 5px 4px;
+  border-radius: 8px;
+  background: rgba(15, 16, 20, 0.7);
+  border-color: rgba(255, 255, 255, 0.13);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.modular-step.active {
+  background: rgba(76, 103, 78, 0.72);
+  border-color: rgba(176, 220, 178, 0.5);
+}
+
+.modular-step.playhead {
+  outline: 2px solid rgba(255, 218, 156, 0.9);
+  outline-offset: 1px;
+  transform: translateY(-1px);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .modular-step-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .modular-step {
+    min-height: 42px;
+    font-size: 9px;
+  }
+
+  .modular-transport-row button,
+  .modular-patch-row button,
+  .modular-voice-row button,
+  .modular-pitch-row button,
+  .modular-pattern-tools button {
+    min-height: 32px;
+    padding: 4px 7px;
+    font-size: 8px;
+  }
+}
+
+/* Spectra 808 / 909 / DMX / Linn rhythm programmer */
+.drum-machine-transport,
+.drum-machine-kits,
+.drum-machine-memory,
+.drum-machine-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.drum-machine-transport {
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.drum-machine-transport button,
+.drum-machine-kits button,
+.drum-machine-memory button,
+.drum-machine-tools button {
+  min-height: 32px;
+  padding: 5px 8px;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.drum-machine-transport button.active,
+.drum-machine-kits button.active,
+.drum-machine-memory button.active {
+  background: rgba(177, 110, 48, 0.78);
+  border-color: rgba(255, 216, 164, 0.65);
+}
+
+.drum-machine-grid {
+  display: grid;
+  grid-template-columns: 46px repeat(16, 27px);
+  gap: 3px;
+  margin-top: 8px;
+  padding: 4px 0 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.drum-machine-lane-label,
+.drum-machine-step-number {
+  display: grid;
+  place-items: center;
+  min-height: 24px;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.drum-machine-grid-corner {
+  color: rgba(255, 218, 156, 0.92);
+}
+
+.drum-machine-step {
+  min-width: 27px;
+  min-height: 29px;
+  padding: 2px;
+  border-radius: 5px;
+  background: rgba(15, 16, 20, 0.75);
+  border-color: rgba(255, 255, 255, 0.12);
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.drum-machine-step.beat {
+  border-left-color: rgba(255, 218, 156, 0.45);
+}
+
+.drum-machine-step.active {
+  background: rgba(76, 103, 78, 0.78);
+  border-color: rgba(176, 220, 178, 0.55);
+}
+
+.drum-machine-step.accent {
+  background: rgba(177, 110, 48, 0.82);
+  border-color: rgba(255, 216, 164, 0.72);
+}
+
+.drum-machine-step.playhead {
+  outline: 2px solid rgba(255, 236, 187, 0.95);
+  outline-offset: 1px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .drum-machine-grid {
+    grid-template-columns: 42px repeat(16, 30px);
+  }
+
+  .drum-machine-step {
+    min-width: 30px;
+    min-height: 34px;
+  }
+
+  .drum-machine-transport button,
+  .drum-machine-kits button,
+  .drum-machine-memory button,
+  .drum-machine-tools button {
+    min-height: 34px;
+    padding: 4px 7px;
+    font-size: 8px;
+  }
+}
+
+/* Spectra eight-channel spatial mixer */
+.spectra-spatial-grid {
+  position: relative;
+  width: min(100%, 430px);
+  aspect-ratio: 1 / 1;
+  margin: 10px auto 8px;
+  border: 1px solid rgba(255, 225, 171, 0.34);
+  border-radius: 14px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at center, rgba(113, 92, 70, 0.18), rgba(10, 11, 14, 0.72));
+  background-size:
+    25% 25%,
+    25% 25%,
+    auto;
+  touch-action: none;
+  overflow: hidden;
+}
+
+.spectra-spatial-speaker,
+.spectra-spatial-puck {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  user-select: none;
+}
+
+.spectra-spatial-speaker {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(190, 221, 231, 0.44);
+  background: rgba(34, 45, 52, 0.92);
+  color: #d9edf5;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.spectra-spatial-puck {
+  width: 46px;
+  height: 46px;
+  border: 2px solid rgba(255, 219, 158, 0.85);
+  background: rgba(177, 110, 48, 0.88);
+  box-shadow: 0 0 18px rgba(255, 194, 112, 0.22);
+  color: #fff6e6;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.spectra-spatial-spread {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.spectra-spatial-spread input[type='range'] {
+  width: 100%;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .spectra-spatial-grid {
+    width: min(100%, 340px);
+    margin-top: 7px;
+  }
+
+  .spectra-spatial-speaker {
+    width: 25px;
+    height: 25px;
+    font-size: 8px;
+  }
+
+  .spectra-spatial-puck {
+    width: 42px;
+    height: 42px;
+    font-size: 7px;
+  }
+}
+
+/* Spectra console mute / solo state */
+.mixer-strip .mixer-toggle-active {
+  border-color: rgba(255, 215, 151, 0.72);
+  background: rgba(177, 110, 48, 0.78);
+  color: #fff5e5;
+}
+
+.mixer-strip-muted {
+  opacity: 0.72;
+}
+
+.mixer-strip-muted strong {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.mixer-strip-solo {
+  box-shadow: inset 0 0 0 1px rgba(255, 215, 151, 0.38);
+}
+
+.spectra-mix-state {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.spectra-mix-state button {
+  flex: 1 1 0;
+  min-height: 32px;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.spectra-mix-state button:disabled {
+  opacity: 0.42;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .spectra-mix-state {
+    gap: 4px;
+  }
+
+  .spectra-mix-state button {
+    min-height: 34px;
+    font-size: 8px;
+  }
+}

@@ -1,5 +1,6 @@
 import { AMPS, BASSES, DRUM_KITS, GUITARS, MICS, PROCESSORS, SYNTHS, gearById } from './gear.js';
 import { studioSessionById } from './sessionCatalog.js';
+import { normalizeSpatialPosition } from './SpectraSpatialLayout.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -16,13 +17,89 @@ const DEFAULT_SETUP = {
 };
 
 export const DEFAULT_STEMS = [
-  { id: 'drums', label: 'Drums', kind: 'drums', level: 0.76, pan: 0, mute: false },
-  { id: 'bass', label: 'Bass', kind: 'bass', level: 0.7, pan: 0, mute: false },
-  { id: 'guitar', label: 'Guitar', kind: 'guitar', level: 0.56, pan: -0.18, mute: false },
-  { id: 'synth', label: 'Synth / Keys', kind: 'synth', level: 0.58, pan: 0.18, mute: false },
+  {
+    id: 'input-drum-machine',
+    label: 'Drum Machine',
+    kind: 'drums',
+    inputKey: 'drum-machine',
+    level: 0.72,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-drum-kit',
+    label: 'Drum Kit',
+    kind: 'drums',
+    inputKey: 'drum-kit',
+    level: 0.74,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-synth',
+    label: 'Synth',
+    kind: 'synth',
+    inputKey: 'synth',
+    level: 0.74,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-modular',
+    label: 'Modular Synth',
+    kind: 'synth',
+    inputKey: 'modular',
+    level: 0.66,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-guitar',
+    label: 'Guitar',
+    kind: 'guitar',
+    inputKey: 'guitar',
+    level: 0.64,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-piano',
+    label: 'Piano',
+    kind: 'keys',
+    inputKey: 'piano',
+    level: 0.66,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
+  {
+    id: 'input-vocal',
+    label: 'Vocal',
+    kind: 'vocal',
+    inputKey: 'vocal',
+    level: 0.72,
+    pan: 0,
+    mute: false,
+    monitor: true,
+    recordArm: false,
+  },
 ];
 
 export const DANCE_SHOES_STEMS = studioSessionById('dance-shoes').stems;
+
+const LOOP_BAR_OPTIONS = [1, 2, 4, 8, 16];
+const QUANTIZE_OPTIONS = ['1/4', '1/8', '1/16'];
 
 const normalizePerformance = (performance) => {
   if (!performance || typeof performance !== 'object' || !Array.isArray(performance.events)) {
@@ -49,6 +126,13 @@ const normalizePerformance = (performance) => {
   };
 };
 
+const normalizeFxSettings = (settings = {}) => ({
+  reverbSize: clamp(Number(settings?.reverbSize ?? 0.55), 0, 1),
+  reverbDamping: clamp(Number(settings?.reverbDamping ?? 0.35), 0, 1),
+  delayTime: clamp(Number(settings?.delayTime ?? 0.25), 0.05, 1.2),
+  delayFeedback: clamp(Number(settings?.delayFeedback ?? 0.3), 0, 0.82),
+});
+
 const normalizeStem = (stem, index) => ({
   id: typeof stem.id === 'string' ? stem.id.slice(0, 48) : `stem-${index}`,
   label: typeof stem.label === 'string' ? stem.label.slice(0, 64) : `Stem ${index + 1}`,
@@ -57,9 +141,32 @@ const normalizeStem = (stem, index) => ({
   pan: clamp(Number(stem.pan) || 0, -1, 1),
   low: clamp(Number(stem.low) || 0, -1, 1),
   high: clamp(Number(stem.high) || 0, -1, 1),
+  // Preserve the old single FX value as a migration source, but expose independent sends.
+  fx: clamp(Number(stem.fx) || 0, 0, 1),
+  reverb: clamp(Number(stem.reverb ?? (Number(stem.fx) || 0) * 0.55) || 0, 0, 1),
+  delay: clamp(Number(stem.delay ?? stem.fx) || 0, 0, 1),
+  fxSettings: normalizeFxSettings(stem.fxSettings),
   mute: stem.mute === true,
   solo: stem.solo === true,
+  monitor: stem.monitor !== false,
+  recordArm: stem.recordArm === true,
+  inputKey: typeof stem.inputKey === 'string' ? stem.inputKey.slice(0, 32) : null,
+  clipActive: stem.clipActive !== false,
+  clipStart: clamp(Number(stem.clipStart) || 0, 0, 120),
+  sourceOffset: clamp(Number(stem.sourceOffset) || 0, 0, 600),
+  sourceDuration: clamp(Number(stem.sourceDuration) || 0, 0, 600),
+  vocalRawDuration: clamp(Number(stem.vocalRawDuration) || 0, 0, 600),
+  vocalPcmDuration: clamp(Number(stem.vocalPcmDuration) || 0, 0, 600),
+  vocalPcmPeak: clamp(Number(stem.vocalPcmPeak) || 0, 0, 1),
+  vocalPcmRms: clamp(Number(stem.vocalPcmRms) || 0, 0, 1),
+  vocalCaptureMode:
+    typeof stem.vocalCaptureMode === 'string' ? stem.vocalCaptureMode.slice(0, 32) : null,
+  spatial: normalizeSpatialPosition(stem.spatial),
   assetId: typeof stem.assetId === 'string' ? stem.assetId.slice(0, 64) : null,
+  renderedAudio: stem.renderedAudio === true,
+  renderedAudioAt: Number.isFinite(Number(stem.renderedAudioAt))
+    ? Math.max(0, Number(stem.renderedAudioAt))
+    : null,
   source: typeof stem.source === 'string' ? stem.source.slice(0, 100) : 'session',
   performance: normalizePerformance(stem.performance),
   processing:
@@ -74,12 +181,29 @@ const normalizeStem = (stem, index) => ({
       : null,
 });
 
+const LEGACY_PROTOTYPE_IDS = ['drums', 'bass', 'guitar', 'synth'];
+
 const isUntouchedPrototype = (value = {}) => {
   if (Math.floor(Number(value.takeCounter) || 0) !== 0) return false;
-  if (value.name && value.name !== 'Breakglass Session') return false;
-  if (!Array.isArray(value.stems) || value.stems.length !== DEFAULT_STEMS.length)
-    return !value.stems;
-  return value.stems.every((stem, index) => stem?.id === DEFAULT_STEMS[index].id && !stem?.assetId);
+  if (!Array.isArray(value.stems)) return true;
+  if (value.stems.length !== LEGACY_PROTOTYPE_IDS.length) return false;
+  return value.stems.every(
+    (stem, index) =>
+      stem?.id === LEGACY_PROTOTYPE_IDS[index] && !stem?.assetId && !stem?.performance,
+  );
+};
+
+const isLegacyAutoTemplate = (value = {}, template = null) => {
+  if (!template || value.project === true || Math.floor(Number(value.takeCounter) || 0) !== 0)
+    return false;
+  if (value.name !== template.name || !Array.isArray(value.stems)) return false;
+  if (value.stems.length !== template.stems.length) return false;
+  return value.stems.every(
+    (stem, index) =>
+      stem?.id === template.stems[index]?.id &&
+      stem?.assetId === template.stems[index]?.assetId &&
+      !stem?.performance,
+  );
 };
 
 export function normalizeStudioSession(value = {}) {
@@ -93,37 +217,114 @@ export function normalizeStudioSession(value = {}) {
   setup.eq = gearById(PROCESSORS.eq, setup.eq).id;
   setup.compressor = gearById(PROCESSORS.compressor, setup.compressor).id;
 
-  const defaultTemplate = studioSessionById('dance-shoes');
-  const upgrade = isUntouchedPrototype(value);
+  const legacyTemplate = studioSessionById('dance-shoes');
+  const upgrade = isUntouchedPrototype(value) || isLegacyAutoTemplate(value, legacyTemplate);
+  const isProject = value.project === true;
   const sourceStems = upgrade
-    ? defaultTemplate.stems
-    : Array.isArray(value.stems) && value.stems.length
+    ? DEFAULT_STEMS
+    : Array.isArray(value.stems) && (value.stems.length || isProject)
       ? value.stems
-      : defaultTemplate.stems;
-  const stems = sourceStems.slice(0, 12).map(normalizeStem);
+      : DEFAULT_STEMS;
+  const legacyFiveInputIds = [
+    'input-drum-machine',
+    'input-drum-kit',
+    'input-synth',
+    'input-guitar',
+    'input-piano',
+  ];
+  const restoreMissingModular =
+    !sourceStems.some((stem) => stem?.inputKey === 'modular' || stem?.id === 'input-modular') &&
+    legacyFiveInputIds.every((id) => sourceStems.some((stem) => stem?.id === id));
+  const migratedSourceStems = restoreMissingModular
+    ? sourceStems.flatMap((stem) =>
+        stem?.id === 'input-synth'
+          ? [
+              stem,
+              {
+                id: 'input-modular',
+                label: 'Modular Synth',
+                kind: 'synth',
+                inputKey: 'modular',
+                level: 0.66,
+                pan: 0,
+                mute: false,
+                monitor: true,
+                recordArm: false,
+              },
+            ]
+          : [stem],
+      )
+    : sourceStems;
+  const legacySixInputIds = [
+    'input-drum-machine',
+    'input-drum-kit',
+    'input-synth',
+    'input-modular',
+    'input-guitar',
+    'input-piano',
+  ];
+  const inputVersion = Math.max(0, Math.floor(Number(value.inputVersion) || 0));
+  const restoreMissingVocal =
+    inputVersion < 2 &&
+    !migratedSourceStems.some((stem) => stem?.inputKey === 'vocal' || stem?.id === 'input-vocal') &&
+    legacySixInputIds.every((id) => migratedSourceStems.some((stem) => stem?.id === id));
+  const versionedSourceStems = restoreMissingVocal
+    ? [
+        ...migratedSourceStems,
+        {
+          id: 'input-vocal',
+          label: 'Vocal',
+          kind: 'vocal',
+          inputKey: 'vocal',
+          level: 0.72,
+          pan: 0,
+          mute: false,
+          monitor: true,
+          recordArm: false,
+        },
+      ]
+    : migratedSourceStems;
+  const stems = versionedSourceStems.slice(0, 12).map(normalizeStem);
 
   return {
+    project: isProject,
+    inputVersion: 2,
     name: upgrade
-      ? defaultTemplate.name
+      ? 'Spectra Session'
       : typeof value.name === 'string' && value.name.trim()
         ? value.name.trim().slice(0, 64)
-        : defaultTemplate.name,
-    bpm: clamp(Number(value.bpm) || defaultTemplate.bpm, 50, 220),
+        : 'Spectra Session',
+    bpm: clamp(Number(value.bpm) || 118, 50, 220),
     setup,
     stems,
     takeCounter: Math.max(0, Math.floor(Number(value.takeCounter) || 0)),
+    loopEnabled: value.loopEnabled === true,
+    loopBars: LOOP_BAR_OPTIONS.includes(Number(value.loopBars)) ? Number(value.loopBars) : 4,
+    quantize: QUANTIZE_OPTIONS.includes(value.quantize) ? value.quantize : '1/16',
+    swing: clamp(Number(value.swing) || 0, 0, 0.45),
+    clickEnabled: value.clickEnabled === true,
   };
 }
 
 export class StudioSession {
   constructor(value) {
     const normalized = normalizeStudioSession(value);
+    this.project = normalized.project;
+    this.inputVersion = normalized.inputVersion;
     this.name = normalized.name;
     this.bpm = normalized.bpm;
     this.setup = normalized.setup;
     this.stems = normalized.stems;
     this.takeCounter = normalized.takeCounter;
+    this.loopEnabled = normalized.loopEnabled;
+    this.loopBars = normalized.loopBars;
+    this.quantize = normalized.quantize;
+    this.swing = normalized.swing;
+    this.clickEnabled = normalized.clickEnabled;
     this.recordings = new Map();
+    this.recordingBlobs = new Map();
+    this._soloMuteSnapshot = null;
+    this.syncSoloMuteState();
   }
 
   select(group, id) {
@@ -144,15 +345,102 @@ export class StudioSession {
     return item;
   }
 
+  replace(value = {}) {
+    const normalized = normalizeStudioSession(value);
+    this.project = normalized.project;
+    this.inputVersion = normalized.inputVersion;
+    this.name = normalized.name;
+    this.bpm = normalized.bpm;
+    this.setup = normalized.setup;
+    this.stems = normalized.stems;
+    this.takeCounter = normalized.takeCounter;
+    this.loopEnabled = normalized.loopEnabled;
+    this.loopBars = normalized.loopBars;
+    this.quantize = normalized.quantize;
+    this.swing = normalized.swing;
+    this.clickEnabled = normalized.clickEnabled;
+    this.recordings.clear();
+    this.recordingBlobs.clear();
+    this._soloMuteSnapshot = null;
+    this.syncSoloMuteState();
+    return this;
+  }
+
+  newProject(name = 'Untitled Spectra Session', bpm = 118) {
+    return this.replace({
+      project: true,
+      inputVersion: 2,
+      name,
+      bpm,
+      stems: DEFAULT_STEMS.map((stem) => ({ ...stem })),
+      takeCounter: 0,
+      loopEnabled: true,
+      loopBars: 4,
+      quantize: '1/16',
+      swing: 0,
+      setup: { ...this.setup },
+    });
+  }
+
   loadTemplate(id) {
     const template = studioSessionById(id);
     if (!template) return false;
+    this.project = false;
     this.name = template.name;
     this.bpm = template.bpm;
     this.stems = template.stems.map((stem, index) => normalizeStem(stem, index));
     this.takeCounter = 0;
     this.recordings.clear();
+    this.recordingBlobs.clear();
+    this._soloMuteSnapshot = null;
+    this.syncSoloMuteState();
     return template;
+  }
+
+  addInputTrack(inputKey, label = null) {
+    const definitions = {
+      'drum-machine': { label: 'Drum Machine', kind: 'drums', level: 0.72 },
+      'drum-kit': { label: 'Drum Kit', kind: 'drums', level: 0.74 },
+      synth: { label: 'Synth', kind: 'synth', level: 0.74 },
+      modular: { label: 'Modular Synth', kind: 'synth', level: 0.66 },
+      guitar: { label: 'Guitar', kind: 'guitar', level: 0.64 },
+      piano: { label: 'Piano', kind: 'keys', level: 0.66 },
+      vocal: { label: 'Vocal', kind: 'vocal', level: 0.72 },
+    };
+    const definition = definitions[inputKey];
+    if (!definition || this.stems.length >= 12) return null;
+
+    const siblingCount = this.stems.filter((stem) => stem.inputKey === inputKey).length;
+    const number = siblingCount + 1;
+    this.takeCounter += 1;
+    const stem = normalizeStem(
+      {
+        id: `input-${inputKey}-${this.takeCounter}`,
+        label: label || `${definition.label} ${number}`,
+        kind: definition.kind,
+        inputKey,
+        level: definition.level,
+        pan: 0,
+        low: 0,
+        high: 0,
+        fx: 0,
+        reverb: 0,
+        delay: 0,
+        fxSettings: normalizeFxSettings(),
+        mute: false,
+        solo: false,
+        monitor: true,
+        recordArm: false,
+        clipActive: true,
+        clipStart: 0,
+        sourceOffset: 0,
+        sourceDuration: 0,
+        source: 'spectra-input-track',
+      },
+      this.stems.length,
+    );
+    this.stems.push(stem);
+    return stem;
   }
 
   addTake(kind, label, source = 'gameplay', processing = null) {
@@ -166,8 +454,17 @@ export class StudioSession {
       pan: 0,
       low: 0,
       high: 0,
+      fx: 0,
+      reverb: 0,
+      delay: 0,
+      fxSettings: normalizeFxSettings(),
       mute: false,
       solo: false,
+      clipActive: true,
+      clipStart: 0,
+      sourceOffset: 0,
+      sourceDuration: 0,
+      spatial: normalizeSpatialPosition(),
       assetId: null,
       source,
       performance: null,
@@ -178,8 +475,17 @@ export class StudioSession {
     return stem;
   }
 
-  attachRecording(stemId, audioBuffer) {
+  attachRecording(stemId, audioBuffer, blob = null) {
     if (audioBuffer) this.recordings.set(stemId, audioBuffer);
+    if (blob) this.recordingBlobs.set(stemId, blob);
+  }
+
+  replaceRecording(stemId, audioBuffer = null, blob = null) {
+    this.recordings.delete(stemId);
+    this.recordingBlobs.delete(stemId);
+    if (audioBuffer) this.recordings.set(stemId, audioBuffer);
+    if (blob) this.recordingBlobs.set(stemId, blob);
+    return !!(audioBuffer || blob);
   }
 
   attachPerformance(stemId, performance) {
@@ -210,9 +516,89 @@ export class StudioSession {
     return true;
   }
 
+  setFx(id, value) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    const send = clamp(Number(value) || 0, 0, 1);
+    stem.fx = send;
+    stem.delay = send;
+    stem.reverb = send * 0.55;
+    return true;
+  }
+
+  setReverb(id, value) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.reverb = clamp(Number(value) || 0, 0, 1);
+    return true;
+  }
+
+  setDelay(id, value) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.delay = clamp(Number(value) || 0, 0, 1);
+    return true;
+  }
+
+  setFxParam(id, parameter, value) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.fxSettings = normalizeFxSettings(stem.fxSettings);
+    const ranges = {
+      reverbSize: [0, 1],
+      reverbDamping: [0, 1],
+      delayTime: [0.05, 1.2],
+      delayFeedback: [0, 0.82],
+    };
+    const range = ranges[parameter];
+    if (!range) return false;
+    stem.fxSettings[parameter] = clamp(Number(value) || 0, range[0], range[1]);
+    return stem.fxSettings[parameter];
+  }
+
+  muteState(id) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    if (this._soloMuteSnapshot?.has(stem.id)) return this._soloMuteSnapshot.get(stem.id);
+    return stem.mute === true;
+  }
+
+  syncSoloMuteState() {
+    const hasSolo = this.stems.some((stem) => stem.solo === true);
+    if (hasSolo) {
+      if (!this._soloMuteSnapshot) {
+        this._soloMuteSnapshot = new Map(this.stems.map((stem) => [stem.id, stem.mute === true]));
+      } else {
+        for (const stem of this.stems) {
+          if (!this._soloMuteSnapshot.has(stem.id)) {
+            this._soloMuteSnapshot.set(stem.id, stem.mute === true);
+          }
+        }
+      }
+      for (const stem of this.stems) stem.mute = stem.solo !== true;
+      return true;
+    }
+
+    if (this._soloMuteSnapshot) {
+      for (const stem of this.stems) {
+        if (this._soloMuteSnapshot.has(stem.id)) {
+          stem.mute = this._soloMuteSnapshot.get(stem.id) === true;
+        }
+      }
+      this._soloMuteSnapshot = null;
+    }
+    return false;
+  }
+
   toggleMute(id) {
     const stem = this.stems.find((item) => item.id === id);
     if (!stem) return false;
+    if (this._soloMuteSnapshot) {
+      const next = !(this._soloMuteSnapshot.get(stem.id) === true);
+      this._soloMuteSnapshot.set(stem.id, next);
+      stem.mute = stem.solo !== true;
+      return next;
+    }
     stem.mute = !stem.mute;
     return stem.mute;
   }
@@ -221,22 +607,63 @@ export class StudioSession {
     const stem = this.stems.find((item) => item.id === id);
     if (!stem) return false;
     stem.solo = !stem.solo;
+    this.syncSoloMuteState();
     return stem.solo;
+  }
+
+  clearSolos() {
+    for (const stem of this.stems) stem.solo = false;
+    this.syncSoloMuteState();
+    return true;
+  }
+
+  removeTrack(id) {
+    const index = this.stems.findIndex((item) => item.id === id);
+    if (index < 0) return null;
+    const [removed] = this.stems.splice(index, 1);
+    this.recordings.delete(id);
+    this.recordingBlobs.delete(id);
+    this._soloMuteSnapshot?.delete?.(id);
+    this.syncSoloMuteState();
+    return removed;
+  }
+
+  toggleRecordArm(id) {
+    const stem = this.stems.find((item) => item.id === id);
+    if (!stem) return false;
+    stem.recordArm = !stem.recordArm;
+    stem.monitor = true;
+    return stem.recordArm;
+  }
+
+  armedStems() {
+    return this.stems.filter((stem) => stem.recordArm === true);
   }
 
   snapshot() {
     return {
+      project: this.project === true,
+      inputVersion: 2,
       name: this.name,
       bpm: this.bpm,
       setup: { ...this.setup },
       stems: this.stems.map((stem) => ({
         ...stem,
+        mute: this._soloMuteSnapshot?.has(stem.id)
+          ? this._soloMuteSnapshot.get(stem.id) === true
+          : stem.mute === true,
         performance: stem.performance
           ? { ...stem.performance, events: stem.performance.events.map((event) => ({ ...event })) }
           : null,
         processing: stem.processing ? { ...stem.processing } : null,
+        fxSettings: stem.fxSettings ? { ...stem.fxSettings } : normalizeFxSettings(),
       })),
       takeCounter: this.takeCounter,
+      loopEnabled: this.loopEnabled === true,
+      loopBars: LOOP_BAR_OPTIONS.includes(Number(this.loopBars)) ? Number(this.loopBars) : 4,
+      quantize: QUANTIZE_OPTIONS.includes(this.quantize) ? this.quantize : '1/16',
+      swing: clamp(Number(this.swing) || 0, 0, 0.45),
+      clickEnabled: this.clickEnabled === true,
     };
   }
 }

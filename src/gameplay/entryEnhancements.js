@@ -5,6 +5,12 @@ export function installEntryEnhancements(game, ui) {
   game._entryEnhancementsInstalled = true;
 
   const bouncer = game.crowdDoor?.bouncer;
+  const entranceUnlocked = () => game.state?.data?.clubEntranceUnlocked === true;
+  const rememberEntranceUnlock = () => {
+    if (!game.state?.data) return;
+    game.state.data.clubEntranceUnlocked = true;
+    game.save?.();
+  };
   if (bouncer && !bouncer._securityGateInstalled) {
     bouncer._securityGateInstalled = true;
     const baseHandle = bouncer.handle.bind(bouncer);
@@ -15,26 +21,59 @@ export function installEntryEnhancements(game, ui) {
     bouncer.enter = () => {
       bouncer.admitted = true;
       bouncer.waitUntil = 0;
+      rememberEntranceUnlock();
       ui.panel(
         'DOOR · CLEARED BY SECURITY',
-        'Security gives you the nod. You are cleared to use the club entrance now.',
+        'Sam gives you the nod. You are cleared to use the club entrance now.',
         [],
       );
-      ui.warning?.('Security cleared you. Use the entrance door to go inside.');
+      ui.warning?.('Sam cleared you. Use the entrance door to go inside.');
     };
 
     bouncer.handle = (target) => {
       if (game.sceneManager.current?.definition?.id !== ENTRY_SCENE_ID) return false;
+
+      const isSam = target?.npcId === 'sam' || target?.id === 'sam';
       const isDoor = target?.id === 'clubDoor' || target?.target === 'downstairs@alley';
+
+      // God Mode is an unconditional access override. The club entrance must behave like every
+      // other unlocked door: using the door goes straight inside, with no Sam/guestlist/security
+      // prerequisite. Talking to Sam remains optional and falls through to his normal dialogue.
+      if (game.godMode === true) {
+        if (isDoor) {
+          bouncer.admitted = true;
+          bouncer.waitUntil = 0;
+          game.sceneManager.request('downstairs@alley');
+          return true;
+        }
+        if (isSam) return false;
+      }
+
+      // Sam is the named security character at the alley entrance. The lower-level door system
+      // historically looked for an anonymous `bouncer` target, while the world exposes `sam`.
+      // Normalize Sam to that legacy target so talking to him actually performs the clearance
+      // flow instead of falling through to his generic dialogue.
+      if (isSam) return baseHandle({ ...target, id: 'bouncer', npcId: 'bouncer' });
+
       if (!isDoor) return baseHandle(target);
+
+      // Entrance clearance belongs to this saved player/browser, not just the current page load.
+      // Once Sam (or the alternate door route) has admitted the player, future visits should use
+      // the front door immediately without replaying the guestlist/quiz sequence.
+      if (entranceUnlocked()) {
+        bouncer.admitted = true;
+        bouncer.waitUntil = 0;
+        game.sceneManager.request('downstairs@alley');
+        return true;
+      }
 
       if (!bouncer.admitted) {
         const remaining = bouncer.remainingWait?.() ?? 0;
         ui.panel(
           remaining > 0 ? 'DOOR · WAIT IN THE ALLEY' : 'DOOR · SECURITY FIRST',
           remaining > 0
-            ? `Security told you to wait. You can try talking to them again in about ${remaining} seconds.`
-            : 'The entrance is controlled by security. Talk to the bouncer before trying to go inside.',
+            ? `Sam told you to wait. You can try talking to him again in about ${remaining} seconds.`
+            : 'The entrance is controlled by security. Talk to Sam beside the door before trying to go inside.',
           [],
         );
         return true;
@@ -48,9 +87,17 @@ export function installEntryEnhancements(game, ui) {
   const baseInitialize = game.initialize.bind(game);
   game.initialize = async (...args) => {
     bouncer?.reset?.();
+    if (bouncer && entranceUnlocked()) {
+      bouncer.admitted = true;
+      bouncer.waitUntil = 0;
+    }
     const sceneManager = game.sceneManager;
     const originalStart = sceneManager.start.bind(sceneManager);
-    sceneManager.start = () => originalStart(ENTRY_SCENE_ID, null);
+    const invitationEntry = game.invitation?.entry;
+    sceneManager.start = () =>
+      invitationEntry?.sceneId
+        ? originalStart(invitationEntry.sceneId, invitationEntry.position ?? null)
+        : originalStart(ENTRY_SCENE_ID, null);
     try {
       return await baseInitialize(...args);
     } finally {

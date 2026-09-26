@@ -26,6 +26,7 @@ import { KeyboardPerformance } from '../studio/KeyboardPerformance.js';
 import { PhotoSystem } from '../photos/PhotoSystem.js';
 import { InteractionSystem } from '../interactions/InteractionSystem.js';
 import { createActions } from '../interactions/createActions.js';
+import { DEVIN_ARCADE_GUIDE } from '../world/belowClubConfig.js';
 
 /** Composition root. Systems communicate via explicit references and callbacks. */
 export class Game {
@@ -39,6 +40,9 @@ export class Game {
     this.fps = 60;
     this.evacuationStarted = false;
     this.lastPoliceVisits = 0;
+    this.localAudioPriorityKey = '';
+    this.lastStudioUiFrame = 0;
+    this.mobileStudioLowPower = false;
     let storage = options.storage;
     if (!('storage' in options)) {
       try {
@@ -47,7 +51,7 @@ export class Game {
         /* Restricted browsers still play. */
       }
     }
-    this.state = new GameState(storage, (message) => ui.warning(message));
+    this.state = new GameState(storage, (message) => ui.warning(message), options.saveKey);
     ui.setAvatarProfile?.(this.state.data.avatar);
     this.assets = new AssetLoader(assetManifest, {
       baseUrl: new URL(import.meta.env.BASE_URL, document.baseURI).href,
@@ -83,12 +87,54 @@ export class Game {
     this.input.bindCamera(this.renderer.domElement);
     this.input.bindTouchControls(document);
 
-    // iOS/Safari may suspend WebAudio until a direct gesture. Capture every genuine gameplay
-    // gesture until the one shared context is running so instruments, DJ decks and cabinet SFX
-    // do not silently fail after the title gate has already been dismissed.
+    // The panel X is also an exit from any modal instrument/performance surface. Without this,
+    // mobile CSS can disappear while KeyboardPerformance remains active, leaving movement and
+    // ACTION input suppressed by the game loop.
+    ui.onPanelClose = () => {
+      if (this.keyboardPerformance?.active || this.keyboardPerformance?.recording) {
+        this.keyboardPerformance.stop(false);
+      }
+      this.input.clear();
+    };
+
+    this.audioPlaybackRecoveryPending = false;
+    this.audioPlaybackResumePromise = null;
+    this.prepareAudioPlaybackForBackground = () => {
+      const houseDjWasPlaying = this.partyLife?.houseDj?.prepareForBackground?.() === true;
+      const playerDjWasPlaying = this.dj.prepareForBackground?.() === true;
+      this.audioPlaybackRecoveryPending = houseDjWasPlaying || playerDjWasPlaying;
+      return this.audioPlaybackRecoveryPending;
+    };
+    this.resumeAudioPlayback = () => {
+      if (this.audioPlaybackResumePromise) return this.audioPlaybackResumePromise;
+      this.audioPlaybackResumePromise = (async () => {
+        const deviceRecovered = await this.audio.resume();
+        if (this.audio.context?.state !== 'running') return false;
+
+        const houseDj = this.partyLife?.houseDj;
+        if (houseDj?.backgroundSnapshot) await houseDj.recoverAfterBackground?.();
+        if (this.dj.backgroundSnapshot?.length) await this.dj.recoverAfterBackground?.();
+
+        this.audioPlaybackRecoveryPending = Boolean(
+          houseDj?.backgroundSnapshot || this.dj.backgroundSnapshot?.length,
+        );
+        return deviceRecovered !== false && !this.audioPlaybackRecoveryPending;
+      })().finally(() => {
+        this.audioPlaybackResumePromise = null;
+      });
+      return this.audioPlaybackResumePromise;
+    };
+
+    // iOS/Safari can revive the AudioContext but leave old AudioBufferSourceNodes silent. Capture
+    // every genuine gameplay gesture until both the device and the recreated playback transports
+    // are running again.
     this.onAudioGesture = () => {
-      if (this.audio.context?.state === 'running') return;
-      void this.audio.init().catch(() => {});
+      const recoveryPending =
+        this.audioPlaybackRecoveryPending ||
+        this.audio._nativeMediaResumePending === true ||
+        this.audio._contextResumePending === true;
+      if (this.audio.context?.state === 'running' && !recoveryPending) return;
+      void this.resumeAudioPlayback().catch(() => {});
     };
     window.addEventListener('pointerdown', this.onAudioGesture, true);
     window.addEventListener('touchend', this.onAudioGesture, true);
@@ -110,6 +156,7 @@ export class Game {
       this.keyboardPerformance.stop(false);
       this.studioPlayback.stop();
       this.dj.stop();
+      this.partyLife?.houseDj?.stopHouseAudio?.(0);
       this.audio.stop();
       this.micRecorder.cancel();
     };
@@ -144,6 +191,7 @@ export class Game {
       },
       onEnter: (level) => {
         this.syncMaddoxPresence(level, { entered: true });
+        level.progressionGates?.sync?.(this.state.data);
         this.interactions.setLevel(level);
         this.camera.configure(
           level.definition.cameraOffset,
@@ -179,12 +227,14 @@ export class Game {
     this.lightingControl = new LightingControlSystem({
       ui,
       sceneManager: this.sceneManager,
+      audio: this.audio,
     });
 
     this.maddoxInteraction = new MaddoxInteractionSystem({
       state: this.state,
       ui,
       sceneManager: this.sceneManager,
+      audio: this.audio,
       saveState: () => this.save(),
     });
 
@@ -192,6 +242,100 @@ export class Game {
       ui,
       sceneManager: this.sceneManager,
     });
+
+    const openDevinDialogue = () => {
+      const level = this.sceneManager.current;
+      if (level?.definition?.id !== 'downstairs') return false;
+      const dialogue = level.npcs?.dialogue?.('devin');
+      if (!dialogue) return false;
+      this.state.meet('devin');
+      this.save();
+      ui.panel(dialogue.title, dialogue.text, [
+        [dialogue.soundPrompt, () => ui.panel('DEVIN · SYSTEM WALK', dialogue.soundText, [])],
+        [
+          dialogue.arcadePrompt,
+          () => {
+            this.player.spawn(DEVIN_ARCADE_GUIDE.player, level.collision);
+            const devin = level.npcs?.get?.('devin');
+            if (devin?.group) {
+              devin.group.position.fromArray(DEVIN_ARCADE_GUIDE.npc);
+              devin.group.rotation.y = Math.atan2(
+                this.player.position.x - devin.group.position.x,
+                this.player.position.z - devin.group.position.z,
+              );
+            }
+            ui.panel('DEVIN · OLD ARCADE GAMES', dialogue.arcadeText, [
+              [
+                'Play Mortal Kombat II',
+                () => {
+                  this.stopAll();
+                  this.arcade.start();
+                },
+              ],
+            ]);
+          },
+        ],
+        [
+          dialogue.takeCandyPrompt,
+          () => {
+            const candy = Math.max(0, Math.floor(Number(this.state.data.candy) || 0));
+            if (candy >= 9) {
+              ui.panel('DEVIN · CANDY', 'Your pockets are already full of candy.', [
+                ['Back', openDevinDialogue],
+              ]);
+              return;
+            }
+            this.state.data.candy = candy + 1;
+            this.state.data.devinFavor = Math.min(99, (this.state.data.devinFavor || 0) + 1);
+            this.interactionProps?.receiveFromNpc?.('devin', 'candy', { consume: false });
+            this.save();
+            ui.panel(
+              'DEVIN · CANDY',
+              `${dialogue.takeCandyText} Candy in pocket: ${this.state.data.candy}.`,
+              [['Back', openDevinDialogue]],
+            );
+          },
+        ],
+        [
+          dialogue.giveCandyPrompt,
+          () => {
+            const candy = Math.max(0, Math.floor(Number(this.state.data.candy) || 0));
+            if (candy <= 0) {
+              ui.panel('DEVIN · CANDY', 'You check your pockets. No candy to give him yet.', [
+                ['Back', openDevinDialogue],
+              ]);
+              return;
+            }
+            this.state.data.candy = candy - 1;
+            this.state.data.devinFavor = Math.min(99, (this.state.data.devinFavor || 0) + 2);
+            this.interactionProps?.giveToNpc?.('devin', 'candy');
+            this.save();
+            ui.panel(
+              'DEVIN · CANDY',
+              `${dialogue.giveCandyText} Candy in pocket: ${this.state.data.candy}.`,
+              [['Back', openDevinDialogue]],
+            );
+          },
+        ],
+      ]);
+      return true;
+    };
+
+    const openAlleyJamesDialogue = () => {
+      const level = this.sceneManager.current;
+      const alley = level?.alley;
+      if (level?.definition?.id !== 'alley') return false;
+      if (!alley?.policePresent || alley.evacuationRequired) return false;
+      const dialogue = level.npcs?.dialogue?.('james');
+      if (!dialogue) return false;
+      this.state.meet('james');
+      this.save();
+      ui.panel(dialogue.title, dialogue.text, [
+        ['The police are here', () => this.policeResponse?.tellJames?.()],
+        ['Dance', () => this.player.dance(80 / 60)],
+      ]);
+      return true;
+    };
 
     const canAct = () => this.started && !this.sceneManager.changing && !document.hidden;
     const baseActions = createActions({
@@ -212,6 +356,18 @@ export class Game {
       canAct,
     });
     this.interactions = new InteractionSystem((target) => {
+      if (
+        target?.action === 'dialogue' &&
+        (target.npcId ?? target.id) === 'james' &&
+        openAlleyJamesDialogue()
+      )
+        return;
+      if (
+        target?.action === 'dialogue' &&
+        (target.npcId ?? target.id) === 'devin' &&
+        openDevinDialogue()
+      )
+        return;
       if (target?.action === 'arcade') {
         this.stopAll();
         this.arcade.start();
@@ -225,15 +381,18 @@ export class Game {
     }, this.state);
     this.onResize = () => {
       this.camera.resize(innerWidth, innerHeight);
-      this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      this.renderer.setPixelRatio(this.mobileStudioLowPower ? 1 : Math.min(devicePixelRatio, 2));
       this.renderer.setSize(innerWidth, innerHeight);
     };
     this.onVisibility = () => {
       this.input.clear();
-      if (document.hidden) this.keyboardPerformance.stop(false);
+      if (document.hidden) {
+        this.keyboardPerformance.stop(false);
+        this.prepareAudioPlaybackForBackground();
+      }
       this.lastTime = null;
       this.save();
-      const request = document.hidden ? this.audio.suspend() : this.audio.resume();
+      const request = document.hidden ? this.audio.suspend() : this.resumeAudioPlayback();
       request.catch((error) => ui.warning(`Audio: ${error.message}`));
     };
     this.onPageHide = () => this.save();
@@ -306,7 +465,66 @@ export class Game {
     });
   }
 
+  updateLocalAudioPriority() {
+    let owner = null;
+    let duck = 0.32;
+
+    if (this.arcade?.active) {
+      owner = 'gameplay';
+      duck = 0.16;
+    } else if (
+      this.freightElevator?.phase === 'inside' ||
+      this.freightElevator?.holdTimer != null
+    ) {
+      owner = 'gameplay';
+      duck = 0.18;
+    } else if (this.roofEndgame?.acRepairActive === true) {
+      owner = 'gameplay';
+      duck = 0.2;
+    } else if (this.djLesson?.mode === 'lesson' || this.djLesson?.mode === 'proficiency') {
+      owner = 'dj';
+      duck = 0.22;
+    } else if (this.multiplayer?.sharedMedia?.activeVideoSessionId) {
+      owner = 'video';
+      duck = 0.18;
+    } else if (this.keyboardPerformance?.active) {
+      owner = 'gameplay';
+      duck = 0.24;
+    }
+
+    const key = `${owner ?? 'none'}:${duck}`;
+    if (key === this.localAudioPriorityKey) return;
+    this.audio.setPrioritySource?.(owner, duck);
+    this.localAudioPriorityKey = key;
+  }
+
   update(now, movementOverride = null) {
+    const mobileStudioUi =
+      typeof navigator !== 'undefined' &&
+      Number(navigator.maxTouchPoints || 0) > 0 &&
+      (document.body?.classList.contains('studio-mobile-active') ||
+        document.body?.classList.contains('spectra-console-active') ||
+        document.body?.classList.contains('dj-mobile-active') ||
+        document.body?.classList.contains('performance-active') ||
+        document.body?.classList.contains('mixer-active'));
+
+    // When a studio instrument/console is covering the mobile screen, the Web Audio graph and its
+    // timers keep running independently. Cap the 3D/game loop to ~30fps so Safari has more CPU
+    // headroom for audio instead of rendering an obscured world at 60/120fps.
+    if (mobileStudioUi !== this.mobileStudioLowPower) {
+      this.mobileStudioLowPower = mobileStudioUi;
+      this.renderer.setPixelRatio(mobileStudioUi ? 1 : Math.min(devicePixelRatio, 2));
+      this.renderer.shadowMap.enabled = !mobileStudioUi;
+      this.renderer.setSize(innerWidth, innerHeight);
+    }
+
+    if (mobileStudioUi) {
+      if (this.lastStudioUiFrame && now - this.lastStudioUiFrame < 100) return;
+      this.lastStudioUiFrame = now;
+    } else {
+      this.lastStudioUiFrame = 0;
+    }
+
     const elapsed = this.lastTime == null ? 0 : (now - this.lastTime) / 1000;
     this.lastTime = now;
     const dt = Math.max(0, Math.min(0.035, elapsed));
@@ -346,11 +564,13 @@ export class Game {
       } else {
         this.input.clear();
       }
+      this.updateLocalAudioPriority();
       this.barService.update(dt);
       this.dj.update(dt);
       const currentLevel = this.sceneManager.current;
       this.syncMaddoxPresence(currentLevel);
       currentLevel.update(dt, this.audio, this.player.position);
+      this.lightingControl.update(dt);
       const alleyLevel = this.scenes.get('alley');
       if (alleyLevel && alleyLevel !== currentLevel) {
         alleyLevel.alley?.update(dt, this.audio.metrics?.() ?? { playing: this.audio.playing });
@@ -366,7 +586,8 @@ export class Game {
       }
       if (alleyState?.evacuationRequired) this.beginEvacuation();
       this.saveElapsed += dt;
-      if (this.saveElapsed >= 2) {
+      const autosaveInterval = 2;
+      if (this.saveElapsed >= autosaveInterval) {
         this.save();
         this.saveElapsed = 0;
       }
@@ -376,7 +597,7 @@ export class Game {
     this.player.object.visible = !this.camera.isFirstPerson;
     if (this.started) {
       this.spatialAudio.update(level, this.player, this.camera);
-      this.studioPlayback.updateNativeMix?.(this.studio);
+      this.studioPlayback.updateNativeMix?.(this.studioPlayback.session ?? this.studio);
     }
     this.ui.update({
       level,
@@ -417,6 +638,15 @@ export class Game {
     this.renderer.domElement.removeEventListener('webglcontextlost', this.onContextLost);
     this.arcade.dispose();
     this.input.dispose();
+    this.drumMachine?.dispose?.();
+    this.modularSynth?.dispose?.();
+    this.spectraClipEngine?.dispose?.();
+    this.spectraSpatialMixer?.dispose?.();
+    this.spectraTransport?.dispose?.();
+    this._sessionRecovery?.dispose?.();
+    this.spectraProjectStore?.dispose?.();
+    this.freightElevator?.dispose?.();
+    this.roofEndgame?.dispose?.();
     this.keyboardPerformance.dispose();
     this.micRecorder.dispose();
     this.studioPlayback.dispose();

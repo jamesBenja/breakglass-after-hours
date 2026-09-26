@@ -54,6 +54,11 @@ export class KeyboardPerformance {
     this.config = null;
     this.events = [];
     this.startedAt = 0;
+    this.spectraTransport = null;
+    this.transportOwner = 'keyboard-performance';
+    this.performanceEventSink = null;
+    this.performanceMonitor = null;
+    this.captureArmed = null;
     this.touchSurface = new TouchPerformanceSurface(document);
     this.onKeyDown = (event) => {
       if (!this.active || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
@@ -75,6 +80,59 @@ export class KeyboardPerformance {
       this.playKey(key);
     };
     target?.addEventListener?.('keydown', this.onKeyDown);
+  }
+
+  get recordingActive() {
+    if (this.recording) return true;
+    try {
+      return this.captureArmed?.() === true;
+    } catch {
+      return false;
+    }
+  }
+
+  setPerformanceEventSink(listener = null) {
+    this.performanceEventSink = typeof listener === 'function' ? listener : null;
+    return this.performanceEventSink;
+  }
+
+  setPerformanceMonitor(listener = null) {
+    this.performanceMonitor = typeof listener === 'function' ? listener : null;
+    return this.performanceMonitor;
+  }
+
+  monitorPerformanceEvent(event) {
+    if (!this.active || !this.config || !event || !this.performanceMonitor) return false;
+    try {
+      return this.performanceMonitor({ config: this.config, event }) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  setCaptureArmed(check = null) {
+    this.captureArmed = typeof check === 'function' ? check : null;
+    return this.captureArmed;
+  }
+
+  publishPerformanceEvent(event) {
+    if (!this.active || !this.config || !event || !this.performanceEventSink) return false;
+    try {
+      return (
+        this.performanceEventSink({
+          config: {
+            ...this.config,
+            processing:
+              this.config.processing && typeof this.config.processing === 'object'
+                ? { ...this.config.processing }
+                : null,
+          },
+          event: { ...event },
+        }) !== false
+      );
+    } catch {
+      return false;
+    }
   }
 
   get instructions() {
@@ -99,21 +157,39 @@ export class KeyboardPerformance {
       volume: clamp(Number(config.volume) || 0.065, 0.01, 0.22),
       duration: clamp(Number(config.duration) || 0.42, 0.06, 1.5),
       octaveLayer: config.octaveLayer === true,
+      stemKind: config.stemKind ?? config.mode ?? 'synth',
+      inputKey: config.inputKey ?? null,
+      processing:
+        config.processing && typeof config.processing === 'object'
+          ? { ...config.processing }
+          : null,
+      instrumentVoice: config.instrumentVoice,
+      ampCharacter: config.ampCharacter,
     };
     this.active = true;
     this.recording = !!record;
     this.events = [];
     this.startedAt = now();
+    if (this.recording) this.spectraTransport?.acquire?.(this.transportOwner, { position: 0 });
     this.touchSurface.show(this);
     return this.config;
   }
 
   eventTime() {
+    if (this.spectraTransport?.running) return this.spectraTransport.position();
     return Math.max(0, (now() - this.startedAt) / 1000);
   }
 
   record(event) {
-    if (this.recording) this.events.push({ time: this.eventTime(), ...event });
+    if (!this.recording) return;
+    const rawTime = this.eventTime();
+    const time = this.spectraTransport?.running
+      ? this.spectraTransport.quantizeTime(rawTime, {
+          wrap: this.spectraTransport.session?.loopEnabled === true,
+          includeSwing: true,
+        })
+      : rawTime;
+    this.events.push({ time, ...event });
   }
 
   playDrum(name) {
@@ -151,8 +227,12 @@ export class KeyboardPerformance {
   }
 
   triggerDrum(name) {
-    if (!this.active || this.config?.mode !== 'drums' || !this.playDrum(name)) return false;
+    if (!this.active || this.config?.mode !== 'drums' || !Object.values(DRUM_KEYS).includes(name))
+      return false;
+    const event = { type: 'drum', name };
+    if (!this.monitorPerformanceEvent(event) && !this.playDrum(name)) return false;
     this.record({ drum: name });
+    this.publishPerformanceEvent(event);
     return true;
   }
 
@@ -160,17 +240,21 @@ export class KeyboardPerformance {
     if (!this.active || !this.config || this.config.mode === 'drums') return false;
     const safeMidi = clamp(Math.round(Number(midi) || this.config.baseMidi), 24, 96);
     const frequency = midiToFrequency(safeMidi);
-    this.audio.tone(frequency, this.config.duration, this.config.wave, this.config.volume);
-    if (this.config.octaveLayer) {
-      this.audio.tone(
-        frequency * 2,
-        this.config.duration * 0.72,
-        'triangle',
-        this.config.volume * 0.22,
-        0.012,
-      );
+    const event = { type: 'midi', midi: safeMidi };
+    if (!this.monitorPerformanceEvent(event)) {
+      this.audio.tone(frequency, this.config.duration, this.config.wave, this.config.volume);
+      if (this.config.octaveLayer) {
+        this.audio.tone(
+          frequency * 2,
+          this.config.duration * 0.72,
+          'triangle',
+          this.config.volume * 0.22,
+          0.012,
+        );
+      }
     }
     this.record({ midi: safeMidi, frequency });
+    this.publishPerformanceEvent(event);
     return true;
   }
 
@@ -189,7 +273,14 @@ export class KeyboardPerformance {
       this.touchSurface.clear();
       return null;
     }
-    const duration = Math.max(0, (now() - this.startedAt) / 1000);
+    const duration = this.spectraTransport?.running
+      ? this.spectraTransport.session?.loopEnabled
+        ? Math.max(
+            0.25,
+            this.spectraTransport.session.loopBars * 4 * (60 / this.spectraTransport.session.bpm),
+          )
+        : Math.max(0, this.spectraTransport.position())
+      : Math.max(0, (now() - this.startedAt) / 1000);
     const take =
       returnTake && this.recording && this.config
         ? {
@@ -200,11 +291,12 @@ export class KeyboardPerformance {
             volume: this.config.volume,
             noteDuration: this.config.duration,
             octaveLayer: this.config.octaveLayer,
-            bpm: 118,
+            bpm: this.spectraTransport?.session?.bpm ?? 118,
             duration,
             events: this.events.map((event) => ({ ...event })),
           }
         : null;
+    if (this.recording) this.spectraTransport?.release?.(this.transportOwner);
     this.active = false;
     this.recording = false;
     this.config = null;

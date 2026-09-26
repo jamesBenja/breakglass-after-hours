@@ -127,12 +127,15 @@ function patchAlleySystem() {
     ensureState(this);
     this.elapsed += dt;
     this.policeCooldown = Math.max(0, this.policeCooldown - dt);
+    this.policeBustTime =
+      this.evacuationRequired || this.evacuationStarted ? (this.policeBustTime || 0) + dt : 0;
     this.updatePoliceLights();
 
     if (this.evacuationStarted) {
-      this.occupancy = Math.max(0, this.occupancy - dt * 0.95);
-      this.conversationLevel = Math.max(0.04, this.conversationLevel - dt * 0.055);
-      this.disturbance += (0.08 - this.disturbance) * (1 - Math.exp(-0.7 * dt));
+      // A shutdown moves the club crowd into the alley rather than making everybody vanish.
+      this.occupancy += (40 - this.occupancy) * (1 - Math.exp(-0.48 * dt));
+      this.conversationLevel += (0.78 - this.conversationLevel) * (1 - Math.exp(-0.34 * dt));
+      this.disturbance += (0.22 - this.disturbance) * (1 - Math.exp(-0.55 * dt));
       this.staffWarningLevel = 2;
       return;
     }

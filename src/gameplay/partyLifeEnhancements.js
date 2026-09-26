@@ -1,6 +1,7 @@
 import { Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
 import { HouseDjSystem } from './HouseDjSystem.js';
 import { LiveBandSystem } from './LiveBandSystem.js';
+import { GroupPhotoSystem } from './GroupPhotoSystem.js';
 import { PartyLifePhotoSystem, patchNpcPhotography } from './PartyLifePhotoSystem.js';
 import { levels } from '../world/levels.js';
 import { at } from '../world/upstairs/plan.js';
@@ -16,6 +17,27 @@ const offset = (position, x = 0, z = 0, y = 0) => [
 export function preparePartyLifeWorld() {
   if (prepared) return;
   prepared = true;
+
+  const downstairs = levels.downstairs;
+  if (!downstairs.npcs.some((npc) => npc.id === 'malaika')) {
+    downstairs.npcs.push({
+      id: 'malaika',
+      name: 'Malaika / DJ FLLEUR',
+      role: 'photo-hype',
+      position: [-1.75, 0, 1.55],
+      route: [
+        [-1.75, 0, 1.55],
+        [0.85, 0, 2.2],
+        [4.05, 0, -0.55],
+        [7.35, 0, 4.05],
+        [8.1, 0, 5.15],
+        [-1.75, 0, 1.55],
+      ],
+      speed: 0.58,
+      companionId: 'nora',
+      companionOffset: [0.9, 0, 0.45],
+    });
+  }
 
   const alley = levels.alley;
   if (!alley.npcs.some((npc) => npc.id === 'nora')) {
@@ -153,10 +175,15 @@ export function installPartyLifeEnhancements(game, ui) {
   patchNpcPhotography();
 
   const photos = new PartyLifePhotoSystem(game, ui);
+  const groupPhoto = new GroupPhotoSystem(game, ui, photos);
   const houseDj = new HouseDjSystem(game, ui);
   const liveBand = new LiveBandSystem(game);
   const smoking = new SmokingSystem(game, ui);
-  game.partyLife = { photos, houseDj, liveBand, smoking };
+  game.partyLife = { photos, groupPhoto, houseDj, liveBand, smoking };
+  // createActions holds the original PhotoSystem object, so expose the new social action there
+  // without coupling the core Game constructor to the later multiplayer enhancement layer.
+  game.photos.startGroupPhoto = (photographerId = 'nora') => groupPhoto.start(photographerId);
+  game.photos.joinGroupPhoto = () => groupPhoto.join();
 
   const baseInitialize = game.initialize.bind(game);
   game.initialize = async (...args) => {
@@ -170,6 +197,22 @@ export function installPartyLifeEnhancements(game, ui) {
 
   const baseDispatch = game.interactions.dispatch.bind(game.interactions);
   game.interactions.dispatch = (target) => {
+    const npcId = target?.npcId ?? target?.id;
+    if (target?.action === 'dialogue' && ['nora', 'malaika'].includes(npcId)) {
+      const isMalaika = npcId === 'malaika';
+      ui.panel(
+        isMalaika ? 'MALAIKA / DJ FLLEUR' : 'NORA · PHOTOGRAPHER',
+        isMalaika
+          ? 'Malaika is moving with Nora, hyping people into the frame and occasionally jumping into the shot herself.'
+          : 'Nora has the camera ready. Take a quick portrait or turn it into a shared group photo.',
+        [
+          ['Start group photo', () => groupPhoto.start('nora')],
+          ['Quick portrait', () => void photos.capturePortrait('nora')],
+          ['Talk', () => baseDispatch(target)],
+        ],
+      );
+      return;
+    }
     if (target?.action === 'dj' && houseDj.isHouseAudio()) {
       ui.panel(
         'DJ BOOTH · HANDOVER',
@@ -251,6 +294,7 @@ export function installPartyLifeEnhancements(game, ui) {
       liveBand.update(dt);
       smoking.update(dt);
       photos.update(dt, liveBand.center);
+      groupPhoto.update(dt);
     }
     return baseUpdate(now, movementOverride);
   };
@@ -258,6 +302,7 @@ export function installPartyLifeEnhancements(game, ui) {
   const baseDispose = game.dispose.bind(game);
   game.dispose = async () => {
     photos.dispose();
+    groupPhoto.dispose();
     houseDj.dispose();
     liveBand.dispose();
     smoking.dispose();
