@@ -1139,16 +1139,20 @@ test('scrubbing Vocal exits stale audition mode and restores every other Spectra
 
   playback.auditionStemId = vocal.id;
   playback.applyChannelAudibility(session);
-  assert.equal(playback.buses.get(other.id).hardMute.gain.value, 0);
+  assert.equal(
+    playback.frozenGates.get(other.id).gain.value,
+    0,
+    'hidden audition closes the recorded backing track source gate',
+  );
 
   vocal.sourceOffset = 0.5;
   assert.equal(playback.rebuildRecordedStemPlayback(session, vocal.id), true);
 
   assert.equal(playback.auditionStemId, null);
   assert.equal(
-    playback.buses.get(other.id).hardMute.gain.value,
+    playback.frozenGates.get(other.id).gain.value,
     1,
-    'scrubbing Vocal in the mixer must not hidden-solo it or mute the backing tracks',
+    'scrubbing Vocal in the mixer must exit hidden audition and reopen the backing track',
   );
   assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
 
