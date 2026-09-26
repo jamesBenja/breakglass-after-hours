@@ -31,4 +31,7 @@ jobs:
         run: pnpm build
 
       - name: Formatting
-        run: pnpm run format:check
+        run: |
+          pnpm exec prettier --write src/studio/StudioPlayback.js
+          git diff -- src/studio/StudioPlayback.js
+          exit 1
