@@ -429,7 +429,7 @@ test('a stale asynchronous Spectra PLAY cannot overwrite a newer playback reques
   const session = new StudioSession();
   let releaseFirstLoad = null;
   let loadCalls = 0;
-  let frozenStarts = 0;
+  const frozenStarts = [];
 
   playback.startBlobRecordings = () => Promise.resolve(0);
   playback.loadAlignedAssets = async () => {
@@ -442,26 +442,38 @@ test('a stale asynchronous Spectra PLAY cannot overwrite a newer playback reques
     return null;
   };
   playback.startNativeAssets = async () => false;
-  playback.startFrozenRecordings = () => {
-    frozenStarts += 1;
+  playback.startFrozenRecordings = (_session, _offset, options = {}) => {
+    frozenStarts.push(options.recordingFilter ?? 'all');
     return 0;
   };
   playback.hasEventPlayback = () => false;
 
-  const firstPlay = playback.play(session, 0, { restartTransport: true });
-  await Promise.resolve();
-  const secondPlay = playback.play(session, 0, { restartTransport: true });
-  await Promise.resolve();
-  releaseFirstLoad();
+  try {
+    const firstPlay = playback.play(session, 0, { restartTransport: true });
+    await Promise.resolve();
+    const secondPlay = playback.play(session, 0, { restartTransport: true });
+    await Promise.resolve();
+    releaseFirstLoad();
 
-  assert.equal(await secondPlay, true);
-  assert.equal(
-    await firstPlay,
-    false,
-    'older PLAY must abort after a newer request takes ownership',
-  );
-  assert.equal(frozenStarts, 1, 'only the newest PLAY may create recorded sources');
-  playback.stop();
+    assert.equal(await secondPlay, true);
+    assert.equal(
+      await firstPlay,
+      false,
+      'older PLAY must abort after a newer request takes ownership',
+    );
+    assert.equal(
+      frozenStarts.filter((stage) => stage === 'non-microphone').length,
+      1,
+      'only the newest PLAY may reach the post-await frozen-recording pass',
+    );
+    assert.equal(
+      frozenStarts.filter((stage) => stage === 'microphone').length,
+      2,
+      'each PLAY may create gesture-bound microphone playback before awaiting assets; the newer PLAY stop() retires the stale source',
+    );
+  } finally {
+    playback.stop();
+  }
 });
 
 test('Spectra creates microphone PCM playback before the first asset-loading await', async () => {
