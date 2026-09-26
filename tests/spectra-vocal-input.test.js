@@ -374,9 +374,8 @@ test('Vocal scrubber is bounded by playable PCM duration, not the longer raw fil
 
   const slider = created.find((element) => element.tag === 'input' && element.type === 'range');
   assert.ok(slider);
-  assert.equal(
-    Number(slider.max),
-    2.94,
+  assert.ok(
+    Math.abs(Number(slider.max) - 2.94) < 0.000001,
     'the scrubber must stop inside the 2.99s PCM take, never the 3.39s raw container',
   );
   assert.equal(
