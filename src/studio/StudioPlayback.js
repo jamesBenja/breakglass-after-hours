@@ -1290,8 +1290,7 @@ export class StudioPlayback {
     const minimumPlayable = Math.min(0.05, Math.max(0.01, buffer.duration * 0.05));
     const maxOffset = Math.max(0, buffer.duration - minimumPlayable);
     const requestedOffset = Math.max(0, Number(stem.sourceOffset) || 0);
-    const rawOffset =
-      requestedOffset >= buffer.duration ? 0 : Math.min(maxOffset, requestedOffset);
+    const rawOffset = requestedOffset >= buffer.duration ? 0 : Math.min(maxOffset, requestedOffset);
     const playableDuration = Math.max(minimumPlayable, buffer.duration - rawOffset);
     if (!(playableDuration > 0)) return 0;
 
