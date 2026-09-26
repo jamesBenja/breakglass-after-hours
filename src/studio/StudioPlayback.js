@@ -201,6 +201,7 @@ export class StudioPlayback {
     // Recreate this tiny route with every Vocal source so no stale Spectra channel-strip node can
     // survive a microphone hardware-route transition and silently strand the take.
     this.vocalDirectRoutes = new Map();
+    this.vocalUnexpectedEndTimers = new Map();
     this.soloFaderActive = false;
     this.rawAuditionSource = null;
     this.rawAuditionGain = null;
@@ -337,6 +338,53 @@ export class StudioPlayback {
     }
 
     return rebuilt;
+  }
+
+  clearVocalUnexpectedEndTimer(stemId = null) {
+    const ids = stemId ? [stemId] : [...this.vocalUnexpectedEndTimers.keys()];
+    for (const id of ids) {
+      const handle = this.vocalUnexpectedEndTimers.get(id);
+      if (handle != null) this.timers.clearTimeout?.(handle);
+      this.vocalUnexpectedEndTimers.delete(id);
+    }
+  }
+
+  recoverUnexpectedVocalEnd(session, stemId, buffer) {
+    const context = this.audio?.context;
+    if (!context || context.state !== 'running' || !session || !stemId || !buffer?.duration) {
+      return false;
+    }
+    if (this.session !== session || session.recordings?.get?.(stemId) !== buffer) return false;
+    const transportRunning =
+      this.spectraTransport?.running === true ||
+      this.transportUnsubscribe !== null ||
+      this.timer !== null ||
+      this.realSessionPlaying === true;
+    if (!transportRunning) return false;
+
+    this.clearVocalUnexpectedEndTimer(stemId);
+    const handle = this.timers.setTimeout?.(() => {
+      this.vocalUnexpectedEndTimers.delete(stemId);
+      if (
+        this.session !== session ||
+        session.recordings?.get?.(stemId) !== buffer ||
+        this.audio?.context?.state !== 'running'
+      ) {
+        return;
+      }
+      const now = this.audio.context.currentTime;
+      const startTime = now + 0.012;
+      const phase = this.spectraTransport?.running
+        ? this.spectraTransport.positionAtOffset(startTime - now)
+        : this.position() + (startTime - now);
+      this.startFrozenRecordings(session, phase, {
+        startTime,
+        phaseOffset: phase,
+        onlyStemId: stemId,
+      });
+    }, 0);
+    if (handle != null) this.vocalUnexpectedEndTimers.set(stemId, handle);
+    return true;
   }
 
   clearVocalDirectRoute(stemId = null) {
@@ -1251,7 +1299,10 @@ export class StudioPlayback {
 
       this.clearVocalBufferLoop(stem.id);
       const microphoneTake = isMicrophoneRecordingStem(stem);
-      if (microphoneTake) this.clearVocalDirectRoute(stem.id);
+      if (microphoneTake) {
+        this.clearVocalUnexpectedEndTimer(stem.id);
+        this.clearVocalDirectRoute(stem.id);
+      }
 
       const existing = this.frozenSources.get(stem.id);
       if (existing) {
@@ -1299,10 +1350,16 @@ export class StudioPlayback {
         source.onended = () => {
           source.disconnect?.();
           this.sources.delete(source);
-          if (this.frozenSources.get(stem.id) === source) {
+          const wasCurrent = this.frozenSources.get(stem.id) === source;
+          if (wasCurrent) {
             this.frozenSources.delete(stem.id);
             this.clearVocalDirectRoute(stem.id);
           }
+          // A looping AudioBufferSource should never end on its own. Real iPhone Safari has
+          // nevertheless produced exactly that failure after microphone capture: a tiny opening
+          // fragment, then silence. Treat any natural end of the current Vocal loop as a browser
+          // playback failure and immediately rebuild only this Vocal against the live transport.
+          if (wasCurrent) this.recoverUnexpectedVocalEnd(session, stem.id, buffer);
         };
 
         this.sources.add(source);
@@ -2044,6 +2101,7 @@ export class StudioPlayback {
     if (!stemId) return false;
 
     this.clearVocalBufferLoop(stemId);
+    this.clearVocalUnexpectedEndTimer(stemId);
     this.clearVocalDirectRoute(stemId);
 
     const frozen = this.frozenSources.get(stemId);
@@ -2125,6 +2183,7 @@ export class StudioPlayback {
     this.sources.clear();
     this.frozenSources.clear();
     this.clearVocalBufferLoop();
+    this.clearVocalUnexpectedEndTimer();
     this.clearVocalDirectRoute();
     for (const gate of this.frozenGates.values()) gate.disconnect?.();
     this.frozenGates.clear();
