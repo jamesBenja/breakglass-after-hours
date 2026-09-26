@@ -114,6 +114,47 @@ function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
 
   return loopBuffer;
 }
+
+function rotateLoopBufferToPhase(context, buffer, phaseSeconds = 0) {
+  if (
+    !context?.createBuffer ||
+    !buffer?.duration ||
+    !buffer?.length ||
+    !buffer?.numberOfChannels ||
+    !buffer?.getChannelData
+  ) {
+    return buffer ?? null;
+  }
+
+  const duration = Math.max(0, Number(buffer.duration) || 0);
+  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
+  const frames = Math.max(1, Math.floor(Number(buffer.length) || duration * sampleRate));
+  const phase =
+    duration > 0
+      ? ((Math.max(0, Number(phaseSeconds) || 0) % duration) + duration) % duration
+      : 0;
+  const phaseFrame = Math.min(frames - 1, Math.max(0, Math.floor(phase * sampleRate)));
+
+  // A zero phase already has the desired layout. Avoid an unnecessary allocation.
+  if (phaseFrame === 0) return buffer;
+
+  let rotated = null;
+  try {
+    rotated = context.createBuffer(buffer.numberOfChannels, frames, sampleRate);
+  } catch {
+    return buffer;
+  }
+
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const source = buffer.getChannelData(channel);
+    const target = rotated.getChannelData(channel);
+    const tail = source.subarray(phaseFrame);
+    target.set(tail, 0);
+    target.set(source.subarray(0, phaseFrame), tail.length);
+  }
+
+  return rotated;
+}
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -1239,10 +1280,15 @@ export class StudioPlayback {
         const vocalLoopBuffer = buildVocalLoopBuffer(context, stem, buffer, loopDuration);
         if (!vocalLoopBuffer?.duration) continue;
 
-        source.buffer = vocalLoopBuffer;
+        const phaseInLoop =
+          ((Math.max(0, Number(phase) || 0) % vocalLoopBuffer.duration) +
+            vocalLoopBuffer.duration) %
+          vocalLoopBuffer.duration;
+        const phaseAlignedLoop = rotateLoopBufferToPhase(context, vocalLoopBuffer, phaseInLoop);
+        if (!phaseAlignedLoop?.duration) continue;
+
+        source.buffer = phaseAlignedLoop;
         source.loop = true;
-        source.loopStart = 0;
-        source.loopEnd = vocalLoopBuffer.duration;
 
         const directRoute = this.createVocalDirectRoute(stem, source);
         if (!directRoute) {
@@ -1261,11 +1307,13 @@ export class StudioPlayback {
 
         this.sources.add(source);
         this.frozenSources.set(stem.id, source);
-        const phaseInLoop =
-          ((Math.max(0, Number(phase) || 0) % vocalLoopBuffer.duration) +
-            vocalLoopBuffer.duration) %
-          vocalLoopBuffer.duration;
-        source.start(start, phaseInLoop);
+
+        // Critical Safari/iOS reliability rule: never begin a looping Vocal BufferSource from a
+        // non-zero source offset. Real-device testing showed that Safari can play only the short
+        // tail from that offset and then end instead of wrapping. The PCM buffer has already been
+        // rotated to the current Spectra phase above, so starting at buffer time 0 preserves sync
+        // while using the same zero-offset BufferSource behavior as the working scrubber path.
+        source.start(start);
         started += 1;
         continue;
       }
