@@ -1217,12 +1217,24 @@ export class StudioPlayback {
     return started;
   }
 
-  rebuildRecordedStemPlayback(session = this.session, stemId, { leadSeconds = 0.018 } = {}) {
+  rebuildRecordedStemPlayback(
+    session = this.session,
+    stemId,
+    { leadSeconds = 0.018, preserveAudition = false } = {},
+  ) {
     const context = this.audio.context;
     if (!context || context.state !== 'running' || !session || !stemId) return false;
     const stem = session.stems?.find?.((item) => item.id === stemId);
     const buffer = session.recordings?.get?.(stemId);
     if (!stem || !buffer?.duration) return false;
+
+    // A scrubber edit belongs to the full Spectra mix, not hidden track audition. If a previous
+    // "preview this Vocal" action left auditionStemId behind, clear it before touching gain state
+    // so rebuilding Vocal cannot mute every other channel.
+    if (!preserveAudition && this.auditionStemId) {
+      this.auditionStemId = null;
+      this.applyChannelAudibility(session);
+    }
 
     // Rebuild only this frozen source. Scrubber edits must never stop/restart Spectra.
     // Vocal is its own continuously repeating clip: moving the scrubber restarts only that Vocal
@@ -1247,6 +1259,13 @@ export class StudioPlayback {
     });
     return started > 0;
   }
+  exitAuditionMode(session = this.session) {
+    if (!this.auditionStemId) return false;
+    this.auditionStemId = null;
+    this.applyChannelAudibility(session);
+    return true;
+  }
+
   clearVocalBufferLoop(stemId = null) {
     const ids = stemId
       ? [stemId]
@@ -1825,8 +1844,15 @@ export class StudioPlayback {
         // Ignore browsers without writable Audio Session support.
       }
     }
-    await this.audio.recoverAfterMicrophoneCapture?.();
-    if (this.audio.context.state !== 'running') return false;
+
+    // Critical iPhone path: when the AudioContext is already running, do not cross an async
+    // boundary before recorded Vocal PCM is created. Scrubber rebuilds already prove that the
+    // exact same Vocal buffer plays correctly when started synchronously from a user gesture.
+    // Only perform route recovery when the context genuinely needs it.
+    if (this.audio.context.state !== 'running') {
+      await this.audio.recoverAfterMicrophoneCapture?.();
+      if (this.audio.context.state !== 'running') return false;
+    }
 
     // Invalidate any older asynchronous PLAY still waiting on asset/native-media work.
     this.stop();
