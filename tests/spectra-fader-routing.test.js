@@ -87,8 +87,10 @@ function fakeAudio(createdSources = [], { mediaSources = null } = {}) {
         source.startArgs = args;
       };
       source.stopArgs = null;
+      source.stopCalls = 0;
       source.scheduledStopAt = null;
       source.stop = (...args) => {
+        source.stopCalls += 1;
         source.stopArgs = args;
         if (!args.length || Number(args[0]) <= context.currentTime) source.stopped = true;
         else source.scheduledStopAt = Number(args[0]);
@@ -1105,7 +1107,7 @@ test('PLAY creates recorded Vocal PCM before any recovery await when context is 
   playback.stop();
 });
 
-test('scrubbing Vocal exits stale audition mode and restores every other Spectra channel', () => {
+test('scrubbing Vocal is local and stale audition cleanup restores backing gates', () => {
   const createdSources = [];
   const timers = manualTimers();
   const audio = fakeAudio(createdSources);
@@ -1137,22 +1139,28 @@ test('scrubbing Vocal exits stale audition mode and restores every other Spectra
   playback.updateMix(session, { immediate: true });
   playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
 
+  const backingGate = playback.frozenGates.get(other.id);
+  assert.ok(backingGate);
+  assert.equal(backingGate.gain.value, 1);
+
+  // Ordinary scrub with no audition state must leave backing gain exactly untouched.
+  backingGate.gain.value = 0.73;
+  vocal.sourceOffset = 0.25;
+  assert.equal(playback.rebuildRecordedStemPlayback(session, vocal.id), true);
+  assert.equal(backingGate.gain.value, 0.73);
+
+  // If an older explicit preview left hidden audition behind, scrub exits it and restores backing.
   playback.auditionStemId = vocal.id;
   playback.applyChannelAudibility(session);
-  assert.equal(
-    playback.frozenGates.get(other.id).gain.value,
-    0,
-    'hidden audition closes the recorded backing track source gate',
-  );
+  assert.equal(backingGate.gain.value, 0);
 
   vocal.sourceOffset = 0.5;
   assert.equal(playback.rebuildRecordedStemPlayback(session, vocal.id), true);
-
   assert.equal(playback.auditionStemId, null);
   assert.equal(
-    playback.frozenGates.get(other.id).gain.value,
+    backingGate.gain.value,
     1,
-    'scrubbing Vocal in the mixer must exit hidden audition and reopen the backing track',
+    'leaving hidden audition must reopen an unmuted backing recording',
   );
   assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
 
@@ -1211,6 +1219,87 @@ test('full PLAY replaces a scrub-started Vocal synchronously without losing it',
   assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
 
   assert.equal(await playPromise, true);
+  playback.stop();
+});
+
+test('first PLAY then STOP then second PLAY rebuilds Vocal on a fresh graph', async () => {
+  const createdSources = [];
+  const timers = manualTimers();
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio, timers);
+  const session = new StudioSession();
+  session.bpm = 118;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  const other = session.stems.find((stem) => stem.id !== vocal.id);
+  vocal.source = 'browser-microphone';
+  const vocalRecording = {
+    duration: 3.84,
+    length: 384,
+    numberOfChannels: 1,
+    sampleRate: 100,
+    getChannelData: () => Float32Array.from({ length: 384 }, () => 0.2),
+  };
+  const otherRecording = {
+    duration: 4,
+    length: 400,
+    numberOfChannels: 1,
+    sampleRate: 100,
+    getChannelData: () => Float32Array.from({ length: 400 }, () => 0.15),
+  };
+  session.recordings.set(vocal.id, vocalRecording);
+  session.recordings.set(other.id, otherRecording);
+
+  playback.spectraTransport = {
+    running: false,
+    position: () => 0,
+    positionAtOffset: (offset) => Math.max(0, Number(offset) || 0),
+    subscribe: () => () => {},
+    acquire() {
+      this.running = true;
+      return true;
+    },
+    restart() {
+      this.running = true;
+      return true;
+    },
+    release() {
+      this.running = false;
+      return true;
+    },
+  };
+  playback.loadAlignedAssets = async () => null;
+  playback.startNativeAssets = async () => false;
+  playback.startBlobRecordings = async () => 0;
+
+  assert.equal(await playback.play(session, 0, { restartTransport: true }), true);
+  const firstVocalSource = playback.frozenSources.get(vocal.id);
+  const firstBus = playback.buses.get(other.id);
+  assert.ok(firstVocalSource);
+  assert.ok(firstBus);
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
+
+  playback.stop();
+  assert.equal(
+    firstVocalSource.stopCalls,
+    1,
+    'STOP must have exactly one lifecycle owner for each Vocal source',
+  );
+  assert.equal(playback.buses.size, 0, 'STOP must dispose the old Spectra channel graph');
+
+  assert.equal(await playback.play(session, 0, { restartTransport: true }), true);
+  const secondVocalSource = playback.frozenSources.get(vocal.id);
+  const secondBus = playback.buses.get(other.id);
+  assert.ok(secondVocalSource);
+  assert.notEqual(secondVocalSource, firstVocalSource);
+  assert.equal(secondVocalSource.buffer, vocalRecording);
+  assert.equal(secondVocalSource.stopped, false);
+  assert.notEqual(secondBus, firstBus, 'second PLAY must not reuse the pre-STOP bus graph');
+  assert.equal(playback.frozenGates.get(other.id).gain.value, 1);
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
+
   playback.stop();
 });
 
