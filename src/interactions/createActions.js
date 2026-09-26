@@ -113,8 +113,10 @@ export function createActions({
     if (!studio || !studioPlayback) return false;
 
     if (!audio.context) await audio.init?.();
-    await audio.recoverAfterMicrophoneCapture?.();
 
+    // Do not spend the user's PLAY gesture on a redundant async recovery hop when the shared
+    // AudioContext is already running. StudioPlayback.play() owns route recovery only when it is
+    // actually needed, so microphone PCM can be created in the original PLAY call stack.
     return studioPlayback.play(studio, 0, {
       ...(stemId ? { stemId } : {}),
       restartTransport: true,
