@@ -717,6 +717,73 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
   );
 });
 
+test('Vocal self-heals if Safari ends a source that was configured to loop', () => {
+  const createdSources = [];
+  const pending = [];
+  const timers = {
+    setTimeout(callback) {
+      pending.push(callback);
+      return pending.length;
+    },
+    clearTimeout() {},
+    setInterval() {
+      return null;
+    },
+    clearInterval() {},
+  };
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio, timers);
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  const samples = Float32Array.from({ length: 30 }, (_, index) => (index + 1) / 100);
+  const recording = {
+    duration: 3,
+    length: 30,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => samples,
+  };
+  session.recordings.set(vocal.id, recording);
+
+  playback.session = session;
+  playback.updateMix(session);
+  playback.spectraTransport = {
+    running: true,
+    positionAtOffset(offset) {
+      return 0.75 + offset;
+    },
+    position() {
+      return 0.75;
+    },
+  };
+
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
+  const first = playback.frozenSources.get(vocal.id);
+  assert.ok(first);
+  assert.equal(first.loop, true);
+
+  first.onended();
+  assert.equal(playback.frozenSources.has(vocal.id), false);
+  assert.equal(pending.length, 1, 'an unexpected natural end should schedule Vocal recovery');
+
+  pending.shift()();
+  const recovered = playback.frozenSources.get(vocal.id);
+  assert.ok(recovered);
+  assert.notEqual(recovered, first);
+  assert.equal(recovered.loop, true);
+  assert.equal(
+    recovered.startArgs.length,
+    1,
+    'recovered Vocal must also start at buffer offset zero',
+  );
+  assert.equal(playback.vocalDirectRoutes.has(vocal.id), true);
+});
+
 test('iOS microphone route resync rebuilds recorded Vocals without touching other Spectra sources', async () => {
   const createdSources = [];
   const audio = fakeAudio(createdSources);
