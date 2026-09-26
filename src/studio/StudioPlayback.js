@@ -1113,6 +1113,7 @@ export class StudioPlayback {
       onlyStemId = null,
       recordingFilter = 'all',
       diagnosticStage = null,
+      skipGlobalAudibility = false,
     } = {},
   ) {
     const context = this.audio.context;
@@ -1213,7 +1214,7 @@ export class StudioPlayback {
       started += 1;
     }
 
-    if (started > 0) this.applyChannelAudibility(session);
+    if (started > 0 && !skipGlobalAudibility) this.applyChannelAudibility(session);
     return started;
   }
 
@@ -1228,17 +1229,10 @@ export class StudioPlayback {
     const buffer = session.recordings?.get?.(stemId);
     if (!stem || !buffer?.duration) return false;
 
-    // A scrubber edit belongs to the full Spectra mix, not hidden track audition. If a previous
-    // "preview this Vocal" action left auditionStemId behind, clear it before touching gain state
-    // so rebuilding Vocal cannot mute every other channel.
-    if (!preserveAudition && this.auditionStemId) {
-      this.auditionStemId = null;
-      this.applyChannelAudibility(session);
-    }
+    // Scrubbing one recorded stem must never rewrite every other mixer gate. In particular,
+    // Vocal scrub is a local source edit, not an audition/solo operation.
+    if (!preserveAudition) this.auditionStemId = null;
 
-    // Rebuild only this frozen source. Scrubber edits must never stop/restart Spectra.
-    // Vocal is its own continuously repeating clip: moving the scrubber restarts only that Vocal
-    // from its selected PCM point. Non-Vocal frozen tracks still rejoin the shared song phase.
     const now = context.currentTime;
     const startTime = now + Math.max(0.005, Number(leadSeconds) || 0.018);
     const microphoneTake = isMicrophoneRecordingStem(stem);
@@ -1250,13 +1244,25 @@ export class StudioPlayback {
 
     this.session = session;
     this.bpm = session.bpm ?? this.bpm;
-    this.updateStemMix(session, stemId, { immediate: true });
 
     const started = this.startFrozenRecordings(session, phase, {
       startTime,
       phaseOffset: phase,
       onlyStemId: stemId,
+      skipGlobalAudibility: true,
     });
+
+    if (started > 0) {
+      if (microphoneTake) {
+        // The route was recreated by startFrozenRecordings. Update only this Vocal gain so no
+        // backing channel gate, source gate, native media level or blob media level is touched.
+        this.updateVocalDirectRoute(session, stemId, { immediate: true });
+      } else {
+        const sourceGate = this.frozenGates.get(stemId);
+        const gateOpen = stem.clipActive !== false && stem.mute !== true;
+        if (sourceGate) writeSwitchParam(sourceGate.gain, gateOpen ? 1 : 0, context.currentTime);
+      }
+    }
     return started > 0;
   }
   exitAuditionMode(session = this.session) {
@@ -1971,6 +1977,16 @@ export class StudioPlayback {
     return true;
   }
 
+  resetPlaybackBuses() {
+    for (const bus of this.buses.values()) {
+      for (const node of Object.values(bus)) node?.disconnect?.();
+    }
+    this.buses.clear();
+    this.anySolo = false;
+    this.soloFaderActive = false;
+    this.spatialMixer?.sync?.(this.session, this.buses);
+  }
+
   stopRecordedStemPlayback(stemId) {
     if (!stemId) return false;
 
@@ -2045,7 +2061,16 @@ export class StudioPlayback {
     this.transportUnsubscribe = null;
     this.spectraTransport?.release?.('studio-playback');
     this.realSessionPlaying = false;
+
+    // Vocal sources have their own lifecycle owner. Do not stop/disconnect them here and then
+    // stop them a second time in clearVocalBufferLoop(); WebKit is particularly sensitive to
+    // repeated lifecycle operations on already-scheduled AudioBufferSourceNodes.
+    const vocalOwnedSources = new Set();
+    for (const sources of this.vocalBufferSources.values()) {
+      for (const source of sources ?? []) vocalOwnedSources.add(source);
+    }
     for (const source of this.sources) {
+      if (vocalOwnedSources.has(source)) continue;
       source.onended = null;
       try {
         source.stop();
@@ -2054,9 +2079,9 @@ export class StudioPlayback {
       }
       source.disconnect();
     }
+    this.clearVocalBufferLoop();
     this.sources.clear();
     this.frozenSources.clear();
-    this.clearVocalBufferLoop();
     this.vocalPlaybackDiagnostics.clear();
     this.clearVocalDirectRoute();
     for (const gate of this.frozenGates.values()) gate.disconnect?.();
@@ -2081,6 +2106,7 @@ export class StudioPlayback {
     this.transportStartedAt = 0;
     this.audio.clearExternalTransport?.('studio');
     this.auditionStemId = null;
+    this.resetPlaybackBuses();
   }
   dispose() {
     this.stop();
