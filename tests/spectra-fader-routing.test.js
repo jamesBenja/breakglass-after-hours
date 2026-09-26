@@ -464,6 +464,83 @@ test('a stale asynchronous Spectra PLAY cannot overwrite a newer playback reques
   playback.stop();
 });
 
+test('Spectra creates microphone PCM playback before the first asset-loading await', async () => {
+  const createdSources = [];
+  const timers = manualTimers();
+  const audio = fakeAudio(createdSources);
+  audio.recoverAfterMicrophoneCapture = async () => true;
+  const playback = new StudioPlayback(audio, timers);
+  const session = new StudioSession();
+  session.bpm = 118;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  const recording = {
+    duration: 2.9,
+    length: 29,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 29 }, () => 0.2),
+  };
+  session.recordings.set(vocal.id, recording);
+
+  let releaseAssetLoad = null;
+  playback.loadAlignedAssets = async () =>
+    new Promise((resolve) => {
+      releaseAssetLoad = () => resolve(null);
+    });
+  playback.startNativeAssets = async () => false;
+
+  playback.spectraTransport = {
+    running: true,
+    position: () => 0,
+    positionAtOffset: (offset) => Math.max(0, Number(offset) || 0),
+    subscribe: () => () => {},
+    acquire: () => true,
+    restart: () => true,
+    release: () => true,
+  };
+
+  const playPromise = playback.play(session, 0, { restartTransport: true });
+
+  // Let PLAY cross only its route-recovery await. It must create Vocal before entering the
+  // deliberately blocked asset loader.
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(typeof releaseAssetLoad, 'function');
+  assert.equal(
+    createdSources.length,
+    1,
+    'microphone PCM must already have a live BufferSource while asset loading is still pending',
+  );
+  const earlyVocal = createdSources[0];
+  assert.equal(earlyVocal.buffer, recording);
+  assert.equal(earlyVocal.stopped, false);
+  assert.deepEqual(earlyVocal.startArgs, [0.06, 0]);
+  assert.equal(playback.frozenSources.get(vocal.id), earlyVocal);
+  assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id)?.stage, 'pre-asset-await');
+
+  releaseAssetLoad();
+  assert.equal(await playPromise, true);
+
+  assert.equal(
+    createdSources.length,
+    1,
+    'the post-await frozen-recording pass must not replace the gesture-bound Vocal source',
+  );
+  assert.equal(playback.frozenSources.get(vocal.id), earlyVocal);
+  assert.equal(earlyVocal.stopped, false);
+  assert.deepEqual(playback.lastRecordedStartCounts, {
+    microphoneBeforeAwait: 1,
+    nonMicrophoneAfterAwait: 0,
+  });
+
+  playback.stop();
+});
+
 test('Spectra starts browser-recorded media before any asynchronous asset loading', async () => {
   const playback = new StudioPlayback(fakeAudio());
   const session = new StudioSession();
