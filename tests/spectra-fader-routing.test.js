@@ -510,7 +510,11 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
   assert.equal(source.loopEnd, undefined);
   assert.equal(source.buffer.duration, 4);
   assert.notEqual(source.buffer, recording);
-  assert.deepEqual(source.startArgs, [0], 'Vocal BufferSource must always start at buffer offset zero');
+  assert.deepEqual(
+    source.startArgs,
+    [0],
+    'Vocal BufferSource must always start at buffer offset zero',
+  );
 
   const loop = source.buffer.getChannelData(0);
   assert.equal(loop[0], samples[12]);
@@ -547,9 +551,7 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
   assert.equal(source.stopped, true);
 });
 
-test(
-  'Vocal transport phase is baked into PCM so Safari always starts the loop at offset zero',
-  () => {
+test('Vocal transport phase is baked into PCM so Safari always starts the loop at offset zero', () => {
   const createdSources = [];
   const audio = fakeAudio(createdSources);
   const playback = new StudioPlayback(audio);
@@ -573,30 +575,29 @@ test(
 
   playback.session = session;
   playback.updateMix(session);
-    assert.equal(
-      playback.startFrozenRecordings(session, 3.5, { startTime: 0, phaseOffset: 3.5 }),
-      1,
-    );
+  assert.equal(
+    playback.startFrozenRecordings(session, 3.5, { startTime: 0, phaseOffset: 3.5 }),
+    1,
+  );
 
-    const source = createdSources[0];
-    assert.deepEqual(source.startArgs, [0]);
-    assert.equal(source.loop, true);
-    assert.equal(source.loopStart, undefined);
-    assert.equal(source.loopEnd, undefined);
+  const source = createdSources[0];
+  assert.deepEqual(source.startArgs, [0]);
+  assert.equal(source.loop, true);
+  assert.equal(source.loopStart, undefined);
+  assert.equal(source.loopEnd, undefined);
 
-    const rotated = source.buffer.getChannelData(0);
-    assert.equal(
-      rotated[0],
-      0,
-      'phase 3.5s begins inside the silent tail of the 4s Spectra loop',
-    );
-    assert.equal(
-      rotated[5] > 0,
-      true,
-      'after the remaining 0.5s of silence the rotated buffer wraps to the beginning of the Vocal take',
-    );
-  },
-);
+  const rotated = source.buffer.getChannelData(0);
+  assert.equal(
+    rotated[0],
+    0,
+    'phase 3.5s begins inside the silent tail of the 4s Spectra loop',
+  );
+  assert.equal(
+    rotated[5] > 0,
+    true,
+    'after the remaining 0.5s of silence the rotated buffer wraps to the beginning of the Vocal take',
+  );
+});
 
 test('changing Vocal source offset replaces the continuous loop source cleanly', () => {
   const createdSources = [];
