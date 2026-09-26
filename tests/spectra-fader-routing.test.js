@@ -592,7 +592,7 @@ test('Spectra starts browser-recorded media before any asynchronous asset loadin
   playback.stop();
 });
 
-test('recorded microphone audio uses the original PCM buffer in one-shot Spectra cycles', () => {
+test('recorded microphone audio continuously loops the original PCM from the scrubber start', () => {
   const createdSources = [];
   const timers = manualTimers();
   const audio = fakeAudio(createdSources);
@@ -641,8 +641,12 @@ test('recorded microphone audio uses the original PCM buffer in one-shot Spectra
 
   assert.equal(playback.frozenSources.get(vocal.id), source);
   assert.equal(playback.vocalBufferLoopTimers.has(vocal.id), true);
-  assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id).mode, 'original-pcm-cycle');
+  assert.equal(
+    playback.vocalPlaybackDiagnostics.get(vocal.id).mode,
+    'original-pcm-continuous-loop',
+  );
   assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id).sourceOffset, 1.2);
+  assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id).loopDuration, 3.8);
   assert.equal(playback.vocalDirectRoutes.has(vocal.id), true);
   assert.equal(playback.vocalDirectRoutes.get(vocal.id).destination, audio.master);
   assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
@@ -662,7 +666,7 @@ test('recorded microphone audio uses the original PCM buffer in one-shot Spectra
   assert.equal(playback.vocalBufferLoopTimers.has(vocal.id), false);
 });
 
-test('Vocal joins a running Spectra cycle by advancing the original PCM source offset', () => {
+test('running Spectra transport phase is never added to the Vocal scrubber offset', () => {
   const createdSources = [];
   const timers = manualTimers();
   const audio = fakeAudio(createdSources);
@@ -674,7 +678,7 @@ test('Vocal joins a running Spectra cycle by advancing the original PCM source o
 
   const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
   vocal.source = 'browser-microphone';
-  vocal.sourceOffset = 0;
+  vocal.sourceOffset = 0.4;
 
   const samples = Float32Array.from({ length: 20 }, (_, index) => (index + 1) / 100);
   const recording = {
@@ -693,11 +697,16 @@ test('Vocal joins a running Spectra cycle by advancing the original PCM source o
   const source = createdSources[0];
   assert.equal(source.buffer, recording);
   assert.equal(source.loop, false);
-  assert.deepEqual(source.startArgs, [0, 1.5]);
-  assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id).phase, 1.5);
+  assert.deepEqual(
+    source.startArgs,
+    [0, 0.4],
+    'Vocal must start exactly at its scrubber point, not scrubber + song phase',
+  );
+  assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id).sourceOffset, 0.4);
+  assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id).loopDuration, 1.6);
 });
 
-test('one-shot Vocal scheduler starts the original PCM again at the next Spectra boundary', () => {
+test('one-shot Vocal scheduler repeats immediately at the end of the playable PCM take', () => {
   const createdSources = [];
   const timers = manualTimers();
   const audio = fakeAudio(createdSources);
@@ -727,7 +736,7 @@ test('one-shot Vocal scheduler starts the original PCM again at the next Spectra
   assert.deepEqual(first.startArgs, [0, 0]);
   assert.equal(timers.pending.length, 1);
 
-  audio.context.currentTime = 3.82;
+  audio.context.currentTime = 2.82;
   assert.equal(timers.runNext(), true);
 
   const second = createdSources[1];
@@ -735,11 +744,15 @@ test('one-shot Vocal scheduler starts the original PCM again at the next Spectra
   assert.notEqual(second, first);
   assert.equal(second.buffer, recording);
   assert.equal(second.loop, false);
-  assert.deepEqual(second.startArgs, [4, 0]);
+  assert.deepEqual(
+    second.startArgs,
+    [3, 0],
+    'the next Vocal repeat must begin when the Vocal take ends, not at the song-loop boundary',
+  );
   assert.equal(timers.pending.length, 1);
 });
 
-test('a Vocal take longer than the Spectra cycle is stopped exactly at the bar boundary', () => {
+test('Vocal playback is not truncated by a shorter Spectra song cycle', () => {
   const createdSources = [];
   const timers = manualTimers();
   const audio = fakeAudio(createdSources);
@@ -767,7 +780,11 @@ test('a Vocal take longer than the Spectra cycle is stopped exactly at the bar b
   const source = createdSources[0];
   assert.deepEqual(source.startArgs, [0, 0]);
   assert.equal(source.stopped, false);
-  assert.equal(source.scheduledStopAt, 4);
+  assert.equal(
+    source.scheduledStopAt,
+    null,
+    'Vocal must play its complete PCM take even when the song loop is shorter',
+  );
 });
 
 test('changing Vocal source offset replaces only its original-PCM cycle scheduler', () => {
@@ -873,8 +890,12 @@ test('live Vocal scrub rebuild preserves every other frozen source', () => {
   assert.equal(rebuiltVocal.buffer, vocalRecording);
   assert.equal(rebuiltVocal.loop, false);
   assert.ok(Math.abs(rebuiltVocal.startArgs[0] - 5.018) < 0.001);
-  assert.ok(Math.abs(rebuiltVocal.startArgs[1] - 2.218) < 0.001);
-  assert.ok(Math.abs(rebuiltVocal.scheduledStopAt - 7.5) < 0.001);
+  assert.ok(Math.abs(rebuiltVocal.startArgs[1] - 0.7) < 0.001);
+  assert.equal(
+    rebuiltVocal.scheduledStopAt,
+    null,
+    'scrubbing Vocal must restart its own PCM loop without a song-boundary stop',
+  );
 });
 
 test('iOS microphone route resync rebuilds original-PCM Vocal scheduler only', async () => {

@@ -155,6 +155,12 @@ const normalizeStem = (stem, index) => ({
   clipStart: clamp(Number(stem.clipStart) || 0, 0, 120),
   sourceOffset: clamp(Number(stem.sourceOffset) || 0, 0, 600),
   sourceDuration: clamp(Number(stem.sourceDuration) || 0, 0, 600),
+  vocalRawDuration: clamp(Number(stem.vocalRawDuration) || 0, 0, 600),
+  vocalPcmDuration: clamp(Number(stem.vocalPcmDuration) || 0, 0, 600),
+  vocalPcmPeak: clamp(Number(stem.vocalPcmPeak) || 0, 0, 1),
+  vocalPcmRms: clamp(Number(stem.vocalPcmRms) || 0, 0, 1),
+  vocalCaptureMode:
+    typeof stem.vocalCaptureMode === 'string' ? stem.vocalCaptureMode.slice(0, 32) : null,
   spatial: normalizeSpatialPosition(stem.spatial),
   assetId: typeof stem.assetId === 'string' ? stem.assetId.slice(0, 64) : null,
   renderedAudio: stem.renderedAudio === true,

@@ -299,6 +299,102 @@ test('every recorded Vocal track keeps an independently accessible scrubber', ()
   assert.equal(slider['aria-label'], 'Vocal loop start');
 });
 
+test('Vocal scrubber is bounded by playable PCM duration, not the longer raw file', () => {
+  const studio = new StudioSession();
+  const vocal = studio.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  vocal.vocalRawDuration = 3.39;
+  vocal.sourceDuration = 2.99;
+  vocal.sourceOffset = 3.2;
+  studio.recordings.set(vocal.id, {
+    duration: 2.99,
+    length: 299,
+    numberOfChannels: 1,
+    sampleRate: 100,
+    getChannelData: () => new Float32Array(299),
+  });
+
+  const created = [];
+  const makeElement = (tag) => {
+    const element = {
+      tag,
+      children: [],
+      textContent: '',
+      value: '',
+      style: {},
+      append(...items) {
+        this.children.push(...items);
+      },
+      appendChild(item) {
+        this.children.push(item);
+      },
+      setAttribute(name, value) {
+        this[name] = value;
+      },
+    };
+    created.push(element);
+    return element;
+  };
+  const ui = {
+    document: { createElement: makeElement },
+    buttons: {
+      prepend() {},
+      appendChild() {},
+    },
+    panel() {},
+    warning() {},
+  };
+
+  createActions({
+    audio: {},
+    spatialAudio: null,
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    player: null,
+    ui,
+    state: { data: {} },
+    studio,
+    studioPlayback: {
+      playing: false,
+      updateMix() {},
+      stop() {},
+      stopRawAudition() {},
+      auditionRawRecording: async () => true,
+      rawAuditionPosition: () => 0,
+      rebuildRecordedStemPlayback: () => true,
+    },
+    micRecorder: { supported: true },
+    keyboardPerformance: null,
+    photos: null,
+    dj: null,
+    saveState() {},
+    canAct: () => true,
+  });
+
+  ui._spectraStudioNavigation.vocal();
+
+  const slider = created.find((element) => element.tag === 'input' && element.type === 'range');
+  assert.ok(slider);
+  assert.ok(
+    Math.abs(Number(slider.max) - 2.94) < 0.000001,
+    'the scrubber must stop inside the 2.99s PCM take, never the 3.39s raw container',
+  );
+  assert.equal(
+    Number(slider.value),
+    0,
+    'an old saved scrubber point beyond PCM must reset to the start instead of becoming a tiny tail fragment',
+  );
+  assert.equal(vocal.sourceOffset, 0);
+
+  const readout = created.find(
+    (element) =>
+      element.tag === 'span' &&
+      element.textContent.includes('RAW 3.39s') &&
+      element.textContent.includes('SPECTRA PCM 2.99s'),
+  );
+  assert.ok(readout);
+  assert.match(readout.textContent, /VOCAL LOOP 2\.99s/);
+});
+
 test('Vocal take audition overlays the running Spectra loop', async () => {
   const studio = new StudioSession();
   const vocal = studio.stems.find((stem) => stem.inputKey === 'vocal');
