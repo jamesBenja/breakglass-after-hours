@@ -115,7 +115,7 @@ function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
   return loopBuffer;
 }
 
-function rotateLoopBufferToPhase(context, buffer, phaseSeconds = 0) {
+function sliceLoopBufferFromPhase(context, buffer, phaseSeconds = 0) {
   if (
     !context?.createBuffer ||
     !buffer?.duration ||
@@ -126,36 +126,34 @@ function rotateLoopBufferToPhase(context, buffer, phaseSeconds = 0) {
   }
 
   const duration = Math.max(0, Number(buffer.duration) || 0);
+  if (!(duration > 0)) return null;
   const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
   const firstChannel = buffer.getChannelData(0);
   const frames = Math.max(
     1,
     Math.floor(Number(buffer.length) || Number(firstChannel?.length) || duration * sampleRate),
   );
-  const phase =
-    duration > 0 ? ((Math.max(0, Number(phaseSeconds) || 0) % duration) + duration) % duration : 0;
+  const phase = ((Math.max(0, Number(phaseSeconds) || 0) % duration) + duration) % duration;
   const phaseFrame = Math.min(frames - 1, Math.max(0, Math.floor(phase * sampleRate)));
 
-  // A zero phase already has the desired layout. Avoid an unnecessary allocation.
   if (phaseFrame === 0) return buffer;
 
-  let rotated = null;
+  const remainingFrames = Math.max(1, frames - phaseFrame);
+  let sliced = null;
   try {
-    rotated = context.createBuffer(buffer.numberOfChannels, frames, sampleRate);
+    sliced = context.createBuffer(buffer.numberOfChannels, remainingFrames, sampleRate);
   } catch {
-    return buffer;
+    return null;
   }
 
   for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
     const source = buffer.getChannelData(channel);
-    const target = rotated.getChannelData(channel);
-    const tail = source.subarray(phaseFrame);
-    target.set(tail, 0);
-    target.set(source.subarray(0, phaseFrame), tail.length);
+    sliced.getChannelData(channel).set(source.subarray(phaseFrame));
   }
 
-  return rotated;
+  return sliced;
 }
+
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -202,7 +200,7 @@ export class StudioPlayback {
     // Recreate this tiny route with every Vocal source so no stale Spectra channel-strip node can
     // survive a microphone hardware-route transition and silently strand the take.
     this.vocalDirectRoutes = new Map();
-    this.vocalUnexpectedEndTimers = new Map();
+    this.vocalPlaybackDiagnostics = new Map();
     this.soloFaderActive = false;
     this.rawAuditionSource = null;
     this.rawAuditionGain = null;
@@ -341,103 +339,33 @@ export class StudioPlayback {
     return rebuilt;
   }
 
-  clearVocalUnexpectedEndTimer(stemId = null) {
-    const ids = stemId ? [stemId] : [...this.vocalUnexpectedEndTimers.keys()];
-    for (const id of ids) {
-      const handle = this.vocalUnexpectedEndTimers.get(id);
-      if (handle != null) this.timers.clearTimeout?.(handle);
-      this.vocalUnexpectedEndTimers.delete(id);
-    }
-  }
-
-  recoverUnexpectedVocalEnd(session, stemId, buffer) {
-    const context = this.audio?.context;
-    if (!context || context.state !== 'running' || !session || !stemId || !buffer?.duration) {
-      return false;
-    }
-    if (this.session !== session || session.recordings?.get?.(stemId) !== buffer) return false;
-    const transportRunning =
-      this.spectraTransport?.running === true ||
-      this.transportUnsubscribe !== null ||
-      this.timer !== null ||
-      this.realSessionPlaying === true;
-    if (!transportRunning) return false;
-
-    this.clearVocalUnexpectedEndTimer(stemId);
-    const handle = this.timers.setTimeout?.(() => {
-      this.vocalUnexpectedEndTimers.delete(stemId);
-      if (
-        this.session !== session ||
-        session.recordings?.get?.(stemId) !== buffer ||
-        this.audio?.context?.state !== 'running'
-      ) {
-        return;
-      }
-      const now = this.audio.context.currentTime;
-      const startTime = now + 0.012;
-      const phase = this.spectraTransport?.running
-        ? this.spectraTransport.positionAtOffset(startTime - now)
-        : this.position() + (startTime - now);
-      this.startFrozenRecordings(session, phase, {
-        startTime,
-        phaseOffset: phase,
-        onlyStemId: stemId,
-      });
-    }, 0);
-    if (handle != null) this.vocalUnexpectedEndTimers.set(stemId, handle);
-    return true;
-  }
-
   clearVocalDirectRoute(stemId = null) {
     const ids = stemId ? [stemId] : [...this.vocalDirectRoutes.keys()];
     for (const id of ids) {
       const route = this.vocalDirectRoutes.get(id);
       if (!route) continue;
-      try {
-        route.source?.disconnect?.();
-      } catch {
-        // Already disconnected.
-      }
       route.gain?.disconnect?.();
-      route.meter?.disconnect?.();
-      route.pan?.disconnect?.();
       this.vocalDirectRoutes.delete(id);
     }
   }
 
-  createVocalDirectRoute(stem, source) {
+  createVocalDirectRoute(stem) {
     const context = this.audio?.context;
-    if (!context || !stem || !source) return null;
+    if (!context || !stem) return null;
 
     this.clearVocalDirectRoute(stem.id);
 
     const gain = context.createGain();
     gain.gain.value = 0;
-    const pan =
-      typeof context.createStereoPanner === 'function' ? context.createStereoPanner() : null;
-    const meter = typeof context.createAnalyser === 'function' ? context.createAnalyser() : null;
-    if (meter) {
-      meter.fftSize = 64;
-      meter.smoothingTimeConstant = 0.62;
-    }
     const destination = context.destination ?? this.audio.master;
     if (!destination) return null;
-
-    source.connect(gain);
-    if (meter) {
-      gain.connect(meter);
-      meter.connect(pan ?? destination);
-    } else {
-      gain.connect(pan ?? destination);
-    }
-    pan?.connect(destination);
+    gain.connect(destination);
 
     const route = {
-      source,
       gain,
-      pan,
-      meter,
-      meterData: meter ? new Float32Array(meter.fftSize) : null,
+      pan: null,
+      meter: null,
+      meterData: null,
       destination,
     };
     this.vocalDirectRoutes.set(stem.id, route);
@@ -1301,78 +1229,25 @@ export class StudioPlayback {
       this.clearVocalBufferLoop(stem.id);
       const microphoneTake = isMicrophoneRecordingStem(stem);
       if (microphoneTake) {
-        this.clearVocalUnexpectedEndTimer(stem.id);
         this.clearVocalDirectRoute(stem.id);
-      }
 
-      const existing = this.frozenSources.get(stem.id);
-      if (existing) {
-        existing.onended = null;
-        try {
-          existing.stop();
-        } catch {
-          // Already stopped.
-        }
-        existing.disconnect?.();
-        this.sources.delete(existing);
-        this.frozenSources.delete(stem.id);
-      }
-
-      const existingGate = this.frozenGates.get(stem.id);
-      existingGate?.disconnect?.();
-      this.frozenGates.delete(stem.id);
-
-      const source = context.createBufferSource();
-
-      if (microphoneTake) {
-        // Browser-microphone PCM takes use the exact output family proven by scrubber audition:
-        // a fresh BufferSource + tiny gain/pan/meter route straight to AudioContext.destination.
-        // Do not reuse the larger Spectra processing/spatial graph here; real iPhone tests proved
-        // that graph can remain logically present while Vocal output is completely inaudible.
+        // Build one fixed Spectra-cycle PCM buffer from the same captured AudioBuffer used by the
+        // working scrubber. Do not ask Safari to loop an AudioBufferSource. Instead, schedule a
+        // fresh one-shot source for every Spectra cycle.
         const vocalLoopBuffer = buildVocalLoopBuffer(context, stem, buffer, loopDuration);
         if (!vocalLoopBuffer?.duration) continue;
 
-        const phaseInLoop =
-          ((Math.max(0, Number(phase) || 0) % vocalLoopBuffer.duration) +
-            vocalLoopBuffer.duration) %
-          vocalLoopBuffer.duration;
-        const phaseAlignedLoop = rotateLoopBufferToPhase(context, vocalLoopBuffer, phaseInLoop);
-        if (!phaseAlignedLoop?.duration) continue;
+        const directRoute = this.createVocalDirectRoute(stem);
+        if (!directRoute) continue;
 
-        source.buffer = phaseAlignedLoop;
-        source.loop = true;
-
-        const directRoute = this.createVocalDirectRoute(stem, source);
-        if (!directRoute) {
-          source.disconnect?.();
-          continue;
-        }
-
-        source.onended = () => {
-          source.disconnect?.();
-          this.sources.delete(source);
-          const wasCurrent = this.frozenSources.get(stem.id) === source;
-          if (wasCurrent) {
-            this.frozenSources.delete(stem.id);
-            this.clearVocalDirectRoute(stem.id);
-          }
-          // A looping AudioBufferSource should never end on its own. Real iPhone Safari has
-          // nevertheless produced exactly that failure after microphone capture: a tiny opening
-          // fragment, then silence. Treat any natural end of the current Vocal loop as a browser
-          // playback failure and immediately rebuild only this Vocal against the live transport.
-          if (wasCurrent) this.recoverUnexpectedVocalEnd(session, stem.id, buffer);
-        };
-
-        this.sources.add(source);
-        this.frozenSources.set(stem.id, source);
-
-        // Critical Safari/iOS reliability rule: never begin a looping Vocal BufferSource from a
-        // non-zero source offset. Real-device testing showed that Safari can play only the short
-        // tail from that offset and then end instead of wrapping. The PCM buffer has already been
-        // rotated to the current Spectra phase above, so starting at buffer time 0 preserves sync
-        // while using the same zero-offset BufferSource behavior as the working scrubber path.
-        source.start(start);
-        started += 1;
+        started += this.scheduleVocalBufferLoop(
+          stem,
+          vocalLoopBuffer,
+          directRoute,
+          loopDuration,
+          phase,
+          start,
+        );
         continue;
       }
 
@@ -1461,18 +1336,25 @@ export class StudioPlayback {
     }
   }
 
-  scheduleVocalBufferLoop(stem, buffer, sourceGate, loopDuration, phase = 0, startTime = null) {
+  scheduleVocalBufferLoop(
+    stem,
+    loopBuffer,
+    directRoute,
+    loopDuration,
+    phase = 0,
+    startTime = null,
+  ) {
     const context = this.audio.context;
-    if (!context || !buffer?.duration || !(loopDuration > 0) || !sourceGate) return 0;
+    if (
+      !context ||
+      !loopBuffer?.duration ||
+      !(loopDuration > 0) ||
+      !directRoute?.gain
+    ) {
+      return 0;
+    }
 
     this.clearVocalBufferLoop(stem.id);
-
-    const rawOffset = Math.min(
-      Math.max(0, buffer.duration - 0.01),
-      Math.max(0, Number(stem.sourceOffset) || 0),
-    );
-    const audibleDuration = Math.min(loopDuration, Math.max(0, buffer.duration - rawOffset));
-    if (!(audibleDuration > 0)) return 0;
 
     const now = context.currentTime;
     const firstStart =
@@ -1481,12 +1363,14 @@ export class StudioPlayback {
         : now + 0.045;
     const phaseInLoop =
       ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
+    const firstBuffer = sliceLoopBufferFromPhase(context, loopBuffer, phaseInLoop);
+    if (!firstBuffer?.duration) return 0;
 
-    const playSegment = (when, segmentOffset = 0) => {
-      if (!(audibleDuration > segmentOffset)) return null;
+    const scheduleOneShot = (buffer, when) => {
       const source = context.createBufferSource();
       source.buffer = buffer;
-      source.connect(sourceGate);
+      source.loop = false;
+      source.connect(directRoute.gain);
 
       let sources = this.vocalBufferSources.get(stem.id);
       if (!sources) {
@@ -1494,6 +1378,8 @@ export class StudioPlayback {
         this.vocalBufferSources.set(stem.id, sources);
       }
       sources.add(source);
+      this.sources.add(source);
+      this.frozenSources.set(stem.id, source);
 
       source.onended = () => {
         source.disconnect?.();
@@ -1501,32 +1387,45 @@ export class StudioPlayback {
         const active = this.vocalBufferSources.get(stem.id);
         active?.delete(source);
         if (active?.size === 0) this.vocalBufferSources.delete(stem.id);
+        if (this.frozenSources.get(stem.id) === source) this.frozenSources.delete(stem.id);
       };
-      this.sources.add(source);
-      const sourceOffset = rawOffset + segmentOffset;
-      const duration = audibleDuration - segmentOffset;
-      source.start(when, sourceOffset, duration);
+
+      // This is intentionally the same playback primitive as the working Vocal scrubber:
+      // a fresh, non-looping AudioBufferSource started from buffer time zero.
+      source.start(when);
       return source;
     };
 
-    if (phaseInLoop < audibleDuration) {
-      playSegment(firstStart, phaseInLoop);
-    }
+    scheduleOneShot(firstBuffer, firstStart);
 
-    const nextBoundary = firstStart + (phaseInLoop > 0 ? loopDuration - phaseInLoop : loopDuration);
+    const nextBoundary =
+      firstStart + (phaseInLoop > 0 ? Math.max(0.001, loopDuration - phaseInLoop) : loopDuration);
 
     const scheduleCycle = (boundaryTime) => {
-      const lead = 0.12;
+      const lead = 0.18;
       const delaySeconds = Math.max(0, boundaryTime - context.currentTime - lead);
       const handle = this.timers.setTimeout?.(() => {
         if (this.vocalBufferLoopTimers.get(stem.id) !== handle) return;
-        playSegment(boundaryTime, 0);
-        scheduleCycle(boundaryTime + loopDuration);
+
+        // If a foreground timer was slightly late, schedule the next whole cycle just ahead of
+        // the current audio clock rather than asking Safari to start a source in the past.
+        let when = boundaryTime;
+        while (when < context.currentTime + 0.008) when += loopDuration;
+        scheduleOneShot(loopBuffer, when);
+        scheduleCycle(when + loopDuration);
       }, delaySeconds * 1000);
       if (handle != null) this.vocalBufferLoopTimers.set(stem.id, handle);
     };
 
     scheduleCycle(nextBoundary);
+    this.vocalPlaybackDiagnostics.set(stem.id, {
+      mode: 'one-shot-cycle',
+      pcmDuration: Number(loopBuffer.duration) || 0,
+      loopDuration,
+      phase: phaseInLoop,
+      firstDuration: Number(firstBuffer.duration) || 0,
+      startedAt: firstStart,
+    });
     return 1;
   }
 
@@ -2102,7 +2001,7 @@ export class StudioPlayback {
     if (!stemId) return false;
 
     this.clearVocalBufferLoop(stemId);
-    this.clearVocalUnexpectedEndTimer(stemId);
+    this.vocalPlaybackDiagnostics.delete(stemId);
     this.clearVocalDirectRoute(stemId);
 
     const frozen = this.frozenSources.get(stemId);
@@ -2184,7 +2083,7 @@ export class StudioPlayback {
     this.sources.clear();
     this.frozenSources.clear();
     this.clearVocalBufferLoop();
-    this.clearVocalUnexpectedEndTimer();
+    this.vocalPlaybackDiagnostics.clear();
     this.clearVocalDirectRoute();
     for (const gate of this.frozenGates.values()) gate.disconnect?.();
     this.frozenGates.clear();
