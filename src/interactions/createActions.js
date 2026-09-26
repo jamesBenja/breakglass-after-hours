@@ -614,7 +614,10 @@ export function createActions({
             destination.sourceOffset = 0;
             destination.sourceDuration = Math.max(
               0,
-              Number(result.duration) || Number(result.buffer?.duration) || 0,
+              Number(result.buffer?.duration) ||
+                Number(result.pcmDuration) ||
+                Number(result.duration) ||
+                0,
             );
             destination.processing = {
               mic: studio.setup.mic,
@@ -645,6 +648,7 @@ export function createActions({
             destination.renderedAudioAt = result.buffer ? Date.now() : null;
             destination.vocalCaptureMode =
               result.captureMode ?? (result.buffer ? 'direct-pcm' : 'raw-only');
+            destination.vocalRawDuration = Math.max(0, Number(result.duration) || 0);
             destination.vocalPcmDuration = Math.max(
               0,
               Number(result.pcmDuration) || Number(result.buffer?.duration) || 0,
@@ -701,9 +705,11 @@ export function createActions({
   const renderVocalSourceEditor = (target) => {
     if (!target || !ui.document || !ui.buttons) return;
     const bufferDuration = Number(studio.recordings?.get?.(target.id)?.duration) || 0;
-    const duration = Math.max(0, Number(target.sourceDuration) || bufferDuration);
+    const rawDuration = Math.max(0, Number(target.vocalRawDuration) || Number(target.sourceDuration) || 0);
+    const duration = bufferDuration > 0 ? bufferDuration : rawDuration;
     if (!(duration > 0)) return;
-    const maxOffset = Math.max(0, duration - 0.01);
+    const minimumPlayable = Math.min(0.05, Math.max(0.01, duration * 0.05));
+    const maxOffset = Math.max(0, duration - minimumPlayable);
     const selectedOffset = Math.min(maxOffset, Math.max(0, Number(target.sourceOffset) || 0));
     target.sourceOffset = selectedOffset;
     const editor = ui.document.createElement('div');
@@ -711,13 +717,16 @@ export function createActions({
     const title = ui.document.createElement('strong');
     title.textContent = `${target.label.toUpperCase()} TAKE → SPECTRA LOOP`;
     const readout = ui.document.createElement('span');
-    const loopSeconds =
+    const sessionLoopSeconds =
       (Math.max(1, Number(studio.loopBars) || 4) * 4 * 60) / Math.max(1, Number(studio.bpm) || 118);
     const updateReadout = (value) => {
+      const offset = Math.min(maxOffset, Math.max(0, Number(value) || 0));
       const pcmLabel = bufferDuration > 0 ? `${bufferDuration.toFixed(2)}s` : 'UNAVAILABLE';
-      readout.textContent = `RAW ${duration.toFixed(2)}s · SPECTRA PCM ${pcmLabel} · START ${Number(
-        value,
-      ).toFixed(2)}s · LOOP ${loopSeconds.toFixed(2)}s`;
+      const rawLabel = rawDuration > 0 ? `${rawDuration.toFixed(2)}s` : 'UNAVAILABLE';
+      const vocalLoopSeconds = Math.max(minimumPlayable, duration - offset);
+      readout.textContent = `RAW ${rawLabel} · SPECTRA PCM ${pcmLabel} · START ${offset.toFixed(
+        2,
+      )}s · VOCAL LOOP ${vocalLoopSeconds.toFixed(2)}s · SESSION ${sessionLoopSeconds.toFixed(2)}s`;
     };
     updateReadout(selectedOffset);
     const slider = ui.document.createElement('input');
@@ -733,9 +742,9 @@ export function createActions({
       rememberStudio();
       updateReadout(target.sourceOffset);
 
-      // A scrubber edit changes only the Vocal source window. Keep the shared Spectra transport,
-      // every other instrument, mixer state, FX and spatial routing alive, and atomically replace
-      // this Vocal loop at the current musical phase.
+      // A scrubber edit changes only this Vocal clip. Keep the shared Spectra transport, every
+      // other instrument, mixer state, FX and spatial routing alive, and restart this Vocal from
+      // the newly selected PCM point without adding the song transport phase.
       if (studioPlayback?.playing) {
         const rebuilt = studioPlayback.rebuildRecordedStemPlayback?.(studio, target.id);
         if (rebuilt === false) {
@@ -745,7 +754,7 @@ export function createActions({
     };
     const help = ui.document.createElement('small');
     help.textContent =
-      'The scrubber and Spectra both use the captured PCM take. The MediaRecorder file is retained only as a fallback. Moving the start point replaces only the Vocal loop at the current Spectra phase; the rest of the mixer keeps running. Any remaining loop time stays silent.';
+      'Spectra loops the captured PCM continuously from the selected start point to the end of the take. The song transport keeps running independently. The raw MediaRecorder file is retained only as a fallback.';
     const controls = ui.document.createElement('div');
     controls.className = 'vocal-source-editor-controls';
     const auditionFromStart = ui.document.createElement('button');
