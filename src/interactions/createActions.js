@@ -709,7 +709,9 @@ export function createActions({
     if (!(duration > 0)) return;
     const minimumPlayable = Math.min(0.05, Math.max(0.01, duration * 0.05));
     const maxOffset = Math.max(0, duration - minimumPlayable);
-    const selectedOffset = Math.min(maxOffset, Math.max(0, Number(target.sourceOffset) || 0));
+    const requestedOffset = Math.max(0, Number(target.sourceOffset) || 0);
+    const selectedOffset =
+      requestedOffset >= duration ? 0 : Math.min(maxOffset, requestedOffset);
     target.sourceOffset = selectedOffset;
     const editor = ui.document.createElement('div');
     editor.className = 'vocal-source-editor';
