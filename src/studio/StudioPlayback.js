@@ -1289,7 +1289,9 @@ export class StudioPlayback {
     // differ from the decoded PCM duration on Safari, so never derive a playable offset from it.
     const minimumPlayable = Math.min(0.05, Math.max(0.01, buffer.duration * 0.05));
     const maxOffset = Math.max(0, buffer.duration - minimumPlayable);
-    const rawOffset = Math.min(maxOffset, Math.max(0, Number(stem.sourceOffset) || 0));
+    const requestedOffset = Math.max(0, Number(stem.sourceOffset) || 0);
+    const rawOffset =
+      requestedOffset >= buffer.duration ? 0 : Math.min(maxOffset, requestedOffset);
     const playableDuration = Math.max(minimumPlayable, buffer.duration - rawOffset);
     if (!(playableDuration > 0)) return 0;
 
