@@ -575,10 +575,7 @@ test('Vocal transport phase is baked into PCM so Safari always starts the loop a
 
   playback.session = session;
   playback.updateMix(session);
-  assert.equal(
-    playback.startFrozenRecordings(session, 3.5, { startTime: 0, phaseOffset: 3.5 }),
-    1,
-  );
+  assert.equal(playback.startFrozenRecordings(session, 3.5, { startTime: 0, phaseOffset: 3.5 }), 1);
 
   const source = createdSources[0];
   assert.deepEqual(source.startArgs, [0]);
@@ -587,11 +584,7 @@ test('Vocal transport phase is baked into PCM so Safari always starts the loop a
   assert.equal(source.loopEnd, undefined);
 
   const rotated = source.buffer.getChannelData(0);
-  assert.equal(
-    rotated[0],
-    0,
-    'phase 3.5s begins inside the silent tail of the 4s Spectra loop',
-  );
+  assert.equal(rotated[0], 0, 'phase 3.5s begins inside the silent tail of the 4s Spectra loop');
   assert.equal(
     rotated[5] > 0,
     true,
