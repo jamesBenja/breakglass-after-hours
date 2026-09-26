@@ -1049,6 +1049,167 @@ test('replacement Vocal recording cannot inherit the previous original-PCM sched
   playback.stop();
 });
 
+test('PLAY creates recorded Vocal PCM before any recovery await when context is already running', async () => {
+  const createdSources = [];
+  const timers = manualTimers();
+  const audio = fakeAudio(createdSources);
+  let recoveryCalls = 0;
+  audio.recoverAfterMicrophoneCapture = async () => {
+    recoveryCalls += 1;
+    await new Promise(() => {});
+  };
+
+  const playback = new StudioPlayback(audio, timers);
+  const session = new StudioSession();
+  session.bpm = 118;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  const recording = {
+    duration: 3,
+    length: 30,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 30 }, () => 0.2),
+  };
+  session.recordings.set(vocal.id, recording);
+
+  playback.spectraTransport = {
+    running: true,
+    position: () => 0,
+    positionAtOffset: (offset) => Math.max(0, Number(offset) || 0),
+    subscribe: () => () => {},
+    acquire: () => true,
+    restart: () => true,
+    release: () => true,
+  };
+  playback.loadAlignedAssets = async () => null;
+  playback.startNativeAssets = async () => false;
+  playback.startBlobRecordings = async () => 0;
+
+  const playPromise = playback.play(session, 0, { restartTransport: true });
+
+  assert.equal(
+    recoveryCalls,
+    0,
+    'a running AudioContext must not cross recoverAfterMicrophoneCapture before Vocal starts',
+  );
+  assert.equal(createdSources.length, 1);
+  assert.equal(createdSources[0].buffer, recording);
+  assert.deepEqual(createdSources[0].startArgs, [0.06, 0]);
+  assert.equal(playback.frozenSources.get(vocal.id), createdSources[0]);
+
+  assert.equal(await playPromise, true);
+  playback.stop();
+});
+
+test('scrubbing Vocal exits stale audition mode and restores every other Spectra channel', () => {
+  const createdSources = [];
+  const timers = manualTimers();
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio, timers);
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  const other = session.stems.find((stem) => stem.id !== vocal.id);
+  vocal.source = 'browser-microphone';
+  session.recordings.set(vocal.id, {
+    duration: 3,
+    length: 30,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 30 }, () => 0.2),
+  });
+  session.recordings.set(other.id, {
+    duration: 4,
+    length: 40,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 40 }, () => 0.15),
+  });
+
+  playback.session = session;
+  playback.updateMix(session, { immediate: true });
+  playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
+
+  playback.auditionStemId = vocal.id;
+  playback.applyChannelAudibility(session);
+  assert.equal(playback.buses.get(other.id).hardMute.gain.value, 0);
+
+  vocal.sourceOffset = 0.5;
+  assert.equal(playback.rebuildRecordedStemPlayback(session, vocal.id), true);
+
+  assert.equal(playback.auditionStemId, null);
+  assert.equal(
+    playback.buses.get(other.id).hardMute.gain.value,
+    1,
+    'scrubbing Vocal in the mixer must not hidden-solo it or mute the backing tracks',
+  );
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
+
+  playback.stop();
+});
+
+test('full PLAY replaces a scrub-started Vocal synchronously without losing it', async () => {
+  const createdSources = [];
+  const timers = manualTimers();
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio, timers);
+  const session = new StudioSession();
+  session.bpm = 118;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  const recording = {
+    duration: 3,
+    length: 30,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 30 }, () => 0.2),
+  };
+  session.recordings.set(vocal.id, recording);
+
+  playback.session = session;
+  playback.updateMix(session, { immediate: true });
+  playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
+  const scrubStartedSource = playback.frozenSources.get(vocal.id);
+  assert.ok(scrubStartedSource);
+
+  playback.spectraTransport = {
+    running: true,
+    position: () => 0,
+    positionAtOffset: (offset) => Math.max(0, Number(offset) || 0),
+    subscribe: () => () => {},
+    acquire: () => true,
+    restart: () => true,
+    release: () => true,
+  };
+  playback.loadAlignedAssets = async () => null;
+  playback.startNativeAssets = async () => false;
+  playback.startBlobRecordings = async () => 0;
+
+  const playPromise = playback.play(session, 0, { restartTransport: true });
+
+  const fullMixSource = playback.frozenSources.get(vocal.id);
+  assert.ok(fullMixSource);
+  assert.notEqual(fullMixSource, scrubStartedSource);
+  assert.equal(scrubStartedSource.stopped, true);
+  assert.equal(fullMixSource.buffer, recording);
+  assert.deepEqual(fullMixSource.startArgs, [0.06, 0]);
+  assert.equal(playback.auditionStemId, null);
+  assert.equal(playback.vocalDirectRoutes.get(vocal.id).gain.gain.value, vocal.level);
+
+  assert.equal(await playPromise, true);
+  playback.stop();
+});
+
 test('raw vocal audition starts at the selected source point without looping', async () => {
   const createdSources = [];
   const audio = fakeAudio(createdSources);
