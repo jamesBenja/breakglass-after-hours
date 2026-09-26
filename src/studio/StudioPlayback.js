@@ -1920,12 +1920,31 @@ export class StudioPlayback {
           },
         );
       }
-      this.spectraTransport.acquire('studio-playback', { position: safeOffset });
+
       if (restartTransport) {
         safeOffset = requestedOffset;
         sharedStartTime = this.audio.context.currentTime + 0.06;
-        this.spectraTransport.restart(safeOffset, sharedStartTime);
+
+        if (this.spectraTransport.running) {
+          // Another Spectra owner may already have the clock running. Acquire ownership without
+          // starting it, then perform exactly one intentional restart.
+          this.spectraTransport.acquire('studio-playback', { position: safeOffset });
+          this.spectraTransport.restart(safeOffset, sharedStartTime);
+        } else {
+          // A stopped transport must be started exactly once. Previously PLAY called acquire()
+          // (which started it) and then restart() immediately afterward. Session recovery, which
+          // works correctly on iPhone, never performs that double-start.
+          this.spectraTransport.acquire('studio-playback', {
+            position: safeOffset,
+            contextTime: sharedStartTime,
+          });
+        }
+      } else {
+        // This is the same lifecycle used by successful session recovery: join a running clock,
+        // or start a stopped clock once at the requested position.
+        this.spectraTransport.acquire('studio-playback', { position: safeOffset });
       }
+
       this.transportOffset = safeOffset;
       this.transportStartedAt =
         this.audio.context.currentTime - Math.max(0, this.spectraTransport.position());
