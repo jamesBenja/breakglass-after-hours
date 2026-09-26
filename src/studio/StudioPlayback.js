@@ -1262,14 +1262,7 @@ export class StudioPlayback {
     }
   }
 
-  scheduleVocalBufferLoop(
-    stem,
-    buffer,
-    directRoute,
-    loopDuration,
-    phase = 0,
-    startTime = null,
-  ) {
+  scheduleVocalBufferLoop(stem, buffer, directRoute, loopDuration, phase = 0, startTime = null) {
     const context = this.audio.context;
     if (!context || !buffer?.duration || !(loopDuration > 0) || !directRoute?.gain) {
       return 0;
