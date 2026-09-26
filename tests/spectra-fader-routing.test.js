@@ -429,7 +429,7 @@ test('a stale asynchronous Spectra PLAY cannot overwrite a newer playback reques
   const session = new StudioSession();
   let releaseFirstLoad = null;
   let loadCalls = 0;
-  let frozenStarts = 0;
+  const frozenStarts = [];
 
   playback.startBlobRecordings = () => Promise.resolve(0);
   playback.loadAlignedAssets = async () => {
@@ -442,25 +442,122 @@ test('a stale asynchronous Spectra PLAY cannot overwrite a newer playback reques
     return null;
   };
   playback.startNativeAssets = async () => false;
-  playback.startFrozenRecordings = () => {
-    frozenStarts += 1;
+  playback.startFrozenRecordings = (_session, _offset, options = {}) => {
+    frozenStarts.push(options.recordingFilter ?? 'all');
     return 0;
   };
   playback.hasEventPlayback = () => false;
 
-  const firstPlay = playback.play(session, 0, { restartTransport: true });
-  await Promise.resolve();
-  const secondPlay = playback.play(session, 0, { restartTransport: true });
-  await Promise.resolve();
-  releaseFirstLoad();
+  try {
+    const firstPlay = playback.play(session, 0, { restartTransport: true });
+    await Promise.resolve();
+    const secondPlay = playback.play(session, 0, { restartTransport: true });
+    await Promise.resolve();
+    releaseFirstLoad();
 
-  assert.equal(await secondPlay, true);
+    assert.equal(await secondPlay, true);
+    assert.equal(
+      await firstPlay,
+      false,
+      'older PLAY must abort after a newer request takes ownership',
+    );
+    assert.equal(
+      frozenStarts.filter((stage) => stage === 'non-microphone').length,
+      1,
+      'only the newest PLAY may reach the post-await frozen-recording pass',
+    );
+    assert.equal(
+      frozenStarts.filter((stage) => stage === 'microphone').length,
+      2,
+      'each PLAY may create gesture-bound microphone playback before awaiting assets; the newer PLAY stop() retires the stale source',
+    );
+  } finally {
+    playback.stop();
+  }
+});
+
+test('Spectra creates microphone PCM playback before the first asset-loading await', async () => {
+  const createdSources = [];
+  const timers = manualTimers();
+  const audio = fakeAudio(createdSources);
+  audio.recoverAfterMicrophoneCapture = async () => true;
+  const playback = new StudioPlayback(audio, timers);
+  const session = new StudioSession();
+  session.bpm = 118;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  const recording = {
+    duration: 2.9,
+    length: 29,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => Float32Array.from({ length: 29 }, () => 0.2),
+  };
+  session.recordings.set(vocal.id, recording);
+
+  let releaseAssetLoad = null;
+  let assetFallbackTimer = null;
+  playback.loadAlignedAssets = async () =>
+    new Promise((resolve) => {
+      const release = () => {
+        if (assetFallbackTimer != null) clearTimeout(assetFallbackTimer);
+        assetFallbackTimer = null;
+        resolve(null);
+      };
+      releaseAssetLoad = release;
+      // Never leave the test runner holding an unresolved PLAY if an assertion fails early.
+      assetFallbackTimer = setTimeout(release, 250);
+    });
+  playback.startNativeAssets = async () => false;
+
+  playback.spectraTransport = {
+    running: true,
+    position: () => 0,
+    positionAtOffset: (offset) => Math.max(0, Number(offset) || 0),
+    subscribe: () => () => {},
+    acquire: () => true,
+    restart: () => true,
+    release: () => true,
+  };
+
+  const playPromise = playback.play(session, 0, { restartTransport: true });
+
+  // Let PLAY cross only its route-recovery await. It must create Vocal before entering the
+  // deliberately blocked asset loader.
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(typeof releaseAssetLoad, 'function');
   assert.equal(
-    await firstPlay,
-    false,
-    'older PLAY must abort after a newer request takes ownership',
+    createdSources.length,
+    1,
+    'microphone PCM must already have a live BufferSource while asset loading is still pending',
   );
-  assert.equal(frozenStarts, 1, 'only the newest PLAY may create recorded sources');
+  const earlyVocal = createdSources[0];
+  assert.equal(earlyVocal.buffer, recording);
+  assert.equal(earlyVocal.stopped, false);
+  assert.deepEqual(earlyVocal.startArgs, [0.06, 0]);
+  assert.equal(playback.frozenSources.get(vocal.id), earlyVocal);
+  assert.equal(playback.vocalPlaybackDiagnostics.get(vocal.id)?.stage, 'pre-asset-await');
+
+  releaseAssetLoad();
+  assert.equal(await playPromise, true);
+
+  assert.equal(
+    createdSources.length,
+    1,
+    'the post-await frozen-recording pass must not replace the gesture-bound Vocal source',
+  );
+  assert.equal(playback.frozenSources.get(vocal.id), earlyVocal);
+  assert.equal(earlyVocal.stopped, false);
+  assert.deepEqual(playback.lastRecordedStartCounts, {
+    microphoneBeforeAwait: 1,
+    nonMicrophoneAfterAwait: 0,
+  });
+
   playback.stop();
 });
 
