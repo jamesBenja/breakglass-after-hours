@@ -487,9 +487,17 @@ test('Spectra creates microphone PCM playback before the first asset-loading awa
   session.recordings.set(vocal.id, recording);
 
   let releaseAssetLoad = null;
+  let assetFallbackTimer = null;
   playback.loadAlignedAssets = async () =>
     new Promise((resolve) => {
-      releaseAssetLoad = () => resolve(null);
+      const release = () => {
+        if (assetFallbackTimer != null) clearTimeout(assetFallbackTimer);
+        assetFallbackTimer = null;
+        resolve(null);
+      };
+      releaseAssetLoad = release;
+      // Never leave the test runner holding an unresolved PLAY if an assertion fails early.
+      assetFallbackTimer = setTimeout(release, 250);
     });
   playback.startNativeAssets = async () => false;
 
