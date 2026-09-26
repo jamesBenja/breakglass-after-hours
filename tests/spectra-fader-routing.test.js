@@ -522,10 +522,7 @@ test('recorded microphone audio uses one-shot PCM cycles instead of Safari loop 
   playback.session = session;
   playback.updateMix(session);
 
-  assert.equal(
-    playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }),
-    1,
-  );
+  assert.equal(playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 }), 1);
 
   const source = createdSources[0];
   assert.equal(source.loop, false, 'Vocal must never rely on AudioBufferSource.loop on iPhone');
@@ -590,10 +587,7 @@ test('Vocal joins a running Spectra loop with a sliced zero-offset one-shot', ()
 
   playback.session = session;
   playback.updateMix(session);
-  assert.equal(
-    playback.startFrozenRecordings(session, 3.5, { startTime: 0, phaseOffset: 3.5 }),
-    1,
-  );
+  assert.equal(playback.startFrozenRecordings(session, 3.5, { startTime: 0, phaseOffset: 3.5 }), 1);
 
   const source = createdSources[0];
   assert.deepEqual(source.startArgs, [0]);
