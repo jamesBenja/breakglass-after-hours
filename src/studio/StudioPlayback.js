@@ -1365,12 +1365,7 @@ export class StudioPlayback {
     startTime = null,
   ) {
     const context = this.audio.context;
-    if (
-      !context ||
-      !loopBuffer?.duration ||
-      !(loopDuration > 0) ||
-      !directRoute?.gain
-    ) {
+    if (!context || !loopBuffer?.duration || !(loopDuration > 0) || !directRoute?.gain) {
       return 0;
     }
 
