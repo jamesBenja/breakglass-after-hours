@@ -692,10 +692,7 @@ test('running Spectra transport phase is never added to the Vocal scrubber offse
 
   playback.session = session;
   playback.updateMix(session);
-  assert.equal(
-    playback.startFrozenRecordings(session, 1.5, { startTime: 0, phaseOffset: 1.5 }),
-    1,
-  );
+  assert.equal(playback.startFrozenRecordings(session, 1.5, { startTime: 0, phaseOffset: 1.5 }), 1);
 
   const source = createdSources[0];
   assert.equal(source.buffer, recording);
