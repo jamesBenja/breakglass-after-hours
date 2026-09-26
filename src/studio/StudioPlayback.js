@@ -224,13 +224,10 @@ export class StudioPlayback {
 
     // iOS can keep old AudioBufferSourceNode objects looking "alive" in JavaScript after a
     // microphone hardware-route transition even though they no longer produce output. Rebuild
-    // only recorded Vocal sources against the current route. The shared transport, backing
-    // tracks, mixer buses, FX and spatial graph remain untouched.
+    // only recorded Vocal sources against the current route. Each Vocal restarts from its own
+    // scrubber-selected PCM point; the shared song transport and every backing track stay alive.
     const now = context.currentTime;
     const startTime = now + Math.max(0.01, Number(leadSeconds) || 0.035);
-    const phase = this.spectraTransport?.running
-      ? this.spectraTransport.positionAtOffset(startTime - now)
-      : this.position() + (startTime - now);
 
     this.session = session;
     this.bpm = session.bpm ?? this.bpm;
@@ -238,9 +235,9 @@ export class StudioPlayback {
     let rebuilt = 0;
     for (const stem of vocalStems) {
       this.updateStemMix(session, stem.id, { immediate: true });
-      rebuilt += this.startFrozenRecordings(session, phase, {
+      rebuilt += this.startFrozenRecordings(session, 0, {
         startTime,
-        phaseOffset: phase,
+        phaseOffset: 0,
         onlyStemId: stem.id,
       });
     }
@@ -1155,14 +1152,7 @@ export class StudioPlayback {
         const directRoute = this.createVocalDirectRoute(stem);
         if (!directRoute) continue;
 
-        const vocalStarted = this.scheduleVocalBufferLoop(
-          stem,
-          buffer,
-          directRoute,
-          loopDuration,
-          phase,
-          start,
-        );
+        const vocalStarted = this.scheduleVocalBufferLoop(stem, buffer, directRoute, start);
         started += vocalStarted;
         if (vocalStarted > 0 && diagnosticStage) {
           const previous = this.vocalPlaybackDiagnostics.get(stem.id) ?? {};
@@ -1234,14 +1224,17 @@ export class StudioPlayback {
     const buffer = session.recordings?.get?.(stemId);
     if (!stem || !buffer?.duration) return false;
 
-    // Rebuild only this frozen source. Scrubber edits must never stop/restart Spectra, because
-    // doing so tears down unrelated instruments and creates async restart races on mobile Safari.
-    // The replacement source joins the *existing* musical phase so every other track keeps running.
+    // Rebuild only this frozen source. Scrubber edits must never stop/restart Spectra.
+    // Vocal is its own continuously repeating clip: moving the scrubber restarts only that Vocal
+    // from its selected PCM point. Non-Vocal frozen tracks still rejoin the shared song phase.
     const now = context.currentTime;
     const startTime = now + Math.max(0.005, Number(leadSeconds) || 0.018);
-    const phase = this.spectraTransport?.running
-      ? this.spectraTransport.positionAtOffset(startTime - now)
-      : this.position() + (startTime - now);
+    const microphoneTake = isMicrophoneRecordingStem(stem);
+    const phase = microphoneTake
+      ? 0
+      : this.spectraTransport?.running
+        ? this.spectraTransport.positionAtOffset(startTime - now)
+        : this.position() + (startTime - now);
 
     this.session = session;
     this.bpm = session.bpm ?? this.bpm;
@@ -1280,11 +1273,9 @@ export class StudioPlayback {
     }
   }
 
-  scheduleVocalBufferLoop(stem, buffer, directRoute, loopDuration, phase = 0, startTime = null) {
+  scheduleVocalBufferLoop(stem, buffer, directRoute, startTime = null) {
     const context = this.audio.context;
-    if (!context || !buffer?.duration || !(loopDuration > 0) || !directRoute?.gain) {
-      return 0;
-    }
+    if (!context || !buffer?.duration || !directRoute?.gain) return 0;
 
     this.clearVocalBufferLoop(stem.id);
 
@@ -1293,24 +1284,21 @@ export class StudioPlayback {
       Number.isFinite(Number(startTime)) && Number(startTime) >= now
         ? Number(startTime)
         : now + 0.045;
-    const rawOffset = Math.min(
-      Math.max(0, buffer.duration - 0.01),
-      Math.max(0, Number(stem.sourceOffset) || 0),
-    );
-    const playableDuration = Math.max(0, buffer.duration - rawOffset);
+
+    // The captured PCM is authoritative for Spectra playback. MediaRecorder/raw-file duration can
+    // differ from the decoded PCM duration on Safari, so never derive a playable offset from it.
+    const minimumPlayable = Math.min(0.05, Math.max(0.01, buffer.duration * 0.05));
+    const maxOffset = Math.max(0, buffer.duration - minimumPlayable);
+    const rawOffset = Math.min(maxOffset, Math.max(0, Number(stem.sourceOffset) || 0));
+    const playableDuration = Math.max(minimumPlayable, buffer.duration - rawOffset);
     if (!(playableDuration > 0)) return 0;
 
-    const phaseInLoop =
-      ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
+    // Keep the persisted scrubber value truthful if an older save used the longer raw-file
+    // duration and points beyond the decoded PCM take.
+    stem.sourceOffset = rawOffset;
+    stem.sourceDuration = Number(buffer.duration) || stem.sourceDuration || 0;
 
-    const scheduleOneShot = (when, cyclePhase = 0) => {
-      if (cyclePhase >= playableDuration || cyclePhase >= loopDuration) return null;
-
-      const sourceOffset = rawOffset + cyclePhase;
-      const remainingInTake = Math.max(0, buffer.duration - sourceOffset);
-      const remainingInCycle = Math.max(0, loopDuration - cyclePhase);
-      if (!(remainingInTake > 0) || !(remainingInCycle > 0)) return null;
-
+    const scheduleOneShot = (when) => {
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.loop = false;
@@ -1334,46 +1322,38 @@ export class StudioPlayback {
         if (this.frozenSources.get(stem.id) === source) this.frozenSources.delete(stem.id);
       };
 
-      // This is the same primitive as the proven scrubber path: the original PCM buffer,
-      // a non-looping BufferSource, and start(absoluteTime, sourceOffset).
-      source.start(when, sourceOffset);
-
-      // A take may be longer than the Spectra cycle. In that case stop this one-shot exactly at
-      // the cycle boundary so the next fresh source owns the next cycle. Shorter takes simply end
-      // naturally and leave silence until the boundary.
-      if (remainingInTake > remainingInCycle) {
-        source.stop(when + remainingInCycle);
-      }
+      // Use the exact same proven PCM primitive as the scrubber, but always from the selected
+      // start point. Spectra transport phase must never be added to this source offset.
+      source.start(when, rawOffset);
       return source;
     };
 
-    scheduleOneShot(firstStart, phaseInLoop);
+    scheduleOneShot(firstStart);
 
-    const nextBoundary =
-      firstStart + (phaseInLoop > 0 ? Math.max(0.001, loopDuration - phaseInLoop) : loopDuration);
-
+    // Vocal is a real clip loop, not a short fragment embedded in the much longer Spectra song
+    // cycle. Schedule fresh PCM one-shots back-to-back at the take's playable duration. Using
+    // absolute WebAudio times keeps the repeats sample-stable without AudioBufferSource.loop.
     const scheduleCycle = (boundaryTime) => {
-      const lead = 0.18;
+      const lead = Math.min(0.18, Math.max(0.025, playableDuration * 0.25));
       const delaySeconds = Math.max(0, boundaryTime - context.currentTime - lead);
       const handle = this.timers.setTimeout?.(() => {
         if (this.vocalBufferLoopTimers.get(stem.id) !== handle) return;
 
         let when = boundaryTime;
-        while (when < context.currentTime + 0.008) when += loopDuration;
-        scheduleOneShot(when, 0);
-        scheduleCycle(when + loopDuration);
+        while (when < context.currentTime + 0.008) when += playableDuration;
+        scheduleOneShot(when);
+        scheduleCycle(when + playableDuration);
       }, delaySeconds * 1000);
       if (handle != null) this.vocalBufferLoopTimers.set(stem.id, handle);
     };
 
-    scheduleCycle(nextBoundary);
+    scheduleCycle(firstStart + playableDuration);
     this.vocalPlaybackDiagnostics.set(stem.id, {
-      mode: 'original-pcm-cycle',
+      mode: 'original-pcm-continuous-loop',
       pcmDuration: Number(buffer.duration) || 0,
-      loopDuration,
       sourceOffset: rawOffset,
       playableDuration,
-      phase: phaseInLoop,
+      loopDuration: playableDuration,
       startedAt: firstStart,
     });
     return 1;
