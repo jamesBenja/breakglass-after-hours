@@ -704,14 +704,16 @@ export function createActions({
   const renderVocalSourceEditor = (target) => {
     if (!target || !ui.document || !ui.buttons) return;
     const bufferDuration = Number(studio.recordings?.get?.(target.id)?.duration) || 0;
-    const rawDuration = Math.max(0, Number(target.vocalRawDuration) || Number(target.sourceDuration) || 0);
+    const rawDuration = Math.max(
+      0,
+      Number(target.vocalRawDuration) || Number(target.sourceDuration) || 0,
+    );
     const duration = bufferDuration > 0 ? bufferDuration : rawDuration;
     if (!(duration > 0)) return;
     const minimumPlayable = Math.min(0.05, Math.max(0.01, duration * 0.05));
     const maxOffset = Math.max(0, duration - minimumPlayable);
     const requestedOffset = Math.max(0, Number(target.sourceOffset) || 0);
-    const selectedOffset =
-      requestedOffset >= duration ? 0 : Math.min(maxOffset, requestedOffset);
+    const selectedOffset = requestedOffset >= duration ? 0 : Math.min(maxOffset, requestedOffset);
     target.sourceOffset = selectedOffset;
     const editor = ui.document.createElement('div');
     editor.className = 'vocal-source-editor';
