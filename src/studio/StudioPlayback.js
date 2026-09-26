@@ -74,7 +74,10 @@ function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
     return null;
   }
 
-  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
+  const sampleRate = Math.max(
+    1,
+    Number(buffer.sampleRate) || Number(context.sampleRate) || 48000,
+  );
   const channels = Math.max(1, Math.floor(Number(buffer.numberOfChannels) || 1));
   const loopFrames = Math.max(1, Math.round(loopDuration * sampleRate));
   let loopBuffer = null;
