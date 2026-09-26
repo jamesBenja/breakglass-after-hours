@@ -1110,7 +1110,13 @@ export class StudioPlayback {
   startFrozenRecordings(
     session,
     offset = 0,
-    { startTime = null, phaseOffset = null, onlyStemId = null } = {},
+    {
+      startTime = null,
+      phaseOffset = null,
+      onlyStemId = null,
+      recordingFilter = 'all',
+      diagnosticStage = null,
+    } = {},
   ) {
     const context = this.audio.context;
     if (!context || !session?.recordings?.size) return 0;
@@ -1132,11 +1138,14 @@ export class StudioPlayback {
 
     for (const stem of session.stems) {
       if (onlyStemId && stem.id !== onlyStemId) continue;
+      const microphoneTake = isMicrophoneRecordingStem(stem);
+      if (recordingFilter === 'microphone' && !microphoneTake) continue;
+      if (recordingFilter === 'non-microphone' && microphoneTake) continue;
+
       const buffer = session.recordings.get(stem.id);
       if (!buffer?.duration) continue;
 
       this.clearVocalBufferLoop(stem.id);
-      const microphoneTake = isMicrophoneRecordingStem(stem);
       if (microphoneTake) {
         this.clearVocalDirectRoute(stem.id);
 
@@ -1146,7 +1155,7 @@ export class StudioPlayback {
         const directRoute = this.createVocalDirectRoute(stem);
         if (!directRoute) continue;
 
-        started += this.scheduleVocalBufferLoop(
+        const vocalStarted = this.scheduleVocalBufferLoop(
           stem,
           buffer,
           directRoute,
@@ -1154,6 +1163,15 @@ export class StudioPlayback {
           phase,
           start,
         );
+        started += vocalStarted;
+        if (vocalStarted > 0 && diagnosticStage) {
+          const previous = this.vocalPlaybackDiagnostics.get(stem.id) ?? {};
+          this.vocalPlaybackDiagnostics.set(stem.id, {
+            ...previous,
+            stage: diagnosticStage,
+            createdAtContextTime: context.currentTime,
+          });
+        }
         continue;
       }
 
@@ -1871,6 +1889,17 @@ export class StudioPlayback {
       this.transportStartedAt = this.audio.context.currentTime;
     }
 
+    // Browser-microphone PCM must be created before the first asset/native-media await as well.
+    // The scrubber's proven-good path creates its BufferSource immediately after route recovery.
+    // Every previous Spectra Vocal implementation waited until after the asset checks below,
+    // which preserved the same iPhone failure regardless of buffer/loop/routing changes.
+    const immediateVocalCount = this.startFrozenRecordings(session, safeOffset, {
+      startTime: sharedStartTime,
+      phaseOffset: restartTransport ? safeOffset : null,
+      recordingFilter: 'microphone',
+      diagnosticStage: 'pre-asset-await',
+    });
+
     // Begin browser-recorded media immediately, before any asset-loading await. On iPhone
     // Safari the native microphone file needs play() to happen in the original PLAY gesture.
     // Calling the async method without awaiting here runs its setup and play() call synchronously
@@ -1901,9 +1930,15 @@ export class StudioPlayback {
     const frozenCount = this.startFrozenRecordings(session, safeOffset, {
       startTime: sharedStartTime,
       phaseOffset: restartTransport ? safeOffset : null,
+      recordingFilter: 'non-microphone',
     });
     await blobPlayback;
     if (playGeneration !== this.playGeneration) return false;
+
+    this.lastRecordedStartCounts = {
+      microphoneBeforeAwait: immediateVocalCount,
+      nonMicrophoneAfterAwait: frozenCount,
+    };
 
     const interval = 60 / this.bpm / 4;
     this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
