@@ -31,6 +31,4 @@ jobs:
         run: pnpm build
 
       - name: Formatting
-        run: |
-          pnpm exec prettier --write tests/spectra-vocal-input.test.js
-          git diff -- tests/spectra-vocal-input.test.js
+        run: pnpm run format:check
