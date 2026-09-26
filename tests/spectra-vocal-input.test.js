@@ -398,105 +398,105 @@ test('Vocal scrubber is bounded by playable PCM duration, not the longer raw fil
 test(
   'setting a Vocal scrub point while stopped starts the full Spectra mix, not Vocal-only audition',
   async () => {
-  const studio = new StudioSession();
-  const vocal = studio.stems.find((stem) => stem.inputKey === 'vocal');
-  vocal.source = 'browser-microphone';
-  vocal.sourceDuration = 3;
-  vocal.sourceOffset = 0.5;
-  studio.recordings.set(vocal.id, {
-    duration: 3,
-    length: 30,
-    numberOfChannels: 1,
-    sampleRate: 10,
-    getChannelData: () => new Float32Array(30),
-  });
+    const studio = new StudioSession();
+    const vocal = studio.stems.find((stem) => stem.inputKey === 'vocal');
+    vocal.source = 'browser-microphone';
+    vocal.sourceDuration = 3;
+    vocal.sourceOffset = 0.5;
+    studio.recordings.set(vocal.id, {
+      duration: 3,
+      length: 30,
+      numberOfChannels: 1,
+      sampleRate: 10,
+      getChannelData: () => new Float32Array(30),
+    });
 
-  const created = [];
-  const makeElement = (tag) => {
-    const element = {
-      tag,
-      children: [],
-      textContent: '',
-      value: '',
-      style: {},
-      append(...items) {
-        this.children.push(...items);
-      },
-      appendChild(item) {
-        this.children.push(item);
-      },
-      setAttribute(name, value) {
-        this[name] = value;
-      },
+    const created = [];
+    const makeElement = (tag) => {
+      const element = {
+        tag,
+        children: [],
+        textContent: '',
+        value: '',
+        style: {},
+        append(...items) {
+          this.children.push(...items);
+        },
+        appendChild(item) {
+          this.children.push(item);
+        },
+        setAttribute(name, value) {
+          this[name] = value;
+        },
+      };
+      created.push(element);
+      return element;
     };
-    created.push(element);
-    return element;
-  };
-  const ui = {
-    document: { createElement: makeElement },
-    buttons: {
-      prepend() {},
-      appendChild() {},
-    },
-    panel() {},
-    warning() {},
-  };
+    const ui = {
+      document: { createElement: makeElement },
+      buttons: {
+        prepend() {},
+        appendChild() {},
+      },
+      panel() {},
+      warning() {},
+    };
 
-  const calls = [];
-  const studioPlayback = {
-    playing: false,
-    async play(_session, offset, options) {
-      calls.push(['play', offset, options]);
-      this.playing = true;
-      return true;
-    },
-    stopRawAudition() {
-      calls.push(['stop-raw-audition']);
-    },
-    rawAuditionPosition() {
-      return 1.1;
-    },
-    rebuildRecordedStemPlayback() {
-      calls.push(['rebuild']);
-      return true;
-    },
-    auditionRawRecording: async () => true,
-    updateMix() {},
-  };
+    const calls = [];
+    const studioPlayback = {
+      playing: false,
+      async play(_session, offset, options) {
+        calls.push(['play', offset, options]);
+        this.playing = true;
+        return true;
+      },
+      stopRawAudition() {
+        calls.push(['stop-raw-audition']);
+      },
+      rawAuditionPosition() {
+        return 1.1;
+      },
+      rebuildRecordedStemPlayback() {
+        calls.push(['rebuild']);
+        return true;
+      },
+      auditionRawRecording: async () => true,
+      updateMix() {},
+    };
 
-  createActions({
-    audio: { context: {} },
-    spatialAudio: null,
-    sceneManager: { current: { definition: { id: 'upstairs' } } },
-    player: null,
-    ui,
-    state: { data: {} },
-    studio,
-    studioPlayback,
-    micRecorder: { supported: true },
-    keyboardPerformance: null,
-    photos: null,
-    dj: null,
-    saveState() {},
-    canAct: () => true,
-  });
+    createActions({
+      audio: { context: {} },
+      spatialAudio: null,
+      sceneManager: { current: { definition: { id: 'upstairs' } } },
+      player: null,
+      ui,
+      state: { data: {} },
+      studio,
+      studioPlayback,
+      micRecorder: { supported: true },
+      keyboardPerformance: null,
+      photos: null,
+      dj: null,
+      saveState() {},
+      canAct: () => true,
+    });
 
-  ui._spectraStudioNavigation.vocal();
+    ui._spectraStudioNavigation.vocal();
 
-  const setCurrent = created.find(
-    (element) => element.textContent === 'SET LOOP START TO CURRENT AUDITION',
-  );
-  assert.ok(setCurrent);
-  await setCurrent.onclick();
+    const setCurrent = created.find(
+      (element) => element.textContent === 'SET LOOP START TO CURRENT AUDITION',
+    );
+    assert.ok(setCurrent);
+    await setCurrent.onclick();
 
-  const playCall = calls.find(([name]) => name === 'play');
-  assert.ok(playCall);
-  assert.equal(playCall[1], 0);
-  assert.deepEqual(
-    playCall[2],
-    {},
-    'scrub/set-start must start the complete mix with no stemId and no forced transport restart',
-  );
+    const playCall = calls.find(([name]) => name === 'play');
+    assert.ok(playCall);
+    assert.equal(playCall[1], 0);
+    assert.deepEqual(
+      playCall[2],
+      {},
+      'scrub/set-start must start the complete mix with no stemId and no forced transport restart',
+    );
     assert.equal(calls.some(([name]) => name === 'rebuild'), false);
   },
 );
