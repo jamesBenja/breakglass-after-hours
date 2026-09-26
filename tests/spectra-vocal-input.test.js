@@ -395,7 +395,9 @@ test('Vocal scrubber is bounded by playable PCM duration, not the longer raw fil
   assert.match(readout.textContent, /VOCAL LOOP 2\.99s/);
 });
 
-test('setting a Vocal scrub point while stopped starts the full Spectra mix, not Vocal-only audition', async () => {
+test(
+  'setting a Vocal scrub point while stopped starts the full Spectra mix, not Vocal-only audition',
+  async () => {
   const studio = new StudioSession();
   const vocal = studio.stems.find((stem) => stem.inputKey === 'vocal');
   vocal.source = 'browser-microphone';
@@ -495,8 +497,9 @@ test('setting a Vocal scrub point while stopped starts the full Spectra mix, not
     {},
     'scrub/set-start must start the complete mix with no stemId and no forced transport restart',
   );
-  assert.equal(calls.some(([name]) => name === 'rebuild'), false);
-});
+    assert.equal(calls.some(([name]) => name === 'rebuild'), false);
+  },
+);
 
 test('Vocal take audition overlays the running Spectra loop', async () => {
   const studio = new StudioSession();
