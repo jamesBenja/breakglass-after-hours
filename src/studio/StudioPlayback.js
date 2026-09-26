@@ -63,97 +63,6 @@ function hasNativeMicrophoneRecording(session, stem) {
   return isMicrophoneRecordingStem(stem) && session?.recordingBlobs?.has?.(stem?.id) === true;
 }
 
-function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
-  if (
-    !context?.createBuffer ||
-    !buffer?.duration ||
-    !buffer?.numberOfChannels ||
-    !buffer?.getChannelData ||
-    !(loopDuration > 0)
-  ) {
-    return null;
-  }
-
-  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
-  const channels = Math.max(1, Math.floor(Number(buffer.numberOfChannels) || 1));
-  const loopFrames = Math.max(1, Math.round(loopDuration * sampleRate));
-  let loopBuffer = null;
-  try {
-    loopBuffer = context.createBuffer(channels, loopFrames, sampleRate);
-  } catch {
-    return null;
-  }
-
-  const sourceFrames = Math.max(
-    0,
-    Math.floor(Number(buffer.length) || Math.round(buffer.duration * sampleRate)),
-  );
-  const maxOffset = Math.max(0, buffer.duration - 1 / sampleRate);
-  const sourceOffset = Math.min(maxOffset, Math.max(0, Number(stem?.sourceOffset) || 0));
-  const sourceStartFrame = Math.min(sourceFrames, Math.floor(sourceOffset * sampleRate));
-  const copyFrames = Math.min(loopFrames, Math.max(0, sourceFrames - sourceStartFrame));
-  if (!(copyFrames > 0)) return loopBuffer;
-
-  const fadeFrames = Math.min(
-    Math.max(0, Math.round(sampleRate * 0.003)),
-    Math.floor(copyFrames / 2),
-  );
-
-  for (let channel = 0; channel < channels; channel += 1) {
-    const source = buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1));
-    const target = loopBuffer.getChannelData(channel);
-    target.set(source.subarray(sourceStartFrame, sourceStartFrame + copyFrames), 0);
-
-    // Tiny edge fades avoid clicks when the selected source point or the raw take ends off-zero.
-    for (let frame = 0; frame < fadeFrames; frame += 1) {
-      const gain = (frame + 1) / (fadeFrames + 1);
-      target[frame] *= gain;
-      target[copyFrames - 1 - frame] *= gain;
-    }
-  }
-
-  return loopBuffer;
-}
-
-function sliceLoopBufferFromPhase(context, buffer, phaseSeconds = 0) {
-  if (
-    !context?.createBuffer ||
-    !buffer?.duration ||
-    !buffer?.numberOfChannels ||
-    !buffer?.getChannelData
-  ) {
-    return buffer ?? null;
-  }
-
-  const duration = Math.max(0, Number(buffer.duration) || 0);
-  if (!(duration > 0)) return null;
-  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
-  const firstChannel = buffer.getChannelData(0);
-  const frames = Math.max(
-    1,
-    Math.floor(Number(buffer.length) || Number(firstChannel?.length) || duration * sampleRate),
-  );
-  const phase = ((Math.max(0, Number(phaseSeconds) || 0) % duration) + duration) % duration;
-  const phaseFrame = Math.min(frames - 1, Math.max(0, Math.floor(phase * sampleRate)));
-
-  if (phaseFrame === 0) return buffer;
-
-  const remainingFrames = Math.max(1, frames - phaseFrame);
-  let sliced = null;
-  try {
-    sliced = context.createBuffer(buffer.numberOfChannels, remainingFrames, sampleRate);
-  } catch {
-    return null;
-  }
-
-  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-    const source = buffer.getChannelData(channel);
-    sliced.getChannelData(channel).set(source.subarray(phaseFrame));
-  }
-
-  return sliced;
-}
-
 /**
  * Multitrack transport. WebAudio assets get a full channel strip:
  * input -> modeled mic/EQ color -> low shelf -> high shelf -> compressor -> fader -> pan.
@@ -1231,18 +1140,15 @@ export class StudioPlayback {
       if (microphoneTake) {
         this.clearVocalDirectRoute(stem.id);
 
-        // Build one fixed Spectra-cycle PCM buffer from the same captured AudioBuffer used by the
-        // working scrubber. Do not ask Safari to loop an AudioBufferSource. Instead, schedule a
-        // fresh one-shot source for every Spectra cycle.
-        const vocalLoopBuffer = buildVocalLoopBuffer(context, stem, buffer, loopDuration);
-        if (!vocalLoopBuffer?.duration) continue;
-
+        // Use the exact original captured PCM AudioBuffer that the working scrubber auditions.
+        // Spectra schedules a fresh one-shot from that same buffer every cycle. There is no
+        // copied loop buffer and no AudioBufferSource.loop behavior left in the Vocal path.
         const directRoute = this.createVocalDirectRoute(stem);
         if (!directRoute) continue;
 
         started += this.scheduleVocalBufferLoop(
           stem,
-          vocalLoopBuffer,
+          buffer,
           directRoute,
           loopDuration,
           phase,
@@ -1356,16 +1262,9 @@ export class StudioPlayback {
     }
   }
 
-  scheduleVocalBufferLoop(
-    stem,
-    loopBuffer,
-    directRoute,
-    loopDuration,
-    phase = 0,
-    startTime = null,
-  ) {
+  scheduleVocalBufferLoop(stem, buffer, directRoute, loopDuration, phase = 0, startTime = null) {
     const context = this.audio.context;
-    if (!context || !loopBuffer?.duration || !(loopDuration > 0) || !directRoute?.gain) {
+    if (!context || !buffer?.duration || !(loopDuration > 0) || !directRoute?.gain) {
       return 0;
     }
 
@@ -1376,12 +1275,24 @@ export class StudioPlayback {
       Number.isFinite(Number(startTime)) && Number(startTime) >= now
         ? Number(startTime)
         : now + 0.045;
+    const rawOffset = Math.min(
+      Math.max(0, buffer.duration - 0.01),
+      Math.max(0, Number(stem.sourceOffset) || 0),
+    );
+    const playableDuration = Math.max(0, buffer.duration - rawOffset);
+    if (!(playableDuration > 0)) return 0;
+
     const phaseInLoop =
       ((Math.max(0, Number(phase) || 0) % loopDuration) + loopDuration) % loopDuration;
-    const firstBuffer = sliceLoopBufferFromPhase(context, loopBuffer, phaseInLoop);
-    if (!firstBuffer?.duration) return 0;
 
-    const scheduleOneShot = (buffer, when) => {
+    const scheduleOneShot = (when, cyclePhase = 0) => {
+      if (cyclePhase >= playableDuration || cyclePhase >= loopDuration) return null;
+
+      const sourceOffset = rawOffset + cyclePhase;
+      const remainingInTake = Math.max(0, buffer.duration - sourceOffset);
+      const remainingInCycle = Math.max(0, loopDuration - cyclePhase);
+      if (!(remainingInTake > 0) || !(remainingInCycle > 0)) return null;
+
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.loop = false;
@@ -1405,13 +1316,20 @@ export class StudioPlayback {
         if (this.frozenSources.get(stem.id) === source) this.frozenSources.delete(stem.id);
       };
 
-      // This is intentionally the same playback primitive as the working Vocal scrubber:
-      // a fresh, non-looping AudioBufferSource started from buffer time zero.
-      source.start(when);
+      // This is the same primitive as the proven scrubber path: the original PCM buffer,
+      // a non-looping BufferSource, and start(absoluteTime, sourceOffset).
+      source.start(when, sourceOffset);
+
+      // A take may be longer than the Spectra cycle. In that case stop this one-shot exactly at
+      // the cycle boundary so the next fresh source owns the next cycle. Shorter takes simply end
+      // naturally and leave silence until the boundary.
+      if (remainingInTake > remainingInCycle) {
+        source.stop(when + remainingInCycle);
+      }
       return source;
     };
 
-    scheduleOneShot(firstBuffer, firstStart);
+    scheduleOneShot(firstStart, phaseInLoop);
 
     const nextBoundary =
       firstStart + (phaseInLoop > 0 ? Math.max(0.001, loopDuration - phaseInLoop) : loopDuration);
@@ -1422,11 +1340,9 @@ export class StudioPlayback {
       const handle = this.timers.setTimeout?.(() => {
         if (this.vocalBufferLoopTimers.get(stem.id) !== handle) return;
 
-        // If a foreground timer was slightly late, schedule the next whole cycle just ahead of
-        // the current audio clock rather than asking Safari to start a source in the past.
         let when = boundaryTime;
         while (when < context.currentTime + 0.008) when += loopDuration;
-        scheduleOneShot(loopBuffer, when);
+        scheduleOneShot(when, 0);
         scheduleCycle(when + loopDuration);
       }, delaySeconds * 1000);
       if (handle != null) this.vocalBufferLoopTimers.set(stem.id, handle);
@@ -1434,11 +1350,12 @@ export class StudioPlayback {
 
     scheduleCycle(nextBoundary);
     this.vocalPlaybackDiagnostics.set(stem.id, {
-      mode: 'one-shot-cycle',
-      pcmDuration: Number(loopBuffer.duration) || 0,
+      mode: 'original-pcm-cycle',
+      pcmDuration: Number(buffer.duration) || 0,
       loopDuration,
+      sourceOffset: rawOffset,
+      playableDuration,
       phase: phaseInLoop,
-      firstDuration: Number(firstBuffer.duration) || 0,
       startedAt: firstStart,
     });
     return 1;
