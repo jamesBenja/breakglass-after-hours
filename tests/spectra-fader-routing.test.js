@@ -502,11 +502,19 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
 
   const source = createdSources[0];
   assert.equal(source.loop, true);
-  assert.equal(source.loopStart, 0);
-  assert.equal(source.loopEnd, 4);
+  assert.equal(
+    source.loopStart,
+    undefined,
+    'Vocal must not set explicit loop points on Safari; the whole fixed-length buffer is the loop',
+  );
+  assert.equal(source.loopEnd, undefined);
   assert.equal(source.buffer.duration, 4);
   assert.notEqual(source.buffer, recording);
-  assert.deepEqual(source.startArgs, [0, 0]);
+  assert.deepEqual(
+    source.startArgs,
+    [0],
+    'Vocal BufferSource must always start at buffer offset zero',
+  );
 
   const loop = source.buffer.getChannelData(0);
   assert.equal(loop[0], samples[12]);
@@ -541,6 +549,50 @@ test('recorded microphone audio becomes one continuous fixed-length Spectra loop
 
   playback.stop();
   assert.equal(source.stopped, true);
+});
+
+test('Vocal transport phase is baked into PCM so Safari always starts the loop at offset zero', () => {
+  const createdSources = [];
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio);
+  const session = new StudioSession();
+  session.bpm = 60;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  vocal.source = 'browser-microphone';
+  vocal.sourceOffset = 0;
+
+  const samples = Float32Array.from({ length: 20 }, (_, index) => (index + 1) / 100);
+  session.recordings.set(vocal.id, {
+    duration: 2,
+    length: 20,
+    numberOfChannels: 1,
+    sampleRate: 10,
+    getChannelData: () => samples,
+  });
+
+  playback.session = session;
+  playback.updateMix(session);
+  assert.equal(
+    playback.startFrozenRecordings(session, 3.5, { startTime: 0, phaseOffset: 3.5 }),
+    1,
+  );
+
+  const source = createdSources[0];
+  assert.deepEqual(source.startArgs, [0]);
+  assert.equal(source.loop, true);
+  assert.equal(source.loopStart, undefined);
+  assert.equal(source.loopEnd, undefined);
+
+  const rotated = source.buffer.getChannelData(0);
+  assert.equal(rotated[0], 0, 'phase 3.5s begins inside the silent tail of the 4s Spectra loop');
+  assert.equal(
+    rotated[5] > 0,
+    true,
+    'after the remaining 0.5s of silence the rotated buffer wraps to the beginning of the Vocal take',
+  );
 });
 
 test('changing Vocal source offset replaces the continuous loop source cleanly', () => {
@@ -652,10 +704,16 @@ test('live Vocal scrub rebuild replaces only Vocal and preserves every other fro
   );
   assert.equal(untouchedOther.stopped, false, 'other Spectra recording keeps running');
   assert.equal(rebuiltVocal.loop, true);
-  assert.equal(rebuiltVocal.buffer.getChannelData(0)[0], vocalSamples[7]);
-  assert.ok(
-    Math.abs(rebuiltVocal.startArgs[1] - 1.518) < 0.001,
-    'replacement Vocal rejoins the current shared transport phase',
+  assert.equal(
+    rebuiltVocal.startArgs.length,
+    1,
+    'replacement Vocal must not pass a non-zero AudioBufferSource start offset to Safari',
+  );
+  assert.ok(Math.abs(rebuiltVocal.startArgs[0] - 5.018) < 0.001);
+  assert.equal(
+    rebuiltVocal.buffer.getChannelData(0)[0],
+    vocalSamples[22],
+    'replacement Vocal rejoins the shared phase by rotating PCM, not by starting mid-buffer',
   );
 });
 
@@ -833,7 +891,7 @@ test('a replacement Vocal recording cannot inherit the previous take playback st
   assert.equal(firstSource.stopped, true);
   assert.notEqual(secondSource.buffer, secondRecording);
   assert.equal(secondSource.buffer.duration, 4);
-  assert.deepEqual(secondSource.startArgs, [0, 0]);
+  assert.deepEqual(secondSource.startArgs, [0]);
   assert.equal(secondSource.loop, true);
   playback.stop();
 });
