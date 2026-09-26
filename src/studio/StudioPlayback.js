@@ -1218,6 +1218,34 @@ export class StudioPlayback {
     return started;
   }
 
+  restoreExistingAudibility(session = this.session) {
+    if (!session || !this.audio?.context) return false;
+    const time = this.audio.context.currentTime;
+
+    for (const stem of session.stems ?? []) {
+      const gateOpen = stem.clipActive !== false && stem.mute !== true;
+
+      const directVocalRoute = this.vocalDirectRoutes.get(stem.id);
+      if (directVocalRoute) {
+        writeSwitchParam(directVocalRoute.gain?.gain, gateOpen ? stem.level : 0, time);
+      }
+
+      const frozenGate = this.frozenGates.get(stem.id);
+      if (frozenGate) writeSwitchParam(frozenGate.gain, gateOpen ? 1 : 0, time);
+
+      const bus = this.buses.get(stem.id);
+      if (bus) {
+        writeSwitchParam(bus.gate?.gain, 1, time);
+        writeSwitchParam(bus.hardMute?.gain, frozenGate ? 1 : gateOpen ? 1 : 0, time);
+      }
+    }
+
+    // These only update already-existing media. No buses or sources are created.
+    this.updateNativeMix(session);
+    this.updateBlobMix(session);
+    return true;
+  }
+
   rebuildRecordedStemPlayback(
     session = this.session,
     stemId,
@@ -1229,9 +1257,13 @@ export class StudioPlayback {
     const buffer = session.recordings?.get?.(stemId);
     if (!stem || !buffer?.duration) return false;
 
-    // Scrubbing one recorded stem must never rewrite every other mixer gate. In particular,
-    // Vocal scrub is a local source edit, not an audition/solo operation.
-    if (!preserveAudition) this.auditionStemId = null;
+    // Scrubbing one recorded stem is not an audition/solo operation. If an old explicit preview
+    // left hidden audition state behind, exit it and restore only already-existing channel gates.
+    // Otherwise the scrub remains completely local and does not touch any backing channel.
+    if (!preserveAudition && this.auditionStemId) {
+      this.auditionStemId = null;
+      this.restoreExistingAudibility(session);
+    }
 
     const now = context.currentTime;
     const startTime = now + Math.max(0.005, Number(leadSeconds) || 0.018);
