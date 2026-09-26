@@ -1251,6 +1251,24 @@ export class StudioPlayback {
         continue;
       }
 
+      const existing = this.frozenSources.get(stem.id);
+      if (existing) {
+        existing.onended = null;
+        try {
+          existing.stop();
+        } catch {
+          // Already stopped.
+        }
+        existing.disconnect?.();
+        this.sources.delete(existing);
+        this.frozenSources.delete(stem.id);
+      }
+
+      const existingGate = this.frozenGates.get(stem.id);
+      existingGate?.disconnect?.();
+      this.frozenGates.delete(stem.id);
+
+      const source = context.createBufferSource();
       const sourceGate = context.createGain();
       sourceGate.gain.value = 1;
       sourceGate.connect(this.ensureBus(stem).input);
@@ -1322,6 +1340,7 @@ export class StudioPlayback {
       this.vocalBufferLoopTimers.delete(id);
 
       const sources = this.vocalBufferSources.get(id);
+      const frozen = this.frozenSources.get(id);
       for (const source of sources ?? []) {
         source.onended = null;
         try {
@@ -1332,6 +1351,7 @@ export class StudioPlayback {
         source.disconnect?.();
         this.sources.delete(source);
       }
+      if (frozen && sources?.has?.(frozen)) this.frozenSources.delete(id);
       this.vocalBufferSources.delete(id);
     }
   }
