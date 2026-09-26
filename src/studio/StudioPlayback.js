@@ -74,10 +74,7 @@ function buildVocalLoopBuffer(context, stem, buffer, loopDuration) {
     return null;
   }
 
-  const sampleRate = Math.max(
-    1,
-    Number(buffer.sampleRate) || Number(context.sampleRate) || 48000,
-  );
+  const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
   const channels = Math.max(1, Math.floor(Number(buffer.numberOfChannels) || 1));
   const loopFrames = Math.max(1, Math.round(loopDuration * sampleRate));
   let loopBuffer = null;
@@ -136,9 +133,7 @@ function rotateLoopBufferToPhase(context, buffer, phaseSeconds = 0) {
     Math.floor(Number(buffer.length) || Number(firstChannel?.length) || duration * sampleRate),
   );
   const phase =
-    duration > 0
-      ? ((Math.max(0, Number(phaseSeconds) || 0) % duration) + duration) % duration
-      : 0;
+    duration > 0 ? ((Math.max(0, Number(phaseSeconds) || 0) % duration) + duration) % duration : 0;
   const phaseFrame = Math.min(frames - 1, Math.max(0, Math.floor(phase * sampleRate)));
 
   // A zero phase already has the desired layout. Avoid an unnecessary allocation.
