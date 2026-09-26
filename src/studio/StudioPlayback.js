@@ -119,7 +119,6 @@ function rotateLoopBufferToPhase(context, buffer, phaseSeconds = 0) {
   if (
     !context?.createBuffer ||
     !buffer?.duration ||
-    !buffer?.length ||
     !buffer?.numberOfChannels ||
     !buffer?.getChannelData
   ) {
@@ -128,7 +127,11 @@ function rotateLoopBufferToPhase(context, buffer, phaseSeconds = 0) {
 
   const duration = Math.max(0, Number(buffer.duration) || 0);
   const sampleRate = Math.max(1, Number(buffer.sampleRate) || Number(context.sampleRate) || 48000);
-  const frames = Math.max(1, Math.floor(Number(buffer.length) || duration * sampleRate));
+  const firstChannel = buffer.getChannelData(0);
+  const frames = Math.max(
+    1,
+    Math.floor(Number(buffer.length) || Number(firstChannel?.length) || duration * sampleRate),
+  );
   const phase =
     duration > 0
       ? ((Math.max(0, Number(phaseSeconds) || 0) % duration) + duration) % duration
