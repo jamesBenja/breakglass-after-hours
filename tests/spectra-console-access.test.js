@@ -91,7 +91,6 @@ test('direct Spectra mixer navigation renders only after shared console access i
   assert.equal(getMixerRenders(), 1);
 });
 
-
 test('multiplayer mixer access requires physical proximity to the Spectra console', () => {
   const sceneManager = {
     current: {
