@@ -45,6 +45,7 @@ export class SpectraRecorder {
     this.recording = false;
     this.startedAt = 0;
     this.transportOrigin = 0;
+    this.armedServerAt = 0;
     this.lanes = new Map();
     this.lastCommitted = [];
     this.transportOwner = 'spectra-recorder';
@@ -115,6 +116,7 @@ export class SpectraRecorder {
     this.recording = false;
     this.startedAt = clockNow();
     this.transportOrigin = 0;
+    this.armedServerAt = this.game.multiplayer?.serverNow?.() ?? Date.now();
     this.lanes.clear();
     this.lastCommitted = [];
     this.trace('record:armed');
@@ -129,6 +131,7 @@ export class SpectraRecorder {
     this.recording = false;
     this.startedAt = 0;
     this.transportOrigin = 0;
+    this.armedServerAt = 0;
     this.lanes.clear();
     this.game.spectraTransport?.release?.(this.transportOwner);
     return true;
@@ -163,6 +166,24 @@ export class SpectraRecorder {
     return Math.max(0, (clockNow() - this.startedAt) / 1000 + offset);
   }
 
+  remoteEventTime(performedAt) {
+    const remoteTime = Number(performedAt);
+    if (!(remoteTime > 0) || !(this.armedServerAt > 0)) return null;
+    const elapsed = Math.max(0, (remoteTime - this.armedServerAt) / 1000);
+    const session = this.game.studio;
+    const transport = this.game.spectraTransport;
+    if (transport?.running) {
+      return transport.quantizeTime(this.transportOrigin + elapsed, {
+        wrap: true,
+        includeSwing: true,
+      });
+    }
+    const loop = loopSeconds(session);
+    const position = this.transportOrigin + elapsed;
+    if (loop > 0) return ((position % loop) + loop) % loop;
+    return position;
+  }
+
   capture({
     playerId = 'local',
     playerName = 'Player',
@@ -170,6 +191,7 @@ export class SpectraRecorder {
     config = {},
     event = {},
     offsetSeconds = 0,
+    eventTimeOverride = null,
     source = 'spectra-live-capture',
   } = {}) {
     if (!this.armed) {
@@ -199,7 +221,10 @@ export class SpectraRecorder {
     this.beginOnFirstEvent(offsetSeconds);
 
     const targets = hasTrackArmModel ? targetStems : [null];
-    const eventTime = this.eventTime(offsetSeconds);
+    const hasEventTimeOverride = eventTimeOverride != null;
+    const override = hasEventTimeOverride ? Number(eventTimeOverride) : Number.NaN;
+    const eventTime =
+      Number.isFinite(override) && override >= 0 ? override : this.eventTime(offsetSeconds);
     const capturedEvents = eventsForCapture(event);
     this.trace('capture:accepted', {
       playerId,
@@ -290,12 +315,22 @@ export class SpectraRecorder {
       return false;
     }
     const remote = this.game.multiplayer?.remotePlayers?.get?.(playerId);
+    const performerTime = this.remoteEventTime(data.performedAt);
+    this.trace('remote:timing', {
+      playerId,
+      nonce: data?.nonce ?? null,
+      performedAt: Number(data?.performedAt) || null,
+      armedServerAt: this.armedServerAt || null,
+      transportOrigin: this.transportOrigin,
+      performerTime,
+    });
     return this.capture({
       playerId,
       playerName: remote?.avatar?.displayName ?? 'Guest musician',
       resourceId: data.resourceId ?? 'remote-instrument',
       config: data.config ?? {},
       event: data.event ?? {},
+      eventTimeOverride: performerTime,
       source: 'spectra-collaborative-capture',
     });
   }
@@ -307,6 +342,7 @@ export class SpectraRecorder {
     this.game.spectraTransport?.release?.(this.transportOwner);
     if (!commit) {
       this.lanes.clear();
+      this.armedServerAt = 0;
       return [];
     }
 
@@ -349,6 +385,7 @@ export class SpectraRecorder {
     });
     this.lastCommitted = committed;
     this.lanes.clear();
+    this.armedServerAt = 0;
     if (committed.length) {
       this.game.save?.();
       this.game.studioPlayback?.updateMix?.(session);

@@ -116,6 +116,8 @@ export class SharedMediaSync {
     const basePlay = playback.play.bind(playback);
     const baseStop = playback.stop.bind(playback);
     const baseUpdateMix = playback.updateMix.bind(playback);
+    const baseUpdateStemMix = playback.updateStemMix?.bind(playback);
+    const baseApplyChannelAudibility = playback.applyChannelAudibility?.bind(playback);
 
     playback.play = async (session, offset = 0, options = {}) => {
       const result = await basePlay(session, offset, options);
@@ -142,6 +144,24 @@ export class SharedMediaSync {
       }
       return result;
     };
+    if (baseUpdateStemMix) {
+      playback.updateStemMix = (session = playback.session, stemId, options = {}) => {
+        const result = baseUpdateStemMix(session, stemId, options);
+        if (!this.applyingStudio && playback.playing && this.localMayPublishStudio()) {
+          this.publishStudio(false);
+        }
+        return result;
+      };
+    }
+    if (baseApplyChannelAudibility) {
+      playback.applyChannelAudibility = (session = playback.session, ...args) => {
+        const result = baseApplyChannelAudibility(session, ...args);
+        if (!this.applyingStudio && playback.playing && this.localMayPublishStudio()) {
+          this.publishStudio(false);
+        }
+        return result;
+      };
+    }
   }
 
   studioController() {

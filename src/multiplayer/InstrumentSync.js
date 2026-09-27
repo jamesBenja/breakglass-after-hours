@@ -213,6 +213,7 @@ export class InstrumentSync {
     const position =
       claim?.position ??
       (playerPosition ? [playerPosition.x, playerPosition.y, playerPosition.z] : null);
+    const performedAt = this.client.serverNow?.() ?? Date.now();
     const nonce = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
     const sent = this.client.send({
       type: 'object_update',
@@ -220,6 +221,7 @@ export class InstrumentSync {
       data: {
         nonce,
         attemptSequence,
+        performedAt,
         resourceId,
         sceneId: this.game.sceneManager.current?.definition?.id,
         position,
@@ -230,6 +232,7 @@ export class InstrumentSync {
     this.trace(sent ? 'publish:sent' : 'publish:send-failed', {
       nonce,
       attemptSequence,
+      performedAt,
       resourceId,
       eventType: event?.type ?? null,
       midi: Number.isFinite(Number(event?.midi)) ? Number(event.midi) : null,
@@ -298,6 +301,7 @@ export class InstrumentSync {
           fromId: message.by ?? null,
           nonce: message.data?.nonce ?? null,
           attemptSequence: Number(message.data?.attemptSequence) || null,
+          performedAt: Number(message.data?.performedAt) || null,
           resourceId: message.data?.resourceId ?? null,
           eventType: message.data?.event?.type ?? null,
           midi: Number.isFinite(Number(message.data?.event?.midi))
@@ -313,6 +317,7 @@ export class InstrumentSync {
           fromId: message.by ?? null,
           nonce: message.data?.nonce ?? null,
           attemptSequence: Number(message.data?.attemptSequence) || null,
+          performedAt: Number(message.data?.performedAt) || null,
           resourceId: message.data?.resourceId ?? null,
         });
         this.playRemote(message.data);
