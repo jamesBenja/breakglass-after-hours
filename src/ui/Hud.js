@@ -45,6 +45,8 @@ export class Hud {
     this.notice = document.getElementById('notice');
     this._spectraMeterTimer = null;
     this._spectraView = 'mixer';
+    this._spectraSelectedBar = null;
+    this._spectraBarClipboard = null;
     this.onPanelClose = null;
     this.closeButton = document.createElement('button');
     this.closeButton.type = 'button';
@@ -191,8 +193,16 @@ export class Hud {
         masterMeters.right.style.height = `${Math.round(right * 100)}%`;
       }
       if (playhead && snapshot.transport) {
-        const steps = Math.max(16, Number(snapshot.transport.loopBars || 4) * 16);
-        const step = Math.max(0, Number(snapshot.transport.loopStep) || 0);
+        const steps = Math.max(
+          16,
+          Number(snapshot.transport.arrangementBars || snapshot.transport.loopBars || 4) * 16,
+        );
+        const step = Math.max(
+          0,
+          Number(
+            snapshot.transport.arrangementStep ?? snapshot.transport.loopStep ?? 0,
+          ) || 0,
+        );
         playhead.style.left = `${Math.min(100, (step / steps) * 100)}%`;
       }
     };
@@ -211,6 +221,7 @@ export class Hud {
       onTempo = null,
       onClick = null,
       onLoopBars = null,
+      onArrangementAction = null,
       meterProvider = null,
       onAudibility = null,
       onFxDetail = null,
@@ -438,26 +449,53 @@ export class Hud {
 
     if (this._spectraView === 'session') {
       const loopBars = Math.max(1, Number(session.loopBars) || 4);
+      const arrangementBars = Math.max(
+        1,
+        Math.min(64, Math.round(Number(session.arrangementBars) || loopBars)),
+      );
       const loopSeconds = (loopBars * 4 * 60) / Math.max(1, Number(session.bpm) || 118);
       const sessionView = this.document.createElement('div');
       sessionView.className = 'spectra-session-view';
 
+      const runArrangementAction = async (action, payload, fallback) => {
+        let result;
+        if (typeof onArrangementAction === 'function') {
+          result = await onArrangementAction(action, payload);
+        } else {
+          result = fallback?.();
+        }
+        const bars = Math.max(1, Number(session.arrangementBars) || loopBars);
+        if (
+          this._spectraSelectedBar &&
+          Number(this._spectraSelectedBar.barIndex) >= bars
+        ) {
+          this._spectraSelectedBar = null;
+        }
+        redraw();
+        return result;
+      };
+
       const header = this.document.createElement('div');
       header.className = 'spectra-session-header';
       const summary = this.document.createElement('strong');
-      summary.textContent = `LOOP · ${loopBars} BAR${loopBars === 1 ? '' : 'S'} · ${loopSeconds.toFixed(
+      summary.textContent = `SOURCE LOOP · ${loopBars} BAR${loopBars === 1 ? '' : 'S'} · ${loopSeconds.toFixed(
         2,
       )} SEC · ${session.quantize || '1/16'} GRID`;
       const lengthControls = this.document.createElement('div');
       lengthControls.className = 'spectra-loop-length-controls';
+      const sourceLabel = this.document.createElement('span');
+      sourceLabel.className = 'spectra-session-control-label';
+      sourceLabel.textContent = 'SOURCE';
+      lengthControls.appendChild(sourceLabel);
       for (const bars of [1, 2, 4, 8, 16]) {
         const button = this.document.createElement('button');
         button.type = 'button';
-        button.textContent = `${bars} BAR${bars === 1 ? '' : 'S'}`;
+        button.textContent = `${bars}`;
+        button.title = `${bars} bar source recording loop`;
         button.classList.toggle('active', bars === loopBars);
         button.onclick = async () => {
           await onLoopBars?.(bars);
-          session.loopBars = bars;
+          if (!onLoopBars) session.setLoopBars?.(bars);
           session.loopEnabled = true;
           redraw();
         };
@@ -466,12 +504,48 @@ export class Hud {
       header.append(summary, lengthControls);
       sessionView.appendChild(header);
 
+      const arrangementHeader = this.document.createElement('div');
+      arrangementHeader.className = 'spectra-arrangement-header';
+      const arrangementSummary = this.document.createElement('strong');
+      arrangementSummary.textContent = `SESSION · ${arrangementBars} BAR${arrangementBars === 1 ? '' : 'S'}`;
+      const arrangementControls = this.document.createElement('div');
+      arrangementControls.className = 'spectra-arrangement-length-controls';
+      for (const bars of [1, 2, 4, 8, 16, 32]) {
+        const button = this.document.createElement('button');
+        button.type = 'button';
+        button.textContent = `${bars}`;
+        button.title = `Make the Spectra session ${bars} bars long`;
+        button.classList.toggle('active', bars === arrangementBars);
+        button.onclick = () =>
+          runArrangementAction(
+            'set-bars',
+            { bars },
+            () => session.setArrangementBars?.(bars),
+          );
+        arrangementControls.appendChild(button);
+      }
+      const duplicateSession = this.document.createElement('button');
+      duplicateSession.type = 'button';
+      duplicateSession.className = 'spectra-arrangement-duplicate';
+      duplicateSession.textContent = '×2';
+      duplicateSession.title = 'Duplicate the complete current session after itself';
+      duplicateSession.disabled = arrangementBars >= 64;
+      duplicateSession.onclick = () =>
+        runArrangementAction(
+          'duplicate-session',
+          {},
+          () => session.duplicateArrangement?.(),
+        );
+      arrangementControls.appendChild(duplicateSession);
+      arrangementHeader.append(arrangementSummary, arrangementControls);
+      sessionView.appendChild(arrangementHeader);
+
       const timeline = this.document.createElement('div');
       timeline.className = 'spectra-session-timeline';
       const ruler = this.document.createElement('div');
       ruler.className = 'spectra-session-ruler';
-      ruler.style.setProperty('--spectra-loop-bars', String(loopBars));
-      for (let bar = 1; bar <= loopBars; bar += 1) {
+      ruler.style.setProperty('--spectra-loop-bars', String(arrangementBars));
+      for (let bar = 1; bar <= arrangementBars; bar += 1) {
         const marker = this.document.createElement('span');
         marker.textContent = `BAR ${bar}`;
         ruler.appendChild(marker);
@@ -489,33 +563,164 @@ export class Hud {
         const label = this.document.createElement('strong');
         label.textContent = stem.label;
         const lane = this.document.createElement('div');
-        lane.className = 'spectra-session-lane';
-        lane.style.setProperty('--spectra-loop-bars', String(loopBars));
+        lane.className = 'spectra-session-lane spectra-session-bar-grid';
+        lane.style.setProperty('--spectra-loop-bars', String(arrangementBars));
         const eventCount = stem.performance?.events?.length ?? 0;
         const hasAudio =
           session.recordings?.has?.(stem.id) === true ||
           session.recordingBlobs?.has?.(stem.id) === true;
         const hasClip = eventCount > 0 || hasAudio || !!stem.assetId;
-        if (hasClip) {
-          const clip = this.document.createElement('div');
-          clip.className = 'spectra-session-clip';
-          clip.textContent = hasAudio
-            ? `AUDIO LOOP · ${loopBars} BAR${loopBars === 1 ? '' : 'S'}${eventCount ? ` · SOURCE ${eventCount} EVENT${eventCount === 1 ? '' : 'S'}` : ''}`
-            : eventCount
-              ? `${eventCount} EVENT${eventCount === 1 ? '' : 'S'} · ${loopBars} BAR LOOP`
-              : `AUDIO · ${loopBars} BAR LOOP`;
-          lane.appendChild(clip);
-        } else {
-          const empty = this.document.createElement('span');
-          empty.className = 'spectra-session-empty';
-          empty.textContent = stem.recordArm ? 'ARMED · WAITING FOR RECORD' : 'EMPTY';
-          lane.appendChild(empty);
+
+        for (let barIndex = 0; barIndex < arrangementBars; barIndex += 1) {
+          const storedCell =
+            typeof session.arrangementCell === 'function'
+              ? session.arrangementCell(stem.id, barIndex)
+              : barIndex < loopBars
+                ? { sourceBar: barIndex, muted: false }
+                : null;
+          const cell = hasClip ? storedCell : null;
+          const button = this.document.createElement('button');
+          button.type = 'button';
+          button.className = 'spectra-session-bar';
+          const selected =
+            this._spectraSelectedBar?.stemId === stem.id &&
+            this._spectraSelectedBar?.barIndex === barIndex;
+          button.classList.toggle('selected', selected);
+          button.classList.toggle('empty', !cell);
+          button.classList.toggle('muted', cell?.muted === true);
+          if (!hasClip) button.classList.add('no-source');
+
+          if (!cell) {
+            button.textContent = hasClip ? '—' : 'EMPTY';
+            button.title = hasClip
+              ? `${stem.label}, bar ${barIndex + 1}: silent`
+              : `${stem.label}: record a source loop first`;
+          } else {
+            const sourceBar = Math.max(0, Number(cell.sourceBar) || 0) + 1;
+            const type = hasAudio ? 'A' : eventCount ? 'E' : 'S';
+            button.textContent = cell.muted === true ? `M · ${sourceBar}` : `${type}${sourceBar}`;
+            button.title = `${stem.label}, bar ${barIndex + 1}: source bar ${sourceBar}${
+              cell.muted === true ? ', muted' : ''
+            }`;
+          }
+          button.setAttribute('aria-pressed', String(selected));
+          button.disabled = !hasClip;
+          button.onclick = () => {
+            this._spectraSelectedBar = { stemId: stem.id, barIndex };
+            redraw();
+          };
+          lane.appendChild(button);
         }
+
         row.append(label, lane);
         timeline.appendChild(row);
       }
 
       sessionView.appendChild(timeline);
+
+      const selected = this._spectraSelectedBar;
+      const selectedStem = selected
+        ? session.stems.find((stem) => stem.id === selected.stemId)
+        : null;
+      if (
+        selectedStem &&
+        selected.barIndex >= 0 &&
+        selected.barIndex < arrangementBars
+      ) {
+        const editor = this.document.createElement('div');
+        editor.className = 'spectra-bar-editor';
+        const cell = session.arrangementCell?.(selectedStem.id, selected.barIndex) ?? null;
+        const info = this.document.createElement('strong');
+        info.textContent = `${selectedStem.label} · BAR ${selected.barIndex + 1} · ${
+          cell ? `SOURCE ${Number(cell.sourceBar) + 1}${cell.muted ? ' · MUTED' : ''}` : 'SILENT'
+        }`;
+        editor.appendChild(info);
+
+        const actions = this.document.createElement('div');
+        actions.className = 'spectra-bar-actions';
+        const makeAction = (label, handler, { disabled = false, active = false } = {}) => {
+          const button = this.document.createElement('button');
+          button.type = 'button';
+          button.textContent = label;
+          button.disabled = disabled;
+          button.classList.toggle('active', active);
+          button.onclick = handler;
+          actions.appendChild(button);
+          return button;
+        };
+
+        makeAction('COPY', () => {
+          this._spectraBarClipboard = session.copyArrangementBar?.(
+            selectedStem.id,
+            selected.barIndex,
+          ) ?? {
+            stemId: selectedStem.id,
+            sourceIndex: selected.barIndex,
+            cell: cell ? { ...cell } : null,
+          };
+          redraw();
+        });
+        makeAction(
+          this._spectraBarClipboard?.stemId === selectedStem.id ? 'PASTE' : 'PASTE',
+          () =>
+            runArrangementAction(
+              'paste',
+              {
+                stemId: selectedStem.id,
+                barIndex: selected.barIndex,
+                clipboard: this._spectraBarClipboard,
+              },
+              () =>
+                session.pasteArrangementBar?.(
+                  selectedStem.id,
+                  selected.barIndex,
+                  this._spectraBarClipboard,
+                ),
+            ),
+          { disabled: this._spectraBarClipboard?.stemId !== selectedStem.id },
+        );
+        makeAction(
+          'DUPLICATE',
+          () =>
+            runArrangementAction(
+              'duplicate-bar',
+              { stemId: selectedStem.id, barIndex: selected.barIndex },
+              () => session.duplicateArrangementBar?.(selectedStem.id, selected.barIndex),
+            ),
+          { disabled: selected.barIndex >= 63 },
+        );
+        makeAction(
+          cell?.muted ? 'UNMUTE' : 'MUTE',
+          () =>
+            runArrangementAction(
+              'toggle-mute',
+              { stemId: selectedStem.id, barIndex: selected.barIndex },
+              () => session.toggleArrangementBarMute?.(selectedStem.id, selected.barIndex),
+            ),
+          { disabled: !cell, active: cell?.muted === true },
+        );
+        makeAction(
+          'CLEAR',
+          () =>
+            runArrangementAction(
+              'clear',
+              { stemId: selectedStem.id, barIndex: selected.barIndex },
+              () => session.clearArrangementBar?.(selectedStem.id, selected.barIndex),
+            ),
+          { disabled: !cell },
+        );
+        editor.appendChild(actions);
+
+        const clipboard = this.document.createElement('small');
+        clipboard.className = 'spectra-bar-clipboard';
+        clipboard.textContent =
+          this._spectraBarClipboard?.stemId === selectedStem.id
+            ? `CLIPBOARD · BAR ${Number(this._spectraBarClipboard.sourceIndex) + 1}`
+            : 'Tap a bar, then COPY / PASTE to build the arrangement.';
+        editor.appendChild(clipboard);
+        sessionView.appendChild(editor);
+      }
+
       this.buttons.appendChild(sessionView);
       this.startSpectraMeters(meterProvider, new Map(), masterMeters, playhead);
       renderFooter?.();
