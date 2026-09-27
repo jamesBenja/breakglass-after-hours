@@ -1468,6 +1468,52 @@ test('Spectra channel and stereo master meters report live post-fader signal', (
   assert.ok(snapshot.master.right > 0);
 });
 
+test('frozen Spectra UNMUTE reopens immediately even when Safari defers scheduled AudioParam values', () => {
+  const playback = new StudioPlayback(fakeAudio());
+  const frozen = {
+    ...stem('safari-frozen-guitar', 0.64),
+    kind: 'guitar',
+    inputKey: 'guitar',
+    renderedAudio: true,
+  };
+  const session = {
+    stems: [frozen],
+    recordings: new Map([[frozen.id, { duration: 2 }]]),
+    bpm: 120,
+    loopEnabled: true,
+    loopBars: 1,
+  };
+
+  playback.session = session;
+  playback.updateMix(session);
+  playback.startFrozenRecordings(session, 0, { startTime: 0, phaseOffset: 0 });
+
+  const deferred = {
+    value: 1,
+    scheduled: [],
+    cancelAndHoldAtTime() {},
+    cancelScheduledValues() {},
+    setValueAtTime(value, time) {
+      this.scheduled.push([value, time]);
+      // Model WebKit reporting the old value until a later audio render quantum.
+    },
+  };
+  playback.frozenGates.get(frozen.id).gain = deferred;
+
+  frozen.mute = true;
+  playback.applyChannelAudibility(session);
+  assert.equal(deferred.value, 0, 'MUTE must close the gate in the same UI turn');
+
+  frozen.mute = false;
+  playback.applyChannelAudibility(session);
+  assert.equal(deferred.value, 1, 'UNMUTE must reopen the gate in the same UI turn');
+  assert.deepEqual(
+    deferred.scheduled.map(([value]) => value),
+    [0, 1],
+    'the same switch values remain scheduled on the WebAudio timeline',
+  );
+});
+
 test('frozen Spectra audio uses one persistent looping source through the live channel strip', () => {
   const createdSources = [];
   const playback = new StudioPlayback(fakeAudio(createdSources));
