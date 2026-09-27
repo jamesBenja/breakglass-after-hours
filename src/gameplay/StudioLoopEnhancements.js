@@ -1230,7 +1230,17 @@ export function installStudioLoopEnhancements(game, ui) {
       .then(() => game.studioPlayback?.updateMix?.(game.studio))
       .catch(() => {});
   }
-  game.showSpectraMixer = () => ui._spectraStudioNavigation?.mixer?.();
+  game.showSpectraMixer = async () => {
+    // External instruments (drum machine, modular, keyboard stations) can navigate to Spectra
+    // without physically clicking the console. They must acquire the exact same multiplayer
+    // console lease before any mixer UI is rendered.
+    const allowed =
+      typeof game.requestSpectraConsoleAccess === 'function'
+        ? await game.requestSpectraConsoleAccess()
+        : true;
+    if (!allowed) return false;
+    return ui._spectraStudioNavigation?.mixer?.();
+  };
   game.showSpectraAdvancedSettings = () => buildLoopPanel(game, ui);
   game.showStudioLoopBuilder = game.showSpectraAdvancedSettings;
   game.showSpectraSessions = () => buildSessionManagerPanel(game, ui);
@@ -1267,6 +1277,22 @@ export function installStudioLoopEnhancements(game, ui) {
   if (!ui._studioLoopBuilderPatched && typeof ui.studioMixer === 'function') {
     const baseStudioMixer = ui.studioMixer.bind(ui);
     ui.studioMixer = (session, options = {}) => {
+      // Final fail-closed guard. Even if an old submenu or instrument surface calls studioMixer
+      // directly, a client may never render/manipulate the console while another player owns it.
+      const consoleResource = game.multiplayer?.world?.resources?.get?.('upstairs:console');
+      if (
+        game.multiplayer?.joined &&
+        consoleResource?.ownerId &&
+        consoleResource.ownerId !== game.multiplayer.localId
+      ) {
+        ui.clearPanel?.(
+          'SPECTRA CONSOLE · IN USE',
+          `${consoleResource.ownerName || 'Another player'} is using the Spectra console right now. You can keep playing another instrument and be recorded into the shared session.`,
+        );
+        ui.warning?.(`${consoleResource.ownerName || 'Another player'} is using Spectra.`);
+        return false;
+      }
+
       const recorder = game.spectraRecorder;
       const recordStatus = recorder?.status?.() ?? {
         armed: false,
@@ -1425,7 +1451,7 @@ export function installStudioLoopEnhancements(game, ui) {
         const back = ui.document.createElement('button');
         back.type = 'button';
         back.textContent = 'BACK TO SPECTRA MIXER';
-        back.onclick = () => ui.studioMixer(session, options);
+        back.onclick = () => game.showSpectraMixer?.();
         ui.buttons?.appendChild(back);
         return true;
       };
