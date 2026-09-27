@@ -149,6 +149,8 @@ export class StudioPlayback {
     this.playGeneration = 0;
     this.vocalRuntimeTrace = [];
     this.vocalTraceSequence = 0;
+    // TEMP PERFORMANCE DIAGNOSTICS: null unless the explicit Spectra diagnostics panel is active.
+    this.performanceDiagnostics = null;
   }
 
   get playing() {
@@ -822,8 +824,10 @@ export class StudioPlayback {
       source.disconnect();
       gain.disconnect();
       this.sources.delete(source);
+      this.performanceDiagnostics?.noteSourceEnded?.('oscillator');
     };
     this.sources.add(source);
+    this.performanceDiagnostics?.noteSourceCreated?.('oscillator');
     source.start(start);
     source.stop(start + duration + 0.04);
   }
@@ -853,8 +857,10 @@ export class StudioPlayback {
       source.disconnect();
       gain.disconnect();
       this.sources.delete(source);
+      this.performanceDiagnostics?.noteSourceEnded?.('swept-oscillator');
     };
     this.sources.add(source);
+    this.performanceDiagnostics?.noteSourceCreated?.('swept-oscillator');
     source.start(start);
     source.stop(start + duration + 0.04);
   }
@@ -874,8 +880,10 @@ export class StudioPlayback {
       source.disconnect();
       gain.disconnect();
       this.sources.delete(source);
+      this.performanceDiagnostics?.noteSourceEnded?.('kick');
     };
     this.sources.add(source);
+    this.performanceDiagnostics?.noteSourceCreated?.('kick');
     source.start(start);
     source.stop(start + 0.22);
   }
@@ -918,8 +926,10 @@ export class StudioPlayback {
       filter.disconnect();
       gain.disconnect();
       this.sources.delete(source);
+      this.performanceDiagnostics?.noteSourceEnded?.('noise');
     };
     this.sources.add(source);
+    this.performanceDiagnostics?.noteSourceCreated?.('noise');
     source.start(start, offset, safeDuration);
   }
 
@@ -1717,6 +1727,7 @@ export class StudioPlayback {
       sources.add(source);
       this.sources.add(source);
       this.frozenSources.set(stem.id, source);
+      this.performanceDiagnostics?.noteSourceCreated?.('vocal-buffer', stem.id);
 
       source.onended = () => {
         source.disconnect?.();
@@ -1725,6 +1736,7 @@ export class StudioPlayback {
         active?.delete(source);
         if (active?.size === 0) this.vocalBufferSources.delete(stem.id);
         if (this.frozenSources.get(stem.id) === source) this.frozenSources.delete(stem.id);
+        this.performanceDiagnostics?.noteSourceEnded?.('vocal-buffer', stem.id);
       };
 
       // Use the exact same proven PCM primitive as the scrubber, but always from the selected
@@ -1747,7 +1759,8 @@ export class StudioPlayback {
     // absolute WebAudio times keeps the repeats sample-stable without AudioBufferSource.loop.
     const scheduleCycle = (boundaryTime) => {
       const lead = Math.min(0.18, Math.max(0.025, playableDuration * 0.25));
-      const delaySeconds = Math.max(0, boundaryTime - context.currentTime - lead);
+      const expectedCallbackTime = boundaryTime - lead;
+      const delaySeconds = Math.max(0, expectedCallbackTime - context.currentTime);
       const handle = this.timers.setTimeout?.(() => {
         if (this.vocalBufferLoopTimers.get(stem.id) !== handle) {
           this.traceVocalRuntime('vocal-loop:timer-stale', {
@@ -1762,8 +1775,25 @@ export class StudioPlayback {
           boundaryTime,
           playableDuration,
         });
+        this.performanceDiagnostics?.noteSchedulerCallback?.(
+          'vocal-loop',
+          expectedCallbackTime,
+          context.currentTime,
+          stem.id,
+        );
         let when = boundaryTime;
-        while (when < context.currentTime + 0.008) when += playableDuration;
+        let skippedCycles = 0;
+        while (when < context.currentTime + 0.008) {
+          when += playableDuration;
+          skippedCycles += 1;
+        }
+        if (skippedCycles > 0) {
+          this.performanceDiagnostics?.noteSkippedCycles?.(
+            'vocal-loop',
+            skippedCycles,
+            stem.id,
+          );
+        }
         scheduleOneShot(when);
         scheduleCycle(when + playableDuration);
       }, delaySeconds * 1000);
