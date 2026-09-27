@@ -542,6 +542,11 @@ export function createActions({
       return;
     }
 
+    // Tag the exact Vocal destination before microphone capture begins. Multiplayer Vocal uses
+    // this same id so the producer receives the take on the armed/connected channel selected here.
+    micRecorder.spectraTargetStemId = target.id;
+    micRecorder.spectraTargetStemLabel = target.label;
+
     // Vocal recording is an overdub operation. The Spectra mix and shared transport must stay
     // alive so the vocalist can perform to the existing track. Only the separate raw-take
     // audition is stopped here; no mixer source, Vocal loop, or transport is torn down.
@@ -662,6 +667,17 @@ export function createActions({
             selectedVocalStemId = destination.id;
             rememberStudio();
             studioPlayback?.updateMix?.(studio, { immediate: true });
+
+            // The local PCM is already committed above. When another player owns Spectra,
+            // MicrophoneRecorder.stop() also starts a reliable peer-to-peer transfer of this same
+            // PCM to that producer. Wait here so STOP + COMMIT means the remote take has finished
+            // transferring (or has produced a diagnostic failure) before the Vocal panel returns.
+            if (result.multiplayerTransfer) {
+              const transferred = await result.multiplayerTransfer;
+              if (transferred) {
+                ui.warning?.(`Multiplayer Vocal transferred to ${destination.label}.`);
+              }
+            }
 
             // Closing the microphone switches iOS back to the playback route. Rebuild all
             // recorded Vocal sources together on that final route, each from its own PCM scrubber
@@ -819,13 +835,23 @@ export function createActions({
     diagnosticsText.readOnly = true;
     diagnosticsText.rows = 10;
     diagnosticsText.value =
-      studioPlayback?.vocalDiagnosticReport?.() || 'No Vocal runtime events recorded yet.';
+      [
+        '=== SPECTRA VOCAL PLAYBACK ===',
+        studioPlayback?.vocalDiagnosticReport?.() || 'No Vocal runtime events recorded yet.',
+        '=== SPECTRA MULTIPLAYER VOCAL ===',
+        micRecorder?.multiplayerDiagnosticReport?.() || 'No multiplayer Vocal events recorded yet.',
+      ].join('\n');
     const copyDiagnostics = ui.document.createElement('button');
     copyDiagnostics.type = 'button';
     copyDiagnostics.textContent = 'COPY VOCAL DIAGNOSTICS';
     copyDiagnostics.onclick = async () => {
       const report =
-        studioPlayback?.vocalDiagnosticReport?.() || 'No Vocal runtime events recorded yet.';
+        [
+        '=== SPECTRA VOCAL PLAYBACK ===',
+        studioPlayback?.vocalDiagnosticReport?.() || 'No Vocal runtime events recorded yet.',
+        '=== SPECTRA MULTIPLAYER VOCAL ===',
+        micRecorder?.multiplayerDiagnosticReport?.() || 'No multiplayer Vocal events recorded yet.',
+      ].join('\n');
       diagnosticsText.value = report;
       try {
         await globalThis.navigator?.clipboard?.writeText?.(report);
@@ -839,6 +865,7 @@ export function createActions({
     clearDiagnostics.textContent = 'CLEAR VOCAL DIAGNOSTICS';
     clearDiagnostics.onclick = () => {
       studioPlayback?.clearVocalDiagnosticReport?.();
+      micRecorder?.clearMultiplayerDiagnosticReport?.();
       diagnosticsText.value = 'Trace cleared. Reproduce the issue, then return here.';
     };
     diagnostics.append(
