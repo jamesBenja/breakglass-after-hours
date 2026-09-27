@@ -41,6 +41,7 @@ export function createActions({
   stopAll = () => audio.stop(),
   saveState = () => {},
   canAct,
+  requestSpectraConsoleAccess = async () => true,
 }) {
   const panel = (title, text, actions = []) => {
     const sceneId = sceneManager.current.definition.id;
@@ -1143,7 +1144,7 @@ export function createActions({
     );
   };
 
-  const consolePanel = () => {
+  const renderConsolePanel = () => {
     if (!studio || !studioPlayback || typeof ui.studioMixer !== 'function') {
       panel('CONTROL ROOM', 'Load a session and hear the room become active.', [
         ['Play Night Bus', () => audio.play('night-bus')],
@@ -1209,8 +1210,15 @@ export function createActions({
     });
   };
 
+  const consolePanel = async () => {
+    const allowed = await requestSpectraConsoleAccess();
+    if (!allowed) return false;
+    renderConsolePanel();
+    return true;
+  };
+
   ui._spectraRefreshConsole = () => {
-    if (ui.panelElement?.classList?.contains?.('spectra-console-panel')) consolePanel();
+    if (ui.panelElement?.classList?.contains?.('spectra-console-panel')) renderConsolePanel();
   };
 
   const djPanel = () => {
