@@ -506,9 +506,7 @@ export class VocalSync {
     const armedVocals = studio.armedStems?.().filter?.((stem) => stem.inputKey === 'vocal') ?? [];
     if (armedVocals.length) {
       return (
-        armedVocals.find((stem) => stem.id === metadata.targetStemId) ??
-        armedVocals[0] ??
-        null
+        armedVocals.find((stem) => stem.id === metadata.targetStemId) ?? armedVocals[0] ?? null
       );
     }
     return (
