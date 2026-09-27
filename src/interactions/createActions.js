@@ -834,13 +834,12 @@ export function createActions({
     const diagnosticsText = ui.document.createElement('textarea');
     diagnosticsText.readOnly = true;
     diagnosticsText.rows = 10;
-    diagnosticsText.value =
-      [
-        '=== SPECTRA VOCAL PLAYBACK ===',
-        studioPlayback?.vocalDiagnosticReport?.() || 'No Vocal runtime events recorded yet.',
-        '=== SPECTRA MULTIPLAYER VOCAL ===',
-        micRecorder?.multiplayerDiagnosticReport?.() || 'No multiplayer Vocal events recorded yet.',
-      ].join('\n');
+    diagnosticsText.value = [
+      '=== SPECTRA VOCAL PLAYBACK ===',
+      studioPlayback?.vocalDiagnosticReport?.() || 'No Vocal runtime events recorded yet.',
+      '=== SPECTRA MULTIPLAYER VOCAL ===',
+      micRecorder?.multiplayerDiagnosticReport?.() || 'No multiplayer Vocal events recorded yet.',
+    ].join('\n');
     const copyDiagnostics = ui.document.createElement('button');
     copyDiagnostics.type = 'button';
     copyDiagnostics.textContent = 'COPY VOCAL DIAGNOSTICS';
