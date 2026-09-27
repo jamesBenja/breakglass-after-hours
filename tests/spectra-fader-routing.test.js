@@ -1222,6 +1222,91 @@ test('full PLAY replaces a scrub-started Vocal synchronously without losing it',
   playback.stop();
 });
 
+test('redundant same-session PLAY is idempotent and preserves Vocal plus backing sources', async () => {
+  const createdSources = [];
+  const timers = manualTimers();
+  const audio = fakeAudio(createdSources);
+  const playback = new StudioPlayback(audio, timers);
+  const session = new StudioSession();
+  session.bpm = 118;
+  session.loopBars = 1;
+  session.loopEnabled = true;
+
+  const vocal = session.stems.find((stem) => stem.inputKey === 'vocal');
+  const other = session.stems.find((stem) => stem.id !== vocal.id);
+  vocal.source = 'browser-microphone';
+  const vocalRecording = {
+    duration: 2.8986666666666667,
+    length: 21740,
+    numberOfChannels: 1,
+    sampleRate: 7500,
+    getChannelData: () => Float32Array.from({ length: 21740 }, () => 0.2),
+  };
+  const otherRecording = {
+    duration: 4,
+    length: 400,
+    numberOfChannels: 1,
+    sampleRate: 100,
+    getChannelData: () => Float32Array.from({ length: 400 }, () => 0.15),
+  };
+  session.recordings.set(vocal.id, vocalRecording);
+  session.recordings.set(other.id, otherRecording);
+
+  playback.spectraTransport = {
+    running: false,
+    position: () => 0.2,
+    positionAtOffset: (offset) => 0.2 + Math.max(0, Number(offset) || 0),
+    subscribe: () => () => {},
+    acquire() {
+      this.running = true;
+      return true;
+    },
+    restart() {
+      this.running = true;
+      return true;
+    },
+    release() {
+      this.running = false;
+      return true;
+    },
+  };
+  playback.loadAlignedAssets = async () => null;
+  playback.startNativeAssets = async () => false;
+  playback.startBlobRecordings = async () => 0;
+
+  assert.equal(await playback.play(session, 0), true);
+  const vocalSource = playback.frozenSources.get(vocal.id);
+  const backingSource = playback.frozenSources.get(other.id);
+  const vocalTimer = playback.vocalBufferLoopTimers.get(vocal.id);
+  const generation = playback.playGeneration;
+
+  assert.ok(vocalSource);
+  assert.ok(backingSource);
+  assert.ok(vocalTimer != null);
+  assert.equal(
+    playback.vocalDirectRoutes.get(vocal.id).gain.gain.value,
+    vocal.level,
+    'Vocal must be audible from the first scheduled source sample',
+  );
+
+  // This reproduces the hidden iPhone duplicate seen in the runtime trace: the same session is
+  // asked to PLAY again a fraction of a second later at the current position.
+  assert.equal(await playback.play(session, 0.228), true);
+
+  assert.equal(playback.playGeneration, generation);
+  assert.equal(playback.frozenSources.get(vocal.id), vocalSource);
+  assert.equal(playback.frozenSources.get(other.id), backingSource);
+  assert.equal(playback.vocalBufferLoopTimers.get(vocal.id), vocalTimer);
+  assert.equal(vocalSource.stopped, false);
+  assert.equal(backingSource.stopped, false);
+  assert.equal(
+    playback.vocalRuntimeTrace.at(-1)?.event,
+    'play:ignored-redundant',
+  );
+
+  playback.stop();
+});
+
 test('first PLAY then STOP then second PLAY rebuilds Vocal on a fresh graph', async () => {
   const createdSources = [];
   const timers = manualTimers();
