@@ -6,8 +6,10 @@ const MAX_BUFFERED_BYTES = 1024 * 1024;
 const clampSample = (value) => Math.max(-1, Math.min(1, Number(value) || 0));
 
 function transferId() {
-  return globalThis.crypto?.randomUUID?.() ??
-    `vocal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `vocal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  );
 }
 
 function pcm16FromBuffer(buffer) {
@@ -309,7 +311,8 @@ export class VocalSync {
 
     let bytes = null;
     if (data instanceof ArrayBuffer) bytes = new Uint8Array(data);
-    else if (globalThis.Blob && data instanceof Blob) bytes = new Uint8Array(await data.arrayBuffer());
+    else if (globalThis.Blob && data instanceof Blob)
+      bytes = new Uint8Array(await data.arrayBuffer());
     if (bytes) this.appendIncoming(peerId, bytes);
   }
 
@@ -418,7 +421,9 @@ export class VocalSync {
     const studio = this.game.studio;
     if (!studio) return null;
     return (
-      studio.stems?.find?.((stem) => stem.id === metadata.targetStemId && stem.inputKey === 'vocal') ??
+      studio.stems?.find?.(
+        (stem) => stem.id === metadata.targetStemId && stem.inputKey === 'vocal',
+      ) ??
       studio.armedStems?.().find?.((stem) => stem.inputKey === 'vocal') ??
       studio.stems?.find?.((stem) => stem.inputKey === 'vocal') ??
       null
