@@ -1350,7 +1350,8 @@ export class StudioPlayback {
       stemId,
       leadSeconds,
       preserveAudition,
-      requestedOffset: Number(session?.stems?.find?.((item) => item.id === stemId)?.sourceOffset) || 0,
+      requestedOffset:
+        Number(session?.stems?.find?.((item) => item.id === stemId)?.sourceOffset) || 0,
     });
     if (!context || context.state !== 'running' || !session || !stemId) return false;
     const stem = session.stems?.find?.((item) => item.id === stemId);
