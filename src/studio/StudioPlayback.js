@@ -29,6 +29,18 @@ const COMP = {
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 const midiToFrequency = (midi) => 440 * Math.pow(2, (Number(midi) - 69) / 12);
 
+function vocalDriveCurve(amount = 0) {
+  const safe = clamp(Number(amount) || 0, 0, 1);
+  if (safe <= 0.001) return null;
+  const curve = new Float32Array(512);
+  const k = 1 + safe * 45;
+  for (let index = 0; index < curve.length; index += 1) {
+    const x = (index / (curve.length - 1)) * 2 - 1;
+    curve[index] = ((1 + k) * x) / (1 + k * Math.abs(x));
+  }
+  return curve;
+}
+
 function writeSwitchParam(parameter, value, time) {
   if (!parameter) return;
   if (typeof parameter.cancelAndHoldAtTime === 'function') {
@@ -323,6 +335,10 @@ export class StudioPlayback {
       const route = this.vocalDirectRoutes.get(id);
       if (!route) continue;
       route.gain?.disconnect?.();
+      route.fxInput?.disconnect?.();
+      route.fxDrive?.disconnect?.();
+      route.fxPhaser?.disconnect?.();
+      route.fxInsertWet?.disconnect?.();
       this.vocalDirectRoutes.delete(id);
     }
   }
@@ -336,19 +352,55 @@ export class StudioPlayback {
     const gain = context.createGain();
     const selected = !this.auditionStemId || stem.id === this.auditionStemId;
     const audible = selected && stem.clipActive !== false && stem.mute !== true;
-    gain.gain.value = audible ? stem.level : 0;
+    const level = audible ? stem.level : 0;
+    gain.gain.value = level;
     const destination = context.destination ?? this.audio.master;
     if (!destination) return null;
     gain.connect(destination);
 
+    // Keep the proven iPhone-safe dry path above completely independent. Effects are a parallel
+    // wet-only route: the same Vocal PCM also feeds the existing Spectra reverb/delay sends plus
+    // a dedicated parallel phaser/distortion return. At zero FX this path contributes no dry
+    // signal, so adding effects cannot recreate the old channel-strip silence or double the Vocal.
+    const bus = this.ensureBus(stem);
+    const fxInput = context.createGain();
+    fxInput.gain.value = level;
+    fxInput.connect(bus.delaySend);
+    fxInput.connect(bus.reverbSend);
+
+    const fxDrive =
+      typeof context.createWaveShaper === 'function' ? context.createWaveShaper() : null;
+    const fxPhaser = context.createBiquadFilter();
+    const fxInsertWet = context.createGain();
+    fxInsertWet.gain.value = 0;
+    fxPhaser.type = 'allpass';
+    fxPhaser.frequency.value = 520;
+    fxPhaser.Q.value = 0.3;
+
+    if (fxDrive) {
+      fxInput.connect(fxDrive);
+      fxDrive.connect(fxPhaser);
+    } else {
+      fxInput.connect(fxPhaser);
+    }
+    fxPhaser.connect(fxInsertWet);
+    fxInsertWet.connect(bus.channelSum);
+
     const route = {
       gain,
+      fxInput,
+      fxDrive,
+      fxPhaser,
+      fxInsertWet,
+      fxBus: bus,
       pan: null,
       meter: null,
       meterData: null,
       destination,
+      distortionAmount: null,
     };
     this.vocalDirectRoutes.set(stem.id, route);
+    this.updateVocalDirectRoute(this.session, stem.id, { immediate: true });
     return route;
   }
 
@@ -360,8 +412,29 @@ export class StudioPlayback {
 
     const selected = !this.auditionStemId || stem.id === this.auditionStemId;
     const audible = selected && stem.clipActive !== false && stem.mute !== true;
+    const level = audible ? stem.level : 0;
     const time = this.audio.context.currentTime;
-    writeAudioParam(route.gain?.gain, audible ? stem.level : 0, time, { immediate });
+    writeAudioParam(route.gain?.gain, level, time, { immediate });
+    writeAudioParam(route.fxInput?.gain, level, time, { immediate });
+
+    const phaser = clamp(stem.phaser ?? 0, 0, 1);
+    const distortion = clamp(stem.distortion ?? 0, 0, 1);
+    const insertWet = clamp(1 - (1 - phaser) * (1 - distortion), 0, 1);
+    writeAudioParam(route.fxInsertWet?.gain, insertWet * 0.78, time, { immediate });
+    writeAudioParam(
+      route.fxPhaser?.frequency,
+      Math.max(80, 520 + Math.sin(time * (1.1 + phaser * 1.7)) * phaser * 470),
+      time,
+      { immediate },
+    );
+    writeAudioParam(route.fxPhaser?.Q, 0.3 + phaser * 7.2, time, { immediate });
+
+    if (route.fxDrive && route.distortionAmount !== distortion) {
+      route.fxDrive.curve = vocalDriveCurve(distortion * 0.82);
+      route.fxDrive.oversample = '2x';
+      route.distortionAmount = distortion;
+    }
+
     if (route.pan) writeAudioParam(route.pan.pan, stem.pan ?? 0, time, { immediate });
     return true;
   }
@@ -570,6 +643,7 @@ export class StudioPlayback {
         // repeatedly gone silent after iOS microphone route changes. Keep mixer behavior here:
         // fader + mute/solo + pan still update live without restarting the loop.
         writeSwitchParam(directVocalRoute.gain?.gain, gateOpen ? stem.level : 0, time);
+        writeSwitchParam(directVocalRoute.fxInput?.gain, gateOpen ? stem.level : 0, time);
         if (directVocalRoute.pan) {
           writeAudioParam(directVocalRoute.pan.pan, stem.pan ?? 0, time, { immediate: true });
         }
@@ -1324,6 +1398,7 @@ export class StudioPlayback {
       const directVocalRoute = this.vocalDirectRoutes.get(stem.id);
       if (directVocalRoute) {
         writeSwitchParam(directVocalRoute.gain?.gain, gateOpen ? stem.level : 0, time);
+        writeSwitchParam(directVocalRoute.fxInput?.gain, gateOpen ? stem.level : 0, time);
       }
 
       const frozenGate = this.frozenGates.get(stem.id);
@@ -1486,6 +1561,7 @@ export class StudioPlayback {
       source.buffer = buffer;
       source.loop = false;
       source.connect(directRoute.gain);
+      if (directRoute.fxInput) source.connect(directRoute.fxInput);
 
       let sources = this.vocalBufferSources.get(stem.id);
       if (!sources) {
