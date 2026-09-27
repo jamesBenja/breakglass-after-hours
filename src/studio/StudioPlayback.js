@@ -1121,7 +1121,10 @@ export class StudioPlayback {
     if (!session || !stem || !buffer?.duration) {
       return { buffer, stem, arranged: false, duration: Number(buffer?.duration) || 0 };
     }
-    if (typeof session.arrangementIsDefault !== 'function' || session.arrangementIsDefault(stem.id)) {
+    if (
+      typeof session.arrangementIsDefault !== 'function' ||
+      session.arrangementIsDefault(stem.id)
+    ) {
       return { buffer, stem, arranged: false, duration: Number(buffer.duration) || 0 };
     }
 
@@ -1147,8 +1150,9 @@ export class StudioPlayback {
     const totalFrames = Math.max(1, framesPerBar * arrangementBars);
     const microphoneTake = isMicrophoneRecordingStem(stem);
     const sourceBaseOffset = microphoneTake ? Math.max(0, Number(stem.sourceOffset) || 0) : 0;
-    const row = Array.from({ length: arrangementBars }, (_, index) =>
-      session.arrangementCell?.(stem.id, index) ?? null,
+    const row = Array.from(
+      { length: arrangementBars },
+      (_, index) => session.arrangementCell?.(stem.id, index) ?? null,
     );
     const signature = [
       arrangementBars,
@@ -1157,7 +1161,9 @@ export class StudioPlayback {
       sourceBaseOffset.toFixed(6),
       row
         .map((cell) =>
-          cell ? `${Math.max(0, Number(cell.sourceBar) || 0)}${cell.muted === true ? 'm' : ''}` : '-',
+          cell
+            ? `${Math.max(0, Number(cell.sourceBar) || 0)}${cell.muted === true ? 'm' : ''}`
+            : '-',
         )
         .join(','),
     ].join('|');
@@ -1194,7 +1200,10 @@ export class StudioPlayback {
         try {
           const sourceData = buffer.getChannelData(channel);
           const destinationData = arranged.getChannelData(channel);
-          destinationData.set(sourceData.subarray(sourceStart, sourceStart + count), destinationStart);
+          destinationData.set(
+            sourceData.subarray(sourceStart, sourceStart + count),
+            destinationStart,
+          );
         } catch {
           // A malformed channel must not break the rest of the Spectra arrangement.
         }

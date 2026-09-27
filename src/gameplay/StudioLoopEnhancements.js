@@ -1606,7 +1606,7 @@ export function installStudioLoopEnhancements(game, ui) {
           const arrangementSteps = arrangementBars * 16;
           transport.arrangementBars = arrangementBars;
           transport.arrangementStep =
-            ((Number(transport.absoluteStep) || 0) % arrangementSteps + arrangementSteps) %
+            (((Number(transport.absoluteStep) || 0) % arrangementSteps) + arrangementSteps) %
             arrangementSteps;
         }
         return {

@@ -103,11 +103,12 @@ const QUANTIZE_OPTIONS = ['1/4', '1/8', '1/16'];
 const ARRANGEMENT_MAX_BARS = 32;
 
 const normalizeArrangementBarCount = (value, fallback = 4) => {
-  const safeFallback = Math.max(1, Math.min(ARRANGEMENT_MAX_BARS, Math.round(Number(fallback) || 4)));
+  const safeFallback = Math.max(
+    1,
+    Math.min(ARRANGEMENT_MAX_BARS, Math.round(Number(fallback) || 4)),
+  );
   const bars = Math.round(Number(value));
-  return Number.isFinite(bars)
-    ? Math.max(1, Math.min(ARRANGEMENT_MAX_BARS, bars))
-    : safeFallback;
+  return Number.isFinite(bars) ? Math.max(1, Math.min(ARRANGEMENT_MAX_BARS, bars)) : safeFallback;
 };
 
 const cloneArrangementCell = (cell) =>
@@ -129,10 +130,7 @@ const defaultArrangementRow = (sourceBars, arrangementBars) =>
 const normalizeArrangementState = (value, stems, sourceBars) => {
   const arrangement =
     value?.arrangement && typeof value.arrangement === 'object' ? value.arrangement : {};
-  const bars = normalizeArrangementBarCount(
-    arrangement.bars ?? value?.arrangementBars,
-    sourceBars,
-  );
+  const bars = normalizeArrangementBarCount(arrangement.bars ?? value?.arrangementBars, sourceBars);
   const sourceTracks =
     arrangement.tracks && typeof arrangement.tracks === 'object'
       ? arrangement.tracks
@@ -156,10 +154,7 @@ const normalizeArrangementState = (value, stems, sourceBars) => {
     bars !== sourceBars ||
     stems.some((stem) =>
       tracks[stem.id]?.some(
-        (cell, index) =>
-          index >= sourceBars ||
-          cell?.sourceBar !== index ||
-          cell?.muted === true,
+        (cell, index) => index >= sourceBars || cell?.sourceBar !== index || cell?.muted === true,
       ),
     );
   return {
@@ -457,12 +452,7 @@ export class StudioSession {
   pasteArrangementBar(stemId, barIndex, clipboard) {
     const stem = this.stems.find((item) => item.id === stemId);
     const index = Math.max(0, Math.round(Number(barIndex) || 0));
-    if (
-      !stem ||
-      index >= this.arrangementBars ||
-      !clipboard ||
-      clipboard.stemId !== stemId
-    ) {
+    if (!stem || index >= this.arrangementBars || !clipboard || clipboard.stemId !== stemId) {
       return false;
     }
     this._ensureArrangementTrack(stemId)[index] = normalizeArrangementCell(
@@ -561,8 +551,7 @@ export class StudioSession {
     return stems.every((stem) => {
       const row = this._ensureArrangementTrack(stem.id);
       return row.every(
-        (cell, index) =>
-          cell?.sourceBar === index && cell?.muted !== true && index < this.loopBars,
+        (cell, index) => cell?.sourceBar === index && cell?.muted !== true && index < this.loopBars,
       );
     });
   }

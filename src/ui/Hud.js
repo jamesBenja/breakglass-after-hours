@@ -199,9 +199,7 @@ export class Hud {
         );
         const step = Math.max(
           0,
-          Number(
-            snapshot.transport.arrangementStep ?? snapshot.transport.loopStep ?? 0,
-          ) || 0,
+          Number(snapshot.transport.arrangementStep ?? snapshot.transport.loopStep ?? 0) || 0,
         );
         playhead.style.left = `${Math.min(100, (step / steps) * 100)}%`;
       }
@@ -465,10 +463,7 @@ export class Hud {
           result = fallback?.();
         }
         const bars = Math.max(1, Number(session.arrangementBars) || loopBars);
-        if (
-          this._spectraSelectedBar &&
-          Number(this._spectraSelectedBar.barIndex) >= bars
-        ) {
+        if (this._spectraSelectedBar && Number(this._spectraSelectedBar.barIndex) >= bars) {
           this._spectraSelectedBar = null;
         }
         redraw();
@@ -517,11 +512,7 @@ export class Hud {
         button.title = `Make the Spectra session ${bars} bars long`;
         button.classList.toggle('active', bars === arrangementBars);
         button.onclick = () =>
-          runArrangementAction(
-            'set-bars',
-            { bars },
-            () => session.setArrangementBars?.(bars),
-          );
+          runArrangementAction('set-bars', { bars }, () => session.setArrangementBars?.(bars));
         arrangementControls.appendChild(button);
       }
       const duplicateSession = this.document.createElement('button');
@@ -531,11 +522,7 @@ export class Hud {
       duplicateSession.title = 'Duplicate the complete current session after itself';
       duplicateSession.disabled = arrangementBars >= 32;
       duplicateSession.onclick = () =>
-        runArrangementAction(
-          'duplicate-session',
-          {},
-          () => session.duplicateArrangement?.(),
-        );
+        runArrangementAction('duplicate-session', {}, () => session.duplicateArrangement?.());
       arrangementControls.appendChild(duplicateSession);
       arrangementHeader.append(arrangementSummary, arrangementControls);
       sessionView.appendChild(arrangementHeader);
@@ -622,11 +609,7 @@ export class Hud {
       const selectedStem = selected
         ? session.stems.find((stem) => stem.id === selected.stemId)
         : null;
-      if (
-        selectedStem &&
-        selected.barIndex >= 0 &&
-        selected.barIndex < arrangementBars
-      ) {
+      if (selectedStem && selected.barIndex >= 0 && selected.barIndex < arrangementBars) {
         const editor = this.document.createElement('div');
         editor.className = 'spectra-bar-editor';
         const cell = session.arrangementCell?.(selectedStem.id, selected.barIndex) ?? null;
