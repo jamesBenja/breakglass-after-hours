@@ -88,9 +88,7 @@ function clientFor({
     localId,
     remotePlayers,
     world: {
-      resources: new Map([
-        ['upstairs:console', { id: 'upstairs:console', ownerId: controllerId }],
-      ]),
+      resources: new Map([['upstairs:console', { id: 'upstairs:console', ownerId: controllerId }]]),
     },
   };
   game.multiplayer = client;
@@ -195,8 +193,12 @@ test('vocalist sends finished PCM to the player holding the Spectra console', as
   };
 
   assert.equal(await sync.publishLocalTake(result), true);
-  const start = JSON.parse(sent.find((item) => typeof item === 'string' && item.includes('vocal-start')));
-  const end = JSON.parse(sent.find((item) => typeof item === 'string' && item.includes('vocal-end')));
+  const start = JSON.parse(
+    sent.find((item) => typeof item === 'string' && item.includes('vocal-start')),
+  );
+  const end = JSON.parse(
+    sent.find((item) => typeof item === 'string' && item.includes('vocal-end')),
+  );
   const binary = sent.filter((item) => item instanceof ArrayBuffer);
 
   assert.equal(start.targetStemId, vocalTwo.id);
