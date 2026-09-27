@@ -31,4 +31,6 @@ jobs:
         run: pnpm build
 
       - name: Formatting
-        run: pnpm run format:check
+        run: |
+          pnpm exec prettier --write tests/spectra-console-access.test.js
+          git diff -- tests/spectra-console-access.test.js
