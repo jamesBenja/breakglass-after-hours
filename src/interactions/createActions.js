@@ -806,7 +806,49 @@ export function createActions({
     stopAudition.textContent = '■ STOP TAKE AUDITION';
     stopAudition.onclick = () => studioPlayback?.stopRawAudition?.();
     controls.append(auditionFromStart, auditionSelected, useCurrent, stopAudition);
-    editor.append(title, readout, slider, help, controls);
+
+    const diagnostics = ui.document.createElement('div');
+    diagnostics.className = 'vocal-runtime-diagnostics';
+    const diagnosticsTitle = ui.document.createElement('strong');
+    diagnosticsTitle.textContent = 'VOCAL RUNTIME TRACE · DIAGNOSTIC ONLY';
+    const diagnosticsHelp = ui.document.createElement('small');
+    diagnosticsHelp.textContent =
+      'After reproducing relaunch → STOP → PLAY → scrub, return here and copy this trace. It records source/timer/gain/gate state without changing playback.';
+    const diagnosticsText = ui.document.createElement('textarea');
+    diagnosticsText.readOnly = true;
+    diagnosticsText.rows = 10;
+    diagnosticsText.value =
+      studioPlayback?.vocalDiagnosticReport?.() || 'No Vocal runtime events recorded yet.';
+    const copyDiagnostics = ui.document.createElement('button');
+    copyDiagnostics.type = 'button';
+    copyDiagnostics.textContent = 'COPY VOCAL DIAGNOSTICS';
+    copyDiagnostics.onclick = async () => {
+      const report =
+        studioPlayback?.vocalDiagnosticReport?.() || 'No Vocal runtime events recorded yet.';
+      diagnosticsText.value = report;
+      try {
+        await globalThis.navigator?.clipboard?.writeText?.(report);
+        ui.warning?.('Vocal diagnostics copied. Paste them into the chat.');
+      } catch {
+        ui.warning?.('Select the Vocal diagnostics text and copy it into the chat.');
+      }
+    };
+    const clearDiagnostics = ui.document.createElement('button');
+    clearDiagnostics.type = 'button';
+    clearDiagnostics.textContent = 'CLEAR VOCAL DIAGNOSTICS';
+    clearDiagnostics.onclick = () => {
+      studioPlayback?.clearVocalDiagnosticReport?.();
+      diagnosticsText.value = 'Trace cleared. Reproduce the issue, then return here.';
+    };
+    diagnostics.append(
+      diagnosticsTitle,
+      diagnosticsHelp,
+      diagnosticsText,
+      copyDiagnostics,
+      clearDiagnostics,
+    );
+
+    editor.append(title, readout, slider, help, controls, diagnostics);
     ui.buttons.prepend(editor);
   };
   const vocalTrackEditorPanel = () => {
