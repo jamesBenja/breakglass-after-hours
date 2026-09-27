@@ -105,11 +105,12 @@ export class SpectraTransport {
 
   snapshot() {
     const position = this.position();
+    const absolutePosition = this.absolutePosition();
     const step = Math.floor(this.musicalStep(position)) % this.loopSteps;
     return {
       running: this.running,
       position,
-      absoluteStep: Math.floor(this.musicalStep(position)),
+      absoluteStep: Math.floor(this.musicalStep(absolutePosition)),
       loopStep: step,
       bar: Math.floor(step / 16) + 1,
       beat: Math.floor((step % 16) / 4) + 1,
