@@ -59,6 +59,8 @@ export class SpectraRecorder {
       at: Date.now(),
       armed: this.armed,
       recording: this.recording,
+      visibilityState: globalThis.document?.visibilityState ?? null,
+      documentHidden: globalThis.document?.hidden === true,
       armedStemIds: this.game.studio?.armedStems?.().map((stem) => stem.id) ?? [],
       laneEventCounts: Object.fromEntries(
         [...this.lanes.entries()].map(([id, lane]) => [id, lane.events.length]),
