@@ -100,6 +100,69 @@ export const DANCE_SHOES_STEMS = studioSessionById('dance-shoes').stems;
 
 const LOOP_BAR_OPTIONS = [1, 2, 4, 8, 16];
 const QUANTIZE_OPTIONS = ['1/4', '1/8', '1/16'];
+const ARRANGEMENT_MAX_BARS = 32;
+
+const normalizeArrangementBarCount = (value, fallback = 4) => {
+  const safeFallback = Math.max(
+    1,
+    Math.min(ARRANGEMENT_MAX_BARS, Math.round(Number(fallback) || 4)),
+  );
+  const bars = Math.round(Number(value));
+  return Number.isFinite(bars) ? Math.max(1, Math.min(ARRANGEMENT_MAX_BARS, bars)) : safeFallback;
+};
+
+const cloneArrangementCell = (cell) =>
+  cell && Number.isFinite(Number(cell.sourceBar))
+    ? { sourceBar: Math.max(0, Math.round(Number(cell.sourceBar))), muted: cell.muted === true }
+    : null;
+
+const normalizeArrangementCell = (cell, sourceBars) => {
+  const copy = cloneArrangementCell(cell);
+  if (!copy || copy.sourceBar >= sourceBars) return null;
+  return copy;
+};
+
+const defaultArrangementRow = (sourceBars, arrangementBars) =>
+  Array.from({ length: arrangementBars }, (_, index) =>
+    index < sourceBars ? { sourceBar: index, muted: false } : null,
+  );
+
+const normalizeArrangementState = (value, stems, sourceBars) => {
+  const arrangement =
+    value?.arrangement && typeof value.arrangement === 'object' ? value.arrangement : {};
+  const bars = normalizeArrangementBarCount(arrangement.bars ?? value?.arrangementBars, sourceBars);
+  const sourceTracks =
+    arrangement.tracks && typeof arrangement.tracks === 'object'
+      ? arrangement.tracks
+      : value?.arrangementTracks && typeof value.arrangementTracks === 'object'
+        ? value.arrangementTracks
+        : {};
+  const tracks = {};
+
+  for (const stem of stems) {
+    const sourceRow = sourceTracks[stem.id];
+    if (!Array.isArray(sourceRow)) {
+      tracks[stem.id] = defaultArrangementRow(sourceBars, bars);
+      continue;
+    }
+    tracks[stem.id] = Array.from({ length: bars }, (_, index) =>
+      normalizeArrangementCell(sourceRow[index], sourceBars),
+    );
+  }
+
+  const differsFromSource =
+    bars !== sourceBars ||
+    stems.some((stem) =>
+      tracks[stem.id]?.some(
+        (cell, index) => index >= sourceBars || cell?.sourceBar !== index || cell?.muted === true,
+      ),
+    );
+  return {
+    bars,
+    tracks,
+    edited: arrangement.edited === true || differsFromSource,
+  };
+};
 
 const normalizePerformance = (performance) => {
   if (!performance || typeof performance !== 'object' || !Array.isArray(performance.events)) {
@@ -285,6 +348,8 @@ export function normalizeStudioSession(value = {}) {
       ]
     : migratedSourceStems;
   const stems = versionedSourceStems.slice(0, 12).map(normalizeStem);
+  const loopBars = LOOP_BAR_OPTIONS.includes(Number(value.loopBars)) ? Number(value.loopBars) : 4;
+  const arrangement = normalizeArrangementState(value, stems, loopBars);
 
   return {
     project: isProject,
@@ -299,7 +364,10 @@ export function normalizeStudioSession(value = {}) {
     stems,
     takeCounter: Math.max(0, Math.floor(Number(value.takeCounter) || 0)),
     loopEnabled: value.loopEnabled === true,
-    loopBars: LOOP_BAR_OPTIONS.includes(Number(value.loopBars)) ? Number(value.loopBars) : 4,
+    loopBars,
+    arrangementBars: arrangement.bars,
+    arrangementTracks: arrangement.tracks,
+    arrangementEdited: arrangement.edited,
     quantize: QUANTIZE_OPTIONS.includes(value.quantize) ? value.quantize : '1/16',
     swing: clamp(Number(value.swing) || 0, 0, 0.45),
     clickEnabled: value.clickEnabled === true,
@@ -318,6 +386,9 @@ export class StudioSession {
     this.takeCounter = normalized.takeCounter;
     this.loopEnabled = normalized.loopEnabled;
     this.loopBars = normalized.loopBars;
+    this.arrangementBars = normalized.arrangementBars;
+    this.arrangementTracks = normalized.arrangementTracks;
+    this.arrangementEdited = normalized.arrangementEdited;
     this.quantize = normalized.quantize;
     this.swing = normalized.swing;
     this.clickEnabled = normalized.clickEnabled;
@@ -325,6 +396,194 @@ export class StudioSession {
     this.recordingBlobs = new Map();
     this._soloMuteSnapshot = null;
     this.syncSoloMuteState();
+  }
+
+  _ensureArrangementTrack(stemId) {
+    const id = String(stemId || '');
+    if (!id) return [];
+    this.arrangementTracks ??= {};
+    const bars = normalizeArrangementBarCount(this.arrangementBars, this.loopBars);
+    const row = this.arrangementTracks[id];
+    if (!Array.isArray(row)) {
+      this.arrangementTracks[id] = defaultArrangementRow(this.loopBars, bars);
+      return this.arrangementTracks[id];
+    }
+    if (row.length !== bars) {
+      this.arrangementTracks[id] = Array.from({ length: bars }, (_, index) =>
+        normalizeArrangementCell(row[index], this.loopBars),
+      );
+    }
+    return this.arrangementTracks[id];
+  }
+
+  arrangementCell(stemId, barIndex) {
+    const index = Math.max(0, Math.round(Number(barIndex) || 0));
+    if (index >= normalizeArrangementBarCount(this.arrangementBars, this.loopBars)) return null;
+    return cloneArrangementCell(this._ensureArrangementTrack(stemId)[index]);
+  }
+
+  setArrangementBars(value) {
+    const next = normalizeArrangementBarCount(value, this.arrangementBars || this.loopBars);
+    const previous = normalizeArrangementBarCount(this.arrangementBars, this.loopBars);
+    if (next !== previous) this.arrangementEdited = true;
+    this.arrangementBars = next;
+    for (const stem of this.stems) {
+      const row = this._ensureArrangementTrack(stem.id);
+      if (next > previous) {
+        while (row.length < next) row.push(null);
+      } else if (row.length > next) {
+        row.length = next;
+      }
+    }
+    return next;
+  }
+
+  copyArrangementBar(stemId, barIndex) {
+    const stem = this.stems.find((item) => item.id === stemId);
+    const index = Math.max(0, Math.round(Number(barIndex) || 0));
+    if (!stem || index >= this.arrangementBars) return null;
+    return {
+      stemId,
+      sourceIndex: index,
+      cell: cloneArrangementCell(this._ensureArrangementTrack(stemId)[index]),
+    };
+  }
+
+  pasteArrangementBar(stemId, barIndex, clipboard) {
+    const stem = this.stems.find((item) => item.id === stemId);
+    const index = Math.max(0, Math.round(Number(barIndex) || 0));
+    if (!stem || index >= this.arrangementBars || !clipboard || clipboard.stemId !== stemId) {
+      return false;
+    }
+    this._ensureArrangementTrack(stemId)[index] = normalizeArrangementCell(
+      clipboard.cell,
+      this.loopBars,
+    );
+    this.arrangementEdited = true;
+    return true;
+  }
+
+  duplicateArrangementBar(stemId, barIndex) {
+    const index = Math.max(0, Math.round(Number(barIndex) || 0));
+    const stem = this.stems.find((item) => item.id === stemId);
+    if (!stem || index >= this.arrangementBars) return false;
+    if (index + 1 >= this.arrangementBars) {
+      if (this.arrangementBars >= ARRANGEMENT_MAX_BARS) return false;
+      this.setArrangementBars(this.arrangementBars + 1);
+    }
+    this._ensureArrangementTrack(stemId)[index + 1] = cloneArrangementCell(
+      this._ensureArrangementTrack(stemId)[index],
+    );
+    this.arrangementEdited = true;
+    return index + 1;
+  }
+
+  toggleArrangementBarMute(stemId, barIndex) {
+    const index = Math.max(0, Math.round(Number(barIndex) || 0));
+    const row = this._ensureArrangementTrack(stemId);
+    const cell = row[index];
+    if (!cell) return false;
+    cell.muted = cell.muted !== true;
+    this.arrangementEdited = true;
+    return cell.muted;
+  }
+
+  clearArrangementBar(stemId, barIndex) {
+    const index = Math.max(0, Math.round(Number(barIndex) || 0));
+    if (index >= this.arrangementBars) return false;
+    const row = this._ensureArrangementTrack(stemId);
+    row[index] = null;
+    this.arrangementEdited = true;
+    return true;
+  }
+
+  duplicateArrangement() {
+    const currentBars = normalizeArrangementBarCount(this.arrangementBars, this.loopBars);
+    const nextBars = Math.min(ARRANGEMENT_MAX_BARS, currentBars * 2);
+    if (nextBars === currentBars) return false;
+    const originals = new Map(
+      this.stems.map((stem) => [
+        stem.id,
+        this._ensureArrangementTrack(stem.id).map((cell) => cloneArrangementCell(cell)),
+      ]),
+    );
+    this.setArrangementBars(nextBars);
+    for (const stem of this.stems) {
+      const row = this._ensureArrangementTrack(stem.id);
+      const source = originals.get(stem.id) ?? [];
+      for (let index = currentBars; index < nextBars; index += 1) {
+        row[index] = cloneArrangementCell(source[index % currentBars]);
+      }
+    }
+    this.arrangementEdited = true;
+    return nextBars;
+  }
+
+  resetArrangement(sourceBars = this.loopBars) {
+    const bars = normalizeArrangementBarCount(sourceBars, this.loopBars);
+    this.arrangementBars = bars;
+    this.arrangementTracks = Object.fromEntries(
+      this.stems.map((stem) => [stem.id, defaultArrangementRow(this.loopBars, bars)]),
+    );
+    this.arrangementEdited = false;
+    return bars;
+  }
+
+  reconcileArrangement() {
+    this.arrangementBars = normalizeArrangementBarCount(this.arrangementBars, this.loopBars);
+    const next = {};
+    for (const stem of this.stems) {
+      const row = this.arrangementTracks?.[stem.id];
+      next[stem.id] = Array.from({ length: this.arrangementBars }, (_, index) =>
+        normalizeArrangementCell(row?.[index], this.loopBars),
+      );
+    }
+    this.arrangementTracks = next;
+    return this.arrangementBars;
+  }
+
+  arrangementIsDefault(stemId = null) {
+    if (this.arrangementEdited !== true) return true;
+    const bars = normalizeArrangementBarCount(this.arrangementBars, this.loopBars);
+    if (bars !== this.loopBars) return false;
+    const stems = stemId ? this.stems.filter((stem) => stem.id === stemId) : this.stems;
+    if (!stems.length) return false;
+    return stems.every((stem) => {
+      const row = this._ensureArrangementTrack(stem.id);
+      return row.every(
+        (cell, index) => cell?.sourceBar === index && cell?.muted !== true && index < this.loopBars,
+      );
+    });
+  }
+
+  arrangementSourceStep(stemId, absoluteStep) {
+    const step = Math.max(0, Math.floor(Number(absoluteStep) || 0));
+    if (this.arrangementEdited !== true) {
+      return step % (Math.max(1, Number(this.loopBars) || 4) * 16);
+    }
+    const bars = normalizeArrangementBarCount(this.arrangementBars, this.loopBars);
+    const destinationBar = Math.floor(step / 16) % bars;
+    const cell = this._ensureArrangementTrack(stemId)[destinationBar];
+    if (!cell || cell.muted === true) return null;
+    const sourceBar = Math.max(0, Math.min(this.loopBars - 1, Number(cell.sourceBar) || 0));
+    return sourceBar * 16 + (step % 16);
+  }
+
+  arrangementDurationSeconds() {
+    const bars =
+      this.arrangementEdited === true
+        ? normalizeArrangementBarCount(this.arrangementBars, this.loopBars)
+        : Math.max(1, Number(this.loopBars) || 4);
+    return (bars * 4 * 60) / Math.max(1, Number(this.bpm) || 118);
+  }
+
+  setLoopBars(value) {
+    const next = LOOP_BAR_OPTIONS.includes(Number(value)) ? Number(value) : this.loopBars;
+    const wasDefault = this.arrangementIsDefault();
+    this.loopBars = next;
+    if (wasDefault) this.resetArrangement(next);
+    else this.reconcileArrangement();
+    return next;
   }
 
   select(group, id) {
@@ -356,6 +615,9 @@ export class StudioSession {
     this.takeCounter = normalized.takeCounter;
     this.loopEnabled = normalized.loopEnabled;
     this.loopBars = normalized.loopBars;
+    this.arrangementBars = normalized.arrangementBars;
+    this.arrangementTracks = normalized.arrangementTracks;
+    this.arrangementEdited = normalized.arrangementEdited;
     this.quantize = normalized.quantize;
     this.swing = normalized.swing;
     this.clickEnabled = normalized.clickEnabled;
@@ -379,6 +641,9 @@ export class StudioSession {
     this.takeCounter = normalized.takeCounter;
     this.loopEnabled = normalized.loopEnabled;
     this.loopBars = normalized.loopBars;
+    this.arrangementBars = normalized.arrangementBars;
+    this.arrangementTracks = normalized.arrangementTracks;
+    this.arrangementEdited = normalized.arrangementEdited;
     this.quantize = normalized.quantize;
     this.swing = normalized.swing;
     this.clickEnabled = normalized.clickEnabled;
@@ -422,6 +687,7 @@ export class StudioSession {
     this.bpm = template.bpm;
     this.stems = template.stems.map((stem, index) => normalizeStem(stem, index));
     this.takeCounter = 0;
+    this.resetArrangement(this.loopBars);
     this.recordings.clear();
     this.recordingBlobs.clear();
     this._soloMuteSnapshot = null;
@@ -472,6 +738,7 @@ export class StudioSession {
       this.stems.length,
     );
     this.stems.push(stem);
+    this._ensureArrangementTrack(stem.id);
     return stem;
   }
 
@@ -503,7 +770,11 @@ export class StudioSession {
       processing: processing ? { ...processing } : null,
     };
     this.stems.push(stem);
-    if (this.stems.length > 12) this.stems.splice(0, this.stems.length - 12);
+    this._ensureArrangementTrack(stem.id);
+    if (this.stems.length > 12) {
+      const removed = this.stems.splice(0, this.stems.length - 12);
+      for (const item of removed) delete this.arrangementTracks?.[item.id];
+    }
     return stem;
   }
 
@@ -655,6 +926,7 @@ export class StudioSession {
     const [removed] = this.stems.splice(index, 1);
     this.recordings.delete(id);
     this.recordingBlobs.delete(id);
+    if (this.arrangementTracks) delete this.arrangementTracks[id];
     this._soloMuteSnapshot?.delete?.(id);
     this.syncSoloMuteState();
     return removed;
@@ -693,6 +965,16 @@ export class StudioSession {
       takeCounter: this.takeCounter,
       loopEnabled: this.loopEnabled === true,
       loopBars: LOOP_BAR_OPTIONS.includes(Number(this.loopBars)) ? Number(this.loopBars) : 4,
+      arrangement: {
+        bars: normalizeArrangementBarCount(this.arrangementBars, this.loopBars),
+        edited: this.arrangementEdited === true,
+        tracks: Object.fromEntries(
+          this.stems.map((stem) => [
+            stem.id,
+            this._ensureArrangementTrack(stem.id).map((cell) => cloneArrangementCell(cell)),
+          ]),
+        ),
+      },
       quantize: QUANTIZE_OPTIONS.includes(this.quantize) ? this.quantize : '1/16',
       swing: clamp(Number(this.swing) || 0, 0, 0.45),
       clickEnabled: this.clickEnabled === true,

@@ -665,12 +665,17 @@
     overscroll-behavior-x: contain;
   }
 
-  body.studio-mobile-active .spectra-session-header {
+  body.studio-mobile-active .spectra-session-header,
+  body.studio-mobile-active .spectra-arrangement-header {
     position: sticky;
     left: 0;
     width: min(88vw, 520px);
     z-index: 2;
     background: #151518;
+  }
+
+  body.studio-mobile-active .spectra-bar-editor {
+    width: min(88vw, 520px);
   }
 
   body.studio-mobile-active .spectra-session-timeline {

@@ -1026,6 +1026,61 @@ canvas:focus {
   background: #213126;
 }
 
+.spectra-session-control-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 3px;
+  color: #777a73;
+  font:
+    800 7px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.08em;
+}
+
+.spectra-arrangement-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #303238;
+  flex-wrap: wrap;
+}
+
+.spectra-arrangement-header > strong {
+  color: #d6c08d;
+  font:
+    850 9px/1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.07em;
+}
+
+.spectra-arrangement-length-controls {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.spectra-arrangement-length-controls button {
+  min-height: 26px;
+  padding: 4px 7px;
+  font-size: 7px;
+  font-weight: 850;
+}
+
+.spectra-arrangement-length-controls button.active {
+  border-color: #9a865a;
+  background: #332d20;
+}
+
+.spectra-arrangement-duplicate {
+  min-width: 34px;
+}
+
 .spectra-session-timeline {
   position: relative;
   min-width: 620px;
@@ -1080,6 +1135,102 @@ canvas:focus {
       transparent calc(100% / var(--spectra-loop-bars))
     ),
     #0d0e10;
+}
+
+.spectra-session-bar-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--spectra-loop-bars), minmax(70px, 1fr));
+  gap: 2px;
+  padding: 3px;
+  overflow: visible;
+  background: #0d0e10;
+}
+
+.spectra-session-bar {
+  min-width: 0;
+  min-height: 28px;
+  padding: 4px 6px;
+  border: 1px solid #596f60;
+  border-radius: 3px;
+  color: #c7dfcb;
+  background: #1d3425;
+  font:
+    800 7px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.spectra-session-bar:hover,
+.spectra-session-bar.selected {
+  border-color: #d6c08d;
+  box-shadow: inset 0 0 0 1px rgba(214, 192, 141, 0.34);
+}
+
+.spectra-session-bar.empty {
+  border-color: #303238;
+  color: #5f6368;
+  background: #121316;
+}
+
+.spectra-session-bar.muted {
+  border-color: #76534f;
+  color: #b99893;
+  background: #2c1d1c;
+  text-decoration: line-through;
+}
+
+.spectra-session-bar.no-source {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.spectra-bar-editor {
+  position: sticky;
+  left: 0;
+  width: min(100%, 620px);
+  display: grid;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid #45423a;
+  border-radius: 6px;
+  background: #151518;
+  z-index: 4;
+}
+
+.spectra-bar-editor > strong,
+.spectra-bar-clipboard {
+  color: #b9b6aa;
+  font:
+    750 7px/1.25 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.05em;
+}
+
+.spectra-bar-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.spectra-bar-actions button {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 7px;
+  font-weight: 850;
+}
+
+.spectra-bar-actions button.active {
+  border-color: #76534f;
+  background: #2c1d1c;
+}
+
+.spectra-bar-clipboard {
+  color: #777a73;
 }
 
 .spectra-session-clip {

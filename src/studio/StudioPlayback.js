@@ -126,6 +126,7 @@ export class StudioPlayback {
     this.spatialMixer = null;
     this.auditionStemId = null;
     this.performanceIndex = new WeakMap();
+    this.arrangedRecordingBuffers = new Map();
     this.anySolo = false;
     this.noiseBuffer = null;
     this.noiseBufferContext = null;
@@ -1116,6 +1117,112 @@ export class StudioPlayback {
     }
   }
 
+  arrangedRecordingForStem(session, stem, buffer) {
+    if (!session || !stem || !buffer?.duration) {
+      return { buffer, stem, arranged: false, duration: Number(buffer?.duration) || 0 };
+    }
+    if (
+      typeof session.arrangementIsDefault !== 'function' ||
+      session.arrangementIsDefault(stem.id)
+    ) {
+      return { buffer, stem, arranged: false, duration: Number(buffer.duration) || 0 };
+    }
+
+    const context = this.audio?.context;
+    if (
+      !context?.createBuffer ||
+      !buffer?.getChannelData ||
+      !(Number(buffer.numberOfChannels) > 0) ||
+      !(Number(buffer.sampleRate) > 0)
+    ) {
+      return { buffer, stem, arranged: false, duration: Number(buffer.duration) || 0 };
+    }
+
+    const arrangementBars = Math.max(
+      1,
+      Math.min(32, Math.round(Number(session.arrangementBars) || Number(session.loopBars) || 4)),
+    );
+    const sourceBars = Math.max(1, Math.round(Number(session.loopBars) || 4));
+    const bpm = Math.max(1, Number(session.bpm) || this.bpm || 118);
+    const barDuration = (4 * 60) / bpm;
+    const sampleRate = Number(buffer.sampleRate);
+    const framesPerBar = Math.max(1, Math.round(barDuration * sampleRate));
+    const totalFrames = Math.max(1, framesPerBar * arrangementBars);
+    const microphoneTake = isMicrophoneRecordingStem(stem);
+    const sourceBaseOffset = microphoneTake ? Math.max(0, Number(stem.sourceOffset) || 0) : 0;
+    const row = Array.from(
+      { length: arrangementBars },
+      (_, index) => session.arrangementCell?.(stem.id, index) ?? null,
+    );
+    const signature = [
+      arrangementBars,
+      sourceBars,
+      bpm.toFixed(6),
+      sourceBaseOffset.toFixed(6),
+      row
+        .map((cell) =>
+          cell
+            ? `${Math.max(0, Number(cell.sourceBar) || 0)}${cell.muted === true ? 'm' : ''}`
+            : '-',
+        )
+        .join(','),
+    ].join('|');
+    const cached = this.arrangedRecordingBuffers.get(stem.id);
+    if (cached?.source === buffer && cached.signature === signature) return cached.value;
+
+    let arranged;
+    try {
+      arranged = context.createBuffer(Number(buffer.numberOfChannels), totalFrames, sampleRate);
+    } catch {
+      return { buffer, stem, arranged: false, duration: Number(buffer.duration) || 0 };
+    }
+
+    for (let destinationBar = 0; destinationBar < arrangementBars; destinationBar += 1) {
+      const cell = row[destinationBar];
+      if (!cell || cell.muted === true) continue;
+      const sourceBar = Math.max(
+        0,
+        Math.min(sourceBars - 1, Math.round(Number(cell.sourceBar) || 0)),
+      );
+      const sourceStart = Math.max(
+        0,
+        Math.round((sourceBaseOffset + sourceBar * barDuration) * sampleRate),
+      );
+      const destinationStart = destinationBar * framesPerBar;
+      const count = Math.min(
+        framesPerBar,
+        Math.max(0, Number(buffer.length) - sourceStart),
+        Math.max(0, totalFrames - destinationStart),
+      );
+      if (!(count > 0)) continue;
+
+      for (let channel = 0; channel < Number(buffer.numberOfChannels); channel += 1) {
+        try {
+          const sourceData = buffer.getChannelData(channel);
+          const destinationData = arranged.getChannelData(channel);
+          destinationData.set(
+            sourceData.subarray(sourceStart, sourceStart + count),
+            destinationStart,
+          );
+        } catch {
+          // A malformed channel must not break the rest of the Spectra arrangement.
+        }
+      }
+    }
+
+    const playbackStem = microphoneTake
+      ? { ...stem, sourceOffset: 0, sourceDuration: arranged.duration }
+      : stem;
+    const value = {
+      buffer: arranged,
+      stem: playbackStem,
+      arranged: true,
+      duration: arranged.duration,
+    };
+    this.arrangedRecordingBuffers.set(stem.id, { source: buffer, signature, value });
+    return value;
+  }
+
   performanceEventsForStep(stem, performance, step, loopSteps, sourceStepDuration) {
     let cache = this.performanceIndex.get(performance);
     if (
@@ -1290,10 +1397,19 @@ export class StudioPlayback {
       (60 / Math.max(1, Number(session.bpm) || this.bpm)) *
       4 *
       Math.max(1, Number(session.loopBars) || 4);
+    const arrangementDuration =
+      typeof session.arrangementDurationSeconds === 'function'
+        ? session.arrangementDurationSeconds()
+        : loopDuration;
     const phase = Number.isFinite(Number(phaseOffset))
       ? Math.max(0, Number(phaseOffset))
       : this.spectraTransport?.running
         ? this.spectraTransport.positionAtOffset(start - now)
+        : Math.max(0, Number(offset) || 0);
+    const absolutePhase = Number.isFinite(Number(phaseOffset))
+      ? Math.max(0, Number(phaseOffset))
+      : this.spectraTransport?.running
+        ? this.spectraTransport.absolutePosition(start - now)
         : Math.max(0, Number(offset) || 0);
     let started = 0;
 
@@ -1305,6 +1421,9 @@ export class StudioPlayback {
 
       const buffer = session.recordings.get(stem.id);
       if (!buffer?.duration) continue;
+      const arrangedRecording = this.arrangedRecordingForStem(session, stem, buffer);
+      const playbackBuffer = arrangedRecording.buffer;
+      const playbackStem = arrangedRecording.stem;
 
       this.clearVocalBufferLoop(stem.id);
       if (microphoneTake) {
@@ -1315,6 +1434,8 @@ export class StudioPlayback {
           recordingFilter,
           diagnosticStage,
           bufferDuration: Number(buffer.duration) || 0,
+          playbackBufferDuration: Number(playbackBuffer?.duration) || 0,
+          arranged: arrangedRecording.arranged === true,
           sourceOffset: Number(stem.sourceOffset) || 0,
         });
         this.clearVocalDirectRoute(stem.id);
@@ -1325,7 +1446,12 @@ export class StudioPlayback {
         const directRoute = this.createVocalDirectRoute(stem);
         if (!directRoute) continue;
 
-        const vocalStarted = this.scheduleVocalBufferLoop(stem, buffer, directRoute, start);
+        const vocalStarted = this.scheduleVocalBufferLoop(
+          playbackStem,
+          playbackBuffer,
+          directRoute,
+          start,
+        );
         started += vocalStarted;
         this.traceVocalRuntime('frozen:microphone-after-start', {
           stemId: stem.id,
@@ -1369,11 +1495,13 @@ export class StudioPlayback {
       sourceGate.connect(this.ensureBus(stem).input);
       this.frozenGates.set(stem.id, sourceGate);
 
-      source.buffer = buffer;
+      source.buffer = playbackBuffer;
       source.loop = session.loopEnabled === true;
       if (source.loop) {
         source.loopStart = 0;
-        source.loopEnd = Math.min(buffer.duration, loopDuration || buffer.duration);
+        source.loopEnd = arrangedRecording.arranged
+          ? Math.min(playbackBuffer.duration, arrangementDuration || playbackBuffer.duration)
+          : Math.min(playbackBuffer.duration, loopDuration || playbackBuffer.duration);
       }
       source.connect(sourceGate);
       source.onended = () => {
@@ -1393,8 +1521,11 @@ export class StudioPlayback {
       this.sources.add(source);
       this.frozenSources.set(stem.id, source);
       const playableDuration =
-        source.loop && source.loopEnd > 0 ? source.loopEnd : Math.max(0.001, buffer.duration);
-      const startOffset = playableDuration > 0 ? phase % playableDuration : 0;
+        source.loop && source.loopEnd > 0
+          ? source.loopEnd
+          : Math.max(0.001, playbackBuffer.duration);
+      const playbackPhase = arrangedRecording.arranged ? absolutePhase : phase;
+      const startOffset = playableDuration > 0 ? playbackPhase % playableDuration : 0;
       source.start(start, startOffset);
       started += 1;
     }
@@ -2170,7 +2301,12 @@ export class StudioPlayback {
               return;
             for (const stem of session.stems) {
               if (session.recordings.has(stem.id)) continue;
-              this.renderStem(stem, transportEvent.loopStep, transportEvent.when);
+              const sourceStep =
+                typeof session.arrangementSourceStep === 'function'
+                  ? session.arrangementSourceStep(stem.id, transportEvent.absoluteStep)
+                  : transportEvent.loopStep;
+              if (sourceStep == null) continue;
+              this.renderStem(stem, sourceStep, transportEvent.when);
             }
           },
         );
@@ -2413,6 +2549,7 @@ export class StudioPlayback {
   }
   dispose() {
     this.stop();
+    this.arrangedRecordingBuffers.clear();
     for (const bus of this.buses.values()) {
       for (const node of Object.values(bus)) node?.disconnect?.();
     }
