@@ -687,6 +687,7 @@ export class Game {
     this.spectraClipEngine?.dispose?.();
     this.spectraSpatialMixer?.dispose?.();
     this.spectraTransport?.dispose?.();
+    this.spectraPerformanceDiagnostics?.clear?.();
     this._sessionRecovery?.dispose?.();
     this.spectraProjectStore?.dispose?.();
     this.freightElevator?.dispose?.();
