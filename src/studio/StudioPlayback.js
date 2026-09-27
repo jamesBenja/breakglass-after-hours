@@ -334,7 +334,9 @@ export class StudioPlayback {
     this.clearVocalDirectRoute(stem.id);
 
     const gain = context.createGain();
-    gain.gain.value = 0;
+    const selected = !this.auditionStemId || stem.id === this.auditionStemId;
+    const audible = selected && stem.clipActive !== false && stem.mute !== true;
+    gain.gain.value = audible ? stem.level : 0;
     const destination = context.destination ?? this.audio.master;
     if (!destination) return null;
     gain.connect(destination);
@@ -2020,6 +2022,19 @@ export class StudioPlayback {
       restartTransport,
       sessionName: session?.name ?? null,
     });
+
+    // Plain PLAY is idempotent for the currently running session. On real iPhone Safari the
+    // console interaction can emit a second same-session PLAY roughly 150-250ms after the first.
+    // play() begins by stop()ing everything, so that duplicate used to destroy the successfully
+    // started Vocal timer/source and every frozen backing source. Explicit transport restarts and
+    // per-stem audition requests still pass through normally.
+    if (this.playing && this.session === session && !stemId && restartTransport !== true) {
+      this.traceVocalRuntime('play:ignored-redundant', {
+        offset: Number(offset) || 0,
+        sessionName: session?.name ?? null,
+      });
+      return true;
+    }
 
     const audioSession = globalThis.navigator?.audioSession;
     if (audioSession) {

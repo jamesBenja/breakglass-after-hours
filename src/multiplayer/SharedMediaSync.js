@@ -116,8 +116,8 @@ export class SharedMediaSync {
     const baseStop = playback.stop.bind(playback);
     const baseUpdateMix = playback.updateMix.bind(playback);
 
-    playback.play = async (session, offset = 0) => {
-      const result = await basePlay(session, offset);
+    playback.play = async (session, offset = 0, options = {}) => {
+      const result = await basePlay(session, offset, options);
       if (result && !this.applyingStudio) this.publishStudio(true);
       return result;
     };
@@ -125,7 +125,11 @@ export class SharedMediaSync {
       const wasPlaying = playback.playing;
       const result = baseStop(...args);
       if (wasPlaying && !this.applyingStudio)
-        this.sendObject(STUDIO_OBJECT, { playing: false, sentAt: this.serverNow() });
+        this.sendObject(STUDIO_OBJECT, {
+          playing: false,
+          sentAt: this.serverNow(),
+          originId: this.client.localId ?? null,
+        });
       return result;
     };
     playback.updateMix = (session = playback.session) => {
@@ -150,13 +154,18 @@ export class SharedMediaSync {
     const playback = this.game.studioPlayback;
     const session = playback?.session;
     if (!playback?.playing || !session?.snapshot) {
-      return { playing: false, sentAt: this.serverNow() };
+      return {
+        playing: false,
+        sentAt: this.serverNow(),
+        originId: this.client.localId ?? null,
+      };
     }
     return {
       playing: true,
       session: session.snapshot(),
       position: this.studioPosition(),
       sentAt: this.serverNow(),
+      originId: this.client.localId ?? null,
     };
   }
 
@@ -448,8 +457,16 @@ export class SharedMediaSync {
   }
 
   handleObjectState(objectId, data) {
-    if (objectId === STUDIO_OBJECT) void this.applyStudio(data);
-    else if (objectId === ARCHIVE_AUDIO_OBJECT) void this.applyArchiveAudio(data);
+    if (objectId === STUDIO_OBJECT) {
+      // The relay echoes shared-object updates to the sender. Re-applying our own Studio packet
+      // used to construct a JSON-only StudioSession and call playback.play() again ~200ms later,
+      // destroying the live AudioBuffers that had just started successfully.
+      if (data?.originId && data.originId === this.client.localId) {
+        this.lastStudioSignature = sessionSignature(data.session);
+        return;
+      }
+      void this.applyStudio(data);
+    } else if (objectId === ARCHIVE_AUDIO_OBJECT) void this.applyArchiveAudio(data);
     else if (objectId === LIVE_ARCHIVE_OBJECT) this.applyLiveArchive(data);
     else if (objectId === HOUSE_DJ_OBJECT) void this.applyHouseDj(data);
   }
