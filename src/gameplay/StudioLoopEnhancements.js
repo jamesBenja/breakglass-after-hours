@@ -47,8 +47,11 @@ function enhanceSession(session) {
   session.quantize = GRID_DIVISIONS[session.quantize] ? session.quantize : '1/16';
   session.swing = clamp(session.swing, 0, 0.45);
 
+  const baseSetLoopBars =
+    typeof session.setLoopBars === 'function' ? session.setLoopBars.bind(session) : null;
   session.setLoopBars = (bars) => {
     const next = LOOP_BARS.includes(Number(bars)) ? Number(bars) : session.loopBars;
+    if (baseSetLoopBars) return baseSetLoopBars(next);
     session.loopBars = next;
     return next;
   };
@@ -1461,6 +1464,34 @@ export function installStudioLoopEnhancements(game, ui) {
         }
         game.save?.();
       };
+
+      const onArrangementAction = async (action, payload = {}) => {
+        const wasPlaying = game.studioPlayback?.playing === true;
+        if (wasPlaying) game.studioPlayback.stop();
+
+        let result = false;
+        if (action === 'set-bars') {
+          result = session.setArrangementBars?.(payload.bars) ?? false;
+        } else if (action === 'paste') {
+          result =
+            session.pasteArrangementBar?.(payload.stemId, payload.barIndex, payload.clipboard) ??
+            false;
+        } else if (action === 'duplicate-bar') {
+          result = session.duplicateArrangementBar?.(payload.stemId, payload.barIndex) ?? false;
+        } else if (action === 'toggle-mute') {
+          result = session.toggleArrangementBarMute?.(payload.stemId, payload.barIndex);
+        } else if (action === 'clear') {
+          result = session.clearArrangementBar?.(payload.stemId, payload.barIndex) ?? false;
+        } else if (action === 'duplicate-session') {
+          result = session.duplicateArrangement?.() ?? false;
+        }
+
+        if (wasPlaying) {
+          await game.studioPlayback?.play?.(session, 0, { restartTransport: true });
+        }
+        game.save?.();
+        return result;
+      };
       const traceMixerState = (event, stemId = null) => {
         const stems = stemId ? session.stems.filter((stem) => stem.id === stemId) : session.stems;
         recorder?.trace?.(event, {
@@ -1565,13 +1596,27 @@ export function installStudioLoopEnhancements(game, ui) {
         return true;
       };
 
-      const meterProvider = () => ({
-        ...(game.studioPlayback?.meterSnapshot?.(session) ?? {
-          channels: {},
-          master: { left: 0, right: 0 },
-        }),
-        transport: game.spectraTransport?.snapshot?.() ?? null,
-      });
+      const meterProvider = () => {
+        const transport = game.spectraTransport?.snapshot?.() ?? null;
+        if (transport) {
+          const arrangementBars = Math.max(
+            1,
+            Number(session.arrangementBars) || Number(session.loopBars) || 4,
+          );
+          const arrangementSteps = arrangementBars * 16;
+          transport.arrangementBars = arrangementBars;
+          transport.arrangementStep =
+            ((Number(transport.absoluteStep) || 0) % arrangementSteps + arrangementSteps) %
+            arrangementSteps;
+        }
+        return {
+          ...(game.studioPlayback?.meterSnapshot?.(session) ?? {
+            channels: {},
+            master: { left: 0, right: 0 },
+          }),
+          transport,
+        };
+      };
 
       const result = baseStudioMixer(session, {
         ...options,
@@ -1581,6 +1626,7 @@ export function installStudioLoopEnhancements(game, ui) {
         onTempo,
         onClick,
         onLoopBars,
+        onArrangementAction,
         meterProvider,
         onAudibility,
         onFxDetail: showFxDetail,
