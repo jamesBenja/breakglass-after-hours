@@ -366,6 +366,38 @@ export class StudioSession {
     return this;
   }
 
+  mergeSharedSnapshot(value = {}) {
+    const normalized = normalizeStudioSession(value);
+    const survivingIds = new Set(normalized.stems.map((stem) => stem.id));
+
+    this.project = normalized.project;
+    this.inputVersion = normalized.inputVersion;
+    this.name = normalized.name;
+    this.bpm = normalized.bpm;
+    this.setup = normalized.setup;
+    this.stems = normalized.stems;
+    this.takeCounter = normalized.takeCounter;
+    this.loopEnabled = normalized.loopEnabled;
+    this.loopBars = normalized.loopBars;
+    this.quantize = normalized.quantize;
+    this.swing = normalized.swing;
+    this.clickEnabled = normalized.clickEnabled;
+
+    // Shared session structure should follow the console owner, but local decoded audio may still
+    // be needed for stems that already exist on this browser. Keep only buffers whose stem IDs
+    // remain present in the shared snapshot. Remote event/performance stems need no AudioBuffer.
+    for (const id of [...this.recordings.keys()]) {
+      if (!survivingIds.has(id)) this.recordings.delete(id);
+    }
+    for (const id of [...this.recordingBlobs.keys()]) {
+      if (!survivingIds.has(id)) this.recordingBlobs.delete(id);
+    }
+
+    this._soloMuteSnapshot = null;
+    this.syncSoloMuteState();
+    return this;
+  }
+
   newProject(name = 'Untitled Spectra Session', bpm = 118) {
     return this.replace({
       project: true,
