@@ -451,7 +451,7 @@ export class Hud {
       const loopBars = Math.max(1, Number(session.loopBars) || 4);
       const arrangementBars = Math.max(
         1,
-        Math.min(64, Math.round(Number(session.arrangementBars) || loopBars)),
+        Math.min(32, Math.round(Number(session.arrangementBars) || loopBars)),
       );
       const loopSeconds = (loopBars * 4 * 60) / Math.max(1, Number(session.bpm) || 118);
       const sessionView = this.document.createElement('div');
@@ -529,7 +529,7 @@ export class Hud {
       duplicateSession.className = 'spectra-arrangement-duplicate';
       duplicateSession.textContent = '×2';
       duplicateSession.title = 'Duplicate the complete current session after itself';
-      duplicateSession.disabled = arrangementBars >= 64;
+      duplicateSession.disabled = arrangementBars >= 32;
       duplicateSession.onclick = () =>
         runArrangementAction(
           'duplicate-session',
@@ -687,7 +687,7 @@ export class Hud {
               { stemId: selectedStem.id, barIndex: selected.barIndex },
               () => session.duplicateArrangementBar?.(selectedStem.id, selected.barIndex),
             ),
-          { disabled: selected.barIndex >= 63 },
+          { disabled: selected.barIndex >= 31 },
         );
         makeAction(
           cell?.muted ? 'UNMUTE' : 'MUTE',
