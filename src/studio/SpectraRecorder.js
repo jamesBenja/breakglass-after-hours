@@ -221,7 +221,8 @@ export class SpectraRecorder {
     this.beginOnFirstEvent(offsetSeconds);
 
     const targets = hasTrackArmModel ? targetStems : [null];
-    const override = Number(eventTimeOverride);
+    const hasEventTimeOverride = eventTimeOverride != null;
+    const override = hasEventTimeOverride ? Number(eventTimeOverride) : Number.NaN;
     const eventTime =
       Number.isFinite(override) && override >= 0 ? override : this.eventTime(offsetSeconds);
     const capturedEvents = eventsForCapture(event);
