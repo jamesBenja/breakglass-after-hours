@@ -142,7 +142,10 @@ test('recorded Vocal keeps direct dry playback while feeding Spectra FX in paral
   assert.ok(route.fxDrive.curve instanceof Float32Array);
 
   const buffer = { duration: 2.5 };
-  assert.equal(playback.scheduleVocalBufferLoop(vocal, buffer, route, context.currentTime + 0.05), 1);
+  assert.equal(
+    playback.scheduleVocalBufferLoop(vocal, buffer, route, context.currentTime + 0.05),
+    1,
+  );
   const source = sources.at(-1);
   assert.ok(source.connections.includes(route.gain));
   assert.ok(source.connections.includes(route.fxInput));
