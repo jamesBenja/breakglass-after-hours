@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createActions } from '../src/interactions/createActions.js';
+import { spectraConsoleTargetInReach } from '../src/core/Game.js';
 import { StudioSession } from '../src/studio/StudioSession.js';
 
 function makeHarness(requestSpectraConsoleAccess) {
@@ -88,4 +89,43 @@ test('direct Spectra mixer navigation renders only after shared console access i
   assert.equal(opened, true);
   assert.equal(checks, 1);
   assert.equal(getMixerRenders(), 1);
+});
+
+
+test('multiplayer mixer access requires physical proximity to the Spectra console', () => {
+  const sceneManager = {
+    current: {
+      definition: {
+        id: 'upstairs',
+        anchors: {
+          console: {
+            position: [10, 2, 20],
+            radius: 1.8,
+            action: 'console',
+          },
+        },
+      },
+    },
+  };
+
+  assert.deepEqual(
+    spectraConsoleTargetInReach(sceneManager, { position: { x: 10.8, y: 2, z: 20.3 } }),
+    {
+      id: 'console',
+      action: 'console',
+      position: [10, 2, 20],
+      radius: 1.8,
+    },
+  );
+
+  assert.equal(
+    spectraConsoleTargetInReach(sceneManager, { position: { x: 14, y: 2, z: 20 } }),
+    null,
+  );
+
+  sceneManager.current.definition.id = 'downstairs';
+  assert.equal(
+    spectraConsoleTargetInReach(sceneManager, { position: { x: 10, y: 2, z: 20 } }),
+    null,
+  );
 });
