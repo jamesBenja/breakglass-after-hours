@@ -338,6 +338,29 @@ export class Game {
     };
 
     const canAct = () => this.started && !this.sceneManager.changing && !document.hidden;
+
+    this.requestSpectraConsoleAccess = async () => {
+      const multiplayer = this.multiplayer;
+      const world = multiplayer?.world;
+      if (!multiplayer?.joined || !world) return true;
+
+      const resourceId = 'upstairs:console';
+      const current = world.resources?.get?.(resourceId);
+      if (current?.ownerId === multiplayer.localId) return true;
+      if (current?.ownerId && current.ownerId !== multiplayer.localId) {
+        ui.warning?.(`${current.ownerName || 'Another player'} is using Spectra right now.`);
+        return false;
+      }
+
+      const position = this.player?.position;
+      const target = {
+        id: 'console',
+        action: 'console',
+        position: position ? [position.x, position.y, position.z] : null,
+      };
+      return world.claim(resourceId, target);
+    };
+
     const baseActions = createActions({
       audio: this.audio,
       spatialAudio: this.spatialAudio,
@@ -354,27 +377,7 @@ export class Game {
       stopAll: this.stopAll,
       saveState: () => this.save(),
       canAct,
-      requestSpectraConsoleAccess: async () => {
-        const multiplayer = this.multiplayer;
-        const world = multiplayer?.world;
-        if (!multiplayer?.joined || !world) return true;
-
-        const resourceId = 'upstairs:console';
-        const current = world.resources?.get?.(resourceId);
-        if (current?.ownerId === multiplayer.localId) return true;
-        if (current?.ownerId && current.ownerId !== multiplayer.localId) {
-          ui.warning?.(`${current.ownerName || 'Another player'} is using Spectra right now.`);
-          return false;
-        }
-
-        const position = this.player?.position;
-        const target = {
-          id: 'console',
-          action: 'console',
-          position: position ? [position.x, position.y, position.z] : null,
-        };
-        return world.claim(resourceId, target);
-      },
+      requestSpectraConsoleAccess: this.requestSpectraConsoleAccess,
     });
     this.interactions = new InteractionSystem((target) => {
       if (
