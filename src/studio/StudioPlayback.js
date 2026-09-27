@@ -2028,12 +2028,7 @@ export class StudioPlayback {
     // play() begins by stop()ing everything, so that duplicate used to destroy the successfully
     // started Vocal timer/source and every frozen backing source. Explicit transport restarts and
     // per-stem audition requests still pass through normally.
-    if (
-      this.playing &&
-      this.session === session &&
-      !stemId &&
-      restartTransport !== true
-    ) {
+    if (this.playing && this.session === session && !stemId && restartTransport !== true) {
       this.traceVocalRuntime('play:ignored-redundant', {
         offset: Number(offset) || 0,
         sessionName: session?.name ?? null,
