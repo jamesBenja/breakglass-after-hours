@@ -224,11 +224,7 @@ export class SharedMediaSync {
         return;
       }
       const controller = this.studioController();
-      if (
-        controller?.ownerId &&
-        data.controllerId &&
-        controller.ownerId !== data.controllerId
-      ) {
+      if (controller?.ownerId && data.controllerId && controller.ownerId !== data.controllerId) {
         return;
       }
 
