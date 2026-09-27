@@ -40,6 +40,7 @@ export class VocalSync {
     this.channels = new Map();
     this.channelQueues = new Map();
     this.incoming = new Map();
+    this.pendingAcks = new Map();
     this.pendingAttachments = [];
     this.pendingPlayback = false;
     this.traceEntries = [];
@@ -179,6 +180,79 @@ export class VocalSync {
     });
   }
 
+  ackKey(peerId, id) {
+    return `${peerId}:${id}`;
+  }
+
+  waitForAck(peerId, id, timeoutMs = 10_000) {
+    const key = this.ackKey(peerId, id);
+    const existing = this.pendingAcks.get(key);
+    if (existing) return existing.promise;
+
+    let resolveAck = null;
+    const promise = new Promise((resolve) => {
+      resolveAck = resolve;
+    });
+    const timer = globalThis.setTimeout?.(() => {
+      if (!this.pendingAcks.has(key)) return;
+      this.pendingAcks.delete(key);
+      this.trace('transfer:ack-timeout', { peerId, transferId: id });
+      resolveAck(false);
+    }, timeoutMs);
+    this.pendingAcks.set(key, { promise, resolve: resolveAck, timer });
+    return promise;
+  }
+
+  resolveAck(peerId, message) {
+    const id = message?.transferId;
+    if (!id) return false;
+    const key = this.ackKey(peerId, id);
+    const pending = this.pendingAcks.get(key);
+    if (!pending) {
+      this.trace('transfer:orphan-ack', {
+        peerId,
+        transferId: id,
+        ok: message?.ok === true,
+        targetStemId: message?.targetStemId ?? null,
+      });
+      return false;
+    }
+    this.pendingAcks.delete(key);
+    globalThis.clearTimeout?.(pending.timer);
+    const ok = message?.ok === true;
+    this.trace(ok ? 'transfer:ack' : 'transfer:nack', {
+      peerId,
+      transferId: id,
+      targetStemId: message?.targetStemId ?? null,
+    });
+    pending.resolve(ok);
+    return true;
+  }
+
+  sendAck(peerId, metadata, targetStemId, ok = true) {
+    const channel = this.channels.get(peerId) ?? this.channelFor(peerId);
+    if (!channel || channel.readyState !== 'open' || !metadata?.transferId) return false;
+    try {
+      channel.send(
+        JSON.stringify({
+          type: 'vocal-ack',
+          transferId: metadata.transferId,
+          ok: ok === true,
+          targetStemId: targetStemId ?? null,
+        }),
+      );
+      this.trace('receive:ack-sent', {
+        peerId,
+        transferId: metadata.transferId,
+        targetStemId: targetStemId ?? null,
+        ok: ok === true,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   enqueue(peerId, action) {
     const previous = this.channelQueues.get(peerId) ?? Promise.resolve();
     const next = previous.catch(() => {}).then(action);
@@ -263,6 +337,7 @@ export class VocalSync {
         return false;
       }
 
+      const acknowledged = this.waitForAck(peerId, metadata.transferId);
       channel.send(JSON.stringify({ type: 'vocal-start', ...metadata }));
       let chunks = 0;
       const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
@@ -289,7 +364,13 @@ export class VocalSync {
         bytes: bytes.byteLength,
         duration: metadata.duration,
       });
-      return true;
+      const committed = await acknowledged;
+      this.trace(committed ? 'transfer:committed' : 'transfer:not-committed', {
+        peerId,
+        transferId: metadata.transferId,
+        targetStemId: metadata.targetStemId,
+      });
+      return committed;
     });
   }
 
@@ -305,6 +386,8 @@ export class VocalSync {
         this.beginIncoming(peerId, message);
       } else if (message?.type === 'vocal-end') {
         await this.finishIncoming(peerId, message);
+      } else if (message?.type === 'vocal-ack') {
+        this.resolveAck(peerId, message);
       }
       return;
     }
@@ -403,7 +486,7 @@ export class VocalSync {
       cursor += chunk.byteLength;
     }
     const pcm = new Int16Array(packed.buffer);
-    const transfer = { metadata: incoming.metadata, pcm };
+    const transfer = { peerId, metadata: incoming.metadata, pcm };
     this.trace('receive:complete', {
       peerId,
       transferId: message.transferId,
@@ -420,11 +503,18 @@ export class VocalSync {
   targetFor(metadata) {
     const studio = this.game.studio;
     if (!studio) return null;
+    const armedVocals = studio.armedStems?.().filter?.((stem) => stem.inputKey === 'vocal') ?? [];
+    if (armedVocals.length) {
+      return (
+        armedVocals.find((stem) => stem.id === metadata.targetStemId) ??
+        armedVocals[0] ??
+        null
+      );
+    }
     return (
       studio.stems?.find?.(
         (stem) => stem.id === metadata.targetStemId && stem.inputKey === 'vocal',
       ) ??
-      studio.armedStems?.().find?.((stem) => stem.inputKey === 'vocal') ??
       studio.stems?.find?.((stem) => stem.inputKey === 'vocal') ??
       null
     );
@@ -475,6 +565,7 @@ export class VocalSync {
       peak: Number(target.vocalPcmPeak.toFixed(5)),
       controllerId: this.controllerId(),
     });
+    if (transfer.peerId) this.sendAck(transfer.peerId, metadata, target.id, true);
 
     if (this.game.studioPlayback?.playing === true) {
       this.pendingPlayback = true;
@@ -534,6 +625,11 @@ export class VocalSync {
     }
     this.channels.clear();
     this.incoming.clear();
+    for (const pending of this.pendingAcks.values()) {
+      globalThis.clearTimeout?.(pending.timer);
+      pending.resolve(false);
+    }
+    this.pendingAcks.clear();
     this.pendingAttachments.length = 0;
   }
 }
