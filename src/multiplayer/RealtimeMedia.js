@@ -24,6 +24,7 @@ export class RealtimeMedia {
     this.videoTrack = null;
     this.audioEnabled = false;
     this.videoEnabled = false;
+    this.dataChannelHandlers = new Map();
     this.buildUi();
   }
 
@@ -186,6 +187,35 @@ export class RealtimeMedia {
     }
   }
 
+  registerDataChannel(label, handler) {
+    if (!label || typeof handler !== 'function') return false;
+    this.dataChannelHandlers.set(String(label), handler);
+    return true;
+  }
+
+  handleDataChannel(peerId, channel) {
+    if (!peerId || !channel?.label) return null;
+    const peer = this.peers.get(peerId);
+    if (peer) {
+      peer.dataChannels ??= new Map();
+      peer.dataChannels.set(channel.label, channel);
+    }
+    const handler = this.dataChannelHandlers.get(channel.label);
+    handler?.(peerId, channel);
+    return channel;
+  }
+
+  dataChannel(peerId, label, options = { ordered: true }) {
+    const peer = this.ensurePeer(peerId);
+    if (!peer) return null;
+    peer.dataChannels ??= new Map();
+    const existing = peer.dataChannels.get(label);
+    if (existing && existing.readyState !== 'closed') return existing;
+    const channel = peer.pc.createDataChannel(label, options);
+    this.handleDataChannel(peerId, channel);
+    return channel;
+  }
+
   ensurePeer(id) {
     if (!id || id === this.client.localId) return null;
     let peer = this.peers.get(id);
@@ -207,6 +237,7 @@ export class RealtimeMedia {
         audio: audioTransceiver.sender,
         video: videoTransceiver.sender,
       },
+      dataChannels: new Map(),
     };
     this.peers.set(id, peer);
     if (this.audioTrack) void audioTransceiver.sender.replaceTrack(this.audioTrack);
@@ -229,6 +260,9 @@ export class RealtimeMedia {
       } finally {
         peer.makingOffer = false;
       }
+    };
+    pc.ondatachannel = ({ channel }) => {
+      this.handleDataChannel(id, channel);
     };
     pc.ontrack = ({ track, streams }) => {
       const stream = streams?.[0];

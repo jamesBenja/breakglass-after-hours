@@ -4,6 +4,7 @@ import { MultiplayerClient, resolveMultiplayerConfig } from './MultiplayerClient
 import { PartyPhone } from './PartyPhone.js';
 import { SharedMediaSync } from './SharedMediaSync.js';
 import { SpatialVoiceSystem } from './SpatialVoice.js';
+import { VocalSync } from './VocalSync.js';
 
 const EXTRA_SHARED_STATIONS = new Set([
   'houseDjDesk',
@@ -45,6 +46,8 @@ export function installMultiplayerEnhancements(game, ui) {
   multiplayer.phone = partyPhone;
   const spatialVoice = new SpatialVoiceSystem(multiplayer);
   multiplayer.spatialVoice = spatialVoice;
+  const vocalSync = new VocalSync(multiplayer);
+  multiplayer.vocalSync = vocalSync;
 
   const baseReady = ui.ready.bind(ui);
   ui.ready = (start) =>
@@ -73,6 +76,7 @@ export function installMultiplayerEnhancements(game, ui) {
     multiplayer.update(now);
     partyPhone.update(now);
     spatialVoice.update(now);
+    vocalSync.update();
     return baseUpdate(now, movementOverride);
   };
 
@@ -82,6 +86,7 @@ export function installMultiplayerEnhancements(game, ui) {
     sharedMedia.dispose();
     partyPhone.dispose();
     spatialVoice.dispose();
+    vocalSync.dispose();
     multiplayer.dispose();
     return baseDispose();
   };
