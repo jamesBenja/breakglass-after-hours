@@ -47,6 +47,14 @@ export class SharedWorld {
     return this.resources.get(resourceId)?.ownerId === this.client.localId;
   }
 
+  resourceBusyMessage(resourceId, resource = null) {
+    const ownerName = resource?.ownerName || 'Another player';
+    if (resourceId === 'upstairs:console') {
+      return `${ownerName} is currently running a session on the Spectra, but you can join the session by playing an instrument. Chat with them to see if they want to record your part!`;
+    }
+    return `${ownerName} is using that right now.`;
+  }
+
   resourceForTarget(target) {
     if (!target || !LOCKED_ACTIONS.has(target.action)) return null;
     if (target.action === 'dj') return 'dj-booth';
@@ -64,7 +72,7 @@ export class SharedWorld {
     const current = this.resources.get(resourceId);
     if (current?.ownerId === this.client.localId) return true;
     if (current?.ownerId && current.ownerId !== this.client.localId) {
-      this.ui.warning?.(`${current.ownerName || 'Another player'} is using that right now.`);
+      this.ui.warning?.(this.resourceBusyMessage(resourceId, current));
       return false;
     }
     const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -120,9 +128,7 @@ export class SharedWorld {
         position: Array.isArray(pending.target?.position) ? [...pending.target.position] : null,
       });
     } else if (message.resource) {
-      this.ui.warning?.(
-        `${message.resource.ownerName || 'Another player'} is using that right now.`,
-      );
+      this.ui.warning?.(this.resourceBusyMessage(pending.resourceId, message.resource));
     }
     pending.resolve(message.ok === true);
   }
@@ -144,11 +150,9 @@ export class SharedWorld {
       resource.ownerId !== this.client.localId &&
       this.ui.panelElement?.classList?.contains?.('spectra-console-panel')
     ) {
-      this.ui.clearPanel?.(
-        'SPECTRA CONSOLE · IN USE',
-        `${resource.ownerName || 'Another player'} is using the Spectra console right now. You can still play another instrument and be recorded into the shared session.`,
-      );
-      this.ui.warning?.(`${resource.ownerName || 'Another player'} is using Spectra.`);
+      const sessionMessage = this.resourceBusyMessage(resource.id, resource);
+      this.ui.clearPanel?.('SPECTRA CONSOLE · IN USE', sessionMessage);
+      this.ui.warning?.(sessionMessage);
     }
   }
 
