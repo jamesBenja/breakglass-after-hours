@@ -144,11 +144,10 @@ export class SharedWorld {
       resource.ownerId !== this.client.localId &&
       this.ui.panelElement?.classList?.contains?.('spectra-console-panel')
     ) {
-      this.ui.clearPanel?.(
-        'SPECTRA CONSOLE · IN USE',
-        `${resource.ownerName || 'Another player'} is using the Spectra console right now. You can still play another instrument and be recorded into the shared session.`,
-      );
-      this.ui.warning?.(`${resource.ownerName || 'Another player'} is using Spectra.`);
+      const ownerName = resource.ownerName || 'Another player';
+      const sessionMessage = `${ownerName} is currently running a session on the Spectra, but you can join the session by playing an instrument. Chat with them to see if they want to record your part!`;
+      this.ui.clearPanel?.('SPECTRA CONSOLE · IN USE', sessionMessage);
+      this.ui.warning?.(sessionMessage);
     }
   }
 
