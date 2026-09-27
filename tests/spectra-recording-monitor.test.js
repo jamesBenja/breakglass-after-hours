@@ -729,3 +729,137 @@ test('multiplayer instrument publishing always feeds the local Spectra recorder 
   assert.equal(captured[0][2].resourceId, 'upstairs:drumMachine');
   sync.dispose();
 });
+
+test('five multiplayer instrument notes travel from performer wrapper into the producer recorder', () => {
+  const producerStudio = new StudioSession();
+  const guitar = producerStudio.stems.find((stem) => stem.inputKey === 'guitar');
+  producerStudio.toggleRecordArm(guitar.id);
+
+  let producerPosition = 0;
+  const producerWorld = {
+    useTarget: async (_target, action) => {
+      action();
+      return true;
+    },
+    resourceForTarget: () => null,
+    owns: () => false,
+    localClaims: new Map(),
+    handleObjectState: () => {},
+  };
+  const producerGame = {
+    keyboardPerformance: null,
+    studio: producerStudio,
+    studioPlayback: {
+      playing: true,
+      position: () => producerPosition,
+      updateMix: () => {},
+      monitorLiveEvent: () => true,
+    },
+    spectraTransport: {
+      running: true,
+      acquire: () => {},
+      release: () => {},
+      absolutePosition: () => producerPosition,
+      positionAtOffset: (offset = 0) => producerPosition + offset,
+      quantizeTime: (time) => time,
+      snapshot: () => ({ running: true }),
+    },
+    state: { data: { avatar: { displayName: 'Producer' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    player: { position: { x: 0, y: 0, z: 0 } },
+    audio: { tone: () => {} },
+    save: () => {},
+  };
+  const producerClient = {
+    game: producerGame,
+    world: producerWorld,
+    joined: true,
+    localId: 'producer',
+    remotePlayers: new Map([['performer', { avatar: { displayName: 'Performer' } }]]),
+    send: () => true,
+  };
+  producerGame.multiplayer = producerClient;
+  producerGame.spectraRecorder = new SpectraRecorder(producerGame, {});
+  const producerSync = new InstrumentSync(producerClient);
+  assert.ok(producerGame.spectraRecorder.arm());
+
+  const performerKeyboard = new KeyboardPerformance(
+    { tone: () => {}, kick: () => {}, hat: () => {} },
+    null,
+    null,
+  );
+  const performerWorld = {
+    useTarget: async (_target, action) => {
+      action();
+      return true;
+    },
+    resourceForTarget: () => 'upstairs:guitar',
+    owns: () => true,
+    localClaims: new Map(),
+    handleObjectState: () => {},
+  };
+  const performerGame = {
+    keyboardPerformance: performerKeyboard,
+    spectraRecorder: { captureLocal: () => false },
+    studio: new StudioSession(),
+    studioPlayback: { monitorLiveEvent: () => false },
+    state: { data: { avatar: { displayName: 'Performer' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    player: { position: { x: 1, y: 0, z: 1 } },
+  };
+  const performerClient = {
+    game: performerGame,
+    world: performerWorld,
+    joined: true,
+    localId: 'performer',
+    send: (message) => {
+      producerPosition += 0.35;
+      producerWorld.handleObjectState({
+        type: 'object_state',
+        objectId: message.objectId,
+        data: message.data,
+        by: 'performer',
+      });
+      return true;
+    },
+  };
+  performerGame.multiplayer = performerClient;
+  const performerSync = new InstrumentSync(performerClient);
+  performerSync.activeResourceId = 'upstairs:guitar';
+
+  performerKeyboard.start({
+    mode: 'guitar',
+    stemKind: 'guitar',
+    inputKey: 'guitar',
+    label: 'Guitar',
+    wave: 'triangle',
+    volume: 0.06,
+    duration: 0.42,
+  });
+
+  for (const midi of [52, 55, 59, 62, 64]) {
+    assert.equal(performerKeyboard.playMidi(midi), true);
+  }
+
+  const [committed] = producerGame.spectraRecorder.stop({ commit: true });
+  assert.deepEqual(
+    committed.performance.events.map((event) => event.midi),
+    [52, 55, 59, 62, 64],
+  );
+  assert.equal(
+    performerSync.multiplayerTrace.filter((entry) => entry.event === 'publish:sent').length,
+    5,
+  );
+  assert.equal(
+    producerSync.multiplayerTrace.filter((entry) => entry.event === 'remote:received').length,
+    5,
+  );
+  assert.equal(
+    producerSync.multiplayerTrace.filter((entry) => entry.event === 'remote:captured').length,
+    5,
+  );
+
+  performerSync.dispose();
+  producerSync.dispose();
+  performerKeyboard.dispose();
+});

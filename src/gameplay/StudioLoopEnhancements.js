@@ -305,6 +305,48 @@ function currentProject(game) {
   return projectById(game, game.state.data.activeStudioProjectId);
 }
 
+function recordedSignalDiagnostics(stem, buffer) {
+  const duration = Number(buffer?.duration) || 0;
+  const sampleRate = Number(buffer?.sampleRate) || 0;
+  const channels = Number(buffer?.numberOfChannels) || 0;
+  const data =
+    channels > 0 && typeof buffer?.getChannelData === 'function' ? buffer.getChannelData(0) : null;
+  if (!data?.length || !(sampleRate > 0)) {
+    return { duration, sampleRate, channels, peak: 0, eventPeaks: [] };
+  }
+
+  let peak = 0;
+  for (let index = 0; index < data.length; index += 16) {
+    peak = Math.max(peak, Math.abs(data[index]));
+  }
+
+  const noteDuration = Math.max(0.06, Number(stem?.performance?.noteDuration) || 0.42);
+  const windowSeconds = Math.min(0.3, noteDuration);
+  const eventPeaks = (stem?.performance?.events ?? []).slice(0, 24).map((event) => {
+    const time = Math.max(0, Number(event?.time) || 0);
+    const start = Math.max(0, Math.floor(time * sampleRate));
+    const end = Math.min(data.length, start + Math.max(1, Math.floor(windowSeconds * sampleRate)));
+    let eventPeak = 0;
+    for (let index = start; index < end; index += 4) {
+      eventPeak = Math.max(eventPeak, Math.abs(data[index]));
+    }
+    return {
+      time: Number(time.toFixed(4)),
+      midi: Number.isFinite(Number(event?.midi)) ? Number(event.midi) : null,
+      drum: event?.drum ?? null,
+      peak: Number(eventPeak.toFixed(5)),
+    };
+  });
+
+  return {
+    duration,
+    sampleRate,
+    channels,
+    peak: Number(peak.toFixed(5)),
+    eventPeaks,
+  };
+}
+
 async function freezePerformanceStems(game, session, stems, { persist = true } = {}) {
   const candidates = (stems ?? []).filter((stem) => stem?.performance?.events?.length);
   let rendered = 0;
@@ -1334,6 +1376,7 @@ export function installStudioLoopEnhancements(game, ui) {
                 eventCount: stem.performance?.events?.length ?? 0,
                 renderedAudio: stem.renderedAudio === true,
                 bufferDuration: Number(session.recordings?.get?.(stem.id)?.duration) || 0,
+                signal: recordedSignalDiagnostics(stem, session.recordings?.get?.(stem.id)),
                 mute: stem.mute === true,
                 level: Number(stem.level) || 0,
               })),
@@ -1418,8 +1461,37 @@ export function installStudioLoopEnhancements(game, ui) {
         }
         game.save?.();
       };
+      const traceMixerState = (event, stemId = null) => {
+        const stems = stemId ? session.stems.filter((stem) => stem.id === stemId) : session.stems;
+        recorder?.trace?.(event, {
+          stems: stems.map((stem) => ({
+            id: stem.id,
+            label: stem.label,
+            mute: stem.mute === true,
+            solo: stem.solo === true,
+            level: Number(stem.level) || 0,
+            renderedAudio: stem.renderedAudio === true,
+            hasRecording: session.recordings?.has?.(stem.id) === true,
+            hardMuteGain:
+              Number(game.studioPlayback?.buses?.get?.(stem.id)?.hardMute?.gain?.value) || 0,
+            faderGain: Number(game.studioPlayback?.buses?.get?.(stem.id)?.fader?.gain?.value) || 0,
+            frozenGateGain:
+              Number(game.studioPlayback?.frozenGates?.get?.(stem.id)?.gain?.value) || 0,
+            frozenSourceActive: game.studioPlayback?.frozenSources?.has?.(stem.id) === true,
+          })),
+        });
+      };
+
+      const inheritedOnMix = options.onMix;
+      const onMix = (...args) => {
+        const result = inheritedOnMix?.(...args);
+        traceMixerState('mix:update', args[0] ?? null);
+        return result;
+      };
+
       const onAudibility = () => {
         game.studioPlayback?.applyChannelAudibility?.(session);
+        traceMixerState('mix:audibility');
         game.save?.();
       };
 
@@ -1505,6 +1577,7 @@ export function installStudioLoopEnhancements(game, ui) {
         ...options,
         onRecord,
         recordStatus,
+        onMix,
         onTempo,
         onClick,
         onLoopBars,

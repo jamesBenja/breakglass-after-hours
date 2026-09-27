@@ -217,6 +217,33 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   assert.equal(objectState.objectId, 'take-a-break-installation');
   assert.equal(objectState.data.mix.texture, 0.8);
 
+  for (let index = 0; index < 5; index += 1) {
+    b.send({
+      type: 'object_update',
+      objectId: 'live-instrument-event',
+      data: {
+        nonce: `multiplayer-note-${index}`,
+        attemptSequence: index + 1,
+        resourceId: 'upstairs:guitar',
+        sceneId: 'upstairs',
+        config: { mode: 'guitar', stemKind: 'guitar', inputKey: 'guitar', label: 'Guitar' },
+        event: { type: 'midi', midi: 52 + index },
+      },
+    });
+  }
+  const liveInstrumentEvents = [];
+  for (let index = 0; index < 5; index += 1) {
+    liveInstrumentEvents.push(await a.next('object_state'));
+  }
+  assert.deepEqual(
+    liveInstrumentEvents.map((message) => message.data.attemptSequence),
+    [1, 2, 3, 4, 5],
+  );
+  assert.deepEqual(
+    liveInstrumentEvents.map((message) => message.data.event.midi),
+    [52, 53, 54, 55, 56],
+  );
+
   const performanceEvents = Array.from({ length: 96 }, (_, index) => ({
     time: index * 0.04,
     midi: 48 + (index % 12),
