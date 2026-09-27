@@ -343,7 +343,6 @@ test('Spectra recorder uses the shared transport grid for attached live instrume
   assert.equal(owners.has('spectra-recorder'), false);
 });
 
-
 test('remote guitar line records every received note and reports capture diagnostics', () => {
   const studio = new StudioSession();
   const guitar = studio.stems.find((stem) => stem.inputKey === 'guitar');
