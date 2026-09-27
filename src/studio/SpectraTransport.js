@@ -273,7 +273,9 @@ export class SpectraTransport {
 
   setLoopBars(bars) {
     return this.reconfigure((session) => {
-      session.loopBars = [1, 2, 4, 8, 16].includes(Number(bars)) ? Number(bars) : session.loopBars;
+      const next = [1, 2, 4, 8, 16].includes(Number(bars)) ? Number(bars) : session.loopBars;
+      if (typeof session.setLoopBars === 'function') session.setLoopBars(next);
+      else session.loopBars = next;
     });
   }
 
