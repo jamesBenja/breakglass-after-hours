@@ -1201,8 +1201,20 @@ export function installStudioLoopEnhancements(game, ui) {
   enhancePlayback(game.studioPlayback, game.studio, game);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
   ui._spectraRecorderDiagnostics = {
-    report: () => game.spectraRecorder?.diagnosticReport?.() ?? '',
-    clear: () => game.spectraRecorder?.clearDiagnosticReport?.(),
+    report: () => {
+      const instrument = game.multiplayer?.instrumentSync?.diagnosticReport?.() ?? '';
+      const recorder = game.spectraRecorder?.diagnosticReport?.() ?? '';
+      return [
+        '=== SPECTRA MULTIPLAYER INSTRUMENT SYNC ===',
+        instrument || 'No multiplayer instrument events yet.',
+        '=== SPECTRA RECORDER ===',
+        recorder || 'No Spectra recorder events yet.',
+      ].join('\n');
+    },
+    clear: () => {
+      game.multiplayer?.instrumentSync?.clearDiagnosticReport?.();
+      game.spectraRecorder?.clearDiagnosticReport?.();
+    },
   };
   connectKeyboardPerformanceToSpectra(game);
   game.studioExporter ??= new StudioExporter(game);
@@ -1281,11 +1293,37 @@ export function installStudioLoopEnhancements(game, ui) {
             ui.warning?.(
               `Rendering ${committed.length} recorded channel${committed.length === 1 ? '' : 's'} to audio…`,
             );
+            recorder.trace?.('record:freeze-start', {
+              stems: committed.map((stem) => ({
+                id: stem.id,
+                label: stem.label,
+                eventCount: stem.performance?.events?.length ?? 0,
+              })),
+            });
             const frozen = await freezePerformanceStems(game, session, committed);
+            recorder.trace?.('record:freeze-result', {
+              rendered: frozen.rendered,
+              failed: frozen.failed,
+              stems: committed.map((stem) => ({
+                id: stem.id,
+                eventCount: stem.performance?.events?.length ?? 0,
+                renderedAudio: stem.renderedAudio === true,
+                bufferDuration: Number(session.recordings?.get?.(stem.id)?.duration) || 0,
+                mute: stem.mute === true,
+                level: Number(stem.level) || 0,
+              })),
+            });
             await game.audio?.init?.();
             game.drumMachine?.stopLoop?.(false);
             game.modularSynth?.stopLoop?.(false);
-            await game.studioPlayback?.play?.(session, 0, { restartTransport: true });
+            const playbackStarted = await game.studioPlayback?.play?.(session, 0, {
+              restartTransport: true,
+            });
+            recorder.trace?.('record:playback-restart', {
+              playbackStarted: playbackStarted !== false,
+              frozenSources: [...(game.studioPlayback?.frozenSources?.keys?.() ?? [])],
+              frozenGates: [...(game.studioPlayback?.frozenGates?.keys?.() ?? [])],
+            });
             game.save?.();
             if (frozen.failed) {
               ui.warning?.(
