@@ -152,7 +152,21 @@ const normalizeArrangementState = (value, stems, sourceBars) => {
     );
   }
 
-  return { bars, tracks };
+  const differsFromSource =
+    bars !== sourceBars ||
+    stems.some((stem) =>
+      tracks[stem.id]?.some(
+        (cell, index) =>
+          index >= sourceBars ||
+          cell?.sourceBar !== index ||
+          cell?.muted === true,
+      ),
+    );
+  return {
+    bars,
+    tracks,
+    edited: arrangement.edited === true || differsFromSource,
+  };
 };
 
 const normalizePerformance = (performance) => {
@@ -358,6 +372,7 @@ export function normalizeStudioSession(value = {}) {
     loopBars,
     arrangementBars: arrangement.bars,
     arrangementTracks: arrangement.tracks,
+    arrangementEdited: arrangement.edited,
     quantize: QUANTIZE_OPTIONS.includes(value.quantize) ? value.quantize : '1/16',
     swing: clamp(Number(value.swing) || 0, 0, 0.45),
     clickEnabled: value.clickEnabled === true,
@@ -378,6 +393,7 @@ export class StudioSession {
     this.loopBars = normalized.loopBars;
     this.arrangementBars = normalized.arrangementBars;
     this.arrangementTracks = normalized.arrangementTracks;
+    this.arrangementEdited = normalized.arrangementEdited;
     this.quantize = normalized.quantize;
     this.swing = normalized.swing;
     this.clickEnabled = normalized.clickEnabled;
@@ -414,6 +430,7 @@ export class StudioSession {
   setArrangementBars(value) {
     const next = normalizeArrangementBarCount(value, this.arrangementBars || this.loopBars);
     const previous = normalizeArrangementBarCount(this.arrangementBars, this.loopBars);
+    if (next !== previous) this.arrangementEdited = true;
     this.arrangementBars = next;
     for (const stem of this.stems) {
       const row = this._ensureArrangementTrack(stem.id);
@@ -452,6 +469,7 @@ export class StudioSession {
       clipboard.cell,
       this.loopBars,
     );
+    this.arrangementEdited = true;
     return true;
   }
 
@@ -466,6 +484,7 @@ export class StudioSession {
     this._ensureArrangementTrack(stemId)[index + 1] = cloneArrangementCell(
       this._ensureArrangementTrack(stemId)[index],
     );
+    this.arrangementEdited = true;
     return index + 1;
   }
 
@@ -475,6 +494,7 @@ export class StudioSession {
     const cell = row[index];
     if (!cell) return false;
     cell.muted = cell.muted !== true;
+    this.arrangementEdited = true;
     return cell.muted;
   }
 
@@ -483,6 +503,7 @@ export class StudioSession {
     if (index >= this.arrangementBars) return false;
     const row = this._ensureArrangementTrack(stemId);
     row[index] = null;
+    this.arrangementEdited = true;
     return true;
   }
 
@@ -504,6 +525,7 @@ export class StudioSession {
         row[index] = cloneArrangementCell(source[index % currentBars]);
       }
     }
+    this.arrangementEdited = true;
     return nextBars;
   }
 
@@ -513,6 +535,7 @@ export class StudioSession {
     this.arrangementTracks = Object.fromEntries(
       this.stems.map((stem) => [stem.id, defaultArrangementRow(this.loopBars, bars)]),
     );
+    this.arrangementEdited = false;
     return bars;
   }
 
@@ -530,6 +553,7 @@ export class StudioSession {
   }
 
   arrangementIsDefault(stemId = null) {
+    if (this.arrangementEdited !== true) return true;
     const bars = normalizeArrangementBarCount(this.arrangementBars, this.loopBars);
     if (bars !== this.loopBars) return false;
     const stems = stemId ? this.stems.filter((stem) => stem.id === stemId) : this.stems;
@@ -600,6 +624,7 @@ export class StudioSession {
     this.loopBars = normalized.loopBars;
     this.arrangementBars = normalized.arrangementBars;
     this.arrangementTracks = normalized.arrangementTracks;
+    this.arrangementEdited = normalized.arrangementEdited;
     this.quantize = normalized.quantize;
     this.swing = normalized.swing;
     this.clickEnabled = normalized.clickEnabled;
@@ -625,6 +650,7 @@ export class StudioSession {
     this.loopBars = normalized.loopBars;
     this.arrangementBars = normalized.arrangementBars;
     this.arrangementTracks = normalized.arrangementTracks;
+    this.arrangementEdited = normalized.arrangementEdited;
     this.quantize = normalized.quantize;
     this.swing = normalized.swing;
     this.clickEnabled = normalized.clickEnabled;
@@ -948,6 +974,7 @@ export class StudioSession {
       loopBars: LOOP_BAR_OPTIONS.includes(Number(this.loopBars)) ? Number(this.loopBars) : 4,
       arrangement: {
         bars: normalizeArrangementBarCount(this.arrangementBars, this.loopBars),
+        edited: this.arrangementEdited === true,
         tracks: Object.fromEntries(
           this.stems.map((stem) => [
             stem.id,
