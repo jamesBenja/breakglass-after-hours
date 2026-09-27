@@ -218,13 +218,29 @@ export class VocalSync {
     }
 
     const controllerId = this.controllerId();
-    if (!controllerId || controllerId === this.client.localId) {
+    if (!controllerId) {
       this.trace('transfer:local-only', {
         transferId: metadata.transferId,
         targetStemId: metadata.targetStemId,
         frames: metadata.frames,
       });
       return false;
+    }
+
+    if (controllerId === this.client.localId) {
+      const peers = [...(this.client.remotePlayers?.keys?.() ?? [])];
+      this.trace('transfer:producer-broadcast', {
+        transferId: metadata.transferId,
+        targetStemId: metadata.targetStemId,
+        peers,
+        frames: metadata.frames,
+        duration: metadata.duration,
+      });
+      if (!peers.length) return false;
+      const results = await Promise.all(
+        peers.map((peerId) => this.sendTake(peerId, { ...metadata, relayed: true }, pcm)),
+      );
+      return results.some(Boolean);
     }
 
     this.trace('transfer:queue', {
@@ -494,7 +510,9 @@ export class VocalSync {
       for (const transfer of pending) {
         if (!this.attachTransfer(transfer)) this.pendingAttachments.push(transfer);
       }
-      if (this.pendingAttachments.length > 8) this.pendingAttachments.splice(0, -8);
+      if (this.pendingAttachments.length > 8) {
+        this.pendingAttachments.splice(0, this.pendingAttachments.length - 8);
+      }
     }
     if (this.pendingPlayback && !globalThis.document?.hidden) void this.flushPlayback();
   }
