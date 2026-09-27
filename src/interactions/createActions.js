@@ -119,6 +119,7 @@ export function createActions({
     // actually needed, so microphone PCM can be created in the original PLAY call stack.
     return studioPlayback.play(studio, 0, {
       ...(stemId ? { stemId } : {}),
+      restartTransport: true,
     });
   };
 
@@ -796,9 +797,7 @@ export function createActions({
           return;
         }
       } else {
-        // Setting a Vocal loop start is not a solo/audition command. If Spectra is stopped,
-        // start the full mix so the Vocal is heard in context with every other channel.
-        await monitorStudio();
+        await monitorStudio(target.id);
       }
       ui.warning?.(`Vocal loop source now starts at ${offset.toFixed(2)}s.`);
     };
