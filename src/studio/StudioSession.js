@@ -569,6 +569,9 @@ export class StudioSession {
 
   arrangementSourceStep(stemId, absoluteStep) {
     const step = Math.max(0, Math.floor(Number(absoluteStep) || 0));
+    if (this.arrangementEdited !== true) {
+      return step % (Math.max(1, Number(this.loopBars) || 4) * 16);
+    }
     const bars = normalizeArrangementBarCount(this.arrangementBars, this.loopBars);
     const destinationBar = Math.floor(step / 16) % bars;
     const cell = this._ensureArrangementTrack(stemId)[destinationBar];
@@ -578,10 +581,11 @@ export class StudioSession {
   }
 
   arrangementDurationSeconds() {
-    return (
-      (normalizeArrangementBarCount(this.arrangementBars, this.loopBars) * 4 * 60) /
-      Math.max(1, Number(this.bpm) || 118)
-    );
+    const bars =
+      this.arrangementEdited === true
+        ? normalizeArrangementBarCount(this.arrangementBars, this.loopBars)
+        : Math.max(1, Number(this.loopBars) || 4);
+    return (bars * 4 * 60) / Math.max(1, Number(this.bpm) || 118);
   }
 
   setLoopBars(value) {
