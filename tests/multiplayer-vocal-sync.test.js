@@ -107,12 +107,13 @@ test('multiplayer Vocal PCM attaches to the exact producer Vocal track', async (
   const sync = new VocalSync(client);
 
   const pcm = new Int16Array([0, 8192, -16384, 24576, -32768, 32767]);
+  const vocalOne = studio.stems.find((stem) => stem.id === 'input-vocal');
   sync.beginIncoming('vocalist', {
     type: 'vocal-start',
     transferId: 'take-1',
     originId: 'vocalist',
     originName: 'Guest Vocalist',
-    targetStemId: vocalTwo.id,
+    targetStemId: vocalOne.id,
     sampleRate: 6,
     frames: pcm.length,
     duration: 1,
@@ -133,6 +134,11 @@ test('multiplayer Vocal PCM attaches to the exact producer Vocal track', async (
 
   const buffer = studio.recordings.get(vocalTwo.id);
   assert.ok(buffer);
+  assert.equal(
+    studio.recordings.has(vocalOne.id),
+    false,
+    'the producer armed Vocal track must override a stale/other vocalist target id',
+  );
   assert.equal(buffer.duration, 1);
   assert.equal(buffer.sampleRate, 6);
   assert.equal(vocalTwo.vocalCaptureMode, 'multiplayer-pcm');
@@ -150,6 +156,7 @@ test('multiplayer Vocal PCM attaches to the exact producer Vocal track', async (
 test('vocalist sends finished PCM to the player holding the Spectra console', async () => {
   const sent = [];
   const listeners = new Map();
+  let sync = null;
   const channel = {
     readyState: 'open',
     bufferedAmount: 0,
@@ -163,6 +170,26 @@ test('vocalist sends finished PCM to the player holding the Spectra console', as
     },
     send(payload) {
       sent.push(payload);
+      if (typeof payload !== 'string') return;
+      let message = null;
+      try {
+        message = JSON.parse(payload);
+      } catch {
+        return;
+      }
+      if (message?.type === 'vocal-end') {
+        queueMicrotask(() =>
+          sync?.handleMessage(
+            'producer',
+            JSON.stringify({
+              type: 'vocal-ack',
+              transferId: message.transferId,
+              ok: true,
+              targetStemId: vocalTwo?.id ?? null,
+            }),
+          ),
+        );
+      }
     },
     close() {},
   };
@@ -176,7 +203,7 @@ test('vocalist sends finished PCM to the player holding the Spectra console', as
     remotePlayers: new Map([['producer', { avatar: { displayName: 'Producer' } }]]),
     channel,
   });
-  const sync = new VocalSync(client);
+  sync = new VocalSync(client);
   micRecorder.spectraTargetStemId = vocalTwo.id;
 
   const samples = Float32Array.from([0, 0.25, -0.5, 0.75, -1, 1]);
@@ -211,6 +238,15 @@ test('vocalist sends finished PCM to the player holding the Spectra console', as
   assert.equal(end.bytes, samples.length * 2);
   assert.equal(
     sync.traceEntries.some((entry) => entry.event === 'transfer:sent'),
+    true,
+  );
+  assert.equal(
+    sync.traceEntries.some((entry) => entry.event === 'transfer:ack'),
+    true,
+    'sender should only report success after the producer acknowledges the committed take',
+  );
+  assert.equal(
+    sync.traceEntries.some((entry) => entry.event === 'transfer:committed'),
     true,
   );
 
