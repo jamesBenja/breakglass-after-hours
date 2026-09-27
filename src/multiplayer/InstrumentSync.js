@@ -40,6 +40,7 @@ export class InstrumentSync {
     this.disposed = false;
     this.multiplayerTrace = [];
     this.traceSequence = 0;
+    this.publishAttemptSequence = 0;
     this.patchInteractionOwnership();
     this.patchPerformance();
     this.patchIncomingEvents();
@@ -70,6 +71,41 @@ export class InstrumentSync {
     this.traceSequence = 0;
   }
 
+  appendDiagnosticControls() {
+    const ui = this.client.ui;
+    const container = ui?.buttons;
+    const document = ui?.document;
+    if (!container?.appendChild || !document?.createElement) return false;
+    if (container.querySelector?.('.spectra-instrument-multiplayer-diagnostics')) return true;
+
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'spectra-instrument-multiplayer-diagnostics';
+    copy.textContent = 'COPY MULTIPLAYER RECORDING DIAGNOSTICS';
+    copy.onclick = async () => {
+      const report = this.diagnosticReport() || 'No multiplayer instrument events yet.';
+      try {
+        await globalThis.navigator?.clipboard?.writeText?.(report);
+        ui.warning?.('Instrument multiplayer diagnostics copied. Paste them into the chat.');
+      } catch {
+        globalThis.prompt?.('Copy multiplayer instrument diagnostics:', report);
+      }
+    };
+
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'spectra-instrument-multiplayer-diagnostics-clear';
+    clear.textContent = 'CLEAR MULTIPLAYER RECORDING DIAGNOSTICS';
+    clear.onclick = () => {
+      this.clearDiagnosticReport();
+      ui.warning?.('Instrument multiplayer diagnostics cleared.');
+    };
+
+    container.appendChild(copy);
+    container.appendChild(clear);
+    return true;
+  }
+
   patchInteractionOwnership() {
     const baseUseTarget = this.world.useTarget.bind(this.world);
     this.world.useTarget = async (target, action) => {
@@ -82,6 +118,7 @@ export class InstrumentSync {
           targetAction: target?.action ?? null,
           targetId: target?.id ?? null,
         });
+        this.appendDiagnosticControls();
       } else if (resourceId && INSTRUMENT_ACTIONS.has(target?.action)) {
         this.trace('instrument:claim-failed', {
           resourceId,
@@ -125,10 +162,12 @@ export class InstrumentSync {
     event,
     { resourceId = this.activeResourceId, offsetSeconds = 0, captureLocal = true } = {},
   ) {
+    const attemptSequence = ++this.publishAttemptSequence;
     if (!config) {
       this.trace('publish:rejected-no-config', {
         resourceId,
         eventType: event?.type ?? null,
+        attemptSequence,
       });
       return false;
     }
@@ -161,6 +200,7 @@ export class InstrumentSync {
         inputKey: config?.inputKey ?? null,
         mode: config?.mode ?? null,
         localCaptured,
+        attemptSequence,
       });
       return false;
     }
@@ -176,6 +216,7 @@ export class InstrumentSync {
       objectId: 'live-instrument-event',
       data: {
         nonce,
+        attemptSequence,
         resourceId,
         sceneId: this.game.sceneManager.current?.definition?.id,
         position,
@@ -185,6 +226,7 @@ export class InstrumentSync {
     });
     this.trace(sent ? 'publish:sent' : 'publish:send-failed', {
       nonce,
+      attemptSequence,
       resourceId,
       eventType: event?.type ?? null,
       midi: Number.isFinite(Number(event?.midi)) ? Number(event.midi) : null,
@@ -252,6 +294,7 @@ export class InstrumentSync {
         this.trace('remote:received', {
           fromId: message.by ?? null,
           nonce: message.data?.nonce ?? null,
+          attemptSequence: Number(message.data?.attemptSequence) || null,
           resourceId: message.data?.resourceId ?? null,
           eventType: message.data?.event?.type ?? null,
           midi: Number.isFinite(Number(message.data?.event?.midi))
@@ -266,6 +309,7 @@ export class InstrumentSync {
         this.trace(captured ? 'remote:captured' : 'remote:not-captured', {
           fromId: message.by ?? null,
           nonce: message.data?.nonce ?? null,
+          attemptSequence: Number(message.data?.attemptSequence) || null,
           resourceId: message.data?.resourceId ?? null,
         });
         this.playRemote(message.data);
