@@ -38,9 +38,38 @@ export class InstrumentSync {
     this.performance = this.game.keyboardPerformance;
     this.activeResourceId = null;
     this.disposed = false;
+    this.multiplayerTrace = [];
+    this.traceSequence = 0;
     this.patchInteractionOwnership();
     this.patchPerformance();
     this.patchIncomingEvents();
+  }
+
+  trace(event, detail = {}) {
+    const entry = {
+      seq: ++this.traceSequence,
+      event,
+      at: Date.now(),
+      localId: this.client.localId ?? null,
+      joined: this.client.joined === true,
+      activeResourceId: this.activeResourceId,
+      activeResourceOwned: this.activeResourceId
+        ? this.world.owns(this.activeResourceId)
+        : false,
+      ...detail,
+    };
+    this.multiplayerTrace.push(entry);
+    if (this.multiplayerTrace.length > 240) this.multiplayerTrace.shift();
+    return entry;
+  }
+
+  diagnosticReport() {
+    return this.multiplayerTrace.map((entry) => JSON.stringify(entry)).join('\n');
+  }
+
+  clearDiagnosticReport() {
+    this.multiplayerTrace.length = 0;
+    this.traceSequence = 0;
   }
 
   patchInteractionOwnership() {
@@ -50,6 +79,17 @@ export class InstrumentSync {
       const used = await baseUseTarget(target, action);
       if (used && resourceId && INSTRUMENT_ACTIONS.has(target?.action)) {
         this.activeResourceId = resourceId;
+        this.trace('instrument:claimed', {
+          resourceId,
+          targetAction: target?.action ?? null,
+          targetId: target?.id ?? null,
+        });
+      } else if (resourceId && INSTRUMENT_ACTIONS.has(target?.action)) {
+        this.trace('instrument:claim-failed', {
+          resourceId,
+          targetAction: target?.action ?? null,
+          targetId: target?.id ?? null,
+        });
       }
       return used;
     };
@@ -87,25 +127,57 @@ export class InstrumentSync {
     event,
     { resourceId = this.activeResourceId, offsetSeconds = 0, captureLocal = true } = {},
   ) {
-    if (!config) return false;
-    if (captureLocal) {
-      this.game.spectraRecorder?.captureLocal?.(config, event, {
-        resourceId: resourceId ?? 'local-instrument',
-        offsetSeconds,
+    if (!config) {
+      this.trace('publish:rejected-no-config', {
+        resourceId,
+        eventType: event?.type ?? null,
       });
-    }
-    if (this.disposed || !this.client.joined || !resourceId || !this.world.owns(resourceId))
       return false;
+    }
+
+    let localCaptured = null;
+    if (captureLocal) {
+      localCaptured =
+        this.game.spectraRecorder?.captureLocal?.(config, event, {
+          resourceId: resourceId ?? 'local-instrument',
+          offsetSeconds,
+        }) ?? false;
+    }
+
+    const rejectReason = this.disposed
+      ? 'disposed'
+      : !this.client.joined
+        ? 'not-joined'
+        : !resourceId
+          ? 'no-resource'
+          : !this.world.owns(resourceId)
+            ? 'resource-not-owned'
+            : null;
+    if (rejectReason) {
+      this.trace('publish:rejected', {
+        reason: rejectReason,
+        resourceId,
+        eventType: event?.type ?? null,
+        midi: Number.isFinite(Number(event?.midi)) ? Number(event.midi) : null,
+        drum: event?.name ?? null,
+        inputKey: config?.inputKey ?? null,
+        mode: config?.mode ?? null,
+        localCaptured,
+      });
+      return false;
+    }
+
     const claim = this.world.localClaims?.get?.(resourceId);
     const playerPosition = this.game.player?.position;
     const position =
       claim?.position ??
       (playerPosition ? [playerPosition.x, playerPosition.y, playerPosition.z] : null);
-    return this.client.send({
+    const nonce = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const sent = this.client.send({
       type: 'object_update',
       objectId: 'live-instrument-event',
       data: {
-        nonce: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+        nonce,
         resourceId,
         sceneId: this.game.sceneManager.current?.definition?.id,
         position,
@@ -113,6 +185,17 @@ export class InstrumentSync {
         event,
       },
     });
+    this.trace(sent ? 'publish:sent' : 'publish:send-failed', {
+      nonce,
+      resourceId,
+      eventType: event?.type ?? null,
+      midi: Number.isFinite(Number(event?.midi)) ? Number(event.midi) : null,
+      drum: event?.name ?? null,
+      inputKey: config?.inputKey ?? null,
+      mode: config?.mode ?? null,
+      localCaptured,
+    });
+    return sent;
   }
 
   publish(event) {
@@ -168,7 +251,25 @@ export class InstrumentSync {
         message.by !== this.client.localId &&
         message.data?.event
       ) {
-        this.game.spectraRecorder?.captureRemote?.(message.data, message.by);
+        this.trace('remote:received', {
+          fromId: message.by ?? null,
+          nonce: message.data?.nonce ?? null,
+          resourceId: message.data?.resourceId ?? null,
+          eventType: message.data?.event?.type ?? null,
+          midi: Number.isFinite(Number(message.data?.event?.midi))
+            ? Number(message.data.event.midi)
+            : null,
+          drum: message.data?.event?.name ?? null,
+          inputKey: message.data?.config?.inputKey ?? null,
+          mode: message.data?.config?.mode ?? null,
+        });
+        const captured =
+          this.game.spectraRecorder?.captureRemote?.(message.data, message.by) ?? false;
+        this.trace(captured ? 'remote:captured' : 'remote:not-captured', {
+          fromId: message.by ?? null,
+          nonce: message.data?.nonce ?? null,
+          resourceId: message.data?.resourceId ?? null,
+        });
         this.playRemote(message.data);
       }
     };
@@ -258,6 +359,7 @@ export class InstrumentSync {
 
   update() {
     if (this.activeResourceId && !this.world.owns(this.activeResourceId)) {
+      this.trace('instrument:ownership-lost', { resourceId: this.activeResourceId });
       this.activeResourceId = null;
     }
   }
