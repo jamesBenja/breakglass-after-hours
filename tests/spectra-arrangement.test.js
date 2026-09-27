@@ -35,6 +35,7 @@ test('Spectra arrangement expands with silent bars and keeps source clips non-de
 
   session.setArrangementBars(8);
   assert.equal(session.arrangementBars, 8);
+  assert.equal(session.arrangementEdited, true);
   assert.equal(session.arrangementCell(guitar.id, 4), null);
 
   const clipboard = session.copyArrangementBar(guitar.id, 0);
