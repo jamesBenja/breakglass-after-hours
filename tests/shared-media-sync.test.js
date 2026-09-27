@@ -102,7 +102,6 @@ test('SharedMediaSync tags local studio publications and ignores their echoed pa
   sync.dispose();
 });
 
-
 test('non-owner Spectra playback changes cannot publish over the console owner', async () => {
   const { client, playback, sent } = makeClient({ joined: true, localId: 'phone-b' });
   client.world.resources.set('upstairs:console', {
