@@ -41,7 +41,7 @@ export function createActions({
   stopAll = () => audio.stop(),
   saveState = () => {},
   canAct,
-  requestSpectraConsoleAccess = async () => true,
+  requestSpectraConsoleAccess = () => true,
 }) {
   const panel = (title, text, actions = []) => {
     const sceneId = sceneManager.current.definition.id;
@@ -1210,9 +1210,16 @@ export function createActions({
     });
   };
 
-  const consolePanel = async () => {
-    const allowed = await requestSpectraConsoleAccess();
-    if (!allowed) return false;
+  const consolePanel = () => {
+    const access = requestSpectraConsoleAccess();
+    if (access?.then) {
+      return access.then((allowed) => {
+        if (!allowed) return false;
+        renderConsolePanel();
+        return true;
+      });
+    }
+    if (!access) return false;
     renderConsolePanel();
     return true;
   };
