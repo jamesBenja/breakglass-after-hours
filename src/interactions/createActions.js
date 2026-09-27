@@ -844,8 +844,7 @@ export function createActions({
     copyDiagnostics.type = 'button';
     copyDiagnostics.textContent = 'COPY VOCAL DIAGNOSTICS';
     copyDiagnostics.onclick = async () => {
-      const report =
-        [
+      const report = [
         '=== SPECTRA VOCAL PLAYBACK ===',
         studioPlayback?.vocalDiagnosticReport?.() || 'No Vocal runtime events recorded yet.',
         '=== SPECTRA MULTIPLAYER VOCAL ===',
