@@ -1137,7 +1137,7 @@ export class StudioPlayback {
 
     const arrangementBars = Math.max(
       1,
-      Math.min(64, Math.round(Number(session.arrangementBars) || Number(session.loopBars) || 4)),
+      Math.min(32, Math.round(Number(session.arrangementBars) || Number(session.loopBars) || 4)),
     );
     const sourceBars = Math.max(1, Math.round(Number(session.loopBars) || 4));
     const bpm = Math.max(1, Number(session.bpm) || this.bpm || 118);
