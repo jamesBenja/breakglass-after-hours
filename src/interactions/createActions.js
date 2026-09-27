@@ -1169,6 +1169,20 @@ export function createActions({
       appendButton('ADVANCED SPECTRA SETTINGS', () => workspace.advanced?.());
       appendButton('8CH SPATIAL MIXER', () => workspace.spatial?.());
       appendButton('EXPORT TRACK', () => workspace.exportMix?.());
+      appendButton('COPY MULTIPLAYER RECORDING DIAGNOSTICS', async () => {
+        const diagnostics = ui._spectraRecorderDiagnostics;
+        const report = diagnostics?.report?.() || 'No Spectra multiplayer recording events yet.';
+        try {
+          await globalThis.navigator?.clipboard?.writeText?.(report);
+          ui.warning?.('Spectra multiplayer diagnostics copied. Paste them into the chat.');
+        } catch {
+          panel('SPECTRA MULTIPLAYER DIAGNOSTICS', report, [['Back to Spectra mixer', consolePanel]]);
+        }
+      });
+      appendButton('CLEAR MULTIPLAYER RECORDING DIAGNOSTICS', () => {
+        ui._spectraRecorderDiagnostics?.clear?.();
+        ui.warning?.('Spectra multiplayer recording diagnostics cleared.');
+      });
       appendButton('Spectra mix challenge', mixChallengeMenu);
       appendButton('Breakglass session templates', sessionLibraryPanel);
     };
@@ -1191,6 +1205,10 @@ export function createActions({
       },
       renderFooter: renderConsoleFooter,
     });
+  };
+
+  ui._spectraRefreshConsole = () => {
+    if (ui.panelElement?.classList?.contains?.('spectra-console-panel')) consolePanel();
   };
 
   const djPanel = () => {
