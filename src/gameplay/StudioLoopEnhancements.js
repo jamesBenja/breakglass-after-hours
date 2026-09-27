@@ -1462,9 +1462,7 @@ export function installStudioLoopEnhancements(game, ui) {
         game.save?.();
       };
       const traceMixerState = (event, stemId = null) => {
-        const stems = stemId
-          ? session.stems.filter((stem) => stem.id === stemId)
-          : session.stems;
+        const stems = stemId ? session.stems.filter((stem) => stem.id === stemId) : session.stems;
         recorder?.trace?.(event, {
           stems: stems.map((stem) => ({
             id: stem.id,
