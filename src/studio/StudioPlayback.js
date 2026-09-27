@@ -52,8 +52,23 @@ function writeSwitchParam(parameter, value, time) {
   } else {
     parameter.cancelScheduledValues?.(time);
   }
+
+  // These are hard MUTE/SOLO gates, not fades. Safari can defer the observable AudioParam.value
+  // after setValueAtTime(currentTime), which makes an UNMUTE depend on the next render quantum.
+  // Write the intrinsic value as well as the automation event so the gate changes synchronously
+  // on the UI gesture while the scheduled event keeps the WebAudio timeline authoritative.
+  try {
+    parameter.value = value;
+  } catch {
+    // Some AudioParam-like test/native wrappers may expose a read-only value.
+  }
   if (parameter.setValueAtTime) parameter.setValueAtTime(value, time);
   else parameter.value = value;
+  try {
+    parameter.value = value;
+  } catch {
+    // Keep the scheduled event as the fallback.
+  }
 }
 
 function writeAudioParam(parameter, value, time, { immediate = false, timeConstant = 0.025 } = {}) {
