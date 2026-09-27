@@ -414,71 +414,73 @@ test('remote guitar line records every received note and reports capture diagnos
   );
 });
 
+test(
+  'remote Spectra timing follows performer timestamps when the producer transport is suspended',
+  () => {
+    const studio = new StudioSession();
+    const guitar = studio.stems.find((stem) => stem.inputKey === 'guitar');
+    studio.toggleRecordArm(guitar.id);
 
-test('remote Spectra timing follows performer timestamps when the producer transport is suspended', () => {
-  const studio = new StudioSession();
-  const guitar = studio.stems.find((stem) => stem.inputKey === 'guitar');
-  studio.toggleRecordArm(guitar.id);
+    const transportPosition = 0.5;
+    const game = {
+      studio,
+      spectraTransport: {
+        running: true,
+        acquire() {},
+        release() {},
+        absolutePosition: () => transportPosition,
+        positionAtOffset: () => transportPosition,
+        quantizeTime: (time) => time,
+        snapshot: () => ({ running: true }),
+      },
+      studioPlayback: { playing: true, position: () => transportPosition, updateMix: () => {} },
+      state: { data: { avatar: { displayName: 'Producer' } } },
+      sceneManager: { current: { definition: { id: 'upstairs' } } },
+      multiplayer: {
+        localId: 'producer',
+        serverNow: () => 10_000,
+        remotePlayers: new Map([['performer', { avatar: { displayName: 'Performer' } }]]),
+      },
+      save() {},
+    };
+    const recorder = new SpectraRecorder(game, {});
 
-  const transportPosition = 0.5;
-  const game = {
-    studio,
-    spectraTransport: {
-      running: true,
-      acquire() {},
-      release() {},
-      absolutePosition: () => transportPosition,
-      positionAtOffset: () => transportPosition,
-      quantizeTime: (time) => time,
-      snapshot: () => ({ running: true }),
-    },
-    studioPlayback: { playing: true, position: () => transportPosition, updateMix: () => {} },
-    state: { data: { avatar: { displayName: 'Producer' } } },
-    sceneManager: { current: { definition: { id: 'upstairs' } } },
-    multiplayer: {
-      localId: 'producer',
-      serverNow: () => 10_000,
-      remotePlayers: new Map([['performer', { avatar: { displayName: 'Performer' } }]]),
-    },
-    save() {},
-  };
-  const recorder = new SpectraRecorder(game, {});
-
-  assert.ok(recorder.arm());
-  for (const [performedAt, midi] of [
-    [10_100, 52],
-    [10_500, 55],
-    [10_900, 59],
-    [11_300, 62],
-  ]) {
-    assert.equal(
-      recorder.captureRemote(
-        {
-          performedAt,
-          sceneId: 'upstairs',
-          resourceId: 'upstairs:guitar',
-          config: {
-            mode: 'guitar',
-            stemKind: 'guitar',
-            inputKey: 'guitar',
-            label: 'Guitar',
+    assert.ok(recorder.arm());
+    for (const [performedAt, midi] of [
+      [10_100, 52],
+      [10_500, 55],
+      [10_900, 59],
+      [11_300, 62],
+    ]) {
+      assert.equal(
+        recorder.captureRemote(
+          {
+            performedAt,
+            sceneId: 'upstairs',
+            resourceId: 'upstairs:guitar',
+            config: {
+              mode: 'guitar',
+              stemKind: 'guitar',
+              inputKey: 'guitar',
+              label: 'Guitar',
+            },
+            event: { type: 'midi', midi },
           },
-          event: { type: 'midi', midi },
-        },
-        'performer',
-      ),
-      true,
-    );
-  }
+          'performer',
+        ),
+        true,
+      );
+    }
 
-  const [committed] = recorder.stop({ commit: true });
-  assert.deepEqual(
-    committed.performance.events.map((event) => event.midi),
-    [52, 55, 59, 62],
-  );
-  assert.deepEqual(
-    committed.performance.events.map((event) => Number(event.time.toFixed(2))),
-    [0.6, 1.0, 1.4, 1.8],
-    'performer spacing must survive even though the producer transport position never advanced',
-  );
-});
+    const [committed] = recorder.stop({ commit: true });
+    assert.deepEqual(
+      committed.performance.events.map((event) => event.midi),
+      [52, 55, 59, 62],
+    );
+    assert.deepEqual(
+      committed.performance.events.map((event) => Number(event.time.toFixed(2))),
+      [0.6, 1.0, 1.4, 1.8],
+      'performer spacing must survive even though the producer transport position never advanced',
+    );
+  },
+);
