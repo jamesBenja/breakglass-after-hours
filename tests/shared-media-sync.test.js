@@ -92,7 +92,7 @@ test('SharedMediaSync tags local studio publications and ignores their echoed pa
     originId: 'phone-b',
   });
   await Promise.resolve();
-  assert.equal(applyCalls, 1, 'another player\'s shared Studio packet must still be applied');
+  assert.equal(applyCalls, 1, "another player's shared Studio packet must still be applied");
 
   sync.dispose();
 });
