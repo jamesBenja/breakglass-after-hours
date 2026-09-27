@@ -28,6 +28,23 @@ import { InteractionSystem } from '../interactions/InteractionSystem.js';
 import { createActions } from '../interactions/createActions.js';
 import { DEVIN_ARCADE_GUIDE } from '../world/belowClubConfig.js';
 
+export function spectraConsoleTargetInReach(sceneManager, player) {
+  const definition = sceneManager?.current?.definition;
+  const anchor = definition?.id === 'upstairs' ? definition.anchors?.console : null;
+  const position = player?.position;
+  if (!anchor?.position || !position) return null;
+  const [x, y, z] = anchor.position;
+  const radius = Math.max(0, Number(anchor.radius) || 0);
+  const distance = Math.hypot(position.x - x, position.y - y, position.z - z);
+  if (distance > radius) return null;
+  return {
+    id: 'console',
+    action: 'console',
+    position: [x, y, z],
+    radius,
+  };
+}
+
 /** Composition root. Systems communicate via explicit references and callbacks. */
 export class Game {
   constructor(ui, options = {}) {
@@ -344,6 +361,15 @@ export class Game {
       const world = multiplayer?.world;
       if (!multiplayer?.joined || !world) return true;
 
+      // Mixer navigation from an instrument panel must obey the same physical-console rule as
+      // walking up and pressing ACTION on Spectra. Do not let an instrument UI become a remote
+      // back door into the console merely because it can render a "Spectra mixer" button.
+      const target = spectraConsoleTargetInReach(this.sceneManager, this.player);
+      if (!target) {
+        ui.warning?.('Go to the Spectra console to use the mixer.');
+        return false;
+      }
+
       const resourceId = 'upstairs:console';
       const current = world.resources?.get?.(resourceId);
       if (current?.ownerId === multiplayer.localId) return true;
@@ -352,12 +378,6 @@ export class Game {
         return false;
       }
 
-      const position = this.player?.position;
-      const target = {
-        id: 'console',
-        action: 'console',
-        position: position ? [position.x, position.y, position.z] : null,
-      };
       return world.claim(resourceId, target);
     };
 
