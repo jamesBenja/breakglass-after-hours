@@ -1200,6 +1200,10 @@ export function installStudioLoopEnhancements(game, ui) {
   game.micRecorder.spectraTransport = game.spectraTransport;
   enhancePlayback(game.studioPlayback, game.studio, game);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
+  ui._spectraRecorderDiagnostics = {
+    report: () => game.spectraRecorder?.diagnosticReport?.() ?? '',
+    clear: () => game.spectraRecorder?.clearDiagnosticReport?.(),
+  };
   connectKeyboardPerformanceToSpectra(game);
   game.studioExporter ??= new StudioExporter(game);
   game.spectraProjectStore ??= new SpectraProjectStore();
