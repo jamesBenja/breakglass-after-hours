@@ -15,7 +15,12 @@ function makeHarness(requestSpectraConsoleAccess) {
           onclick: null,
           append() {},
           appendChild() {},
-          classList: { add() {}, contains() { return false; } },
+          classList: {
+            add() {},
+            contains() {
+              return false;
+            },
+          },
         };
       },
     },
