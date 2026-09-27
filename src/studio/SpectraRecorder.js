@@ -45,6 +45,7 @@ export class SpectraRecorder {
     this.recording = false;
     this.startedAt = 0;
     this.transportOrigin = 0;
+    this.armedServerAt = 0;
     this.lanes = new Map();
     this.lastCommitted = [];
     this.transportOwner = 'spectra-recorder';
@@ -340,6 +341,7 @@ export class SpectraRecorder {
     this.game.spectraTransport?.release?.(this.transportOwner);
     if (!commit) {
       this.lanes.clear();
+      this.armedServerAt = 0;
       return [];
     }
 
