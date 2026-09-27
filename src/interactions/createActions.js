@@ -1176,7 +1176,9 @@ export function createActions({
           await globalThis.navigator?.clipboard?.writeText?.(report);
           ui.warning?.('Spectra multiplayer diagnostics copied. Paste them into the chat.');
         } catch {
-          panel('SPECTRA MULTIPLAYER DIAGNOSTICS', report, [['Back to Spectra mixer', consolePanel]]);
+          panel('SPECTRA MULTIPLAYER DIAGNOSTICS', report, [
+            ['Back to Spectra mixer', consolePanel],
+          ]);
         }
       });
       appendButton('CLEAR MULTIPLAYER RECORDING DIAGNOSTICS', () => {
