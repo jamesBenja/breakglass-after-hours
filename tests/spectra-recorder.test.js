@@ -342,3 +342,74 @@ test('Spectra recorder uses the shared transport grid for attached live instrume
   assert.equal(stem.performance.events[0].time, 0.155);
   assert.equal(owners.has('spectra-recorder'), false);
 });
+
+test('remote guitar line records every received note and reports capture diagnostics', () => {
+  const studio = new StudioSession();
+  const guitar = studio.stems.find((stem) => stem.inputKey === 'guitar');
+  studio.toggleRecordArm(guitar.id);
+
+  let position = 0;
+  const game = {
+    studio,
+    spectraTransport: {
+      running: true,
+      acquire() {},
+      release() {},
+      absolutePosition: () => position,
+      positionAtOffset: (offset = 0) => position + offset,
+      quantizeTime: (time) => time,
+      snapshot: () => ({ running: true }),
+    },
+    studioPlayback: { playing: true, position: () => position, updateMix: () => {} },
+    state: { data: { avatar: { displayName: 'James' } } },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    multiplayer: {
+      localId: 'phone-a',
+      remotePlayers: new Map([['phone-b', { avatar: { displayName: 'Nora' } }]]),
+    },
+    save() {},
+  };
+  const recorder = new SpectraRecorder(game, {});
+
+  assert.ok(recorder.arm());
+  for (const [index, midi] of [52, 55, 59, 62].entries()) {
+    position = index * 0.4;
+    assert.equal(
+      recorder.captureRemote(
+        {
+          nonce: `remote-note-${index}`,
+          sceneId: 'upstairs',
+          resourceId: 'upstairs:instruments',
+          config: {
+            mode: 'guitar',
+            stemKind: 'guitar',
+            inputKey: 'guitar',
+            label: 'Guitar',
+          },
+          event: { type: 'midi', midi },
+        },
+        'phone-b',
+      ),
+      true,
+    );
+  }
+
+  const [committed] = recorder.stop({ commit: true });
+  assert.deepEqual(
+    committed.performance.events.map((event) => event.midi),
+    [52, 55, 59, 62],
+  );
+  assert.equal(
+    recorder.multiplayerTrace.filter((entry) => entry.event === 'remote:event').length,
+    4,
+  );
+  assert.equal(
+    recorder.multiplayerTrace.filter((entry) => entry.event === 'capture:stored').length,
+    4,
+  );
+  assert.equal(
+    recorder.multiplayerTrace.find((entry) => entry.event === 'record:commit').committed[0]
+      .eventCount,
+    4,
+  );
+});

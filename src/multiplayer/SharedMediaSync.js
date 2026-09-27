@@ -3,6 +3,7 @@ import { showLiveArchivePlayer } from '../archive/LiveArchivePlayer.js';
 import { StudioSession } from '../studio/StudioSession.js';
 
 const STUDIO_OBJECT = 'shared-studio-playback';
+const STUDIO_CONSOLE_RESOURCE = 'upstairs:console';
 const ARCHIVE_AUDIO_OBJECT = 'shared-archive-audio';
 const LIVE_ARCHIVE_OBJECT = 'shared-live-archive';
 const HOUSE_DJ_OBJECT = 'shared-house-dj';
@@ -118,28 +119,38 @@ export class SharedMediaSync {
 
     playback.play = async (session, offset = 0, options = {}) => {
       const result = await basePlay(session, offset, options);
-      if (result && !this.applyingStudio) this.publishStudio(true);
+      if (result && !this.applyingStudio && this.localMayPublishStudio()) this.publishStudio(true);
       return result;
     };
     playback.stop = (...args) => {
       const wasPlaying = playback.playing;
       const result = baseStop(...args);
-      if (wasPlaying && !this.applyingStudio)
+      if (wasPlaying && !this.applyingStudio && this.localMayPublishStudio())
         this.sendObject(STUDIO_OBJECT, {
           playing: false,
           sentAt: this.serverNow(),
           originId: this.client.localId ?? null,
+          controllerId: this.client.localId ?? null,
         });
       return result;
     };
     playback.updateMix = (session = playback.session) => {
       const result = baseUpdateMix(session);
-      if (!this.applyingStudio && playback.playing) {
+      if (!this.applyingStudio && playback.playing && this.localMayPublishStudio()) {
         const signature = sessionSignature(session);
         if (signature !== this.lastStudioSignature) this.publishStudio(false);
       }
       return result;
     };
+  }
+
+  studioController() {
+    return this.client.world?.resources?.get?.(STUDIO_CONSOLE_RESOURCE) ?? null;
+  }
+
+  localMayPublishStudio() {
+    const controller = this.studioController();
+    return !controller?.ownerId || controller.ownerId === this.client.localId;
   }
 
   studioPosition() {
@@ -158,6 +169,7 @@ export class SharedMediaSync {
         playing: false,
         sentAt: this.serverNow(),
         originId: this.client.localId ?? null,
+        controllerId: this.client.localId ?? null,
       };
     }
     return {
@@ -166,11 +178,12 @@ export class SharedMediaSync {
       position: this.studioPosition(),
       sentAt: this.serverNow(),
       originId: this.client.localId ?? null,
+      controllerId: this.client.localId ?? null,
     };
   }
 
   publishStudio(immediate = false) {
-    if (!this.client.joined || this.applyingStudio) return;
+    if (!this.client.joined || this.applyingStudio || !this.localMayPublishStudio()) return false;
     const send = () => {
       this.studioPublishTimer = null;
       const payload = this.studioPayload();
@@ -210,20 +223,32 @@ export class SharedMediaSync {
         this.lastStudioSignature = sessionSignature(data.session);
         return;
       }
-      const remoteSession = new StudioSession(data.session);
-      const remoteSignature = sessionSignature(remoteSession);
-      const expected = this.expectedPosition(data, remoteSession);
+      const controller = this.studioController();
+      if (controller?.ownerId && data.controllerId && controller.ownerId !== data.controllerId) {
+        return;
+      }
+
+      const sharedSession =
+        typeof this.game.studio?.mergeSharedSnapshot === 'function'
+          ? this.game.studio.mergeSharedSnapshot(data.session)
+          : new StudioSession(data.session);
+      const remoteSignature = sessionSignature(sharedSession);
+      const expected = this.expectedPosition(data, sharedSession);
       const currentSignature = sessionSignature(playback.session);
       const current = this.studioPosition();
-      const duration = loopDuration(remoteSession);
+      const duration = loopDuration(sharedSession);
       let drift = Math.abs(current - expected);
       if (duration > 0) drift = Math.min(drift, Math.abs(duration - drift));
 
       if (!playback.playing || currentSignature !== remoteSignature || drift > 0.18) {
-        await playback.play(remoteSession, expected);
+        await playback.play(sharedSession, expected);
       } else {
-        playback.session = remoteSession;
-        playback.updateMix(remoteSession);
+        playback.session = sharedSession;
+        playback.updateMix(sharedSession);
+      }
+
+      if (this.ui.panelElement?.classList?.contains?.('spectra-console-panel')) {
+        this.ui._spectraRefreshConsole?.();
       }
       this.lastStudioSignature = remoteSignature;
     } finally {

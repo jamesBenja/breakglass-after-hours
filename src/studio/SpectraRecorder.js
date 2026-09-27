@@ -48,6 +48,35 @@ export class SpectraRecorder {
     this.lanes = new Map();
     this.lastCommitted = [];
     this.transportOwner = 'spectra-recorder';
+    this.multiplayerTrace = [];
+    this.traceSequence = 0;
+  }
+
+  trace(event, detail = {}) {
+    const entry = {
+      seq: ++this.traceSequence,
+      event,
+      at: Date.now(),
+      armed: this.armed,
+      recording: this.recording,
+      armedStemIds: this.game.studio?.armedStems?.().map((stem) => stem.id) ?? [],
+      laneEventCounts: Object.fromEntries(
+        [...this.lanes.entries()].map(([id, lane]) => [id, lane.events.length]),
+      ),
+      ...detail,
+    };
+    this.multiplayerTrace.push(entry);
+    if (this.multiplayerTrace.length > 200) this.multiplayerTrace.shift();
+    return entry;
+  }
+
+  diagnosticReport() {
+    return this.multiplayerTrace.map((entry) => JSON.stringify(entry)).join('\n');
+  }
+
+  clearDiagnosticReport() {
+    this.multiplayerTrace.length = 0;
+    this.traceSequence = 0;
   }
 
   status() {
@@ -86,6 +115,7 @@ export class SpectraRecorder {
     this.transportOrigin = 0;
     this.lanes.clear();
     this.lastCommitted = [];
+    this.trace('record:armed');
     const transport = this.game.spectraTransport;
     transport?.acquire?.(this.transportOwner, { position: 0 });
     this.transportOrigin = transport?.absolutePosition?.() ?? 0;
@@ -140,17 +170,45 @@ export class SpectraRecorder {
     offsetSeconds = 0,
     source = 'spectra-live-capture',
   } = {}) {
-    if (!this.armed) return false;
+    if (!this.armed) {
+      this.trace('capture:rejected-not-armed', {
+        playerId,
+        resourceId,
+        eventType: event?.type ?? null,
+        midi: Number.isFinite(Number(event?.midi)) ? Number(event.midi) : null,
+      });
+      return false;
+    }
     const hasTrackArmModel = typeof this.game.studio?.armedStems === 'function';
     const targetStems = hasTrackArmModel
       ? spectraInputStems(this.game.studio, config, resourceId, { armedOnly: true })
       : [];
-    if (hasTrackArmModel && !targetStems.length) return false;
+    if (hasTrackArmModel && !targetStems.length) {
+      this.trace('capture:rejected-no-target', {
+        playerId,
+        resourceId,
+        inputKey: config?.inputKey ?? null,
+        mode: config?.mode ?? null,
+        eventType: event?.type ?? null,
+        midi: Number.isFinite(Number(event?.midi)) ? Number(event.midi) : null,
+      });
+      return false;
+    }
     this.beginOnFirstEvent(offsetSeconds);
 
     const targets = hasTrackArmModel ? targetStems : [null];
     const eventTime = this.eventTime(offsetSeconds);
     const capturedEvents = eventsForCapture(event);
+    this.trace('capture:accepted', {
+      playerId,
+      resourceId,
+      inputKey: config?.inputKey ?? null,
+      mode: config?.mode ?? null,
+      eventType: event?.type ?? null,
+      midi: Number.isFinite(Number(event?.midi)) ? Number(event.midi) : null,
+      eventTime,
+      targetStemIds: targetStems.map((stem) => stem.id),
+    });
 
     for (const targetStem of targets) {
       const laneId = [
@@ -192,6 +250,11 @@ export class SpectraRecorder {
       }
       if (lane.events.length > 512) lane.events.splice(0, lane.events.length - 512);
     }
+    this.trace('capture:stored', {
+      playerId,
+      resourceId,
+      storedEvents: capturedEvents.length,
+    });
     return true;
   }
 
@@ -208,8 +271,22 @@ export class SpectraRecorder {
   }
 
   captureRemote(data = {}, playerId = 'remote') {
-    if (data.sceneId && data.sceneId !== this.game.sceneManager?.current?.definition?.id)
+    this.trace('remote:event', {
+      playerId,
+      nonce: data?.nonce ?? null,
+      resourceId: data?.resourceId ?? null,
+      sceneId: data?.sceneId ?? null,
+      eventType: data?.event?.type ?? null,
+      midi: Number.isFinite(Number(data?.event?.midi)) ? Number(data.event.midi) : null,
+    });
+    if (data.sceneId && data.sceneId !== this.game.sceneManager?.current?.definition?.id) {
+      this.trace('remote:rejected-scene', {
+        playerId,
+        nonce: data?.nonce ?? null,
+        sceneId: data?.sceneId ?? null,
+      });
       return false;
+    }
     const remote = this.game.multiplayer?.remotePlayers?.get?.(playerId);
     return this.capture({
       playerId,
@@ -261,6 +338,13 @@ export class SpectraRecorder {
       });
       committed.push(stem);
     }
+    this.trace('record:commit', {
+      committed: committed.map((stem) => ({
+        id: stem.id,
+        label: stem.label,
+        eventCount: stem.performance?.events?.length ?? 0,
+      })),
+    });
     this.lastCommitted = committed;
     this.lanes.clear();
     if (committed.length) {

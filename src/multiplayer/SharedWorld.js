@@ -134,6 +134,22 @@ export class SharedWorld {
       this.resources.delete(resource.id);
       this.localClaims.delete(resource.id);
     } else this.resources.set(resource.id, resource);
+
+    // A Spectra panel can outlive the interaction that originally opened it. If another player
+    // becomes the console owner, immediately revoke that stale panel so two clients cannot keep
+    // manipulating independent mixer state after ownership has changed.
+    if (
+      resource.id === 'upstairs:console' &&
+      resource.ownerId &&
+      resource.ownerId !== this.client.localId &&
+      this.ui.panelElement?.classList?.contains?.('spectra-console-panel')
+    ) {
+      this.ui.clearPanel?.(
+        'SPECTRA CONSOLE · IN USE',
+        `${resource.ownerName || 'Another player'} is using the Spectra console right now. You can still play another instrument and be recorded into the shared session.`,
+      );
+      this.ui.warning?.(`${resource.ownerName || 'Another player'} is using Spectra.`);
+    }
   }
 
   hydrate(world = {}) {
