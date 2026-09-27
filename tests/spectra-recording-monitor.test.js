@@ -730,7 +730,6 @@ test('multiplayer instrument publishing always feeds the local Spectra recorder 
   sync.dispose();
 });
 
-
 test('five multiplayer instrument notes travel from performer wrapper into the producer recorder', () => {
   const producerStudio = new StudioSession();
   const guitar = producerStudio.stems.find((stem) => stem.inputKey === 'guitar');
