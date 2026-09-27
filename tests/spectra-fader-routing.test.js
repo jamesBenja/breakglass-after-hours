@@ -1299,10 +1299,7 @@ test('redundant same-session PLAY is idempotent and preserves Vocal plus backing
   assert.equal(playback.vocalBufferLoopTimers.get(vocal.id), vocalTimer);
   assert.equal(vocalSource.stopped, false);
   assert.equal(backingSource.stopped, false);
-  assert.equal(
-    playback.vocalRuntimeTrace.at(-1)?.event,
-    'play:ignored-redundant',
-  );
+  assert.equal(playback.vocalRuntimeTrace.at(-1)?.event, 'play:ignored-redundant');
 
   playback.stop();
 });
