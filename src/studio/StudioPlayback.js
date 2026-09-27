@@ -126,7 +126,6 @@ export class StudioPlayback {
     this.spatialMixer = null;
     this.auditionStemId = null;
     this.performanceIndex = new WeakMap();
-    this.arrangedRecordingBuffers.clear();
     this.arrangedRecordingBuffers = new Map();
     this.anySolo = false;
     this.noiseBuffer = null;
@@ -2541,6 +2540,7 @@ export class StudioPlayback {
   }
   dispose() {
     this.stop();
+    this.arrangedRecordingBuffers.clear();
     for (const bus of this.buses.values()) {
       for (const node of Object.values(bus)) node?.disconnect?.();
     }
