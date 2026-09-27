@@ -119,6 +119,8 @@ export class StudioPlayback {
     this.rawAuditionStartedAt = 0;
     this.rawAuditionDuration = 0;
     this.playGeneration = 0;
+    this.vocalRuntimeTrace = [];
+    this.vocalTraceSequence = 0;
   }
 
   get playing() {
@@ -131,6 +133,76 @@ export class StudioPlayback {
       this.frozenSources.size > 0 ||
       this.vocalBufferLoopTimers.size > 0
     );
+  }
+
+  traceVocalRuntime(event, details = {}) {
+    const context = this.audio?.context;
+    const readParam = (param) => {
+      const value = Number(param?.value);
+      return Number.isFinite(value) ? Number(value.toFixed(4)) : null;
+    };
+    const tracks = (this.session?.stems ?? []).map((stem) => {
+      const bus = this.buses.get(stem.id);
+      const frozenGate = this.frozenGates.get(stem.id);
+      const vocalRoute = this.vocalDirectRoutes.get(stem.id);
+      return {
+        id: stem.id,
+        label: stem.label,
+        input: stem.inputKey ?? stem.kind ?? null,
+        mute: stem.mute === true,
+        solo: stem.solo === true,
+        clipActive: stem.clipActive !== false,
+        fader: readParam(bus?.fader?.gain),
+        gate: readParam(bus?.gate?.gain),
+        hardMute: readParam(bus?.hardMute?.gain),
+        frozenGate: readParam(frozenGate?.gain),
+        vocalGain: readParam(vocalRoute?.gain?.gain),
+      };
+    });
+    let transportPosition = null;
+    try {
+      if (this.spectraTransport?.running) {
+        const value = Number(this.spectraTransport.position?.());
+        if (Number.isFinite(value)) transportPosition = Number(value.toFixed(4));
+      }
+    } catch {
+      // Runtime diagnostics must never alter playback.
+    }
+    const entry = {
+      seq: ++this.vocalTraceSequence,
+      event,
+      wallTime: Date.now(),
+      contextTime: Number.isFinite(Number(context?.currentTime))
+        ? Number(Number(context.currentTime).toFixed(4))
+        : null,
+      contextState: context?.state ?? null,
+      playing: this.playing,
+      transportRunning: this.spectraTransport?.running === true,
+      transportPosition,
+      auditionStemId: this.auditionStemId,
+      playGeneration: this.playGeneration,
+      frozenSources: [...this.frozenSources.keys()],
+      vocalTimers: [...this.vocalBufferLoopTimers.keys()],
+      vocalSourceCounts: Object.fromEntries(
+        [...this.vocalBufferSources.entries()].map(([id, sources]) => [id, sources?.size ?? 0]),
+      ),
+      blobStems: [...this.blobStems.keys()],
+      nativeStems: [...this.nativeStems.keys()],
+      tracks,
+      ...details,
+    };
+    this.vocalRuntimeTrace.push(entry);
+    if (this.vocalRuntimeTrace.length > 120) this.vocalRuntimeTrace.shift();
+    return entry;
+  }
+
+  vocalDiagnosticReport() {
+    return this.vocalRuntimeTrace.map((entry) => JSON.stringify(entry)).join('\n');
+  }
+
+  clearVocalDiagnosticReport() {
+    this.vocalRuntimeTrace.length = 0;
+    this.vocalTraceSequence = 0;
   }
 
   position() {
@@ -1145,6 +1217,15 @@ export class StudioPlayback {
 
       this.clearVocalBufferLoop(stem.id);
       if (microphoneTake) {
+        this.traceVocalRuntime('frozen:microphone-before-route', {
+          stemId: stem.id,
+          start,
+          phase,
+          recordingFilter,
+          diagnosticStage,
+          bufferDuration: Number(buffer.duration) || 0,
+          sourceOffset: Number(stem.sourceOffset) || 0,
+        });
         this.clearVocalDirectRoute(stem.id);
 
         // Use the exact original captured PCM AudioBuffer that the working scrubber auditions.
@@ -1155,6 +1236,14 @@ export class StudioPlayback {
 
         const vocalStarted = this.scheduleVocalBufferLoop(stem, buffer, directRoute, start);
         started += vocalStarted;
+        this.traceVocalRuntime('frozen:microphone-after-start', {
+          stemId: stem.id,
+          vocalStarted,
+          start,
+          phase,
+          recordingFilter,
+          diagnosticStage,
+        });
         if (vocalStarted > 0 && diagnosticStage) {
           const previous = this.vocalPlaybackDiagnostics.get(stem.id) ?? {};
           this.vocalPlaybackDiagnostics.set(stem.id, {
@@ -1197,6 +1286,11 @@ export class StudioPlayback {
       }
       source.connect(sourceGate);
       source.onended = () => {
+        this.traceVocalRuntime('vocal-source:ended', {
+          stemId: stem.id,
+          scheduledWhen: when,
+          rawOffset,
+        });
         source.disconnect?.();
         this.sources.delete(source);
         if (this.frozenSources.get(stem.id) === source) {
@@ -1252,6 +1346,12 @@ export class StudioPlayback {
     { leadSeconds = 0.018, preserveAudition = false } = {},
   ) {
     const context = this.audio.context;
+    this.traceVocalRuntime('scrub:rebuild-enter', {
+      stemId,
+      leadSeconds,
+      preserveAudition,
+      requestedOffset: Number(session?.stems?.find?.((item) => item.id === stemId)?.sourceOffset) || 0,
+    });
     if (!context || context.state !== 'running' || !session || !stemId) return false;
     const stem = session.stems?.find?.((item) => item.id === stemId);
     const buffer = session.recordings?.get?.(stemId);
@@ -1295,6 +1395,13 @@ export class StudioPlayback {
         if (sourceGate) writeSwitchParam(sourceGate.gain, gateOpen ? 1 : 0, context.currentTime);
       }
     }
+    this.traceVocalRuntime('scrub:rebuild-exit', {
+      stemId,
+      started,
+      microphoneTake,
+      phase,
+      startTime,
+    });
     return started > 0;
   }
   exitAuditionMode(session = this.session) {
@@ -1309,6 +1416,11 @@ export class StudioPlayback {
       ? [stemId]
       : [...new Set([...this.vocalBufferLoopTimers.keys(), ...this.vocalBufferSources.keys()])];
     for (const id of ids) {
+      this.traceVocalRuntime('vocal-loop:clear-enter', {
+        stemId: id,
+        sourceCount: this.vocalBufferSources.get(id)?.size ?? 0,
+        hadTimer: this.vocalBufferLoopTimers.has(id),
+      });
       const handle = this.vocalBufferLoopTimers.get(id);
       if (handle != null) this.timers.clearTimeout?.(handle);
       this.vocalBufferLoopTimers.delete(id);
@@ -1327,6 +1439,7 @@ export class StudioPlayback {
       }
       if (frozen && sources?.has?.(frozen)) this.frozenSources.delete(id);
       this.vocalBufferSources.delete(id);
+      this.traceVocalRuntime('vocal-loop:clear-exit', { stemId: id });
     }
   }
 
@@ -1350,6 +1463,15 @@ export class StudioPlayback {
     const rawOffset = requestedOffset >= buffer.duration ? 0 : Math.min(maxOffset, requestedOffset);
     const playableDuration = Math.max(minimumPlayable, buffer.duration - rawOffset);
     if (!(playableDuration > 0)) return 0;
+
+    this.traceVocalRuntime('vocal-loop:schedule', {
+      stemId: stem.id,
+      bufferDuration: Number(buffer.duration) || 0,
+      requestedOffset,
+      rawOffset,
+      playableDuration,
+      firstStart,
+    });
 
     // Keep the persisted scrubber value truthful if an older save used the longer raw-file
     // duration and points beyond the decoded PCM take.
@@ -1383,6 +1505,13 @@ export class StudioPlayback {
       // Use the exact same proven PCM primitive as the scrubber, but always from the selected
       // start point. Spectra transport phase must never be added to this source offset.
       source.start(when, rawOffset);
+      this.traceVocalRuntime('vocal-source:started', {
+        stemId: stem.id,
+        scheduledWhen: when,
+        rawOffset,
+        playableDuration,
+        directGain: Number(directRoute.gain?.gain?.value) || 0,
+      });
       return source;
     };
 
@@ -1395,8 +1524,19 @@ export class StudioPlayback {
       const lead = Math.min(0.18, Math.max(0.025, playableDuration * 0.25));
       const delaySeconds = Math.max(0, boundaryTime - context.currentTime - lead);
       const handle = this.timers.setTimeout?.(() => {
-        if (this.vocalBufferLoopTimers.get(stem.id) !== handle) return;
+        if (this.vocalBufferLoopTimers.get(stem.id) !== handle) {
+          this.traceVocalRuntime('vocal-loop:timer-stale', {
+            stemId: stem.id,
+            boundaryTime,
+          });
+          return;
+        }
 
+        this.traceVocalRuntime('vocal-loop:timer-fire', {
+          stemId: stem.id,
+          boundaryTime,
+          playableDuration,
+        });
         let when = boundaryTime;
         while (when < context.currentTime + 0.008) when += playableDuration;
         scheduleOneShot(when);
@@ -1873,6 +2013,12 @@ export class StudioPlayback {
 
   async play(session, offset = 0, { stemId = null, restartTransport = false } = {}) {
     if (!this.audio.context) return false;
+    this.traceVocalRuntime('play:enter', {
+      offset: Number(offset) || 0,
+      stemId,
+      restartTransport,
+      sessionName: session?.name ?? null,
+    });
 
     const audioSession = globalThis.navigator?.audioSession;
     if (audioSession) {
@@ -1893,8 +2039,10 @@ export class StudioPlayback {
     }
 
     // Invalidate any older asynchronous PLAY still waiting on asset/native-media work.
+    this.traceVocalRuntime('play:before-stop', { stemId, restartTransport });
     this.stop();
     const playGeneration = ++this.playGeneration;
+    this.traceVocalRuntime('play:after-stop', { stemId, restartTransport, playGeneration });
     this.auditionStemId = stemId || null;
     const requestedOffset = Math.max(0, Number(offset) || 0);
     this.session = session;
@@ -1944,6 +2092,13 @@ export class StudioPlayback {
       recordingFilter: 'microphone',
       diagnosticStage: 'pre-asset-await',
     });
+    this.traceVocalRuntime('play:after-immediate-vocal', {
+      stemId,
+      restartTransport,
+      immediateVocalCount,
+      safeOffset,
+      sharedStartTime,
+    });
 
     // Begin browser-recorded media immediately, before any asset-loading await. On iPhone
     // Safari the native microphone file needs play() to happen in the original PLAY gesture.
@@ -1988,7 +2143,14 @@ export class StudioPlayback {
     const interval = 60 / this.bpm / 4;
     this.audio.setExternalTransport?.('studio', 'Studio session mix', interval, { vibe: 0.48 });
 
-    if (this.spectraTransport) return true;
+    if (this.spectraTransport) {
+      this.traceVocalRuntime('play:return-transport', {
+        immediateVocalCount,
+        frozenCount,
+        safeOffset,
+      });
+      return true;
+    }
 
     this.step = Math.floor(safeOffset / interval) % 256;
     const remainder = safeOffset % interval;
@@ -2085,6 +2247,7 @@ export class StudioPlayback {
   }
 
   stop() {
+    this.traceVocalRuntime('stop:enter');
     this.playGeneration += 1;
     this.stopRawAudition();
     if (this.timer !== null) this.timers.clearInterval(this.timer);
@@ -2139,6 +2302,7 @@ export class StudioPlayback {
     this.audio.clearExternalTransport?.('studio');
     this.auditionStemId = null;
     this.resetPlaybackBuses();
+    this.traceVocalRuntime('stop:exit');
   }
   dispose() {
     this.stop();
