@@ -100,7 +100,7 @@ export const DANCE_SHOES_STEMS = studioSessionById('dance-shoes').stems;
 
 const LOOP_BAR_OPTIONS = [1, 2, 4, 8, 16];
 const QUANTIZE_OPTIONS = ['1/4', '1/8', '1/16'];
-const ARRANGEMENT_MAX_BARS = 64;
+const ARRANGEMENT_MAX_BARS = 32;
 
 const normalizeArrangementBarCount = (value, fallback = 4) => {
   const safeFallback = Math.max(1, Math.min(ARRANGEMENT_MAX_BARS, Math.round(Number(fallback) || 4)));
