@@ -626,44 +626,27 @@
 }
 
 .a9-master-meters {
-  position: relative;
-  width: 31px;
-  height: 70px;
-  display: flex;
-  align-items: end;
+  min-width: 58px;
+  display: grid;
+  align-content: start;
+  justify-items: center;
   gap: 4px;
-  padding: 3px;
+  padding: 5px 4px;
   border: 1px solid #30343a;
   border-radius: 4px;
   background: #08090b;
 }
 
-.a9-master-meters::before,
-.a9-master-meters::after {
-  content: '';
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  width: 8px;
-  border: 1px solid #272b2f;
-  background: repeating-linear-gradient(180deg, transparent 0 4px, #20252a 4px 5px), #111417;
+.a9-master-meters > strong {
+  color: #9098a1;
+  font-size: 5.5px;
+  letter-spacing: 0.1em;
 }
 
-.a9-master-meters::before {
-  left: 4px;
-}
-.a9-master-meters::after {
-  right: 4px;
-}
-
-.a9-master-meters i {
-  position: relative;
-  z-index: 2;
-  width: 8px;
-  height: 0;
-  max-height: 62px;
-  background: linear-gradient(180deg, #e56860 0 12%, #d8ad4a 12% 36%, #57c67c 36% 100%);
-  transition: height 80ms linear;
+.a9-master-pair {
+  display: grid;
+  grid-template-columns: repeat(2, 18px);
+  gap: 4px;
 }
 
 .a9-fx-panel {
@@ -704,7 +687,7 @@
 
 .a9-channel {
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto 1fr;
   gap: 6px;
   min-width: 0;
   padding: 5px 4px 7px;
@@ -752,6 +735,89 @@
   background: #183442;
 }
 
+
+.a9-led-meter {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 12px;
+}
+
+.a9-led-label {
+  color: #6f767e;
+  font-size: 4.5px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  line-height: 1;
+}
+
+.a9-led-track {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+  width: 10px;
+  padding: 2px;
+  border: 1px solid #292d31;
+  border-radius: 2px;
+  background: #080a0c;
+}
+
+.a9-led-track i {
+  width: 100%;
+  height: 3px;
+  border-radius: 1px;
+  background: #183121;
+  opacity: 0.34;
+  transition:
+    opacity 55ms linear,
+    box-shadow 55ms linear;
+}
+
+.a9-led-track i:nth-child(9),
+.a9-led-track i:nth-child(10) {
+  background: #4a3b17;
+}
+
+.a9-led-track i:nth-child(11),
+.a9-led-track i:nth-child(12) {
+  background: #4b201e;
+}
+
+.a9-led-track i.lit {
+  background: #66d487;
+  opacity: 1;
+  box-shadow: 0 0 3px rgba(102, 212, 135, 0.7);
+}
+
+.a9-led-track i:nth-child(9).lit,
+.a9-led-track i:nth-child(10).lit {
+  background: #e0b24c;
+  box-shadow: 0 0 3px rgba(224, 178, 76, 0.72);
+}
+
+.a9-led-track i:nth-child(11).lit,
+.a9-led-track i:nth-child(12).lit {
+  background: #e36f67;
+  box-shadow: 0 0 3px rgba(227, 111, 103, 0.72);
+}
+
+.a9-channel-meter {
+  justify-self: center;
+  padding: 2px 0 1px;
+}
+
+.a9-channel-meter .a9-led-track {
+  width: 12px;
+}
+
+.a9-master-pair .a9-led-label {
+  font-size: 5px;
+}
+
+.a9-master-pair .a9-led-track {
+  width: 12px;
+}
+
 .a9-eq {
   display: grid;
   gap: 5px;
@@ -767,6 +833,17 @@
   column-gap: 3px;
   width: 100%;
   min-width: 0;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.a9-knob-control.dragging .a9-knob-face {
+  border-color: #6d7a86;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.45),
+    0 0 0 2px rgba(103, 207, 255, 0.08);
 }
 
 .a9-knob-control > span:first-child {
@@ -808,12 +885,12 @@
 .a9-knob-control input[type='range'] {
   position: absolute;
   inset: 0;
-  z-index: 3;
-  width: 100%;
-  height: 100%;
+  z-index: -1;
+  width: 1px;
+  height: 1px;
   margin: 0;
   opacity: 0;
-  cursor: ew-resize;
+  pointer-events: none;
 }
 
 .a9-cue {
@@ -1024,7 +1101,7 @@
   }
 
   .a9-master-top {
-    grid-template-columns: 38px 1fr;
+    grid-template-columns: 66px 1fr;
   }
 
   .a9-channels {
