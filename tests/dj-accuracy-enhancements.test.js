@@ -79,3 +79,26 @@ test('DJ channel strips expose a real mid EQ control in state and snapshots', ()
   assert.equal(mixer.setEq('A', 'mid', -0.65), -0.65);
   assert.equal(mixer.snapshot().decks.A.mid, -0.65);
 });
+
+
+test('A9 color filter state is bipolar and exposed in snapshots', () => {
+  const { mixer } = harness();
+  assert.equal(mixer.setFilter('A', -0.75), -0.75);
+  assert.equal(mixer.snapshot().decks.A.filter, -0.75);
+  assert.equal(mixer.setFilter('A', 0.6), 0.6);
+  assert.equal(mixer.snapshot().decks.A.filter, 0.6);
+});
+
+test('SL-1200 platter scrub persists the cue position while stopped', () => {
+  const { mixer } = harness();
+  const deck = mixer.decks.A;
+  mixer.setDeviceMode('A', 'vinyl');
+  deck.playing = false;
+  deck.transportOffset = 12;
+  mixer.setPlatterHeld('A', true);
+  assert.equal(mixer.scrubVinyl('A', 1.5), 13.5);
+  assert.equal(mixer.deckPosition('A'), 13.5);
+  mixer.setPlatterHeld('A', false);
+  assert.equal(deck.transportOffset, 13.5);
+  assert.equal(mixer.deckPosition('A'), 13.5);
+});
