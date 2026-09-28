@@ -4,6 +4,7 @@ import { SpectraClipEngine } from '../studio/SpectraClipEngine.js';
 import { SpectraRecorder } from '../studio/SpectraRecorder.js';
 import { StudioExporter } from '../studio/StudioExporter.js';
 import { SpectraProjectStore } from '../studio/SpectraProjectStore.js';
+import { SpectraPerformanceDiagnostics } from '../studio/SpectraPerformanceDiagnostics.js';
 import { SpectraSpatialMixer } from '../studio/SpectraSpatialMixer.js';
 import {
   SPECTRA_SPATIAL_SPEAKERS,
@@ -1048,6 +1049,106 @@ function buildClipPanel(game, ui) {
   );
 }
 
+// TEMP PERFORMANCE DIAGNOSTICS
+// This entire panel and SpectraPerformanceDiagnostics can be removed once the playback path is
+// benchmarked and stable. Nothing here persists into saved sessions or runs when capture is idle.
+function buildPerformanceDiagnosticsPanel(game, ui) {
+  const diagnostics = game.spectraPerformanceDiagnostics;
+  if (!diagnostics) {
+    ui.warning?.('Spectra performance diagnostics are unavailable in this build.');
+    return buildLoopPanel(game, ui);
+  }
+
+  const status = diagnostics.status();
+  const summary = diagnostics.statusText();
+  const actions = [
+    [
+      status.active ? '■ STOP PERFORMANCE CAPTURE' : '● START 30 SECOND CAPTURE',
+      () => {
+        if (diagnostics.active) {
+          diagnostics.stop('manual');
+          ui.warning?.('Spectra performance capture stopped.');
+        } else {
+          diagnostics.start();
+          ui.warning?.(
+            'Performance capture started. Reproduce the glitch, then use MARK GLITCH from the mixer or this panel.',
+          );
+        }
+        buildPerformanceDiagnosticsPanel(game, ui);
+      },
+    ],
+  ];
+
+  if (status.active) {
+    actions.push([
+      '⚠ MARK GLITCH NOW',
+      () => {
+        diagnostics.markGlitch();
+        ui.warning?.('Glitch marked. Capture will stop automatically in 5 seconds.');
+        buildPerformanceDiagnosticsPanel(game, ui);
+      },
+    ]);
+    actions.push(['BACK TO MIXER · KEEP CAPTURING', () => game.showSpectraMixer?.()]);
+  }
+
+  actions.push([
+    'COPY DIAGNOSTIC REPORT',
+    async () => {
+      const report = diagnostics.active
+        ? diagnostics.report()
+        : diagnostics.lastReport || diagnostics.report();
+      try {
+        const writeText = globalThis.navigator?.clipboard?.writeText?.bind(
+          globalThis.navigator.clipboard,
+        );
+        if (typeof writeText !== 'function') throw new Error('clipboard unavailable');
+        await writeText(report);
+        ui.warning?.('Spectra diagnostic report copied.');
+      } catch {
+        const textArea = ui.document?.createElement?.('textarea');
+        if (textArea) {
+          textArea.value = report;
+          textArea.readOnly = true;
+          textArea.className = 'spectra-diagnostic-report';
+          textArea.setAttribute('aria-label', 'Spectra diagnostic report');
+          ui.buttons?.appendChild(textArea);
+          textArea.focus?.();
+          textArea.select?.();
+          ui.warning?.('Clipboard was unavailable. The report is selected below for manual copy.');
+        }
+      }
+    },
+  ]);
+  actions.push([
+    'CLEAR CAPTURE',
+    () => {
+      diagnostics.clear();
+      buildPerformanceDiagnosticsPanel(game, ui);
+    },
+  ]);
+  actions.push(['Back to advanced Spectra settings', () => buildLoopPanel(game, ui)]);
+
+  ui.panel(
+    'SPECTRA · PERFORMANCE DIAGNOSTICS',
+    `${summary} Diagnostics are capture-only: when idle they add no sampling timer and do not change the session or recorder.`,
+    actions,
+  );
+
+  const detail = ui.document?.createElement?.('div');
+  if (detail) {
+    detail.className = 'spectra-diagnostic-summary';
+    const liveMemory = diagnostics.audioMemorySnapshot?.();
+    detail.textContent = [
+      `CURRENT BUFFER MEMORY · ${liveMemory?.totalMB ?? 0} MB total · ${liveMemory?.arrangedMB ?? 0} MB arranged`,
+      `CAPTURE · ${status.samples} samples · ${status.marks} glitch marks`,
+      status.active
+        ? 'Tip: return to the mixer while this runs. A MARK GLITCH button will stay available there.'
+        : 'Start a capture immediately before reproducing the glitch for the cleanest comparison.',
+    ].join('\n');
+    ui.buttons?.appendChild(detail);
+  }
+}
+
 function buildLoopPanel(game, ui) {
   const { studio, studioPlayback } = game;
   enhanceSession(studio);
@@ -1073,6 +1174,7 @@ function buildLoopPanel(game, ui) {
     ['BACK TO SPECTRA MIXER', () => game.showSpectraMixer?.()],
     ['OPEN 8-CHANNEL SPATIAL MIXER', () => buildSpatialMixerPanel(game, ui)],
     ['OPEN QUANTIZED CLIP LAUNCHER', () => buildClipPanel(game, ui)],
+    ['PERFORMANCE DIAGNOSTICS', () => buildPerformanceDiagnosticsPanel(game, ui)],
     [
       transportStatus?.running ? '■ STOP SPECTRA MASTER CLOCK' : '▶ START SPECTRA MASTER CLOCK',
       () => {
@@ -1245,6 +1347,8 @@ export function installStudioLoopEnhancements(game, ui) {
   game.micRecorder.spectraTransport = game.spectraTransport;
   enhancePlayback(game.studioPlayback, game.studio, game);
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
+  // TEMP PERFORMANCE DIAGNOSTICS: one explicit capture-only observer, easy to remove after tuning.
+  game.spectraPerformanceDiagnostics ??= new SpectraPerformanceDiagnostics(game);
   ui._spectraRecorderDiagnostics = {
     report: () => {
       const instrument = game.multiplayer?.instrumentSync?.diagnosticReport?.() ?? '';
@@ -1631,6 +1735,21 @@ export function installStudioLoopEnhancements(game, ui) {
         onAudibility,
         onFxDetail: showFxDetail,
       });
+
+      const performanceDiagnostics = game.spectraPerformanceDiagnostics;
+      if (performanceDiagnostics?.active) {
+        const marker = ui.document?.createElement?.('button');
+        if (marker) {
+          marker.type = 'button';
+          marker.className = 'spectra-diagnostic-glitch-marker';
+          marker.textContent = '⚠ MARK PLAYBACK GLITCH';
+          marker.onclick = () => {
+            performanceDiagnostics.markGlitch?.();
+            ui.warning?.('Glitch marked. Capturing 5 more seconds, then the report will be ready.');
+          };
+          ui.buttons?.appendChild(marker);
+        }
+      }
       return result;
     };
     ui._studioLoopBuilderPatched = true;

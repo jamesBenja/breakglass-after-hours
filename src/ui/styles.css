@@ -1283,3 +1283,45 @@ canvas:focus {
   width: 1px;
   background: rgba(231, 107, 110, 0.82);
 }
+
+/* TEMP SPECTRA PERFORMANCE DIAGNOSTICS */
+.spectra-diagnostic-summary {
+  white-space: pre-line;
+  padding: 8px;
+  border: 1px solid #343438;
+  border-radius: 6px;
+  color: #aeb5ae;
+  background: #111315;
+  font:
+    700 8px/1.45 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.03em;
+}
+
+.spectra-diagnostic-report {
+  width: 100%;
+  min-height: 180px;
+  padding: 8px;
+  border: 1px solid #3b3e43;
+  border-radius: 6px;
+  color: #cbd2cb;
+  background: #0d0f11;
+  font:
+    650 8px/1.35 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  resize: vertical;
+}
+
+.spectra-diagnostic-glitch-marker {
+  position: sticky;
+  left: 0;
+  bottom: 6px;
+  z-index: 7;
+  width: min(100%, 520px);
+  border-color: #825d55;
+  background: #2c1d1c;
+}
