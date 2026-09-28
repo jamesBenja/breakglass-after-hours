@@ -860,7 +860,7 @@ const server = http.createServer(async (request, response) => {
     const token = sanitizeText(url.searchParams.get('token'), 96);
     const filename = sanitizeText(url.searchParams.get('filename'), 180);
     const label = sanitizeText(url.searchParams.get('label') || filename.replace(/\.[^.]+$/, ''), 80);
-    const bpm = clamp(url.searchParams.get('bpm'), 60, 200);
+    const bpm = clamp(finite(url.searchParams.get('bpm'), 120), 60, 200);
     const room = roomId ? roomFor(roomId) : null;
     const player = room?.players.get(playerId);
     if (!room || !player || !token || token !== player.uploadToken) {
