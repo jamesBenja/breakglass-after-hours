@@ -144,7 +144,6 @@ test('stopping the booth stops every independent source', async () => {
   );
 });
 
-
 test('session-uploaded tracks use the same DJ deck audio path as built-in tracks', async (t) => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
