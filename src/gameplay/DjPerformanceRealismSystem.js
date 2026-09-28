@@ -57,6 +57,102 @@ function applyPlaybackRate(mixer, deck) {
   }
 }
 
+function scrubClock(mixer) {
+  if (Number.isFinite(mixer.context?.currentTime)) return mixer.context.currentTime;
+  const now = globalThis.performance?.now?.() ?? Date.now();
+  return now / 1000;
+}
+
+function stopVinylScrubVoice(mixer, deck) {
+  const voice = deck?._vinylScrubVoice;
+  if (!voice) return;
+  deck._vinylScrubVoice = null;
+  const now = scrubClock(mixer);
+  try {
+    voice.gain?.gain?.cancelScheduledValues?.(now);
+    const current = Math.max(0.0001, Number(voice.gain?.gain?.value) || 0.0001);
+    voice.gain?.gain?.setValueAtTime?.(current, now);
+    voice.gain?.gain?.exponentialRampToValueAtTime?.(0.0001, now + 0.012);
+    voice.source?.stop?.(now + 0.014);
+  } catch {
+    try {
+      voice.source?.stop?.();
+    } catch {
+      // The grain may already have ended.
+    }
+  }
+}
+
+function playVinylScrubGrain(mixer, deck, buffer, target, secondsDelta, speed) {
+  const context = mixer.context;
+  if (
+    !context?.createBufferSource ||
+    !context?.createGain ||
+    !buffer ||
+    !Number.isFinite(buffer.duration) ||
+    buffer.duration <= 0
+  ) {
+    return false;
+  }
+
+  const nodes = mixer.ensureDeckNodes?.(deck);
+  if (!nodes?.input) return false;
+
+  stopVinylScrubVoice(mixer, deck);
+  const source = context.createBufferSource();
+  const gain = context.createGain();
+  const now = context.currentTime;
+  const rate = clamp(speed, 0.18, 4);
+  const realDuration = 0.085;
+  const sourceDuration = Math.min(0.24, Math.max(0.035, realDuration * rate));
+  const forward = secondsDelta >= 0;
+
+  if (forward) {
+    source.buffer = buffer;
+    source.playbackRate.value = rate;
+    const previous = Math.max(0, target - Math.abs(secondsDelta));
+    const offset = Math.min(previous, Math.max(0, buffer.duration - 0.001));
+    source.start(now, offset, Math.min(sourceDuration, Math.max(0.001, buffer.duration - offset)));
+  } else {
+    if (!context.createBuffer) return false;
+    const sampleRate = Number(buffer.sampleRate) || Number(context.sampleRate) || 48000;
+    const frames = Math.max(32, Math.floor(sourceDuration * sampleRate));
+    const reversed = context.createBuffer(buffer.numberOfChannels, frames, sampleRate);
+    const previous = Math.min(buffer.duration, target + Math.abs(secondsDelta));
+    const endFrame = Math.min(buffer.length - 1, Math.max(0, Math.floor(previous * sampleRate)));
+    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+      const sourceData = buffer.getChannelData(channel);
+      const targetData = reversed.getChannelData(channel);
+      for (let frame = 0; frame < frames; frame += 1) {
+        const sourceFrame = endFrame - frame;
+        targetData[frame] = sourceFrame >= 0 ? sourceData[sourceFrame] : 0;
+      }
+    }
+    source.buffer = reversed;
+    source.playbackRate.value = rate;
+    source.start(now);
+  }
+
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.72, now + 0.006);
+  gain.gain.setValueAtTime(0.72, now + Math.max(0.012, realDuration - 0.022));
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + realDuration);
+  source.connect(gain);
+  gain.connect(nodes.input);
+  source.onended = () => {
+    try {
+      source.disconnect();
+      gain.disconnect();
+    } catch {
+      // Already disconnected during a newer scrub grain or disposal.
+    }
+    if (deck._vinylScrubVoice?.source === source) deck._vinylScrubVoice = null;
+  };
+  deck._vinylScrubVoice = { source, gain };
+  source.stop(now + realDuration + 0.015);
+  return true;
+}
+
 function renderPhaseMeter(ui, mixer) {
   const existing = ui.buttons?.querySelector?.('.dj-phase-meter');
   const snapshot = mixer.snapshot?.();
@@ -230,6 +326,8 @@ export function installDjPerformanceRealism(game, ui) {
     const next = held === true;
     if (next && !deck.platterHeld) {
       deck._transportFrozenAt = mixer.deckPosition?.(deckId) ?? 0;
+      deck._lastVinylScrubAt = scrubClock(mixer);
+      void mixer.prepareVinylScrub?.(deckId);
     } else if (!next && deck.platterHeld) {
       const resumeAt = Number.isFinite(deck._transportFrozenAt)
         ? deck._transportFrozenAt
@@ -240,6 +338,7 @@ export function installDjPerformanceRealism(game, ui) {
         deck.media.currentTime = deck.transportOffset % deck.media.duration;
       }
       deck._transportFrozenAt = null;
+      stopVinylScrubVoice(mixer, deck);
       if (deck.playing && deck.motorOn) mixer.restartDeckAt?.(deckId, resumeAt);
     }
     deck.platterHeld = next;
@@ -247,16 +346,50 @@ export function installDjPerformanceRealism(game, ui) {
     return deck.platterHeld;
   };
 
+  mixer.prepareVinylScrub = async (deckId) => {
+    const deck = mixer.decks[deckId];
+    if (!deck || !mixer.context) return null;
+    ensureState(deck);
+    if (deck.source?.buffer) {
+      deck._vinylScrubBuffer = deck.source.buffer;
+      deck._vinylScrubTrackId = deck.trackId;
+      return deck._vinylScrubBuffer;
+    }
+    if (deck._vinylScrubBuffer && deck._vinylScrubTrackId === deck.trackId) {
+      return deck._vinylScrubBuffer;
+    }
+    if (deck._vinylScrubPromise && deck._vinylScrubTrackId === deck.trackId) {
+      return deck._vinylScrubPromise;
+    }
+    const trackId = deck.trackId;
+    const request = mixer.audio.assets?.audio?.(trackId, mixer.context);
+    if (!request) return null;
+    deck._vinylScrubTrackId = trackId;
+    deck._vinylScrubPromise = Promise.resolve(request)
+      .then((buffer) => {
+        if (deck.trackId === trackId && buffer) deck._vinylScrubBuffer = buffer;
+        return buffer ?? null;
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (deck._vinylScrubTrackId === trackId) deck._vinylScrubPromise = null;
+      });
+    return deck._vinylScrubPromise;
+  };
+
   mixer.scrubVinyl = (deckId, secondsDelta = 0) => {
     const deck = mixer.decks[deckId];
     if (!deck) return false;
     ensureState(deck);
     deck.deviceMode = 'vinyl';
+    const delta = Number(secondsDelta) || 0;
     const current = Number.isFinite(deck._transportFrozenAt)
       ? deck._transportFrozenAt
       : (mixer.deckPosition?.(deckId) ?? 0);
-    let target = Math.max(0, current + (Number(secondsDelta) || 0));
-    const duration = Number(deck.source?.buffer?.duration || deck.media?.duration || 0);
+    let target = Math.max(0, current + delta);
+    const duration = Number(
+      deck._vinylScrubBuffer?.duration || deck.source?.buffer?.duration || deck.media?.duration || 0,
+    );
     if (duration > 0) target = Math.min(target, Math.max(0, duration - 0.001));
     deck._transportFrozenAt = target;
     deck.transportOffset = target;
@@ -266,6 +399,17 @@ export function installDjPerformanceRealism(game, ui) {
       } catch {
         // Media metadata may not be ready while the platter is being moved.
       }
+    }
+
+    const now = scrubClock(mixer);
+    const elapsed = Math.max(1 / 120, now - (deck._lastVinylScrubAt ?? now - 1 / 60));
+    deck._lastVinylScrubAt = now;
+    const speed = Math.abs(delta) / elapsed;
+    const buffer = deck._vinylScrubBuffer || deck.source?.buffer || null;
+    if (buffer && Math.abs(delta) > 0.0005) {
+      playVinylScrubGrain(mixer, deck, buffer, target, delta, speed);
+    } else if (!buffer) {
+      void mixer.prepareVinylScrub?.(deckId);
     }
     return target;
   };
@@ -355,6 +499,9 @@ export function installDjPerformanceRealism(game, ui) {
     deck.loopBeats = 0;
     deck.loopStart = 0;
     deck.loopEnd = 0;
+    deck._vinylScrubBuffer = null;
+    deck._vinylScrubPromise = null;
+    deck._vinylScrubTrackId = deck.trackId;
     return result;
   };
 
@@ -363,6 +510,10 @@ export function installDjPerformanceRealism(game, ui) {
     const deck = mixer.decks[deckId];
     if (result && deck) {
       ensureState(deck);
+      if (deck.source?.buffer) {
+        deck._vinylScrubBuffer = deck.source.buffer;
+        deck._vinylScrubTrackId = deck.trackId;
+      }
       applyPlaybackRate(mixer, deck);
     }
     return result;
@@ -372,6 +523,7 @@ export function installDjPerformanceRealism(game, ui) {
     const deck = mixer.decks[deckId];
     if (deck) {
       ensureState(deck);
+      stopVinylScrubVoice(mixer, deck);
       deck.platterHeld = false;
       deck._jogBend = 0;
       deck._transportFrozenAt = null;
