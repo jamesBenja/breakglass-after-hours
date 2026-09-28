@@ -27,6 +27,9 @@ function harness() {
     state: 'running',
     createGain: node,
     createBiquadFilter: node,
+    async decodeAudioData() {
+      return { duration: 180 };
+    },
     createBufferSource() {
       const source = {
         buffer: null,
@@ -139,4 +142,36 @@ test('stopping the booth stops every independent source', async () => {
     Object.values(mixer.decks).some((deck) => deck.playing),
     false,
   );
+});
+
+
+test('session-uploaded tracks use the same DJ deck audio path as built-in tracks', async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    arrayBuffer: async () => new ArrayBuffer(16),
+  });
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const { mixer, sources } = harness();
+  const track = mixer.registerSessionTrack({
+    id: 'session-test-track',
+    label: 'My Shared Track',
+    bpm: 128,
+    energy: 0.72,
+    url: 'https://multiplayer.example/dj-track/test/session-test-track',
+    mime: 'audio/mpeg',
+    session: true,
+  });
+  t.after(() => mixer.unregisterSessionTrack(track.id));
+
+  assert.equal(mixer.tracks().some((candidate) => candidate.id === track.id), true);
+  mixer.load('C', track.id);
+  assert.equal(mixer.decks.C.bpm, 128);
+  assert.equal(await mixer.playDeck('C'), true);
+  assert.equal(mixer.decks.C.trackId, track.id);
+  assert.equal(mixer.decks.C.source, sources.at(-1));
+  assert.equal(mixer.decks.C.source.buffer.duration, 180);
 });
