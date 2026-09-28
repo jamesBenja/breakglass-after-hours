@@ -6,7 +6,10 @@ const round = (value, digits = 2) => {
 };
 
 const percentile = (values, amount) => {
-  const safe = values.filter((value) => Number.isFinite(Number(value))).map(Number).sort((a, b) => a - b);
+  const safe = values
+    .filter((value) => Number.isFinite(Number(value)))
+    .map(Number)
+    .sort((a, b) => a - b);
   if (!safe.length) return 0;
   const index = Math.max(0, Math.min(safe.length - 1, Math.ceil(safe.length * amount) - 1));
   return safe[index];
@@ -76,8 +79,14 @@ export class SpectraPerformanceDiagnostics {
     this.lastReport = '';
 
     this.captureSample('start');
-    this.intervalHandle = this.timers.setInterval?.(() => this.captureSample('sample'), this.intervalMs);
-    this.stopHandle = this.timers.setTimeout?.(() => this.stop('30-second limit'), this.maxDurationMs);
+    this.intervalHandle = this.timers.setInterval?.(
+      () => this.captureSample('sample'),
+      this.intervalMs,
+    );
+    this.stopHandle = this.timers.setTimeout?.(
+      () => this.stop('30-second limit'),
+      this.maxDurationMs,
+    );
     return this.status();
   }
 
@@ -121,7 +130,10 @@ export class SpectraPerformanceDiagnostics {
     this.marks.push(mark);
     this.events.push({ type: 'glitch-mark', ...mark });
     if (this.postMarkHandle != null) this.timers.clearTimeout?.(this.postMarkHandle);
-    this.postMarkHandle = this.timers.setTimeout?.(() => this.stop('5 seconds after glitch mark'), this.postMarkMs);
+    this.postMarkHandle = this.timers.setTimeout?.(
+      () => this.stop('5 seconds after glitch mark'),
+      this.postMarkMs,
+    );
     return mark;
   }
 
@@ -129,14 +141,16 @@ export class SpectraPerformanceDiagnostics {
     if (!this.active) return;
     const key = String(type || 'source');
     this.sourceCreates.set(key, (this.sourceCreates.get(key) || 0) + 1);
-    if (stemId) this.events.push({ type: 'source-create', sourceType: key, stemId, atMs: this.elapsedMs() });
+    if (stemId)
+      this.events.push({ type: 'source-create', sourceType: key, stemId, atMs: this.elapsedMs() });
   }
 
   noteSourceEnded(type = 'source', stemId = null) {
     if (!this.active) return;
     const key = String(type || 'source');
     this.sourceEnds.set(key, (this.sourceEnds.get(key) || 0) + 1);
-    if (stemId) this.events.push({ type: 'source-end', sourceType: key, stemId, atMs: this.elapsedMs() });
+    if (stemId)
+      this.events.push({ type: 'source-end', sourceType: key, stemId, atMs: this.elapsedMs() });
   }
 
   noteSchedulerCallback(kind, expectedContextTime, actualContextTime, stemId = null) {

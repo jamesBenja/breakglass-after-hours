@@ -92,9 +92,7 @@ function fakeGame() {
       ]),
       blobStems: new Map(),
       nativeStems: new Map(),
-      arrangedRecordingBuffers: new Map([
-        [guitar.id, { value: { buffer: arranged } }],
-      ]),
+      arrangedRecordingBuffers: new Map([[guitar.id, { value: { buffer: arranged } }]]),
     },
     spectraTransport: {
       snapshot: () => ({ running: true, absoluteStep: 64 }),
@@ -166,6 +164,12 @@ test('Spectra diagnostics capture event-loop delay, vocal scheduler lateness and
   assert.equal(report.summary.marks, 1);
   assert.equal(report.session.tracks.length, 2);
   assert.equal(report.memory.totalMB > 0, true);
-  assert.equal(report.events.some((event) => event.type === 'scheduler'), true);
-  assert.equal(report.events.some((event) => event.type === 'skipped-cycles'), true);
+  assert.equal(
+    report.events.some((event) => event.type === 'scheduler'),
+    true,
+  );
+  assert.equal(
+    report.events.some((event) => event.type === 'skipped-cycles'),
+    true,
+  );
 });

@@ -1088,16 +1088,15 @@ function buildPerformanceDiagnosticsPanel(game, ui) {
         buildPerformanceDiagnosticsPanel(game, ui);
       },
     ]);
-    actions.push([
-      'BACK TO MIXER · KEEP CAPTURING',
-      () => game.showSpectraMixer?.(),
-    ]);
+    actions.push(['BACK TO MIXER · KEEP CAPTURING', () => game.showSpectraMixer?.()]);
   }
 
   actions.push([
     'COPY DIAGNOSTIC REPORT',
     async () => {
-      const report = diagnostics.active ? diagnostics.report() : diagnostics.lastReport || diagnostics.report();
+      const report = diagnostics.active
+        ? diagnostics.report()
+        : diagnostics.lastReport || diagnostics.report();
       try {
         const writeText = globalThis.navigator?.clipboard?.writeText?.bind(
           globalThis.navigator.clipboard,

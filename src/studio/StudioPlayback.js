@@ -1788,11 +1788,7 @@ export class StudioPlayback {
           skippedCycles += 1;
         }
         if (skippedCycles > 0) {
-          this.performanceDiagnostics?.noteSkippedCycles?.(
-            'vocal-loop',
-            skippedCycles,
-            stem.id,
-          );
+          this.performanceDiagnostics?.noteSkippedCycles?.('vocal-loop', skippedCycles, stem.id);
         }
         scheduleOneShot(when);
         scheduleCycle(when + playableDuration);
