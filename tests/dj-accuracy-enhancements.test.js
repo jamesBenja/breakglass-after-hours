@@ -101,3 +101,33 @@ test('SL-1200 platter scrub persists the cue position while stopped', () => {
   assert.equal(deck.transportOffset, 13.5);
   assert.equal(mixer.deckPosition('C'), 13.5);
 });
+
+
+test('CDJ jog backspin scrubs without changing the player into vinyl mode', () => {
+  const { mixer } = harness();
+  const deck = mixer.decks.A;
+  assert.equal(deck.deviceMode, 'cdj');
+  deck.playing = false;
+  deck.transportOffset = 24;
+  mixer.setJogHeld('A', true);
+  assert.equal(mixer.scrubJog('A', -1.25), 22.75);
+  assert.equal(mixer.deckPosition('A'), 22.75);
+  mixer.setJogHeld('A', false);
+  assert.equal(deck.deviceMode, 'cdj');
+  assert.equal(deck.transportOffset, 22.75);
+});
+
+test('A9 Beat FX exposes channel routing, effect, beat and depth state', () => {
+  const { mixer } = harness();
+  assert.equal(mixer.setBeatFxTarget('CH4'), 'CH4');
+  assert.equal(mixer.setBeatFxEffect('MOBIUS'), 'MOBIUS');
+  assert.equal(mixer.setBeatFxBeat(2), 2);
+  assert.equal(mixer.setBeatFxAmount(0.63), 0.63);
+  assert.deepEqual(mixer.snapshot().beatFx, {
+    enabled: false,
+    target: 'CH4',
+    effect: 'MOBIUS',
+    beat: 2,
+    amount: 0.63,
+  });
+});
