@@ -631,12 +631,16 @@ export function installDjPerformanceRealism(game, ui) {
     const deck = mixer.decks[deckId];
     if (!deck || deck.deviceMode !== 'cdj') return false;
     ensureState(deck);
+    const wasPlaying = deck.playing;
+    if (!wasPlaying) {
+      deck.cuePoint = Math.max(0, mixer.deckPosition?.(deckId) ?? deck.transportOffset ?? 0);
+    }
     const cuePoint = Math.max(0, Number(deck.cuePoint) || 0);
     const token = (Number(deck._cueGateToken) || 0) + 1;
     deck._cueGateToken = token;
     deck._cueGateActive = true;
 
-    if (deck.playing) mixer.stopDeck(deckId);
+    if (wasPlaying) mixer.stopDeck(deckId);
     deck.transportOffset = cuePoint;
     deck.transportStartedAt = 0;
 
