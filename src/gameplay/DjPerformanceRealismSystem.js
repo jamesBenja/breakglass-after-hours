@@ -542,14 +542,14 @@ export function installDjPerformanceRealism(game, ui) {
 
   mixer.update = (dt) => {
     const result = baseUpdate(dt);
+    for (const deck of Object.values(mixer.decks)) {
+      ensureState(deck);
+      applyPlaybackRate(mixer, deck);
+    }
     const a = mixer.decks.A;
     const b = mixer.decks.B;
-    ensureState(a);
-    ensureState(b);
-    applyPlaybackRate(mixer, a);
-    applyPlaybackRate(mixer, b);
 
-    if (a.playing && b.playing) {
+    if (a?.playing && b?.playing) {
       const phaseA = mixer.phase?.(a) ?? 0;
       const phaseB = mixer.phase?.(b) ?? 0;
       const phaseDelta = modulo(phaseB - phaseA + 0.5, 1) - 0.5;
@@ -576,8 +576,8 @@ export function installDjPerformanceRealism(game, ui) {
         }
       }
     } else {
-      a._phaseErrorMs = 0;
-      b._phaseErrorMs = 0;
+      if (a) a._phaseErrorMs = 0;
+      if (b) b._phaseErrorMs = 0;
     }
     return result;
   };
