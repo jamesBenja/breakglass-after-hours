@@ -80,7 +80,6 @@ test('DJ channel strips expose a real mid EQ control in state and snapshots', ()
   assert.equal(mixer.snapshot().decks.A.mid, -0.65);
 });
 
-
 test('A9 color filter state is bipolar and exposed in snapshots', () => {
   const { mixer } = harness();
   assert.equal(mixer.setFilter('A', -0.75), -0.75);
