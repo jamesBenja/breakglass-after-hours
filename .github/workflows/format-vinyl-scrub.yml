@@ -1,0 +1,28 @@
+name: Temporary vinyl scrub formatter
+on:
+  push:
+    branches: [feat/multiplayer-phase-2-shared-world]
+    paths: [.github/workflows/format-vinyl-scrub.yml]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm install --frozen-lockfile
+      - run: |
+          pnpm exec prettier --write src/gameplay/DjPerformanceRealismSystem.js
+          pnpm exec prettier --check src/gameplay/DjPerformanceRealismSystem.js
+      - run: |
+          if git diff --quiet -- src/gameplay/DjPerformanceRealismSystem.js; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/gameplay/DjPerformanceRealismSystem.js
+          git commit -m "Format vinyl scrub audio"
+          git push
