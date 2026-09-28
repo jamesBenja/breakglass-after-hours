@@ -1074,6 +1074,7 @@ export function installDjHardwareV2(game, ui) {
     ui.document.body?.classList.add('dj-hardware-active');
 
     activeMixer._hardwareV2Focus ??= 'mixer';
+    activeMixer._hardwareV2CrateOpen ??= false;
     const liveRefs = [];
     const refresh = () => ui.djMixer(activeMixer, tracks, { onChange });
     const changed = () => onChange();
@@ -1086,17 +1087,41 @@ export function installDjHardwareV2(game, ui) {
     const name = ui.document.createElement('strong');
     name.textContent = 'BREAKGLASS DJ BOOTH';
     const qualityRef = ui.document.createElement('span');
+    qualityRef.className = 'dj-mix-readout';
     qualityRef.textContent = 'MIX ' + quality + '%';
     const vibeRef = ui.document.createElement('span');
+    vibeRef.className = 'dj-floor-readout';
     vibeRef.textContent = 'FLOOR ' + vibe + '%';
     const phaseRef = ui.document.createElement('span');
+    phaseRef.className = 'dj-phase-readout';
     phaseRef.textContent =
       'PHASE ' + Math.round(Number(snapshot.decks?.B?.phaseErrorMs) || 0) + ' ms';
-    status.append(name, qualityRef, vibeRef, phaseRef);
+    const sharedTracks = tracks.filter((track) => track.session);
+    const sharedCount = sharedTracks.length;
+    const crateToggle = makeButton(
+      ui.document,
+      'CRATE ' + sharedCount,
+      'dj-crate-toggle',
+      () => {},
+    );
+    crateToggle.setAttribute('aria-haspopup', 'dialog');
+    crateToggle.setAttribute('aria-expanded', String(activeMixer._hardwareV2CrateOpen === true));
+    status.append(name, qualityRef, vibeRef, phaseRef, crateToggle);
     shell.appendChild(status);
 
     const upload = ui.document.createElement('div');
     upload.className = 'dj-shared-upload';
+    upload.hidden = activeMixer._hardwareV2CrateOpen !== true;
+    upload.setAttribute('role', 'dialog');
+    upload.setAttribute('aria-label', 'Live shared DJ crate');
+    crateToggle.onclick = () => {
+      activeMixer._hardwareV2CrateOpen = !activeMixer._hardwareV2CrateOpen;
+      upload.hidden = activeMixer._hardwareV2CrateOpen !== true;
+      crateToggle.setAttribute('aria-expanded', String(activeMixer._hardwareV2CrateOpen === true));
+      crateToggle.classList.toggle('active', activeMixer._hardwareV2CrateOpen === true);
+    };
+    crateToggle.classList.toggle('active', activeMixer._hardwareV2CrateOpen === true);
+
     const uploadLabel = ui.document.createElement('strong');
     uploadLabel.textContent = 'LIVE SHARED CRATE';
     const uploadHint = ui.document.createElement('span');
@@ -1168,13 +1193,31 @@ export function installDjHardwareV2(game, ui) {
       }
     };
 
-    const sharedCount = tracks.filter((track) => track.session).length;
     const count = ui.document.createElement('small');
     count.textContent = sharedCount
       ? `${sharedCount} shared track${sharedCount === 1 ? '' : 's'} available`
       : 'No uploaded tracks yet';
-    upload.append(uploadLabel, uploadHint, bpmLabel, uploadButton, fileInput, count);
-    shell.appendChild(upload);
+
+    const sharedList = ui.document.createElement('div');
+    sharedList.className = 'dj-shared-track-list';
+    if (sharedTracks.length) {
+      for (const track of sharedTracks) {
+        const row = ui.document.createElement('div');
+        const label = ui.document.createElement('span');
+        label.textContent = track.label;
+        const bpm = ui.document.createElement('b');
+        bpm.textContent = Number.isFinite(Number(track.bpm)) ? Number(track.bpm).toFixed(1) + ' BPM' : 'BPM —';
+        row.append(label, bpm);
+        sharedList.appendChild(row);
+      }
+    } else {
+      const empty = ui.document.createElement('span');
+      empty.textContent = 'Uploaded multiplayer tracks will appear here.';
+      sharedList.appendChild(empty);
+    }
+
+    upload.append(uploadLabel, uploadHint, bpmLabel, uploadButton, fileInput, count, sharedList);
+    status.appendChild(upload);
 
     const tabs = ui.document.createElement('nav');
     tabs.className = 'dj-hardware-tabs';
