@@ -3,6 +3,22 @@ import { DJ_TRACKS } from '../dj/DjMixer.js';
 const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
 const HOT_CUE_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const LOOP_BEATS = [1, 2, 4, 8, 16];
+const A9_BEAT_FX = [
+  'DELAY',
+  'ECHO',
+  'PING PONG',
+  'SPIRAL',
+  'HELIX',
+  'REVERB',
+  'FLANGER',
+  'PHASER',
+  'FILTER',
+  'TRIPLET FILTER',
+  'TRANS',
+  'ROLL',
+  'TRIPLET ROLL',
+  'MOBIUS',
+];
 
 function trackById(tracks, id) {
   return tracks.find((track) => track.id === id) ?? tracks[0] ?? DJ_TRACKS[0];
@@ -319,13 +335,62 @@ function createCdj(document, mixer, tracks, deckId, side, onChange, refresh, liv
 
   const jogWrap = document.createElement('div');
   jogWrap.className = 'cdj-jog-wrap';
-  const jog = makeButton(document, '', 'cdj-jog', (event) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const direction = event.clientX < rect.left + rect.width / 2 ? -1 : 1;
-    mixer.jog?.(deckId, direction * 0.125);
+  const jog = document.createElement('button');
+  jog.type = 'button';
+  jog.className = 'cdj-jog';
+  jog.setAttribute(
+    'aria-label',
+    'CDJ ' + deckId + ' jog wheel. Tap an edge to nudge, or hold and rotate for vinyl/backspin.',
+  );
+  let jogPointer = null;
+  let jogLastAngle = 0;
+  let jogDragged = false;
+  const jogAngle = (event) => {
+    const rect = jog.getBoundingClientRect();
+    return Math.atan2(
+      event.clientY - (rect.top + rect.height / 2),
+      event.clientX - (rect.left + rect.width / 2),
+    );
+  };
+  jog.onpointerdown = (event) => {
+    event.preventDefault();
+    jogPointer = event.pointerId;
+    jogLastAngle = jogAngle(event);
+    jogDragged = false;
+    jog.setPointerCapture?.(event.pointerId);
+    mixer.setJogHeld?.(deckId, true);
+    jog.classList.add('held');
     onChange();
-  });
-  jog.setAttribute('aria-label', 'CDJ ' + deckId + ' jog wheel. Tap left or right edge to nudge.');
+  };
+  jog.onpointermove = (event) => {
+    if (jogPointer !== event.pointerId) return;
+    event.preventDefault();
+    const angle = jogAngle(event);
+    let delta = angle - jogLastAngle;
+    if (delta > Math.PI) delta -= Math.PI * 2;
+    if (delta < -Math.PI) delta += Math.PI * 2;
+    jogLastAngle = angle;
+    if (Math.abs(delta) > 0.002) jogDragged = true;
+    const secondsPerRevolution = 1.8;
+    mixer.scrubJog?.(deckId, (delta / (Math.PI * 2)) * secondsPerRevolution);
+    onChange();
+  };
+  const releaseJog = (event) => {
+    if (jogPointer == null || (event?.pointerId != null && event.pointerId !== jogPointer)) return;
+    const wasDragged = jogDragged;
+    jogPointer = null;
+    jogDragged = false;
+    jog.classList.remove('held');
+    mixer.setJogHeld?.(deckId, false);
+    if (!wasDragged && event) {
+      const rect = jog.getBoundingClientRect();
+      const direction = event.clientX < rect.left + rect.width / 2 ? -1 : 1;
+      mixer.jog?.(deckId, direction * 0.125);
+    }
+    onChange();
+  };
+  jog.onpointerup = releaseJog;
+  jog.onpointercancel = releaseJog;
   const jogScreen = document.createElement('span');
   jogScreen.className = 'cdj-jog-screen';
   jogScreen.textContent = state.playing ? '▶' : 'Ⅱ';
@@ -428,6 +493,18 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
   crate.className = 'sl-crate';
   addTrackSelect(document, crate, mixer, tracks, deckId, onChange, refresh);
   unit.appendChild(crate);
+
+  const tempoReadout = document.createElement('div');
+  tempoReadout.className = 'sl-tempo-readout';
+  const tempoBpm = document.createElement('strong');
+  tempoBpm.textContent = state.freeTime ? 'FREE' : Number(state.bpm).toFixed(1) + ' BPM';
+  const tempoPercent = document.createElement('span');
+  const initialPitch = pitchPercent(state, track);
+  tempoPercent.textContent = state.freeTime
+    ? 'NO GRID'
+    : (initialPitch >= 0 ? '+' : '') + initialPitch.toFixed(2) + '%';
+  tempoReadout.append(tempoBpm, tempoPercent);
+  unit.appendChild(tempoReadout);
 
   const deckSurface = document.createElement('div');
   deckSurface.className = 'sl-surface';
@@ -546,7 +623,16 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
   controls.append(needle, motor, rpm33, rpm45, source);
   unit.appendChild(controls);
 
-  liveRefs.push({ type: 'vinyl', deckId, platter, record, pitchInput, track });
+  liveRefs.push({
+    type: 'vinyl',
+    deckId,
+    platter,
+    record,
+    pitchInput,
+    track,
+    tempoBpm,
+    tempoPercent,
+  });
   return unit;
 }
 
@@ -586,12 +672,85 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
   meters.append(masterTitle, masterPair);
   const fx = document.createElement('div');
   fx.className = 'a9-fx-panel';
+  const fxHeader = document.createElement('div');
+  fxHeader.className = 'a9-fx-header';
   const fxLabel = document.createElement('strong');
   fxLabel.textContent = 'BEAT FX';
-  const fxState = document.createElement('span');
-  fxState.textContent = 'BYPASS';
-  fxState.title = 'The current stable DJ audio engine does not yet route the A9 Beat FX section.';
-  fx.append(fxLabel, fxState);
+  const fxOn = makeButton(
+    document,
+    snapshot.beatFx?.enabled ? 'ON' : 'OFF',
+    'a9-fx-on',
+    () => {
+      mixer.setBeatFxEnabled?.(!mixer.snapshot().beatFx?.enabled);
+      onChange();
+      refresh();
+    },
+  );
+  setPressed(fxOn, snapshot.beatFx?.enabled === true);
+  fxHeader.append(fxLabel, fxOn);
+
+  const target = document.createElement('select');
+  target.className = 'a9-fx-select';
+  target.setAttribute('aria-label', 'Beat FX channel selector');
+  for (const value of ['CH1', 'CH2', 'CH3', 'CH4', 'MASTER']) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value === 'MASTER' ? 'MST' : value;
+    option.selected = value === (snapshot.beatFx?.target ?? 'MASTER');
+    target.appendChild(option);
+  }
+  target.onchange = () => {
+    mixer.setBeatFxTarget?.(target.value);
+    onChange();
+    refresh();
+  };
+
+  const effect = document.createElement('select');
+  effect.className = 'a9-fx-select a9-fx-effect';
+  effect.setAttribute('aria-label', 'Beat FX effect selector');
+  for (const value of A9_BEAT_FX) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    option.selected = value === (snapshot.beatFx?.effect ?? 'ECHO');
+    effect.appendChild(option);
+  }
+  effect.onchange = () => {
+    mixer.setBeatFxEffect?.(effect.value);
+    onChange();
+    refresh();
+  };
+
+  const beatRow = document.createElement('div');
+  beatRow.className = 'a9-fx-beats';
+  for (const value of [0.25, 0.5, 1, 2, 4]) {
+    const label = value === 0.25 ? '1/4' : value === 0.5 ? '1/2' : String(value);
+    const button = makeButton(document, label, 'a9-fx-beat', () => {
+      mixer.setBeatFxBeat?.(value);
+      onChange();
+      refresh();
+    });
+    setPressed(button, Math.abs(Number(snapshot.beatFx?.beat ?? 0.5) - value) < 0.001);
+    beatRow.appendChild(button);
+  }
+
+  const fxAmount = document.createElement('div');
+  fxAmount.className = 'a9-fx-amount';
+  addKnob(document, fxAmount, {
+    label: 'LEVEL/DEPTH',
+    ariaLabel: 'Beat FX level depth',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    value: snapshot.beatFx?.amount ?? 0.35,
+    format: (value) => Math.round(value * 100) + '%',
+    onInput: (value) => {
+      mixer.setBeatFxAmount?.(value);
+      onChange();
+    },
+  });
+
+  fx.append(fxHeader, target, effect, beatRow, fxAmount);
   master.append(meters, fx);
   unit.appendChild(master);
 
@@ -781,6 +940,11 @@ function startLiveUi(ui, mixer, refs, metricsRefs) {
         const position = mixer.deckPosition?.(ref.deckId) ?? 0;
         const rpm = Number(state.vinylRpm || 33.333);
         ref.record.style.setProperty('--record-angle', ((position * rpm * 6) % 360) + 'deg');
+        const percent = pitchPercent(state, ref.track);
+        ref.tempoBpm.textContent = state.freeTime ? 'FREE' : Number(state.bpm).toFixed(1) + ' BPM';
+        ref.tempoPercent.textContent = state.freeTime
+          ? 'NO GRID'
+          : (percent >= 0 ? '+' : '') + percent.toFixed(2) + '%';
       } else if (ref.type === 'a9-channel') {
         const state = snapshot.decks?.[ref.deckId];
         const track = trackById(DJ_TRACKS, state?.trackId);
