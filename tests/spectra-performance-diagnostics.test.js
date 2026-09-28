@@ -103,7 +103,8 @@ function fakeGame() {
 test('Spectra diagnostics stay idle until explicitly started and report controlled audio memory', () => {
   let now = 1000;
   const timers = fakeTimers();
-  const diagnostics = new SpectraPerformanceDiagnostics(fakeGame(), {
+  const game = fakeGame();
+  const diagnostics = new SpectraPerformanceDiagnostics(game, {
     now: () => now,
     wallNow: () => 1700000000000 + now,
     timers,
@@ -119,12 +120,14 @@ test('Spectra diagnostics stay idle until explicitly started and report controll
 
   diagnostics.start();
   assert.equal(diagnostics.active, true);
+  assert.equal(game.studioPlayback.performanceDiagnostics, diagnostics);
   assert.equal(timers.intervals.size, 1);
   assert.equal(timers.timeouts.size, 1);
   assert.equal(diagnostics.samples.length, 1);
 
   diagnostics.stop('test');
   assert.equal(diagnostics.active, false);
+  assert.equal(game.studioPlayback.performanceDiagnostics, null);
   assert.equal(timers.intervals.size, 0);
   assert.equal(timers.timeouts.size, 0);
 });
