@@ -34,11 +34,7 @@ export function consumeDirectEntry(
   if (!entry) return null;
   const url = directEntryFreeUrl(locationRef);
   if (url && historyRef?.replaceState) {
-    historyRef.replaceState(
-      historyRef.state,
-      globalThis.document?.title ?? '',
-      url.href,
-    );
+    historyRef.replaceState(historyRef.state, globalThis.document?.title ?? '', url.href);
   }
   return entry;
 }
@@ -59,9 +55,7 @@ function validLanding(level, position) {
   const ground = collision.surfaceAt?.(x, z, requestedY + 0.75);
   if (!ground) return null;
   const grounded = { x, y: Number(ground.height) || 0, z };
-  return collision.isValidPosition?.(grounded)
-    ? [grounded.x, grounded.y, grounded.z]
-    : null;
+  return collision.isValidPosition?.(grounded) ? [grounded.x, grounded.y, grounded.z] : null;
 }
 
 export function resolveDirectEntryLanding(game, entry) {
