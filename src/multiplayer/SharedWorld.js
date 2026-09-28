@@ -18,6 +18,22 @@ const LOCKED_ACTIONS = new Set([
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, Number(value) || 0));
 
+function httpServerBase(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value, globalThis.location?.href);
+    if (url.protocol === 'wss:') url.protocol = 'https:';
+    if (url.protocol === 'ws:') url.protocol = 'http:';
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    url.pathname = '/';
+    url.search = '';
+    url.hash = '';
+    return url.href.replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
 export class SharedWorld {
   constructor(client) {
     this.client = client;
@@ -36,6 +52,7 @@ export class SharedWorld {
     this.djPublishTimer = null;
     this.lightingPublishTimer = null;
     this.installationPublishTimer = null;
+    this.djTracks = new Map();
     this.patchDj();
   }
 
@@ -160,6 +177,8 @@ export class SharedWorld {
     this.resources.clear();
     for (const resource of world.resources ?? []) this.resources.set(resource.id, resource);
     this.objects = new Map(Object.entries(world.objects ?? {}));
+    this.djTracks.clear();
+    for (const track of world.djTracks ?? []) this.registerDjTrack(track);
     this.patchWorldObjects();
     if (world.dj) void this.applyDj(world.dj);
     if (world.lighting) this.applyLighting(world.lighting);
@@ -170,6 +189,74 @@ export class SharedWorld {
     if (jamesResponse) this.game.policeResponse?.applySharedJamesResponse?.(jamesResponse);
     const ledWall = this.objects.get('dj-led-wall');
     if (ledWall) this.game.ledWall?.apply?.(ledWall, { remote: true });
+  }
+
+  normalizeDjTrack(track) {
+    if (!track?.id) return null;
+    const base = httpServerBase(this.client.url);
+    let url = track.url ?? null;
+    if (url && base) {
+      try {
+        url = new URL(url, `${base}/`).href;
+      } catch {
+        url = null;
+      }
+    }
+    return {
+      ...track,
+      url,
+      session: true,
+      bpm: clamp(track.bpm || 120, 60, 200),
+      energy: clamp(track.energy ?? 0.7),
+    };
+  }
+
+  registerDjTrack(track) {
+    const normalized = this.normalizeDjTrack(track);
+    if (!normalized) return null;
+    this.djTracks.set(normalized.id, normalized);
+    this.game.dj?.registerSessionTrack?.(normalized);
+    return normalized;
+  }
+
+  removeDjTrack(trackId) {
+    if (!trackId) return;
+    this.djTracks.delete(trackId);
+    this.game.dj?.unregisterSessionTrack?.(trackId);
+  }
+
+  async uploadDjTrack(file, { bpm = 120, label = null } = {}) {
+    if (!file) throw new Error('Choose an audio file first.');
+    if (!this.client.joined || !this.owns('dj-booth')) {
+      throw new Error('Claim the DJ booth before uploading a track.');
+    }
+    if (!this.client.localId || !this.client.uploadToken) {
+      throw new Error('The multiplayer upload session is not ready.');
+    }
+    if (Number(file.size || 0) > 25_000_000) {
+      throw new Error('Choose a track smaller than 25 MB.');
+    }
+    const base = httpServerBase(this.client.url);
+    if (!base) throw new Error('The multiplayer server is unavailable.');
+
+    const upload = new URL('/dj-upload', `${base}/`);
+    upload.searchParams.set('room', this.client.room);
+    upload.searchParams.set('player', this.client.localId);
+    upload.searchParams.set('token', this.client.uploadToken);
+    upload.searchParams.set('filename', file.name || 'track');
+    upload.searchParams.set('label', label || String(file.name || 'Uploaded track').replace(/\.[^.]+$/, ''));
+    upload.searchParams.set('bpm', String(clamp(bpm || 120, 60, 200)));
+
+    const response = await fetch(upload, {
+      method: 'POST',
+      headers: { 'content-type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.ok !== true || !payload.track) {
+      throw new Error(payload?.error || `Upload failed (HTTP ${response.status}).`);
+    }
+    return this.registerDjTrack(payload.track);
   }
 
   patchWorldObjects() {
@@ -224,7 +311,7 @@ export class SharedWorld {
 
   djSnapshot() {
     const snapshot = this.game.dj.snapshot();
-    for (const deckId of ['A', 'B']) {
+    for (const deckId of ['A', 'B', 'C', 'D']) {
       snapshot.decks[deckId].position = this.game.dj.deckPosition?.(deckId) ?? 0;
     }
     return snapshot;
@@ -248,7 +335,7 @@ export class SharedWorld {
     this.applyingDj = true;
     try {
       dj.setCrossfader?.(state.crossfader ?? 0);
-      for (const deckId of ['A', 'B']) {
+      for (const deckId of ['A', 'B', 'C', 'D']) {
         const target = state.decks?.[deckId];
         const deck = dj.decks?.[deckId];
         if (!target || !deck) continue;
@@ -514,6 +601,8 @@ export class SharedWorld {
     if (message.type === 'resource_result') this.handleResourceResult(message);
     else if (message.type === 'resource') this.handleResource(message);
     else if (message.type === 'object_state') this.handleObjectState(message);
+    else if (message.type === 'dj_track_added') this.registerDjTrack(message.track);
+    else if (message.type === 'dj_track_removed') this.removeDjTrack(message.trackId);
     else if (message.type === 'dj_state') void this.applyDj(message.state);
     else if (message.type === 'lighting_state') this.applyLighting(message.state);
     else if (message.type === 'party_state') this.applyParty(message.state);
