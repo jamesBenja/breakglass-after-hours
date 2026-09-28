@@ -379,7 +379,6 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   assert.equal(left.id, welcomeB.id);
 });
 
-
 test('multiplayer HTTP server verifies God Mode and invitation links alongside DJ uploads', async (t) => {
   const port = await freePort();
   const child = spawn(process.execPath, ['server/multiplayerServer.mjs'], {
@@ -419,6 +418,5 @@ test('multiplayer HTTP server verifies God Mode and invitation links alongside D
     headers: { Authorization: 'Bearer resident-regression-token' },
   });
   assert.equal(resident.status, 200);
-    assert.deepEqual(await resident.json(), { ok: true, type: 'residentproducer' });
-  },
-);
+  assert.deepEqual(await resident.json(), { ok: true, type: 'residentproducer' });
+});
