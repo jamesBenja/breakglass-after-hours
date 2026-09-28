@@ -225,6 +225,13 @@ function setPitchPercent(mixer, deckId, track, percent) {
   mixer.setBpm(deckId, track.bpm * (1 + Number(percent) / 100));
 }
 
+function formatPan(value) {
+  const pan = clamp(value, -1, 1);
+  if (Math.abs(pan) < 0.02) return 'C';
+  const amount = Math.round(Math.abs(pan) * 100);
+  return pan < 0 ? 'L ' + amount : 'R ' + amount;
+}
+
 function createWaveform(document, state, track) {
   const host = document.createElement('div');
   host.className = 'cdj-waveform';
@@ -424,14 +431,42 @@ function createCdj(document, mixer, tracks, deckId, side, onChange, refresh, liv
 
   const transport = document.createElement('div');
   transport.className = 'cdj-transport';
-  const cue = makeButton(document, 'CUE', 'cdj-cue', () => {
-    mixer.setHotCue?.(deckId, 0);
+  const cue = makeButton(document, 'CUE', 'cdj-cue', () => {});
+  cue.onclick = (event) => event.preventDefault();
+  cue.title = 'Hold to play from the cue point. Release to return to the cue point.';
+  let cueHeld = false;
+  const pressCue = async (event) => {
+    if (cueHeld) return;
+    event?.preventDefault?.();
+    cueHeld = true;
+    setPressed(cue, true);
+    if (event?.pointerId != null) cue.setPointerCapture?.(event.pointerId);
+    await mixer.cueDown?.(deckId);
+    onChange();
+  };
+  const releaseCue = (event) => {
+    if (!cueHeld) return;
+    event?.preventDefault?.();
+    cueHeld = false;
+    mixer.cueUp?.(deckId);
+    setPressed(cue, false);
     onChange();
     refresh();
-  });
+  };
+  cue.onpointerdown = pressCue;
+  cue.onpointerup = releaseCue;
+  cue.onpointercancel = releaseCue;
+  cue.onkeydown = (event) => {
+    if (!event.repeat && (event.code === 'Space' || event.key === 'Enter')) void pressCue(event);
+  };
+  cue.onkeyup = (event) => {
+    if (event.code === 'Space' || event.key === 'Enter') releaseCue(event);
+  };
+
   const play = makeButton(document, state.playing ? 'Ⅱ' : '▶', 'cdj-play', async () => {
-    if (mixer.decks[deckId].playing) mixer.stopDeck(deckId);
-    else await mixer.playDeck(deckId);
+    if (typeof mixer.togglePlayPause === 'function') await mixer.togglePlayPause(deckId);
+    else if (mixer.decks[deckId].playing) mixer.stopDeck(deckId);
+    else await mixer.playDeck(deckId, mixer.deckPosition?.(deckId) ?? 0);
     onChange();
     refresh();
   });
@@ -680,6 +715,18 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
   const masterRight = createLedMeter(document, 'R', 'master-right');
   masterPair.append(masterLeft.meter, masterRight.meter);
   meters.append(masterTitle, masterPair);
+
+  const bpmReader = document.createElement('div');
+  bpmReader.className = 'a9-bpm-reader';
+  const bpmLabel = document.createElement('span');
+  bpmLabel.textContent = 'BPM';
+  const bpmValue = document.createElement('strong');
+  const initialMasterBpm = mixer.masterBpm?.();
+  bpmValue.textContent = Number.isFinite(initialMasterBpm) ? initialMasterBpm.toFixed(1) : '---';
+  const bpmMode = document.createElement('small');
+  bpmMode.textContent = 'AUTO';
+  bpmReader.append(bpmLabel, bpmValue, bpmMode);
+
   const fx = document.createElement('div');
   fx.className = 'a9-fx-panel';
   const fxHeader = document.createElement('div');
@@ -756,7 +803,7 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
   });
 
   fx.append(fxHeader, target, effect, beatRow, fxAmount);
-  master.append(meters, fx);
+  master.append(meters, fx, bpmReader);
   unit.appendChild(master);
 
   const channels = document.createElement('div');
@@ -827,6 +874,16 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
         onChange();
       },
     });
+    addKnob(document, eq, {
+      label: 'PAN',
+      ariaLabel: 'A9 channel ' + number + ' pan',
+      value: state.pan ?? 0,
+      format: formatPan,
+      onInput: (value) => {
+        mixer.setPan?.(definition.deckId, value);
+        onChange();
+      },
+    });
     strip.appendChild(eq);
 
     const cue = makeButton(document, 'CUE', 'a9-cue', () => {
@@ -883,6 +940,10 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
     type: 'a9-master',
     leftSegments: masterLeft.segments,
     rightSegments: masterRight.segments,
+  });
+  liveRefs.push({
+    type: 'a9-bpm',
+    value: bpmValue,
   });
   return unit;
 }
@@ -962,23 +1023,12 @@ function startLiveUi(ui, mixer, refs, metricsRefs) {
           : 0;
         setLedMeter(ref.segments, sourceLevel);
       } else if (ref.type === 'a9-master') {
-        const a = snapshot.decks?.A;
-        const b = snapshot.decks?.B;
-        const c = snapshot.decks?.C;
-        const d = snapshot.decks?.D;
-        const x = (clamp(snapshot.crossfader, -1, 1) + 1) / 2;
-        const leftCross = Math.cos(x * Math.PI * 0.5);
-        const rightCross = Math.sin(x * Math.PI * 0.5);
-        const leftOutput =
-          leftCross *
-          ((a?.playing ? Number(a.level) || 0 : 0) + (c?.playing ? Number(c.level) || 0 : 0)) *
-          0.5;
-        const rightOutput =
-          rightCross *
-          ((b?.playing ? Number(b.level) || 0 : 0) + (d?.playing ? Number(d.level) || 0 : 0)) *
-          0.5;
-        setLedMeter(ref.leftSegments, leftOutput);
-        setLedMeter(ref.rightSegments, rightOutput);
+        const levels = mixer.masterLevels?.() ?? { left: 0, right: 0 };
+        setLedMeter(ref.leftSegments, levels.left);
+        setLedMeter(ref.rightSegments, levels.right);
+      } else if (ref.type === 'a9-bpm') {
+        const masterBpm = mixer.masterBpm?.();
+        ref.value.textContent = Number.isFinite(masterBpm) ? masterBpm.toFixed(1) : '---';
       }
     }
   };
