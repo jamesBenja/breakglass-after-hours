@@ -1,0 +1,28 @@
+name: Temporary DJ FX formatter
+on:
+  push:
+    branches: [feat/multiplayer-phase-2-shared-world]
+    paths: [.github/workflows/format-dj-fx.yml]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm install --frozen-lockfile
+      - run: |
+          pnpm exec prettier --write src/gameplay/DjAccuracyEnhancements.js src/ui/djHardwareV2.js src/ui/djHardwareV2.css tests/dj-accuracy-enhancements.test.js
+          pnpm exec prettier --check src/gameplay/DjAccuracyEnhancements.js src/ui/djHardwareV2.js src/ui/djHardwareV2.css tests/dj-accuracy-enhancements.test.js
+      - run: |
+          if git diff --quiet -- src/gameplay/DjAccuracyEnhancements.js src/ui/djHardwareV2.js src/ui/djHardwareV2.css tests/dj-accuracy-enhancements.test.js; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/gameplay/DjAccuracyEnhancements.js src/ui/djHardwareV2.js src/ui/djHardwareV2.css tests/dj-accuracy-enhancements.test.js
+          git commit -m "Format DJ tempo backspin and Beat FX pass"
+          git push
