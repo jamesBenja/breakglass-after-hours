@@ -388,7 +388,8 @@ export function installDjPerformanceRealism(game, ui) {
       return deck._vinylScrubPromise;
     }
     const trackId = deck.trackId;
-    const request = mixer.audioBufferForTrack?.(trackId) ?? mixer.audio.assets?.audio?.(trackId, mixer.context);
+    const request =
+      mixer.audioBufferForTrack?.(trackId) ?? mixer.audio.assets?.audio?.(trackId, mixer.context);
     if (!request) return null;
     deck._vinylScrubTrackId = trackId;
     deck._vinylScrubPromise = Promise.resolve(request)
