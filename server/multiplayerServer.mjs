@@ -1,9 +1,25 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
+import { invitationTypeFromFingerprint } from './inviteTokenFingerprints.js';
 import { WebSocketServer, WebSocket } from 'ws';
 
 const PORT = Number(process.env.PORT || 8787);
 const MAX_PLAYERS_PER_ROOM = Number(process.env.MAX_PLAYERS_PER_ROOM || 24);
+const GOD_MODE_TOKEN = String(process.env.GOD_MODE_TOKEN || '').trim();
+const INVITE_TYPES = new Set([
+  'participant',
+  'guestlist',
+  'dj',
+  'producer',
+  'residentproducer',
+  'promoter',
+]);
+const INVITE_TOKENS = Object.fromEntries(
+  [...INVITE_TYPES].map((type) => [
+    type,
+    String(process.env[`INVITE_${type.toUpperCase()}_TOKEN`] || '').trim(),
+  ]),
+);
 const MAX_MESSAGE_BYTES = 280_000;
 const MAX_DJ_TRACK_BYTES = Number(process.env.MAX_DJ_TRACK_BYTES || 25_000_000);
 const MAX_DJ_ROOM_BYTES = Number(process.env.MAX_DJ_ROOM_BYTES || 80_000_000);
@@ -854,8 +870,81 @@ function tickParty(room, dt, now) {
   }
 }
 
+function secureTokenMatch(candidate, expectedText) {
+  if (!candidate || !expectedText) return false;
+  const expected = Buffer.from(expectedText);
+  const received = Buffer.from(candidate);
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
+
+function validGodModeToken(value) {
+  const candidate = typeof value === 'string' ? value.trim() : '';
+  return secureTokenMatch(candidate, GOD_MODE_TOKEN);
+}
+
+function inviteTypeFromToken(value) {
+  const candidate = typeof value === 'string' ? value.trim() : '';
+  if (!candidate) return null;
+
+  for (const type of INVITE_TYPES) {
+    if (secureTokenMatch(candidate, INVITE_TOKENS[type])) return type;
+  }
+
+  const signedType = invitationTypeFromFingerprint(candidate, crypto);
+  if (signedType) return signedType;
+
+  // Preserve the earlier HMAC invitation links for backwards compatibility.
+  if (!GOD_MODE_TOKEN) return null;
+  const separator = candidate.indexOf('.');
+  if (separator <= 0) return null;
+  const type = candidate.slice(0, separator);
+  const signature = candidate.slice(separator + 1);
+  if (!INVITE_TYPES.has(type) || !signature) return null;
+  const expectedText = crypto
+    .createHmac('sha256', GOD_MODE_TOKEN)
+    .update(`breakglass-invite:${type}`)
+    .digest('base64url');
+  return secureTokenMatch(signature, expectedText) ? type : null;
+}
+
+function accessCors(response) {
+  response.setHeader('access-control-allow-origin', '*');
+  response.setHeader('access-control-allow-methods', 'GET, OPTIONS');
+  response.setHeader('access-control-allow-headers', 'authorization');
+  response.setHeader('cache-control', 'no-store');
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+
+  if (url.pathname === '/god-mode/verify') {
+    accessCors(response);
+    if (request.method === 'OPTIONS') {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+    const authorization = String(request.headers.authorization || '');
+    const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    const ok = validGodModeToken(token);
+    jsonResponse(response, ok ? 200 : 401, { ok });
+    return;
+  }
+
+  if (url.pathname === '/invite/verify') {
+    accessCors(response);
+    if (request.method === 'OPTIONS') {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+    const authorization = String(request.headers.authorization || '');
+    const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    const type = inviteTypeFromToken(token);
+    jsonResponse(response, type ? 200 : 401, { ok: !!type, type });
+    return;
+  }
+
   if (request.method === 'OPTIONS') {
     cors(response);
     response.writeHead(204);
