@@ -245,7 +245,10 @@ export class SharedWorld {
     upload.searchParams.set('player', this.client.localId);
     upload.searchParams.set('token', this.client.uploadToken);
     upload.searchParams.set('filename', file.name || 'track');
-    upload.searchParams.set('label', label || String(file.name || 'Uploaded track').replace(/\.[^.]+$/, ''));
+    upload.searchParams.set(
+      'label',
+      label || String(file.name || 'Uploaded track').replace(/\.[^.]+$/, ''),
+    );
     upload.searchParams.set('bpm', String(clamp(bpm || 120, 60, 200)));
 
     const response = await fetch(upload, {
