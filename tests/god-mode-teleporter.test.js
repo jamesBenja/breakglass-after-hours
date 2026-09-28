@@ -39,6 +39,16 @@ function makeLevel(id = 'upstairs') {
           radius: 1.8,
           action: 'console',
         },
+        ...(id === 'downstairs'
+          ? {
+              dj: {
+                name: 'DJ booth',
+                position: [1.5, 0, -2.15],
+                radius: 2.05,
+                action: 'dj',
+              },
+            }
+          : {}),
         locked: {
           name: 'Storage · locked',
           position: [2, 0, 2],
