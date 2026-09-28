@@ -5,6 +5,20 @@ import { WebSocketServer, WebSocket } from 'ws';
 const PORT = Number(process.env.PORT || 8787);
 const MAX_PLAYERS_PER_ROOM = Number(process.env.MAX_PLAYERS_PER_ROOM || 24);
 const MAX_MESSAGE_BYTES = 280_000;
+const MAX_DJ_TRACK_BYTES = Number(process.env.MAX_DJ_TRACK_BYTES || 25_000_000);
+const MAX_DJ_ROOM_BYTES = Number(process.env.MAX_DJ_ROOM_BYTES || 80_000_000);
+const MAX_DJ_TRACKS_PER_ROOM = Number(process.env.MAX_DJ_TRACKS_PER_ROOM || 8);
+const DJ_AUDIO_EXTENSIONS = new Set([
+  'mp3',
+  'wav',
+  'wave',
+  'm4a',
+  'aac',
+  'ogg',
+  'oga',
+  'webm',
+  'mp4',
+]);
 const HEARTBEAT_MS = 20_000;
 const WORLD_TICK_MS = 250;
 const ROOM_ID_PATTERN = /^[a-z0-9][a-z0-9-_]{0,47}$/i;
@@ -140,6 +154,8 @@ function createRoom(id) {
     objects: new Map(),
     chat: [],
     dj: null,
+    djTracks: new Map(),
+    djTrackBytes: 0,
     lighting: null,
     party: defaultPartyState(),
     lastPartyBroadcastAt: 0,
@@ -170,11 +186,30 @@ function publicResource(resource) {
   };
 }
 
+function publicDjTrack(track) {
+  return {
+    id: track.id,
+    label: track.label,
+    bpm: track.bpm,
+    energy: track.energy,
+    key: track.key,
+    session: true,
+    mime: track.mime,
+    size: track.size,
+    filename: track.filename,
+    uploadedBy: track.uploadedBy,
+    uploadedByName: track.uploadedByName,
+    createdAt: track.createdAt,
+    url: track.url,
+  };
+}
+
 function publicWorld(room) {
   return {
     resources: [...room.resources.values()].map(publicResource),
     objects: Object.fromEntries([...room.objects.entries()].map(([id, entry]) => [id, entry.data])),
     dj: room.dj,
+    djTracks: [...room.djTracks.values()].map(publicDjTrack),
     lighting: room.lighting,
     party: room.party,
     chat: room.chat,
@@ -265,6 +300,7 @@ function join(socket, message) {
     avatar: sanitizeAvatar(message.avatar),
     state: sanitizeState(message.state),
     media: { audio: false, video: false },
+    uploadToken: crypto.randomBytes(24).toString('base64url'),
     lastStateAt: 0,
     lastChatAt: 0,
     lastMessageAt: Date.now(),
@@ -276,6 +312,7 @@ function join(socket, message) {
     type: 'welcome',
     id: player.id,
     room: roomId,
+    uploadToken: player.uploadToken,
     players: [...room.players.values()].filter((other) => other !== player).map(publicPlayer),
     world: publicWorld(room),
     serverTime: Date.now(),
@@ -418,6 +455,107 @@ function updateObject(socket, message) {
   broadcast(player.roomId, { type: 'object_state', objectId, data, by: player.id });
 }
 
+function djUploadExtension(filename = '') {
+  const value = sanitizeText(filename, 180);
+  const dot = value.lastIndexOf('.');
+  return dot >= 0 ? value.slice(dot + 1).toLowerCase() : '';
+}
+
+function djUploadMime(request, filename) {
+  const header = String(request.headers['content-type'] || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (header.startsWith('audio/')) return header;
+  const extension = djUploadExtension(filename);
+  const byExtension = {
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    wave: 'audio/wav',
+    m4a: 'audio/mp4',
+    mp4: 'audio/mp4',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
+    oga: 'audio/ogg',
+    webm: 'audio/webm',
+  };
+  return byExtension[extension] || '';
+}
+
+function activeDjTrackIds(room) {
+  return new Set(
+    Object.values(room?.dj?.decks ?? {})
+      .map((deck) => deck?.trackId)
+      .filter(Boolean),
+  );
+}
+
+function removeDjTrack(room, trackId) {
+  const track = room?.djTracks?.get(trackId);
+  if (!track) return false;
+  room.djTracks.delete(trackId);
+  room.djTrackBytes = Math.max(0, Number(room.djTrackBytes || 0) - Number(track.size || 0));
+  broadcast(room.id, { type: 'dj_track_removed', trackId });
+  return true;
+}
+
+function pruneDjTracks(room, incomingBytes = 0) {
+  const active = activeDjTrackIds(room);
+  while (
+    room.djTracks.size >= MAX_DJ_TRACKS_PER_ROOM ||
+    room.djTrackBytes + incomingBytes > MAX_DJ_ROOM_BYTES
+  ) {
+    const candidate = [...room.djTracks.values()]
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .find((track) => !active.has(track.id));
+    if (!candidate) return false;
+    removeDjTrack(room, candidate.id);
+  }
+  return true;
+}
+
+function readRequestBody(request, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    let tooLarge = false;
+    request.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limit) {
+        tooLarge = true;
+        chunks.length = 0;
+        return;
+      }
+      if (!tooLarge) chunks.push(chunk);
+    });
+    request.on('end', () => {
+      if (tooLarge) {
+        const error = new Error('upload too large');
+        error.code = 'TOO_LARGE';
+        reject(error);
+        return;
+      }
+      resolve(Buffer.concat(chunks));
+    });
+    request.on('error', reject);
+  });
+}
+
+function cors(response) {
+  response.setHeader('access-control-allow-origin', '*');
+  response.setHeader('access-control-allow-methods', 'GET,POST,OPTIONS');
+  response.setHeader('access-control-allow-headers', 'content-type');
+}
+
+function jsonResponse(response, status, payload) {
+  cors(response);
+  response.writeHead(status, {
+    'content-type': 'application/json',
+    'cache-control': 'no-store',
+  });
+  response.end(JSON.stringify(payload));
+}
+
 function sanitizeDjState(value = {}) {
   const output = {
     crossfader: clamp(value.crossfader, -1, 1),
@@ -429,7 +567,7 @@ function sanitizeDjState(value = {}) {
     },
     decks: {},
   };
-  for (const deckId of ['A', 'B']) {
+  for (const deckId of ['A', 'B', 'C', 'D']) {
     const deck = value.decks?.[deckId] ?? {};
     output.decks[deckId] = {
       trackId: sanitizeText(deck.trackId, 64),
@@ -716,14 +854,165 @@ function tickParty(room, dt, now) {
   }
 }
 
-const server = http.createServer((request, response) => {
+const server = http.createServer(async (request, response) => {
   const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
+  if (request.method === 'OPTIONS') {
+    cors(response);
+    response.writeHead(204);
+    response.end();
+    return;
+  }
   if (url.pathname === '/health') {
     const players = [...rooms.values()].reduce((total, room) => total + room.players.size, 0);
     response.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     response.end(JSON.stringify({ ok: true, rooms: rooms.size, players }));
     return;
   }
+
+  if (request.method === 'POST' && url.pathname === '/dj-upload') {
+    const roomId = ROOM_ID_PATTERN.test(url.searchParams.get('room') || '')
+      ? url.searchParams.get('room')
+      : null;
+    const playerId = sanitizeText(url.searchParams.get('player'), 64);
+    const token = sanitizeText(url.searchParams.get('token'), 96);
+    const filename = sanitizeText(url.searchParams.get('filename'), 180);
+    const label = sanitizeText(
+      url.searchParams.get('label') || filename.replace(/\.[^.]+$/, ''),
+      80,
+    );
+    const bpm = clamp(finite(url.searchParams.get('bpm'), 120), 60, 200);
+    const room = roomId ? roomFor(roomId) : null;
+    const player = room?.players.get(playerId);
+    if (!room || !player || !token || token !== player.uploadToken) {
+      jsonResponse(response, 401, { ok: false, error: 'Upload authorization expired.' });
+      return;
+    }
+    if (room.resources.get('dj-booth')?.ownerId !== player.id) {
+      jsonResponse(response, 403, { ok: false, error: 'Claim the DJ booth before uploading.' });
+      return;
+    }
+
+    const extension = djUploadExtension(filename);
+    const mime = djUploadMime(request, filename);
+    if ((!mime || !mime.startsWith('audio/')) && !DJ_AUDIO_EXTENSIONS.has(extension)) {
+      jsonResponse(response, 415, {
+        ok: false,
+        error: 'Choose an MP3, WAV, M4A, AAC, OGG or WebM audio file.',
+      });
+      return;
+    }
+    const declared = Number(request.headers['content-length'] || 0);
+    if (declared > MAX_DJ_TRACK_BYTES) {
+      jsonResponse(response, 413, {
+        ok: false,
+        error: 'Track is too large for the shared DJ crate.',
+      });
+      return;
+    }
+    if (!pruneDjTracks(room, Math.max(0, declared))) {
+      jsonResponse(response, 507, {
+        ok: false,
+        error: 'Shared DJ crate is full while its tracks are in use.',
+      });
+      return;
+    }
+
+    let buffer;
+    try {
+      buffer = await readRequestBody(request, MAX_DJ_TRACK_BYTES);
+    } catch (error) {
+      if (!response.headersSent)
+        jsonResponse(response, error?.code === 'TOO_LARGE' ? 413 : 400, {
+          ok: false,
+          error:
+            error?.code === 'TOO_LARGE'
+              ? 'Track is too large for the shared DJ crate.'
+              : 'Upload failed.',
+        });
+      return;
+    }
+    if (!buffer.length) {
+      jsonResponse(response, 400, { ok: false, error: 'The selected audio file was empty.' });
+      return;
+    }
+    if (!pruneDjTracks(room, buffer.length)) {
+      jsonResponse(response, 507, {
+        ok: false,
+        error: 'Shared DJ crate is full while its tracks are in use.',
+      });
+      return;
+    }
+
+    const id = `session-${crypto.randomUUID()}`;
+    const track = {
+      id,
+      label: label || filename || 'Uploaded track',
+      bpm: bpm || 120,
+      energy: 0.7,
+      key: '—',
+      session: true,
+      mime: mime || 'application/octet-stream',
+      size: buffer.length,
+      filename: filename || 'track',
+      uploadedBy: player.id,
+      uploadedByName: player.avatar.displayName,
+      createdAt: Date.now(),
+      url: `/dj-track/${encodeURIComponent(room.id)}/${encodeURIComponent(id)}`,
+      buffer,
+    };
+    room.djTracks.set(id, track);
+    room.djTrackBytes += buffer.length;
+    const publicTrack = publicDjTrack(track);
+    broadcast(room.id, { type: 'dj_track_added', track: publicTrack });
+    jsonResponse(response, 201, { ok: true, track: publicTrack });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname.startsWith('/dj-track/')) {
+    const parts = url.pathname.split('/').filter(Boolean);
+    const roomId = decodeURIComponent(parts[1] || '');
+    const trackId = decodeURIComponent(parts[2] || '');
+    const room = ROOM_ID_PATTERN.test(roomId) ? roomFor(roomId) : null;
+    const track = room?.djTracks.get(trackId);
+    if (!track?.buffer) {
+      jsonResponse(response, 404, { ok: false, error: 'Shared DJ track is no longer available.' });
+      return;
+    }
+    cors(response);
+    const range = String(request.headers.range || '').match(/^bytes=(\d*)-(\d*)$/);
+    if (range) {
+      const start = range[1] ? Number(range[1]) : 0;
+      const requestedEnd = range[2] ? Number(range[2]) : track.buffer.length - 1;
+      const end = Math.min(track.buffer.length - 1, Math.max(start, requestedEnd));
+      if (!Number.isFinite(start) || start < 0 || start >= track.buffer.length) {
+        response.writeHead(416, {
+          'content-range': `bytes */${track.buffer.length}`,
+          'access-control-allow-origin': '*',
+        });
+        response.end();
+        return;
+      }
+      const chunk = track.buffer.subarray(start, end + 1);
+      response.writeHead(206, {
+        'content-type': track.mime || 'application/octet-stream',
+        'content-length': String(chunk.length),
+        'content-range': `bytes ${start}-${end}/${track.buffer.length}`,
+        'cache-control': 'private, max-age=3600',
+        'accept-ranges': 'bytes',
+      });
+      response.end(chunk);
+      return;
+    }
+    response.writeHead(200, {
+      'content-type': track.mime || 'application/octet-stream',
+      'content-length': String(track.buffer.length),
+      'cache-control': 'private, max-age=3600',
+      'accept-ranges': 'bytes',
+    });
+    response.end(track.buffer);
+    return;
+  }
+
   response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
   response.end('Breakglass: After Hours multiplayer server\n');
 });

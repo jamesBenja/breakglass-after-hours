@@ -188,14 +188,24 @@ function addTrackSelect(document, host, mixer, tracks, deckId, onChange, refresh
   const select = document.createElement('select');
   select.className = 'dj-track-browser';
   select.setAttribute('aria-label', 'Deck ' + deckId + ' track');
+  const builtIn = document.createElement('optgroup');
+  builtIn.label = 'BREAKGLASS LIBRARY';
+  const shared = document.createElement('optgroup');
+  shared.label = 'LIVE SHARED CRATE';
+  let sharedCount = 0;
   for (const track of tracks) {
     const option = document.createElement('option');
     option.value = track.id;
     option.selected = track.id === state.trackId;
     option.textContent =
       track.label + (track.freeTime ? ' · FREE' : ' · ' + Math.round(track.bpm) + ' BPM');
-    select.appendChild(option);
+    if (track.session) {
+      shared.appendChild(option);
+      sharedCount += 1;
+    } else builtIn.appendChild(option);
   }
+  select.appendChild(builtIn);
+  if (sharedCount) select.appendChild(shared);
   select.onchange = () => {
     mixer.load(deckId, select.value);
     onChange();
@@ -1000,6 +1010,7 @@ export function installDjHardwareV2(game, ui) {
   };
 
   ui.djMixer = (activeMixer, tracks = DJ_TRACKS, { onChange = () => {} } = {}) => {
+    tracks = activeMixer.tracks?.() ?? tracks;
     const snapshot = activeMixer.snapshot();
     const quality = snapshot.metrics?.playing
       ? Math.round((snapshot.metrics.mixQuality ?? 0) * 100)
@@ -1033,6 +1044,87 @@ export function installDjHardwareV2(game, ui) {
       'PHASE ' + Math.round(Number(snapshot.decks?.B?.phaseErrorMs) || 0) + ' ms';
     status.append(name, qualityRef, vibeRef, phaseRef);
     shell.appendChild(status);
+
+    const upload = ui.document.createElement('div');
+    upload.className = 'dj-shared-upload';
+    const uploadLabel = ui.document.createElement('strong');
+    uploadLabel.textContent = 'LIVE SHARED CRATE';
+    const uploadHint = ui.document.createElement('span');
+    const multiplayer = game.multiplayer;
+    const world = multiplayer?.world;
+    const canUpload = multiplayer?.joined === true && world?.owns?.('dj-booth') === true;
+    uploadHint.textContent = canUpload
+      ? 'Upload a track here and everyone in Breakglass receives the same audio.'
+      : multiplayer?.joined
+        ? 'Claim the DJ booth to upload shared tracks.'
+        : 'Shared uploads become available when multiplayer is connected.';
+
+    const bpmLabel = ui.document.createElement('label');
+    bpmLabel.className = 'dj-upload-bpm';
+    const bpmCaption = ui.document.createElement('span');
+    bpmCaption.textContent = 'BPM';
+    const bpmInput = ui.document.createElement('input');
+    bpmInput.type = 'number';
+    bpmInput.min = '60';
+    bpmInput.max = '200';
+    bpmInput.step = '0.01';
+    bpmInput.value = String(activeMixer._sharedUploadBpm ?? 120);
+    bpmInput.disabled = !canUpload;
+    bpmInput.onchange = () => {
+      activeMixer._sharedUploadBpm = clamp(Number(bpmInput.value) || 120, 60, 200);
+      bpmInput.value = String(activeMixer._sharedUploadBpm);
+    };
+    bpmLabel.append(bpmCaption, bpmInput);
+
+    const fileInput = ui.document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'audio/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.webm,.mp4';
+    fileInput.className = 'dj-upload-file';
+    fileInput.hidden = true;
+    fileInput.disabled = !canUpload;
+
+    const uploadButton = makeButton(ui.document, 'UPLOAD TRACK', 'dj-upload-button', () => {
+      if (!canUpload) {
+        ui.warning?.(
+          multiplayer?.joined
+            ? 'Claim the DJ booth before uploading a shared track.'
+            : 'Connect to multiplayer before uploading a shared track.',
+        );
+        return;
+      }
+      fileInput.click();
+    });
+    uploadButton.disabled = !canUpload;
+
+    fileInput.onchange = async () => {
+      const file = fileInput.files?.[0];
+      if (!file || !world?.uploadDjTrack) return;
+      const bpm = clamp(Number(bpmInput.value) || 120, 60, 200);
+      activeMixer._sharedUploadBpm = bpm;
+      uploadButton.disabled = true;
+      uploadButton.textContent = 'UPLOADING…';
+      uploadHint.textContent = `Sharing ${file.name} with the live room…`;
+      try {
+        const track = await world.uploadDjTrack(file, { bpm });
+        ui.warning?.(`${track.label} added to the live shared DJ crate.`);
+        refresh();
+      } catch (error) {
+        uploadButton.disabled = false;
+        uploadButton.textContent = 'UPLOAD TRACK';
+        uploadHint.textContent = error?.message || 'Track upload failed.';
+        ui.warning?.(error?.message || 'Track upload failed.');
+      } finally {
+        fileInput.value = '';
+      }
+    };
+
+    const sharedCount = tracks.filter((track) => track.session).length;
+    const count = ui.document.createElement('small');
+    count.textContent = sharedCount
+      ? `${sharedCount} shared track${sharedCount === 1 ? '' : 's'} available`
+      : 'No uploaded tracks yet';
+    upload.append(uploadLabel, uploadHint, bpmLabel, uploadButton, fileInput, count);
+    shell.appendChild(upload);
 
     const tabs = ui.document.createElement('nav');
     tabs.className = 'dj-hardware-tabs';

@@ -129,6 +129,7 @@ export class MultiplayerClient {
     this.room = room;
     this.socket = null;
     this.localId = null;
+    this.uploadToken = null;
     this.remotePlayers = new Map();
     this.connected = false;
     this.joined = false;
@@ -203,6 +204,7 @@ export class MultiplayerClient {
       this.connected = false;
       this.joined = false;
       this.localId = null;
+      this.uploadToken = null;
       this.socket = null;
       this.clearRemotes();
       if (!this.disposed) {
@@ -243,6 +245,7 @@ export class MultiplayerClient {
       if (Number.isFinite(Number(message.serverTime)))
         this.clockOffsetMs = Number(message.serverTime) - Date.now();
       this.localId = message.id;
+      this.uploadToken = message.uploadToken ?? null;
       this.joined = true;
       for (const player of message.players ?? []) {
         this.addRemote(player);
@@ -298,6 +301,8 @@ export class MultiplayerClient {
         'resource',
         'object_state',
         'dj_state',
+        'dj_track_added',
+        'dj_track_removed',
         'lighting_state',
         'party_state',
       ].includes(message.type)
@@ -492,6 +497,7 @@ export class MultiplayerClient {
     this.clearRemotes();
     if (this.socket && this.socket.readyState <= WebSocket.OPEN) this.socket.close(1000, 'leaving');
     this.socket = null;
+    this.uploadToken = null;
     this.presence?.remove();
     this.presence = null;
   }

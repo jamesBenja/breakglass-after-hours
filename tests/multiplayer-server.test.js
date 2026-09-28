@@ -124,6 +124,7 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   a.send({ type: 'join', room: 'test-room', avatar: avatar('James'), state: state(1) });
   const welcomeA = await a.next('welcome');
   assert.equal(welcomeA.players.length, 0);
+  assert.ok(welcomeA.uploadToken);
   assert.deepEqual(welcomeA.world.resources, []);
   assert.equal(welcomeA.world.party.policeStrictness, 'normal');
 
@@ -192,6 +193,34 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   assert.equal(claimB.ok, false);
   assert.equal(claimB.resource.ownerId, welcomeA.id);
 
+  const uploadUrl = new URL(`http://127.0.0.1:${port}/dj-upload`);
+  uploadUrl.searchParams.set('room', 'test-room');
+  uploadUrl.searchParams.set('player', welcomeA.id);
+  uploadUrl.searchParams.set('token', welcomeA.uploadToken);
+  uploadUrl.searchParams.set('filename', 'shared-test.mp3');
+  uploadUrl.searchParams.set('label', 'Shared Test Track');
+  uploadUrl.searchParams.set('bpm', '128');
+  const uploadBytes = Buffer.from([0x49, 0x44, 0x33, 0x04, 0x00, 0x00]);
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'audio/mpeg' },
+    body: uploadBytes,
+  });
+  assert.equal(uploadResponse.status, 201);
+  const uploadPayload = await uploadResponse.json();
+  assert.equal(uploadPayload.ok, true);
+  assert.equal(uploadPayload.track.label, 'Shared Test Track');
+  assert.equal(uploadPayload.track.bpm, 128);
+  assert.equal(uploadPayload.track.session, true);
+
+  const sharedTrackMessage = await b.next('dj_track_added');
+  assert.equal(sharedTrackMessage.track.id, uploadPayload.track.id);
+  assert.equal(sharedTrackMessage.track.url.includes('/dj-track/test-room/'), true);
+  const sharedAudio = await fetch(`http://127.0.0.1:${port}${sharedTrackMessage.track.url}`).then(
+    (response) => response.arrayBuffer(),
+  );
+  assert.deepEqual(Buffer.from(sharedAudio), uploadBytes);
+
   a.send({
     type: 'dj_update',
     state: {
@@ -200,12 +229,24 @@ test('multiplayer server owns shared resources, world state, chat and media sign
       decks: {
         A: { trackId: 'got-you-dancin', playing: true, bpm: 124, level: 0.9, position: 12.4 },
         B: { trackId: 'atrakar', playing: false, bpm: 124, level: 0.85, position: 0 },
+        C: {
+          trackId: uploadPayload.track.id,
+          playing: true,
+          bpm: 128,
+          level: 0.78,
+          position: 4.5,
+          deviceMode: 'vinyl',
+        },
+        D: { trackId: 'dubki', playing: true, bpm: 126, level: 0.7, position: 6.25 },
       },
     },
   });
   const djState = await b.next('dj_state');
   assert.equal(djState.state.ownerId, welcomeA.id);
   assert.equal(djState.state.decks.A.trackId, 'got-you-dancin');
+  assert.equal(djState.state.decks.C.trackId, uploadPayload.track.id);
+  assert.equal(djState.state.decks.C.deviceMode, 'vinyl');
+  assert.equal(djState.state.decks.D.trackId, 'dubki');
   assert.equal(djState.state.metrics.mixQuality, 0.91);
 
   b.send({
