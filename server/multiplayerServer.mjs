@@ -508,18 +508,25 @@ function readRequestBody(request, limit) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let tooLarge = false;
     request.on('data', (chunk) => {
       size += chunk.length;
       if (size > limit) {
+        tooLarge = true;
+        chunks.length = 0;
+        return;
+      }
+      if (!tooLarge) chunks.push(chunk);
+    });
+    request.on('end', () => {
+      if (tooLarge) {
         const error = new Error('upload too large');
         error.code = 'TOO_LARGE';
         reject(error);
-        request.destroy();
         return;
       }
-      chunks.push(chunk);
+      resolve(Buffer.concat(chunks));
     });
-    request.on('end', () => resolve(Buffer.concat(chunks)));
     request.on('error', reject);
   });
 }
@@ -944,11 +951,35 @@ const server = http.createServer(async (request, response) => {
       return;
     }
     cors(response);
+    const range = String(request.headers.range || '').match(/^bytes=(\d*)-(\d*)$/);
+    if (range) {
+      const start = range[1] ? Number(range[1]) : 0;
+      const requestedEnd = range[2] ? Number(range[2]) : track.buffer.length - 1;
+      const end = Math.min(track.buffer.length - 1, Math.max(start, requestedEnd));
+      if (!Number.isFinite(start) || start < 0 || start >= track.buffer.length) {
+        response.writeHead(416, {
+          'content-range': `bytes */${track.buffer.length}`,
+          'access-control-allow-origin': '*',
+        });
+        response.end();
+        return;
+      }
+      const chunk = track.buffer.subarray(start, end + 1);
+      response.writeHead(206, {
+        'content-type': track.mime || 'application/octet-stream',
+        'content-length': String(chunk.length),
+        'content-range': `bytes ${start}-${end}/${track.buffer.length}`,
+        'cache-control': 'private, max-age=3600',
+        'accept-ranges': 'bytes',
+      });
+      response.end(chunk);
+      return;
+    }
     response.writeHead(200, {
       'content-type': track.mime || 'application/octet-stream',
       'content-length': String(track.buffer.length),
       'cache-control': 'private, max-age=3600',
-      'accept-ranges': 'none',
+      'accept-ranges': 'bytes',
     });
     response.end(track.buffer);
     return;
