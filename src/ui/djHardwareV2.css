@@ -1406,11 +1406,7 @@
   }
 
   .djm-a9.focused .a9-channel {
-    background: linear-gradient(
-      180deg,
-      rgba(25, 28, 32, 0.5),
-      rgba(16, 18, 21, 0.76)
-    );
+    background: linear-gradient(180deg, rgba(25, 28, 32, 0.5), rgba(16, 18, 21, 0.76));
   }
 
   .djm-a9.focused .a9-input-select {
