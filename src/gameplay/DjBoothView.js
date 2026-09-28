@@ -1,10 +1,7 @@
 export const DJ_BOOTH_POV_POSITION = Object.freeze([1.5, 0, -2.96]);
 export const DJ_DANCE_FLOOR_FOCUS = Object.freeze([0, 0, 0.75]);
 
-export function djBoothPovYaw(
-  position = DJ_BOOTH_POV_POSITION,
-  focus = DJ_DANCE_FLOOR_FOCUS,
-) {
+export function djBoothPovYaw(position = DJ_BOOTH_POV_POSITION, focus = DJ_DANCE_FLOOR_FOCUS) {
   return Math.atan2(position[0] - focus[0], position[2] - focus[2]);
 }
 
