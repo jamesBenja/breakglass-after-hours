@@ -234,12 +234,40 @@ export function installDjPerformanceRealism(game, ui) {
       const resumeAt = Number.isFinite(deck._transportFrozenAt)
         ? deck._transportFrozenAt
         : (mixer.deckPosition?.(deckId) ?? 0);
+      deck.transportOffset = Math.max(0, resumeAt);
+      deck.transportStartedAt = deck.playing ? (mixer.context?.currentTime ?? 0) : 0;
+      if (deck.media && Number.isFinite(deck.media.duration) && deck.media.duration > 0) {
+        deck.media.currentTime = deck.transportOffset % deck.media.duration;
+      }
       deck._transportFrozenAt = null;
       if (deck.playing && deck.motorOn) mixer.restartDeckAt?.(deckId, resumeAt);
     }
     deck.platterHeld = next;
     applyPlaybackRate(mixer, deck);
     return deck.platterHeld;
+  };
+
+  mixer.scrubVinyl = (deckId, secondsDelta = 0) => {
+    const deck = mixer.decks[deckId];
+    if (!deck) return false;
+    ensureState(deck);
+    deck.deviceMode = 'vinyl';
+    const current = Number.isFinite(deck._transportFrozenAt)
+      ? deck._transportFrozenAt
+      : (mixer.deckPosition?.(deckId) ?? 0);
+    let target = Math.max(0, current + (Number(secondsDelta) || 0));
+    const duration = Number(deck.source?.buffer?.duration || deck.media?.duration || 0);
+    if (duration > 0) target = Math.min(target, Math.max(0, duration - 0.001));
+    deck._transportFrozenAt = target;
+    deck.transportOffset = target;
+    if (deck.media) {
+      try {
+        deck.media.currentTime = duration > 0 ? target % duration : target;
+      } catch {
+        // Media metadata may not be ready while the platter is being moved.
+      }
+    }
+    return target;
   };
 
   mixer.setHotCue = (deckId, index) => {
