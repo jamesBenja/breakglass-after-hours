@@ -388,7 +388,10 @@ export function installDjPerformanceRealism(game, ui) {
       : (mixer.deckPosition?.(deckId) ?? 0);
     let target = Math.max(0, current + delta);
     const duration = Number(
-      deck._vinylScrubBuffer?.duration || deck.source?.buffer?.duration || deck.media?.duration || 0,
+      deck._vinylScrubBuffer?.duration ||
+        deck.source?.buffer?.duration ||
+        deck.media?.duration ||
+        0,
     );
     if (duration > 0) target = Math.min(target, Math.max(0, duration - 0.001));
     deck._transportFrozenAt = target;
