@@ -460,8 +460,8 @@ export function installDjAccuracyEnhancements(game, ui) {
       beatFx.modulators.push(oscillator);
       beatFx.branch.push(gain);
     } else {
-      rack.input.connect(rack.wet);
-      beatFx.branch.push(rack.wet);
+      const pass = context.createGain();
+      connectBranch(pass);
     }
     return true;
   };
