@@ -134,8 +134,7 @@ function createWaveform(document, state, track) {
   host.className = 'cdj-waveform';
   let seed = 0;
   const source = String(track?.id || state.trackId || 'deck');
-  for (let i = 0; i < source.length; i += 1)
-    seed = (seed * 31 + source.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < source.length; i += 1) seed = (seed * 31 + source.charCodeAt(i)) >>> 0;
   for (let i = 0; i < 72; i += 1) {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     const bar = document.createElement('i');
@@ -175,9 +174,7 @@ function createCdj(document, mixer, tracks, deckId, side, onChange, refresh, liv
   const tempo = document.createElement('span');
   tempo.textContent = state.freeTime
     ? 'NO GRID'
-    : (pitchPercent(state, track) >= 0 ? '+' : '') +
-      pitchPercent(state, track).toFixed(2) +
-      '%';
+    : (pitchPercent(state, track) >= 0 ? '+' : '') + pitchPercent(state, track).toFixed(2) + '%';
   top.append(bpm, tempo);
   const browser = document.createElement('div');
   browser.className = 'cdj-browser';
@@ -198,22 +195,17 @@ function createCdj(document, mixer, tracks, deckId, side, onChange, refresh, liv
   HOT_CUE_LABELS.forEach((label, index) => {
     const cueSet = Number.isFinite(state.cuePoints?.[index]);
     let longPressed = false;
-    const button = makeButton(
-      document,
-      label,
-      'cdj-hotcue' + (cueSet ? ' set' : ''),
-      () => {
-        if (longPressed) {
-          longPressed = false;
-          return;
-        }
-        if (Number.isFinite(mixer.decks[deckId]?.cuePoints?.[index]))
-          mixer.triggerHotCue?.(deckId, index);
-        else mixer.setHotCue?.(deckId, index);
-        onChange();
-        refresh();
-      },
-    );
+    const button = makeButton(document, label, 'cdj-hotcue' + (cueSet ? ' set' : ''), () => {
+      if (longPressed) {
+        longPressed = false;
+        return;
+      }
+      if (Number.isFinite(mixer.decks[deckId]?.cuePoints?.[index]))
+        mixer.triggerHotCue?.(deckId, index);
+      else mixer.setHotCue?.(deckId, index);
+      onChange();
+      refresh();
+    });
     let holdTimer = null;
     button.onpointerdown = () => {
       longPressed = false;
@@ -264,10 +256,7 @@ function createCdj(document, mixer, tracks, deckId, side, onChange, refresh, liv
     mixer.jog?.(deckId, direction * 0.125);
     onChange();
   });
-  jog.setAttribute(
-    'aria-label',
-    'CDJ ' + deckId + ' jog wheel. Tap left or right edge to nudge.',
-  );
+  jog.setAttribute('aria-label', 'CDJ ' + deckId + ' jog wheel. Tap left or right edge to nudge.');
   const jogScreen = document.createElement('span');
   jogScreen.className = 'cdj-jog-screen';
   jogScreen.textContent = state.playing ? '▶' : 'Ⅱ';
@@ -309,16 +298,11 @@ function createCdj(document, mixer, tracks, deckId, side, onChange, refresh, liv
   });
   sync.disabled = state.freeTime === true;
   setPressed(sync, Boolean(state.syncedTo));
-  const source = makeButton(
-    document,
-    active ? 'ON AIR' : 'SELECT',
-    'cdj-source-select',
-    () => {
-      mixer.setDeviceMode?.(deckId, 'cdj');
-      onChange();
-      refresh();
-    },
-  );
+  const source = makeButton(document, active ? 'ON AIR' : 'SELECT', 'cdj-source-select', () => {
+    mixer.setDeviceMode?.(deckId, 'cdj');
+    onChange();
+    refresh();
+  });
   setPressed(source, active);
   transport.append(cue, play, sync, source);
   unit.appendChild(transport);
@@ -356,16 +340,7 @@ function createCdj(document, mixer, tracks, deckId, side, onChange, refresh, liv
   return unit;
 }
 
-function createTurntable(
-  document,
-  mixer,
-  tracks,
-  deckId,
-  side,
-  onChange,
-  refresh,
-  liveRefs,
-) {
+function createTurntable(document, mixer, tracks, deckId, side, onChange, refresh, liveRefs) {
   const snapshot = mixer.snapshot();
   const state = snapshot.decks[deckId];
   const track = trackById(tracks, state.trackId);
@@ -457,29 +432,19 @@ function createTurntable(
 
   const controls = document.createElement('div');
   controls.className = 'sl-controls';
-  const needle = makeButton(
-    document,
-    state.playing ? 'LIFT' : 'NEEDLE',
-    'sl-needle',
-    async () => {
-      mixer.setDeviceMode?.(deckId, 'vinyl');
-      if (mixer.decks[deckId].playing) mixer.stopDeck(deckId);
-      else await mixer.playDeck(deckId);
-      onChange();
-      refresh();
-    },
-  );
-  const motor = makeButton(
-    document,
-    state.motorOn === false ? 'START' : 'STOP',
-    'sl-motor',
-    () => {
-      mixer.setDeviceMode?.(deckId, 'vinyl');
-      mixer.toggleMotor?.(deckId);
-      onChange();
-      refresh();
-    },
-  );
+  const needle = makeButton(document, state.playing ? 'LIFT' : 'NEEDLE', 'sl-needle', async () => {
+    mixer.setDeviceMode?.(deckId, 'vinyl');
+    if (mixer.decks[deckId].playing) mixer.stopDeck(deckId);
+    else await mixer.playDeck(deckId);
+    onChange();
+    refresh();
+  });
+  const motor = makeButton(document, state.motorOn === false ? 'START' : 'STOP', 'sl-motor', () => {
+    mixer.setDeviceMode?.(deckId, 'vinyl');
+    mixer.toggleMotor?.(deckId);
+    onChange();
+    refresh();
+  });
   const rpm33 = makeButton(document, '33', 'sl-rpm', () => {
     mixer.setVinylRpm?.(deckId, 33.333);
     onChange();
@@ -492,16 +457,11 @@ function createTurntable(
   });
   setPressed(rpm33, Math.abs(Number(state.vinylRpm || 33.333) - 33.333) < 1);
   setPressed(rpm45, Math.abs(Number(state.vinylRpm || 33.333) - 45) < 1);
-  const source = makeButton(
-    document,
-    active ? 'ON AIR' : 'SELECT',
-    'sl-source-select',
-    () => {
-      mixer.setDeviceMode?.(deckId, 'vinyl');
-      onChange();
-      refresh();
-    },
-  );
+  const source = makeButton(document, active ? 'ON AIR' : 'SELECT', 'sl-source-select', () => {
+    mixer.setDeviceMode?.(deckId, 'vinyl');
+    onChange();
+    refresh();
+  });
   setPressed(source, active);
   controls.append(needle, motor, rpm33, rpm45, source);
   unit.appendChild(controls);
@@ -545,8 +505,7 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
   fxLabel.textContent = 'BEAT FX';
   const fxState = document.createElement('span');
   fxState.textContent = 'BYPASS';
-  fxState.title =
-    'The current stable DJ audio engine does not yet route the A9 Beat FX section.';
+  fxState.title = 'The current stable DJ audio engine does not yet route the A9 Beat FX section.';
   fx.append(fxLabel, fxState);
   master.append(meters, fx);
   unit.appendChild(master);
@@ -556,8 +515,7 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
   for (let number = 1; number <= 4; number += 1) {
     const definition = channelDefinition(number);
     const state = snapshot.decks[definition.deckId];
-    const active =
-      (state.deviceMode === 'vinyl' ? 'vinyl' : 'cdj') === definition.mode;
+    const active = (state.deviceMode === 'vinyl' ? 'vinyl' : 'cdj') === definition.mode;
     const strip = document.createElement('div');
     strip.className = 'a9-channel ' + (active ? 'active' : 'inactive');
     const top = document.createElement('div');
@@ -669,16 +627,14 @@ function applyFocus(shell, focus) {
 }
 
 function startLiveUi(ui, mixer, refs, metricsRefs) {
-  if (ui._djHardwareTimer != null)
-    globalThis.clearInterval?.(ui._djHardwareTimer);
+  if (ui._djHardwareTimer != null) globalThis.clearInterval?.(ui._djHardwareTimer);
   const tick = () => {
     if (
       !ui.panelElement ||
       ui.panelElement.hidden ||
       !ui.panelElement.classList.contains('dj-hardware-panel')
     ) {
-      if (ui._djHardwareTimer != null)
-        globalThis.clearInterval?.(ui._djHardwareTimer);
+      if (ui._djHardwareTimer != null) globalThis.clearInterval?.(ui._djHardwareTimer);
       ui._djHardwareTimer = null;
       return;
     }
@@ -686,30 +642,23 @@ function startLiveUi(ui, mixer, refs, metricsRefs) {
     const quality = snapshot.metrics?.playing
       ? Math.round((snapshot.metrics.mixQuality ?? 0) * 100)
       : 0;
-    const vibe = snapshot.metrics?.playing
-      ? Math.round((snapshot.metrics.vibe ?? 0) * 100)
-      : 0;
+    const vibe = snapshot.metrics?.playing ? Math.round((snapshot.metrics.vibe ?? 0) * 100) : 0;
     metricsRefs.quality.textContent = 'MIX ' + quality + '%';
     metricsRefs.vibe.textContent = 'FLOOR ' + vibe + '%';
     metricsRefs.phase.textContent =
-      'PHASE ' +
-      Math.round(Number(snapshot.decks?.B?.phaseErrorMs) || 0) +
-      ' ms';
+      'PHASE ' + Math.round(Number(snapshot.decks?.B?.phaseErrorMs) || 0) + ' ms';
 
     for (const ref of refs) {
       const state = snapshot.decks?.[ref.deckId];
       if (ref.type === 'cdj' && state) {
         const position = mixer.deckPosition?.(ref.deckId) ?? 0;
         ref.elapsed.textContent = formatTime(position);
-        ref.bpm.textContent = state.freeTime
-          ? 'FREE'
-          : Number(state.bpm).toFixed(1) + ' BPM';
+        ref.bpm.textContent = state.freeTime ? 'FREE' : Number(state.bpm).toFixed(1) + ' BPM';
         const percent = pitchPercent(state, ref.track);
         ref.tempo.textContent = state.freeTime
           ? 'NO GRID'
           : (percent >= 0 ? '+' : '') + percent.toFixed(2) + '%';
-        ref.phase.textContent =
-          'PHASE ' + Math.round(Number(state.phaseErrorMs) || 0) + ' ms';
+        ref.phase.textContent = 'PHASE ' + Math.round(Number(state.phaseErrorMs) || 0) + ' ms';
         const duration = Number(
           mixer.decks[ref.deckId]?.source?.buffer?.duration ||
             mixer.decks[ref.deckId]?.media?.duration ||
@@ -724,24 +673,15 @@ function startLiveUi(ui, mixer, refs, metricsRefs) {
       } else if (ref.type === 'vinyl' && state) {
         const position = mixer.deckPosition?.(ref.deckId) ?? 0;
         const rpm = Number(state.vinylRpm || 33.333);
-        ref.record.style.setProperty(
-          '--record-angle',
-          ((position * rpm * 6) % 360) + 'deg',
-        );
+        ref.record.style.setProperty('--record-angle', ((position * rpm * 6) % 360) + 'deg');
       } else if (ref.type === 'a9') {
         const a = snapshot.decks?.A;
         const b = snapshot.decks?.B;
         const x = (clamp(snapshot.crossfader, -1, 1) + 1) / 2;
-        const gainA =
-          Math.cos(x * Math.PI * 0.5) *
-          (a?.playing ? Number(a.level) || 0 : 0);
-        const gainB =
-          Math.sin(x * Math.PI * 0.5) *
-          (b?.playing ? Number(b.level) || 0 : 0);
-        ref.leftMeter.style.height =
-          Math.round(clamp(gainA, 0, 1) * 100) + '%';
-        ref.rightMeter.style.height =
-          Math.round(clamp(gainB, 0, 1) * 100) + '%';
+        const gainA = Math.cos(x * Math.PI * 0.5) * (a?.playing ? Number(a.level) || 0 : 0);
+        const gainB = Math.sin(x * Math.PI * 0.5) * (b?.playing ? Number(b.level) || 0 : 0);
+        ref.leftMeter.style.height = Math.round(clamp(gainA, 0, 1) * 100) + '%';
+        ref.rightMeter.style.height = Math.round(clamp(gainB, 0, 1) * 100) + '%';
       }
     }
   };
@@ -756,8 +696,7 @@ export function installDjHardwareV2(game, ui) {
 
   const baseClearPanel = ui.clearPanel.bind(ui);
   ui.clearPanel = (...args) => {
-    if (ui._djHardwareTimer != null)
-      globalThis.clearInterval?.(ui._djHardwareTimer);
+    if (ui._djHardwareTimer != null) globalThis.clearInterval?.(ui._djHardwareTimer);
     ui._djHardwareTimer = null;
     ui.panelElement?.classList.remove('dj-hardware-panel');
     ui.document.body?.classList.remove('dj-hardware-active');
@@ -766,26 +705,19 @@ export function installDjHardwareV2(game, ui) {
 
   const baseClosePanel = ui.closePanel.bind(ui);
   ui.closePanel = (...args) => {
-    if (ui._djHardwareTimer != null)
-      globalThis.clearInterval?.(ui._djHardwareTimer);
+    if (ui._djHardwareTimer != null) globalThis.clearInterval?.(ui._djHardwareTimer);
     ui._djHardwareTimer = null;
     ui.panelElement?.classList.remove('dj-hardware-panel');
     ui.document.body?.classList.remove('dj-hardware-active');
     return baseClosePanel(...args);
   };
 
-  ui.djMixer = (
-    activeMixer,
-    tracks = DJ_TRACKS,
-    { onChange = () => {} } = {},
-  ) => {
+  ui.djMixer = (activeMixer, tracks = DJ_TRACKS, { onChange = () => {} } = {}) => {
     const snapshot = activeMixer.snapshot();
     const quality = snapshot.metrics?.playing
       ? Math.round((snapshot.metrics.mixQuality ?? 0) * 100)
       : 0;
-    const vibe = snapshot.metrics?.playing
-      ? Math.round((snapshot.metrics.vibe ?? 0) * 100)
-      : 0;
+    const vibe = snapshot.metrics?.playing ? Math.round((snapshot.metrics.vibe ?? 0) * 100) : 0;
     ui.clearPanel(
       'DJ BOOTH · HARDWARE V2',
       'CDJ-3000 · SL-1200 · DJM-A9. The hardware surface controls the existing Breakglass DJ engine; CDJ and vinyl are alternate sources for each deck side.',
@@ -811,9 +743,7 @@ export function installDjHardwareV2(game, ui) {
     vibeRef.textContent = 'FLOOR ' + vibe + '%';
     const phaseRef = ui.document.createElement('span');
     phaseRef.textContent =
-      'PHASE ' +
-      Math.round(Number(snapshot.decks?.B?.phaseErrorMs) || 0) +
-      ' ms';
+      'PHASE ' + Math.round(Number(snapshot.decks?.B?.phaseErrorMs) || 0) + ' ms';
     status.append(name, qualityRef, vibeRef, phaseRef);
     shell.appendChild(status);
 
@@ -827,15 +757,10 @@ export function installDjHardwareV2(game, ui) {
       ['right-vinyl', 'R · 1200'],
     ];
     for (const [focus, label] of tabDefs) {
-      const tab = makeButton(
-        ui.document,
-        label,
-        'dj-hardware-device-tab',
-        () => {
-          activeMixer._hardwareV2Focus = focus;
-          applyFocus(shell, focus);
-        },
-      );
+      const tab = makeButton(ui.document, label, 'dj-hardware-device-tab', () => {
+        activeMixer._hardwareV2Focus = focus;
+        applyFocus(shell, focus);
+      });
       tab.dataset.focus = focus;
       tabs.appendChild(tab);
     }
@@ -844,47 +769,11 @@ export function installDjHardwareV2(game, ui) {
     const rack = ui.document.createElement('div');
     rack.className = 'dj-hardware-rack';
     rack.append(
-      createTurntable(
-        ui.document,
-        activeMixer,
-        tracks,
-        'A',
-        'left',
-        changed,
-        refresh,
-        liveRefs,
-      ),
-      createCdj(
-        ui.document,
-        activeMixer,
-        tracks,
-        'A',
-        'left',
-        changed,
-        refresh,
-        liveRefs,
-      ),
+      createTurntable(ui.document, activeMixer, tracks, 'A', 'left', changed, refresh, liveRefs),
+      createCdj(ui.document, activeMixer, tracks, 'A', 'left', changed, refresh, liveRefs),
       createA9(ui.document, activeMixer, changed, refresh, liveRefs),
-      createCdj(
-        ui.document,
-        activeMixer,
-        tracks,
-        'B',
-        'right',
-        changed,
-        refresh,
-        liveRefs,
-      ),
-      createTurntable(
-        ui.document,
-        activeMixer,
-        tracks,
-        'B',
-        'right',
-        changed,
-        refresh,
-        liveRefs,
-      ),
+      createCdj(ui.document, activeMixer, tracks, 'B', 'right', changed, refresh, liveRefs),
+      createTurntable(ui.document, activeMixer, tracks, 'B', 'right', changed, refresh, liveRefs),
     );
     shell.appendChild(rack);
 

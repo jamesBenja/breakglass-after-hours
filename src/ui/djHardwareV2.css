@@ -74,7 +74,11 @@
   border-radius: 6px;
   color: #adb4bd;
   background: #13161a;
-  font: 800 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    800 8px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   letter-spacing: 0.06em;
 }
 
@@ -86,7 +90,10 @@
 
 .dj-hardware-rack {
   display: grid;
-  grid-template-columns: minmax(190px, 0.82fr) minmax(245px, 1.1fr) minmax(300px, 1.32fr) minmax(245px, 1.1fr) minmax(190px, 0.82fr);
+  grid-template-columns: minmax(190px, 0.82fr) minmax(245px, 1.1fr) minmax(300px, 1.32fr) minmax(
+      245px,
+      1.1fr
+    ) minmax(190px, 0.82fr);
   align-items: stretch;
   gap: 8px;
   min-width: 1180px;
@@ -160,7 +167,11 @@
   border-radius: 4px;
   color: #dfe7ea;
   background: #0b1115;
-  font: 700 8px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    700 8px/1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
 }
 
 /* CDJ-3000 */
@@ -178,9 +189,7 @@
   padding: 7px;
   border: 1px solid #253d4b;
   border-radius: 5px;
-  background:
-    radial-gradient(circle at 35% 5%, rgba(61, 165, 224, 0.13), transparent 28%),
-    #071017;
+  background: radial-gradient(circle at 35% 5%, rgba(61, 165, 224, 0.13), transparent 28%), #071017;
   box-shadow: inset 0 0 18px rgba(24, 118, 177, 0.12);
 }
 
@@ -313,7 +322,13 @@
   border: 7px solid #555c65;
   border-radius: 50%;
   background:
-    conic-gradient(from var(--jog-angle), #3e444d 0 3deg, #171a1e 3deg 10deg, #4b515a 10deg 13deg, #171a1e 13deg 20deg),
+    conic-gradient(
+      from var(--jog-angle),
+      #3e444d 0 3deg,
+      #171a1e 3deg 10deg,
+      #4b515a 10deg 13deg,
+      #171a1e 13deg 20deg
+    ),
     radial-gradient(circle, #25292f 0 48%, #111317 49% 64%, #333840 65% 68%, #15181c 69%);
   box-shadow:
     inset 0 0 0 2px #08090b,
@@ -458,8 +473,7 @@
   border: 7px solid #c3c7c9;
   border-radius: 50%;
   background:
-    repeating-radial-gradient(circle, #b4b7b8 0 1px, #676b6d 1px 3px, #9da0a1 3px 4px),
-    #7d8082;
+    repeating-radial-gradient(circle, #b4b7b8 0 1px, #676b6d 1px 3px, #9da0a1 3px 4px), #7d8082;
   box-shadow:
     inset 0 0 0 2px #282a2b,
     0 4px 9px rgba(0, 0, 0, 0.54);
@@ -479,9 +493,7 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background:
-    repeating-radial-gradient(circle, #141414 0 2px, #202020 2px 4px),
-    #121212;
+  background: repeating-radial-gradient(circle, #141414 0 2px, #202020 2px 4px), #121212;
   transform: rotate(var(--record-angle));
 }
 
@@ -566,9 +578,7 @@
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   padding-bottom: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 28%),
-    #111316;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 28%), #111316;
 }
 
 .a9-brand {
@@ -604,13 +614,15 @@
   bottom: 4px;
   width: 8px;
   border: 1px solid #272b2f;
-  background:
-    repeating-linear-gradient(180deg, transparent 0 4px, #20252a 4px 5px),
-    #111417;
+  background: repeating-linear-gradient(180deg, transparent 0 4px, #20252a 4px 5px), #111417;
 }
 
-.a9-master-meters::before { left: 4px; }
-.a9-master-meters::after { right: 4px; }
+.a9-master-meters::before {
+  left: 4px;
+}
+.a9-master-meters::after {
+  right: 4px;
+}
 
 .a9-master-meters i {
   position: relative;
