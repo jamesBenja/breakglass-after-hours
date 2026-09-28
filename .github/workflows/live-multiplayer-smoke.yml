@@ -49,3 +49,22 @@ jobs:
           }
           console.log('Shared DJ upload endpoint is live and enforcing room authorization.');
           NODE
+
+      - name: Verify live access-verification routes
+        run: |
+          node --input-type=module <<'NODE'
+          const base = 'https://multiplayer-phase2-webrtc-production.up.railway.app';
+          for (const [path, expected] of [
+            ['/god-mode/verify', { ok: false }],
+            ['/invite/verify', { ok: false, type: null }],
+          ]) {
+            const response = await fetch(base + path, {
+              headers: { Authorization: 'Bearer definitely-not-valid' },
+            });
+            const body = await response.json();
+            if (response.status !== 401 || body?.ok !== expected.ok || body?.type !== expected.type) {
+              throw new Error(`Unexpected ${path} response: ${response.status} ${JSON.stringify(body)}`);
+            }
+          }
+          console.log('God Mode and invitation verification routes are live.');
+          NODE
