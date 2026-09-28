@@ -3,6 +3,7 @@ import './ui/mobilePerformance.css';
 import './ui/mobileMixing.css';
 import './ui/musicEnhancements.css';
 import './ui/performanceRealism.css';
+import './ui/djHardwareV2.css';
 import './ui/avatarFace.css';
 import './ui/multiplayer.css';
 import './ui/arcade.css';
@@ -56,6 +57,7 @@ import {
 } from './gameplay/InvitationAccess.js';
 import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
+import { installDjHardwareV2 } from './ui/djHardwareV2.js';
 import { resolveEntrySpatialPass } from './runtime/LiveEntryPolicy.js';
 import { ensureCanonicalLiveBuild } from './runtime/LiveVersionGuard.js';
 import { installSessionRecovery } from './runtime/SessionRecovery.js';
@@ -100,6 +102,7 @@ if (!liveBuild.reloading) {
     installRoofEndgameSystem(game, ui);
     installFreightElevatorSystem(game, ui);
     installPerformanceRealismSystems(game, ui);
+    installDjHardwareV2(game, ui);
     installDjLessonSystem(game, ui);
     installCrowdDoorEnhancements(game, ui);
     installEntryEnhancements(game, ui);
