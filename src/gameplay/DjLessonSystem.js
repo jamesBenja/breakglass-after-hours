@@ -14,9 +14,10 @@ export const DJ_LESSON_STAGES = [
   'floor',
 ];
 
-function crossGain(crossfader, deckId) {
+function crossGain(crossfader, deck) {
   const x = (clamp(crossfader, -1, 1) + 1) / 2;
-  return deckId === 'A' ? Math.cos(x * Math.PI * 0.5) : Math.sin(x * Math.PI * 0.5);
+  const side = deck?.crossSide ?? (['A', 'C'].includes(deck?.id) ? 'A' : 'B');
+  return side === 'A' ? Math.cos(x * Math.PI * 0.5) : Math.sin(x * Math.PI * 0.5);
 }
 
 function beatPhase(mixer, deck) {
@@ -42,43 +43,48 @@ function phrasePosition(mixer, deck) {
  * the normal crowd system, so the same mistakes taught in the lesson remain meaningful afterward.
  */
 export function analyzeDjMix(mixer, baseMetrics = {}) {
-  const a = mixer.decks?.A;
-  const b = mixer.decks?.B;
-  const activeA = !!a?.playing;
-  const activeB = !!b?.playing;
-  const activeCount = Number(activeA) + Number(activeB);
-  const gainA = activeA ? crossGain(mixer.crossfader ?? -1, 'A') * clamp(a.level) : 0;
-  const gainB = activeB ? crossGain(mixer.crossfader ?? -1, 'B') * clamp(b.level) : 0;
-  const audibleTotal = gainA + gainB;
-  const overlap = activeCount === 2 ? clamp(Math.min(gainA, gainB) * 2.15) : 0;
+  const decks = Object.values(mixer.decks ?? {});
+  const active = decks.filter((deck) => deck?.playing);
+  const audible = active
+    .map((deck) => ({
+      deck,
+      gain: crossGain(mixer.crossfader ?? -1, deck) * clamp(deck.level),
+    }))
+    .sort((left, right) => right.gain - left.gain);
+  const activeCount = active.length;
+  const audibleTotal = audible.reduce((sum, item) => sum + item.gain, 0);
+  const first = audible[0] ?? null;
+  const second = audible[1] ?? null;
+  const overlap =
+    first && second ? clamp(Math.min(first.gain, second.gain) * 2.15) : 0;
 
   let beatAlignment = 1;
   let phraseAlignment = 1;
   let tempoMatch = 1;
   let bpmDistance = 0;
-  if (activeA && activeB) {
-    const phaseA = beatPhase(mixer, a);
-    const phaseB = beatPhase(mixer, b);
+  if (first && second) {
+    const phaseA = beatPhase(mixer, first.deck);
+    const phaseB = beatPhase(mixer, second.deck);
     const beatDistance = Math.min(Math.abs(phaseA - phaseB), 1 - Math.abs(phaseA - phaseB));
     beatAlignment = clamp(1 - beatDistance * 2.7);
 
-    const phraseA = phrasePosition(mixer, a);
-    const phraseB = phrasePosition(mixer, b);
+    const phraseA = phrasePosition(mixer, first.deck);
+    const phraseB = phrasePosition(mixer, second.deck);
     const phraseDistance = Math.min(Math.abs(phraseA - phraseB), 16 - Math.abs(phraseA - phraseB));
     phraseAlignment = clamp(1 - phraseDistance / 8);
 
-    bpmDistance = Math.abs((a.bpm ?? 0) - (b.bpm ?? 0));
+    bpmDistance = Math.abs((first.deck.bpm ?? 0) - (second.deck.bpm ?? 0));
     tempoMatch = clamp(1 - bpmDistance / 4);
   }
 
-  const lowA = a ? clamp((Number(a.low) + 1) / 1, 0, 1) : 0;
-  const lowB = b ? clamp((Number(b.low) + 1) / 1, 0, 1) : 0;
-  const bassClash = activeCount === 2 ? overlap * Math.min(lowA, lowB) : 0;
-  const overload = activeCount === 2 ? clamp((audibleTotal - 1.05) / 0.48) : 0;
+  const lowA = first ? clamp(Number(first.deck.low) + 1, 0, 1) : 0;
+  const lowB = second ? clamp(Number(second.deck.low) + 1, 0, 1) : 0;
+  const bassClash = first && second ? overlap * Math.min(lowA, lowB) : 0;
+  const overload = activeCount >= 2 ? clamp((audibleTotal - 1.05) / 0.48) : 0;
   const deadAir = activeCount > 0 && audibleTotal < 0.075;
 
-  const timingFailure = activeCount === 2 ? (1 - beatAlignment) * overlap : 0;
-  const tempoFailure = activeCount === 2 ? (1 - tempoMatch) * overlap : 0;
+  const timingFailure = first && second ? (1 - beatAlignment) * overlap : 0;
+  const tempoFailure = first && second ? (1 - tempoMatch) * overlap : 0;
   const failureLoad =
     timingFailure * 0.56 + tempoFailure * 0.34 + bassClash * 0.36 + overload * 0.24;
   const trainwreck = deadAir ? 1 : clamp((failureLoad - 0.24) / 0.72);
