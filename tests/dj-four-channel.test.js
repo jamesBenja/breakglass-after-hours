@@ -166,7 +166,10 @@ test('session-uploaded tracks use the same DJ deck audio path as built-in tracks
   });
   t.after(() => mixer.unregisterSessionTrack(track.id));
 
-  assert.equal(mixer.tracks().some((candidate) => candidate.id === track.id), true);
+  assert.equal(
+    mixer.tracks().some((candidate) => candidate.id === track.id),
+    true,
+  );
   mixer.load('C', track.id);
   assert.equal(mixer.decks.C.bpm, 128);
   assert.equal(await mixer.playDeck('C'), true);

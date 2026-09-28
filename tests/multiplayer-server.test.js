@@ -216,9 +216,9 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   const sharedTrackMessage = await b.next('dj_track_added');
   assert.equal(sharedTrackMessage.track.id, uploadPayload.track.id);
   assert.equal(sharedTrackMessage.track.url.includes('/dj-track/test-room/'), true);
-  const sharedAudio = await fetch(
-    `http://127.0.0.1:${port}${sharedTrackMessage.track.url}`,
-  ).then((response) => response.arrayBuffer());
+  const sharedAudio = await fetch(`http://127.0.0.1:${port}${sharedTrackMessage.track.url}`).then(
+    (response) => response.arrayBuffer(),
+  );
   assert.deepEqual(Buffer.from(sharedAudio), uploadBytes);
 
   a.send({
