@@ -210,6 +210,18 @@ export function collectGodModeTeleportDestinations(game) {
         position: [...anchor.position],
         radius: Number(anchor.radius) || 1.25,
         featured: sceneId === 'upstairs' && key === 'console',
+        shortcutLabel:
+          sceneId === 'upstairs' && key === 'console'
+            ? 'Spectra Console'
+            : sceneId === 'downstairs' && key === 'dj'
+              ? 'DJ Booth'
+              : null,
+        shortcutRank:
+          sceneId === 'upstairs' && key === 'console'
+            ? 0
+            : sceneId === 'downstairs' && key === 'dj'
+              ? 1
+              : null,
       });
     }
 
@@ -332,20 +344,25 @@ function populateTeleportSelect(select, game, documentRef) {
   placeholder.selected = true;
   select.appendChild(placeholder);
 
-  const featured = destinations.find((destination) => destination.featured);
-  if (featured) {
+  const shortcuts = destinations
+    .filter((destination) => destination.shortcutLabel)
+    .sort((a, b) => (a.shortcutRank ?? 99) - (b.shortcutRank ?? 99));
+  if (shortcuts.length) {
     const quick = documentRef.createElement('optgroup');
     quick.label = 'FAST ACCESS';
-    const option = documentRef.createElement('option');
-    option.value = featured.id;
-    option.textContent = 'Spectra Console';
-    quick.appendChild(option);
+    for (const destination of shortcuts) {
+      const option = documentRef.createElement('option');
+      option.value = destination.id;
+      option.textContent = destination.shortcutLabel;
+      quick.appendChild(option);
+    }
     select.appendChild(quick);
   }
 
+  const shortcutIds = new Set(shortcuts.map((destination) => destination.id));
   const byScene = new Map();
   for (const destination of destinations) {
-    if (destination.id === featured?.id) continue;
+    if (shortcutIds.has(destination.id)) continue;
     if (!byScene.has(destination.sceneLabel)) byScene.set(destination.sceneLabel, []);
     byScene.get(destination.sceneLabel).push(destination);
   }
