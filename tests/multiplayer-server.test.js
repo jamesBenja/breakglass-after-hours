@@ -378,3 +378,46 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   const left = await a.next('player_left');
   assert.equal(left.id, welcomeB.id);
 });
+
+
+test('multiplayer HTTP server verifies God Mode and invitation links alongside DJ uploads', async (t) => {
+  const port = await freePort();
+  const child = spawn(process.execPath, ['server/multiplayerServer.mjs'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PORT: String(port),
+      GOD_MODE_TOKEN: 'god-regression-token',
+      INVITE_DJ_TOKEN: 'dj-regression-token',
+      INVITE_RESIDENTPRODUCER_TOKEN: 'resident-regression-token',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  t.after(() => child.kill('SIGTERM'));
+  await waitForServer(child);
+
+  const base = `http://127.0.0.1:${port}`;
+  const god = await fetch(`${base}/god-mode/verify`, {
+    headers: { Authorization: 'Bearer god-regression-token' },
+  });
+  assert.equal(god.status, 200);
+  assert.deepEqual(await god.json(), { ok: true });
+
+  const badGod = await fetch(`${base}/god-mode/verify`, {
+    headers: { Authorization: 'Bearer wrong-token' },
+  });
+  assert.equal(badGod.status, 401);
+  assert.deepEqual(await badGod.json(), { ok: false });
+
+  const dj = await fetch(`${base}/invite/verify`, {
+    headers: { Authorization: 'Bearer dj-regression-token' },
+  });
+  assert.equal(dj.status, 200);
+  assert.deepEqual(await dj.json(), { ok: true, type: 'dj' });
+
+  const resident = await fetch(`${base}/invite/verify`, {
+    headers: { Authorization: 'Bearer resident-regression-token' },
+  });
+  assert.equal(resident.status, 200);
+  assert.deepEqual(await resident.json(), { ok: true, type: 'residentproducer' });
+});
