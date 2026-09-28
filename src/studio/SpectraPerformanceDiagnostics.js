@@ -63,6 +63,7 @@ export class SpectraPerformanceDiagnostics {
   start() {
     this.stop('restart');
     this.active = true;
+    if (this.game?.studioPlayback) this.game.studioPlayback.performanceDiagnostics = this;
     this.startedAt = this.now();
     this.startedWallTime = this.wallNow();
     this.lastTickAt = this.startedAt;
@@ -84,6 +85,9 @@ export class SpectraPerformanceDiagnostics {
     if (!this.active) return false;
     this.captureSample('stop');
     this.active = false;
+    if (this.game?.studioPlayback?.performanceDiagnostics === this) {
+      this.game.studioPlayback.performanceDiagnostics = null;
+    }
     this.stopReason = reason;
     if (this.intervalHandle != null) this.timers.clearInterval?.(this.intervalHandle);
     if (this.stopHandle != null) this.timers.clearTimeout?.(this.stopHandle);
