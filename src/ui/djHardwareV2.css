@@ -1173,7 +1173,6 @@
     display: none;
   }
 
-
   body.dj-hardware-active #mobileControls,
   body.dj-hardware-active #floorTag {
     display: none !important;
