@@ -254,6 +254,7 @@ function createDeckState(id, trackId, crossSide, deviceMode) {
     deviceMode,
     playing: false,
     level: 0.82,
+    pan: 0,
     low: 0,
     high: 0,
     bpm: trackById(trackId).bpm,
@@ -342,6 +343,7 @@ export class DjMixer {
     const low = this.context.createBiquadFilter();
     const high = this.context.createBiquadFilter();
     const level = this.context.createGain();
+    const pan = this.context.createStereoPanner?.() ?? this.context.createGain();
     const cross = this.context.createGain();
     low.type = 'lowshelf';
     low.frequency.value = 220;
@@ -350,9 +352,10 @@ export class DjMixer {
     input.connect(low);
     low.connect(high);
     high.connect(level);
-    level.connect(cross);
+    level.connect(pan);
+    pan.connect(cross);
     cross.connect(this.audio.sourceDestination?.('dj') ?? this.audio.master);
-    deck.nodes = { input, low, high, level, cross };
+    deck.nodes = { input, low, high, level, pan, cross };
     this.updateDeckNodes(deck);
     this.updateCrossfader();
     return deck.nodes;
@@ -378,6 +381,7 @@ export class DjMixer {
     if (deck.nodes && this.context) {
       const now = this.context.currentTime;
       deck.nodes.level.gain.setTargetAtTime(clamp(deck.level), now, 0.02);
+      deck.nodes.pan?.pan?.setTargetAtTime(clamp(deck.pan, -1, 1), now, 0.02);
       deck.nodes.low.gain.setTargetAtTime(clamp(deck.low, -1, 1) * 15, now, 0.03);
       deck.nodes.high.gain.setTargetAtTime(clamp(deck.high, -1, 1) * 15, now, 0.03);
     }
@@ -418,6 +422,43 @@ export class DjMixer {
     if (!deck) return;
     deck.level = clamp(Number(value) || 0);
     this.updateDeckNodes(deck);
+  }
+
+  setPan(deckId, value) {
+    const deck = this.decks[deckId];
+    if (!deck) return false;
+    deck.pan = clamp(Number(value) || 0, -1, 1);
+    this.updateDeckNodes(deck);
+    return deck.pan;
+  }
+
+  masterLevels() {
+    let left = 0;
+    let right = 0;
+    for (const [deckId, deck] of Object.entries(this.decks)) {
+      if (!deck.playing) continue;
+      const postFader = clamp(deck.level) * this.nativeCrossGain(deckId);
+      const pan = clamp(deck.pan, -1, 1);
+      const leftBalance = pan <= 0 ? 1 : 1 - pan;
+      const rightBalance = pan >= 0 ? 1 : 1 + pan;
+      left += postFader * leftBalance;
+      right += postFader * rightBalance;
+    }
+    return { left: clamp(left), right: clamp(right) };
+  }
+
+  masterBpm() {
+    let best = null;
+    let bestWeight = -1;
+    for (const [deckId, deck] of Object.entries(this.decks)) {
+      if (!deck.playing) continue;
+      const weight = clamp(deck.level) * this.nativeCrossGain(deckId);
+      if (weight > bestWeight) {
+        best = deck;
+        bestWeight = weight;
+      }
+    }
+    return best ? Number(best.bpm) || null : null;
   }
 
   setEq(deckId, band, value) {
@@ -874,6 +915,7 @@ export class DjMixer {
             deviceMode: deck.deviceMode,
             playing: deck.playing,
             level: deck.level,
+            pan: deck.pan,
             low: deck.low,
             high: deck.high,
             bpm: deck.bpm,
