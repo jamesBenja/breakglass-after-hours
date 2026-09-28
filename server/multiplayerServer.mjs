@@ -8,7 +8,17 @@ const MAX_MESSAGE_BYTES = 280_000;
 const MAX_DJ_TRACK_BYTES = Number(process.env.MAX_DJ_TRACK_BYTES || 25_000_000);
 const MAX_DJ_ROOM_BYTES = Number(process.env.MAX_DJ_ROOM_BYTES || 80_000_000);
 const MAX_DJ_TRACKS_PER_ROOM = Number(process.env.MAX_DJ_TRACKS_PER_ROOM || 8);
-const DJ_AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'wave', 'm4a', 'aac', 'ogg', 'oga', 'webm', 'mp4']);
+const DJ_AUDIO_EXTENSIONS = new Set([
+  'mp3',
+  'wav',
+  'wave',
+  'm4a',
+  'aac',
+  'ogg',
+  'oga',
+  'webm',
+  'mp4',
+]);
 const HEARTBEAT_MS = 20_000;
 const WORLD_TICK_MS = 250;
 const ROOM_ID_PATTERN = /^[a-z0-9][a-z0-9-_]{0,47}$/i;
@@ -866,7 +876,10 @@ const server = http.createServer(async (request, response) => {
     const playerId = sanitizeText(url.searchParams.get('player'), 64);
     const token = sanitizeText(url.searchParams.get('token'), 96);
     const filename = sanitizeText(url.searchParams.get('filename'), 180);
-    const label = sanitizeText(url.searchParams.get('label') || filename.replace(/\.[^.]+$/, ''), 80);
+    const label = sanitizeText(
+      url.searchParams.get('label') || filename.replace(/\.[^.]+$/, ''),
+      80,
+    );
     const bpm = clamp(finite(url.searchParams.get('bpm'), 120), 60, 200);
     const room = roomId ? roomFor(roomId) : null;
     const player = room?.players.get(playerId);
@@ -882,16 +895,25 @@ const server = http.createServer(async (request, response) => {
     const extension = djUploadExtension(filename);
     const mime = djUploadMime(request, filename);
     if ((!mime || !mime.startsWith('audio/')) && !DJ_AUDIO_EXTENSIONS.has(extension)) {
-      jsonResponse(response, 415, { ok: false, error: 'Choose an MP3, WAV, M4A, AAC, OGG or WebM audio file.' });
+      jsonResponse(response, 415, {
+        ok: false,
+        error: 'Choose an MP3, WAV, M4A, AAC, OGG or WebM audio file.',
+      });
       return;
     }
     const declared = Number(request.headers['content-length'] || 0);
     if (declared > MAX_DJ_TRACK_BYTES) {
-      jsonResponse(response, 413, { ok: false, error: 'Track is too large for the shared DJ crate.' });
+      jsonResponse(response, 413, {
+        ok: false,
+        error: 'Track is too large for the shared DJ crate.',
+      });
       return;
     }
     if (!pruneDjTracks(room, Math.max(0, declared))) {
-      jsonResponse(response, 507, { ok: false, error: 'Shared DJ crate is full while its tracks are in use.' });
+      jsonResponse(response, 507, {
+        ok: false,
+        error: 'Shared DJ crate is full while its tracks are in use.',
+      });
       return;
     }
 
@@ -902,7 +924,10 @@ const server = http.createServer(async (request, response) => {
       if (!response.headersSent)
         jsonResponse(response, error?.code === 'TOO_LARGE' ? 413 : 400, {
           ok: false,
-          error: error?.code === 'TOO_LARGE' ? 'Track is too large for the shared DJ crate.' : 'Upload failed.',
+          error:
+            error?.code === 'TOO_LARGE'
+              ? 'Track is too large for the shared DJ crate.'
+              : 'Upload failed.',
         });
       return;
     }
@@ -911,7 +936,10 @@ const server = http.createServer(async (request, response) => {
       return;
     }
     if (!pruneDjTracks(room, buffer.length)) {
-      jsonResponse(response, 507, { ok: false, error: 'Shared DJ crate is full while its tracks are in use.' });
+      jsonResponse(response, 507, {
+        ok: false,
+        error: 'Shared DJ crate is full while its tracks are in use.',
+      });
       return;
     }
 
