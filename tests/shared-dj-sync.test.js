@@ -34,9 +34,7 @@ function djHarness() {
         crossfader: 0,
         metrics: {},
         beatFx: { ...beatFx },
-        decks: Object.fromEntries(
-          Object.entries(decks).map(([id, deck]) => [id, { ...deck }]),
-        ),
+        decks: Object.fromEntries(Object.entries(decks).map(([id, deck]) => [id, { ...deck }])),
       };
     },
     deckPosition(id) {
