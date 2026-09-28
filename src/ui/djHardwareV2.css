@@ -49,13 +49,13 @@
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
 }
 
-.dj-hardware-status strong {
+.dj-hardware-status > strong {
   color: #f0f2f4;
   font-size: 10px;
   letter-spacing: 0.13em;
 }
 
-.dj-hardware-status span {
+.dj-hardware-status > span {
   min-width: 82px;
   padding: 5px 7px;
   border: 1px solid #30343a;
@@ -1328,11 +1328,11 @@
     padding-right: 35px;
   }
 
-  .dj-hardware-status strong {
+  .dj-hardware-status > strong {
     font-size: 8px;
   }
 
-  .dj-hardware-status span {
+  .dj-hardware-status > span {
     min-width: 0;
     padding: 4px 5px;
     font-size: 6px;
