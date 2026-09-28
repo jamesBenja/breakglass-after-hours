@@ -90,14 +90,14 @@ test('A9 color filter state is bipolar and exposed in snapshots', () => {
 
 test('SL-1200 platter scrub persists the cue position while stopped', () => {
   const { mixer } = harness();
-  const deck = mixer.decks.A;
-  mixer.setDeviceMode('A', 'vinyl');
+  const deck = mixer.decks.C;
+  assert.equal(deck.deviceMode, 'vinyl');
   deck.playing = false;
   deck.transportOffset = 12;
-  mixer.setPlatterHeld('A', true);
-  assert.equal(mixer.scrubVinyl('A', 1.5), 13.5);
-  assert.equal(mixer.deckPosition('A'), 13.5);
-  mixer.setPlatterHeld('A', false);
+  mixer.setPlatterHeld('C', true);
+  assert.equal(mixer.scrubVinyl('C', 1.5), 13.5);
+  assert.equal(mixer.deckPosition('C'), 13.5);
+  mixer.setPlatterHeld('C', false);
   assert.equal(deck.transportOffset, 13.5);
-  assert.equal(mixer.deckPosition('A'), 13.5);
+  assert.equal(mixer.deckPosition('C'), 13.5);
 });
