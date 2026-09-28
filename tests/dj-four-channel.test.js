@@ -27,6 +27,13 @@ function harness() {
     state: 'running',
     createGain: node,
     createBiquadFilter: node,
+    createStereoPanner() {
+      return {
+        pan: audioParam(0),
+        connect() {},
+        disconnect() {},
+      };
+    },
     async decodeAudioData() {
       return { duration: 180 };
     },
@@ -117,6 +124,36 @@ test('changing one channel does not mutate any other player', () => {
   assert.equal(mixer.decks.A.trackId, 'got-you-dancin');
   assert.equal(mixer.decks.A.level, 0.82);
   assert.equal(mixer.decks.A.low, 0);
+});
+
+test('channel pan feeds both master sides at center and biases the stereo master correctly', () => {
+  const { mixer } = harness();
+  mixer.setCrossfader(-1);
+  mixer.decks.C.playing = true;
+
+  let master = mixer.masterLevels();
+  assert.ok(master.left > 0);
+  assert.equal(master.left, master.right);
+
+  mixer.setPan('C', -1);
+  master = mixer.masterLevels();
+  assert.ok(master.left > 0);
+  assert.equal(master.right, 0);
+
+  mixer.setPan('C', 1);
+  master = mixer.masterLevels();
+  assert.equal(master.left, 0);
+  assert.ok(master.right > 0);
+});
+
+test('pan is independent for all four mixer channels', () => {
+  const { mixer } = harness();
+  mixer.setPan('C', -0.4);
+  mixer.setPan('A', 0.25);
+  assert.equal(mixer.decks.C.pan, -0.4);
+  assert.equal(mixer.decks.A.pan, 0.25);
+  assert.equal(mixer.decks.B.pan, 0);
+  assert.equal(mixer.decks.D.pan, 0);
 });
 
 test('crossfader groups both left players separately from both right players', () => {
