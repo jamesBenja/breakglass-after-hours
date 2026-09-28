@@ -1350,7 +1350,6 @@ export function installStudioLoopEnhancements(game, ui) {
   game.spectraRecorder ??= new SpectraRecorder(game, ui);
   // TEMP PERFORMANCE DIAGNOSTICS: one explicit capture-only observer, easy to remove after tuning.
   game.spectraPerformanceDiagnostics ??= new SpectraPerformanceDiagnostics(game);
-  game.studioPlayback.performanceDiagnostics = game.spectraPerformanceDiagnostics;
   ui._spectraRecorderDiagnostics = {
     report: () => {
       const instrument = game.multiplayer?.instrumentSync?.diagnosticReport?.() ?? '';
