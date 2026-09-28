@@ -88,6 +88,7 @@ test('CDJ play/pause resumes from the paused song position', async () => {
 test('CDJ cue is gated playback that returns to the cue point on release', async () => {
   const { mixer, context } = harness();
   mixer.decks.A.cuePoint = 4;
+  mixer.decks.A.transportOffset = 4;
 
   assert.equal(await mixer.cueDown('A'), true);
   assert.equal(mixer.decks.A.playing, true);
@@ -97,6 +98,20 @@ test('CDJ cue is gated playback that returns to the cue point on release', async
   assert.equal(mixer.cueUp('A'), 4);
   assert.equal(mixer.decks.A.playing, false);
   assert.equal(mixer.deckPosition('A'), 4);
+});
+
+test('pressing cue while paused establishes the main cue at the paused position', async () => {
+  const { mixer, context } = harness();
+
+  assert.equal(await mixer.playDeck('A', 12), true);
+  context.currentTime = 13;
+  await mixer.togglePlayPause('A');
+  assert.equal(mixer.deckPosition('A'), 15);
+
+  assert.equal(await mixer.cueDown('A'), true);
+  assert.equal(mixer.decks.A.cuePoint, 15);
+  mixer.cueUp('A');
+  assert.equal(mixer.deckPosition('A'), 15);
 });
 
 test('pressing cue during playback jumps to cue and release leaves the CDJ cued there', async () => {
