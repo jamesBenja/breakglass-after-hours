@@ -259,6 +259,7 @@ export function installDjSyncEnhancements(game, ui) {
   mixer.phase = (deck) => beatPhase(mixer, deck?.id);
 
   mixer.sync = (deckId) => {
+    if (!['A', 'B'].includes(deckId)) return false;
     const slave = mixer.decks[deckId];
     const masterId = deckId === 'A' ? 'B' : 'A';
     const master = mixer.decks[masterId];
@@ -295,8 +296,8 @@ export function installDjSyncEnhancements(game, ui) {
     return aligned || true;
   };
 
-  mixer.playDeck = async (deckId) => {
-    const result = await basePlayDeck(deckId);
+  mixer.playDeck = async (deckId, offset = 0) => {
+    const result = await basePlayDeck(deckId, offset);
     const deck = mixer.decks[deckId];
     if (result && deck) ensureBeatGrid(mixer, deck);
     const masterId = deck?._syncMaster;
