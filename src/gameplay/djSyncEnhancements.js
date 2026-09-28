@@ -142,6 +142,21 @@ function beatPhase(mixer, deckId) {
   return modulo((deckPosition(mixer, deckId) - deckBeatOffset(deck, track)) / beat, 1);
 }
 
+function deckAudibility(mixer, deckId) {
+  const deck = mixer.decks[deckId];
+  if (!deck?.playing) return -1;
+  const cross = typeof mixer.nativeCrossGain === 'function' ? mixer.nativeCrossGain(deckId) : 1;
+  return clamp(Number(deck.level) || 0, 0, 1) * Math.max(0, Number(cross) || 0);
+}
+
+function resolveSyncMaster(mixer, slaveId) {
+  const playingTurntables = ['C', 'D']
+    .filter((deckId) => mixer.decks[deckId]?.playing)
+    .sort((left, right) => deckAudibility(mixer, right) - deckAudibility(mixer, left));
+  if (playingTurntables.length) return playingTurntables[0];
+  return slaveId === 'A' ? 'B' : 'A';
+}
+
 function setWideBpm(mixer, deckId, bpm) {
   const deck = mixer.decks[deckId];
   if (!deck) return null;
@@ -261,7 +276,7 @@ export function installDjSyncEnhancements(game, ui) {
   mixer.sync = (deckId) => {
     if (!['A', 'B'].includes(deckId)) return false;
     const slave = mixer.decks[deckId];
-    const masterId = deckId === 'A' ? 'B' : 'A';
+    const masterId = resolveSyncMaster(mixer, deckId);
     const master = mixer.decks[masterId];
     if (!slave || !master) return false;
 
@@ -273,9 +288,17 @@ export function installDjSyncEnhancements(game, ui) {
     }
     const min = slaveTrack.bpm * (1 - TEMPO_RANGE);
     const max = slaveTrack.bpm * (1 + TEMPO_RANGE);
+    const turntableMaster = ['C', 'D'].includes(masterId);
     let sharedTempo = clamp(master.bpm, min, max);
 
-    if (Math.abs(sharedTempo - master.bpm) > 0.001) {
+    if (turntableMaster && Math.abs(sharedTempo - master.bpm) > 0.001) {
+      ui?.warning?.(
+        `Deck ${deckId} cannot reach turntable ${masterId} at ${master.bpm.toFixed(2)} BPM within its ±16% tempo range.`,
+      );
+      return false;
+    }
+
+    if (!turntableMaster && Math.abs(sharedTempo - master.bpm) > 0.001) {
       sharedTempo = clamp(
         sharedTempo,
         masterTrack.bpm * (1 - TEMPO_RANGE),
@@ -290,7 +313,7 @@ export function installDjSyncEnhancements(game, ui) {
     mixer.updateVibe?.();
     ui?.warning?.(
       master.playing
-        ? `Deck ${deckId} synced to ${masterId} at ${sharedTempo.toFixed(2)} BPM · beat grid locked.`
+        ? `Deck ${deckId} synced to ${turntableMaster ? 'turntable ' : ''}${masterId} at ${sharedTempo.toFixed(2)} BPM · beat grid locked.`
         : `Deck ${deckId} matched to ${masterId} at ${sharedTempo.toFixed(2)} BPM. Start the master to phase-sync.`,
     );
     return aligned || true;
