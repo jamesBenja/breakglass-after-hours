@@ -58,6 +58,7 @@ import {
 import { installMultiplayerEnhancements } from './multiplayer/installMultiplayerEnhancements.js';
 import { Hud } from './ui/Hud.js';
 import { installDjHardwareV2 } from './ui/djHardwareV2.js';
+import { consumeDirectEntry } from './runtime/DirectEntry.js';
 import { resolveEntrySpatialPass } from './runtime/LiveEntryPolicy.js';
 import { ensureCanonicalLiveBuild } from './runtime/LiveVersionGuard.js';
 import { installSessionRecovery } from './runtime/SessionRecovery.js';
@@ -79,6 +80,7 @@ const liveBuild = await ensureCanonicalLiveBuild({
 });
 let game;
 if (!liveBuild.reloading) {
+  const directEntry = consumeDirectEntry();
   try {
     game = new Game(ui, {
       spatialPass: resolveEntrySpatialPass({
@@ -86,6 +88,7 @@ if (!liveBuild.reloading) {
         production: import.meta.env.PROD,
       }),
       saveKey: godMode.enabled ? GOD_MODE_SAVE_KEY : invitationSaveKey(invitation),
+      directEntry,
     });
     applyInvitationAccess(game, invitation);
     if (godMode.enabled) applyGodMode(game, ui);

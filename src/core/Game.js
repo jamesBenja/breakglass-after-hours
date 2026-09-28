@@ -27,6 +27,7 @@ import { PhotoSystem } from '../photos/PhotoSystem.js';
 import { InteractionSystem } from '../interactions/InteractionSystem.js';
 import { createActions } from '../interactions/createActions.js';
 import { DEVIN_ARCADE_GUIDE } from '../world/belowClubConfig.js';
+import { resolveDirectEntryLanding } from '../runtime/DirectEntry.js';
 
 export function spectraConsoleTargetInReach(sceneManager, player) {
   const definition = sceneManager?.current?.definition;
@@ -50,6 +51,7 @@ export class Game {
   constructor(ui, options = {}) {
     this.ui = ui;
     this.spatialPass = options.spatialPass;
+    this.directEntry = options.directEntry ?? null;
     this.started = false;
     this.disposed = false;
     this.scenes = new Map();
@@ -465,10 +467,15 @@ export class Game {
       this.scenes.set(level.definition.id, level);
     }
     this.photos.attachPhotoWall(this.scenes.get('downstairs'));
-    const definition = this.scenes.get(this.state.data.sceneId).definition;
-    const sameLayout =
-      !definition.layoutRevision || definition.layoutRevision === this.state.data.layoutRevision;
-    this.sceneManager.start(this.state.data.sceneId, sameLayout ? this.state.data.position : null);
+    const directLanding = resolveDirectEntryLanding(this, this.directEntry);
+    if (directLanding) {
+      this.sceneManager.start(directLanding.sceneId, directLanding.position);
+    } else {
+      const definition = this.scenes.get(this.state.data.sceneId).definition;
+      const sameLayout =
+        !definition.layoutRevision || definition.layoutRevision === this.state.data.layoutRevision;
+      this.sceneManager.start(this.state.data.sceneId, sameLayout ? this.state.data.position : null);
+    }
     this.ui.ready(async (avatarProfile) => {
       this.state.data.avatar = normalizeAvatar(avatarProfile ?? this.state.data.avatar);
       this.state.data.avatarConfigured = true;
