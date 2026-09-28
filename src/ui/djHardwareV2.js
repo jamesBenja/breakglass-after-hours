@@ -1098,12 +1098,7 @@ export function installDjHardwareV2(game, ui) {
       'PHASE ' + Math.round(Number(snapshot.decks?.B?.phaseErrorMs) || 0) + ' ms';
     const sharedTracks = tracks.filter((track) => track.session);
     const sharedCount = sharedTracks.length;
-    const crateToggle = makeButton(
-      ui.document,
-      'CRATE ' + sharedCount,
-      'dj-crate-toggle',
-      () => {},
-    );
+    const crateToggle = makeButton(ui.document, 'CRATE ' + sharedCount, 'dj-crate-toggle', () => {});
     crateToggle.setAttribute('aria-haspopup', 'dialog');
     crateToggle.setAttribute('aria-expanded', String(activeMixer._hardwareV2CrateOpen === true));
     status.append(name, qualityRef, vibeRef, phaseRef, crateToggle);
@@ -1206,7 +1201,9 @@ export function installDjHardwareV2(game, ui) {
         const label = ui.document.createElement('span');
         label.textContent = track.label;
         const bpm = ui.document.createElement('b');
-        bpm.textContent = Number.isFinite(Number(track.bpm)) ? Number(track.bpm).toFixed(1) + ' BPM' : 'BPM —';
+        bpm.textContent = Number.isFinite(Number(track.bpm))
+          ? Number(track.bpm).toFixed(1) + ' BPM'
+          : 'BPM —';
         row.append(label, bpm);
         sharedList.appendChild(row);
       }
@@ -1216,7 +1213,15 @@ export function installDjHardwareV2(game, ui) {
       sharedList.appendChild(empty);
     }
 
-    upload.append(uploadLabel, uploadHint, bpmLabel, uploadButton, fileInput, count, sharedList);
+    upload.append(
+      uploadLabel,
+      uploadHint,
+      bpmLabel,
+      uploadButton,
+      fileInput,
+      count,
+      sharedList,
+    );
     status.appendChild(upload);
 
     const tabs = ui.document.createElement('nav');
