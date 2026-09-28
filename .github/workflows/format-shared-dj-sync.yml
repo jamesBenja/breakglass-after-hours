@@ -1,0 +1,33 @@
+name: Format Shared DJ Sync
+
+on:
+  push:
+    branches:
+      - feat/shared-dj-full-mixer-sync
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/shared-dj-full-mixer-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      - run: npm install --global pnpm@11.19.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --write tests/shared-dj-sync.test.js
+      - name: Commit formatter output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/shared-dj-sync.test.js
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Format shared DJ sync regression"
+          git push origin HEAD:feat/shared-dj-full-mixer-sync
