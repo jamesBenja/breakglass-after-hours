@@ -61,7 +61,7 @@ function addRange(document, host, options) {
 }
 
 function addKnob(document, host, options) {
-  const control = document.createElement('label');
+  const control = document.createElement('div');
   control.className = 'a9-knob-control';
   const caption = document.createElement('span');
   caption.textContent = options.label;
@@ -77,6 +77,7 @@ function addKnob(document, host, options) {
   input.step = String(options.step ?? 0.01);
   input.value = String(options.value ?? 0);
   input.setAttribute('aria-label', options.ariaLabel || options.label);
+
   const update = () => {
     const min = Number(input.min);
     const max = Number(input.max);
@@ -86,15 +87,84 @@ function addKnob(document, host, options) {
     face.style.setProperty('--knob-angle', degrees + 'deg');
     readout.textContent = options.format ? options.format(value) : value.toFixed(2);
   };
+
+  const commit = (value) => {
+    const min = Number(input.min);
+    const max = Number(input.max);
+    const step = Math.max(0.000001, Number(input.step) || 0.01);
+    const safe = clamp(value, min, max);
+    const snapped = Math.round((safe - min) / step) * step + min;
+    input.value = String(clamp(snapped, min, max));
+    update();
+    options.onInput?.(Number(input.value), input);
+  };
+
   input.oninput = () => {
     update();
     options.onInput?.(Number(input.value), input);
   };
+
+  let dragPointer = null;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragStartValue = 0;
+  control.onpointerdown = (event) => {
+    if (input.disabled || event.button > 0) return;
+    event.preventDefault();
+    dragPointer = event.pointerId;
+    dragStartX = event.clientX;
+    dragStartY = event.clientY;
+    dragStartValue = Number(input.value);
+    control.setPointerCapture?.(event.pointerId);
+    control.classList.add('dragging');
+    input.focus?.({ preventScroll: true });
+  };
+  control.onpointermove = (event) => {
+    if (dragPointer !== event.pointerId) return;
+    event.preventDefault();
+    const span = Number(input.max) - Number(input.min);
+    const vertical = dragStartY - event.clientY;
+    const horizontal = event.clientX - dragStartX;
+    const deltaPixels = vertical + horizontal * 0.45;
+    commit(dragStartValue + (deltaPixels / 150) * span);
+  };
+  const finishDrag = (event) => {
+    if (dragPointer == null) return;
+    if (event?.pointerId != null && event.pointerId !== dragPointer) return;
+    dragPointer = null;
+    control.classList.remove('dragging');
+  };
+  control.onpointerup = finishDrag;
+  control.onpointercancel = finishDrag;
+
   if (options.disabled) input.disabled = true;
   update();
   control.append(caption, face, readout, input);
   host.appendChild(control);
   return input;
+}
+
+function createLedMeter(document, label, className = '') {
+  const meter = document.createElement('div');
+  meter.className = ('a9-led-meter ' + className).trim();
+  const caption = document.createElement('span');
+  caption.className = 'a9-led-label';
+  caption.textContent = label;
+  const track = document.createElement('div');
+  track.className = 'a9-led-track';
+  const segments = [];
+  for (let index = 0; index < 12; index += 1) {
+    const segment = document.createElement('i');
+    track.appendChild(segment);
+    segments.push(segment);
+  }
+  meter.append(caption, track);
+  return { meter, segments };
+}
+
+function setLedMeter(segments, value) {
+  const lit = Math.round(clamp(value, 0, 1) * segments.length);
+  segments.forEach((segment, index) => segment.classList.toggle('lit', index < lit));
 }
 
 function addTrackSelect(document, host, mixer, tracks, deckId, onChange, refresh) {
@@ -506,9 +576,14 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
   master.className = 'a9-master-top';
   const meters = document.createElement('div');
   meters.className = 'a9-master-meters';
-  const leftMeter = document.createElement('i');
-  const rightMeter = document.createElement('i');
-  meters.append(leftMeter, rightMeter);
+  const masterTitle = document.createElement('strong');
+  masterTitle.textContent = 'MASTER';
+  const masterPair = document.createElement('div');
+  masterPair.className = 'a9-master-pair';
+  const masterLeft = createLedMeter(document, 'L', 'master-left');
+  const masterRight = createLedMeter(document, 'R', 'master-right');
+  masterPair.append(masterLeft.meter, masterRight.meter);
+  meters.append(masterTitle, masterPair);
   const fx = document.createElement('div');
   fx.className = 'a9-fx-panel';
   const fxLabel = document.createElement('strong');
@@ -536,6 +611,15 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
     setPressed(input, true);
     top.append(numberLabel, input);
     strip.appendChild(top);
+
+    const channelMeter = createLedMeter(document, 'LEVEL', 'a9-channel-meter');
+    strip.appendChild(channelMeter.meter);
+    liveRefs.push({
+      type: 'a9-channel',
+      deckId: definition.deckId,
+      channel: number,
+      segments: channelMeter.segments,
+    });
 
     const eq = document.createElement('div');
     eq.className = 'a9-eq';
@@ -631,7 +715,11 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
   cross.append(left, input, right);
   unit.appendChild(cross);
 
-  liveRefs.push({ type: 'a9', leftMeter, rightMeter });
+  liveRefs.push({
+    type: 'a9-master',
+    leftSegments: masterLeft.segments,
+    rightSegments: masterRight.segments,
+  });
   return unit;
 }
 
@@ -693,7 +781,18 @@ function startLiveUi(ui, mixer, refs, metricsRefs) {
         const position = mixer.deckPosition?.(ref.deckId) ?? 0;
         const rpm = Number(state.vinylRpm || 33.333);
         ref.record.style.setProperty('--record-angle', ((position * rpm * 6) % 360) + 'deg');
-      } else if (ref.type === 'a9') {
+      } else if (ref.type === 'a9-channel') {
+        const state = snapshot.decks?.[ref.deckId];
+        const track = trackById(DJ_TRACKS, state?.trackId);
+        const position = mixer.deckPosition?.(ref.deckId) ?? 0;
+        const beatSeconds = 60 / Math.max(1, Number(state?.bpm) || Number(track?.bpm) || 120);
+        const beatPhase = (position % beatSeconds) / beatSeconds;
+        const pulse = 1 - Math.min(1, beatPhase * 2.6);
+        const sourceLevel = state?.playing
+          ? clamp(0.42 + (Number(track?.energy) || 0.7) * 0.38 + pulse * 0.2, 0, 1)
+          : 0;
+        setLedMeter(ref.segments, sourceLevel);
+      } else if (ref.type === 'a9-master') {
         const a = snapshot.decks?.A;
         const b = snapshot.decks?.B;
         const c = snapshot.decks?.C;
@@ -701,14 +800,16 @@ function startLiveUi(ui, mixer, refs, metricsRefs) {
         const x = (clamp(snapshot.crossfader, -1, 1) + 1) / 2;
         const leftCross = Math.cos(x * Math.PI * 0.5);
         const rightCross = Math.sin(x * Math.PI * 0.5);
-        const gainA =
+        const leftOutput =
           leftCross *
-          ((a?.playing ? Number(a.level) || 0 : 0) + (c?.playing ? Number(c.level) || 0 : 0));
-        const gainB =
+          ((a?.playing ? Number(a.level) || 0 : 0) + (c?.playing ? Number(c.level) || 0 : 0)) *
+          0.5;
+        const rightOutput =
           rightCross *
-          ((b?.playing ? Number(b.level) || 0 : 0) + (d?.playing ? Number(d.level) || 0 : 0));
-        ref.leftMeter.style.height = Math.round(clamp(gainA * 0.5, 0, 1) * 100) + '%';
-        ref.rightMeter.style.height = Math.round(clamp(gainB * 0.5, 0, 1) * 100) + '%';
+          ((b?.playing ? Number(b.level) || 0 : 0) + (d?.playing ? Number(d.level) || 0 : 0)) *
+          0.5;
+        setLedMeter(ref.leftSegments, leftOutput);
+        setLedMeter(ref.rightSegments, rightOutput);
       }
     }
   };
