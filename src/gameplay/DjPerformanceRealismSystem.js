@@ -31,6 +31,9 @@ function ensureState(deck) {
   deck.motorOn ??= true;
   deck.platterHeld ??= false;
   deck.cuePoints ??= [null, null, null, null, null, null, null, null];
+  deck.cuePoint ??= 0;
+  deck._cueGateActive ??= false;
+  deck._cueGateToken ??= 0;
   deck.quantize ??= true;
   deck.loopBeats ??= 0;
   deck.loopStart ??= 0;
@@ -565,6 +568,9 @@ export function installDjPerformanceRealism(game, ui) {
     const deck = mixer.decks[deckId];
     ensureState(deck);
     deck.cuePoints = [null, null, null, null, null, null, null, null];
+    deck.cuePoint = 0;
+    deck._cueGateActive = false;
+    deck._cueGateToken = (Number(deck._cueGateToken) || 0) + 1;
     deck.loopBeats = 0;
     deck.loopStart = 0;
     deck.loopEnd = 0;
@@ -601,6 +607,62 @@ export function installDjPerformanceRealism(game, ui) {
     return baseStopDeck(deckId);
   };
 
+  mixer.pauseDeck = (deckId) => {
+    const deck = mixer.decks[deckId];
+    if (!deck) return false;
+    ensureState(deck);
+    if (deck.playing) mixer.stopDeck(deckId);
+    return mixer.deckPosition?.(deckId) ?? deck.transportOffset ?? 0;
+  };
+
+  mixer.togglePlayPause = async (deckId) => {
+    const deck = mixer.decks[deckId];
+    if (!deck) return false;
+    ensureState(deck);
+    if (deck.playing) {
+      mixer.pauseDeck(deckId);
+      return false;
+    }
+    const resumeAt = Math.max(0, mixer.deckPosition?.(deckId) ?? deck.transportOffset ?? 0);
+    return mixer.playDeck(deckId, resumeAt);
+  };
+
+  mixer.cueDown = async (deckId) => {
+    const deck = mixer.decks[deckId];
+    if (!deck || deck.deviceMode !== 'cdj') return false;
+    ensureState(deck);
+    const cuePoint = Math.max(0, Number(deck.cuePoint) || 0);
+    const token = (Number(deck._cueGateToken) || 0) + 1;
+    deck._cueGateToken = token;
+    deck._cueGateActive = true;
+
+    if (deck.playing) mixer.stopDeck(deckId);
+    deck.transportOffset = cuePoint;
+    deck.transportStartedAt = 0;
+
+    const started = await mixer.playDeck(deckId, cuePoint);
+    if (!deck._cueGateActive || deck._cueGateToken !== token) {
+      if (deck.playing) mixer.stopDeck(deckId);
+      deck.transportOffset = cuePoint;
+      deck.transportStartedAt = 0;
+      return false;
+    }
+    return started;
+  };
+
+  mixer.cueUp = (deckId) => {
+    const deck = mixer.decks[deckId];
+    if (!deck || deck.deviceMode !== 'cdj') return false;
+    ensureState(deck);
+    const cuePoint = Math.max(0, Number(deck.cuePoint) || 0);
+    deck._cueGateActive = false;
+    deck._cueGateToken = (Number(deck._cueGateToken) || 0) + 1;
+    if (deck.playing) mixer.stopDeck(deckId);
+    deck.transportOffset = cuePoint;
+    deck.transportStartedAt = 0;
+    return cuePoint;
+  };
+
   mixer.setBpm = (deckId, bpm) => {
     const result = baseSetBpm(deckId, bpm);
     applyPlaybackRate(mixer, mixer.decks[deckId]);
@@ -623,28 +685,29 @@ export function installDjPerformanceRealism(game, ui) {
       const beatMs = (60 / Math.max(1, (a.bpm + b.bpm) * 0.5)) * 1000;
       b._phaseErrorMs = phaseDelta * beatMs;
       a._phaseErrorMs = -b._phaseErrorMs;
-
-      // A synced deck should remain sample-accurate enough to blend. Correct only when drift is
-      // audible; WebAudio itself is stable so this is chiefly for media fallback and mobile stalls.
-      for (const [slaveId, slave] of Object.entries(mixer.decks)) {
-        const masterId = slave._syncMaster;
-        const master = masterId ? mixer.decks[masterId] : null;
-        if (!slave.playing || !master?.playing || Math.abs(slave.bpm - master.bpm) > 0.01) continue;
-        const slavePhase = mixer.phase?.(slave) ?? 0;
-        const masterPhase = mixer.phase?.(master) ?? 0;
-        const delta = modulo(slavePhase - masterPhase + 0.5, 1) - 0.5;
-        const errorSeconds = delta * (60 / Math.max(1, slave.bpm));
-        slave._phaseErrorMs = errorSeconds * 1000;
-        slave._phaseCorrectionElapsed = (slave._phaseCorrectionElapsed ?? 0) + dt;
-        if (slave._phaseCorrectionElapsed > 0.18 && Math.abs(errorSeconds) > 0.028) {
-          slave._phaseCorrectionElapsed = 0;
-          const current = mixer.deckPosition?.(slaveId) ?? 0;
-          mixer.restartDeckAt?.(slaveId, Math.max(0, current - errorSeconds));
-        }
-      }
     } else {
-      if (a) a._phaseErrorMs = 0;
-      if (b) b._phaseErrorMs = 0;
+      if (a && !a._syncMaster) a._phaseErrorMs = 0;
+      if (b && !b._syncMaster) b._phaseErrorMs = 0;
+    }
+
+    // Any synced player can follow any active fixed-grid master, including either turntable.
+    // Correct only when drift is audible; WebAudio itself is stable so this is chiefly for
+    // media fallback and mobile stalls.
+    for (const [slaveId, slave] of Object.entries(mixer.decks)) {
+      const masterId = slave._syncMaster;
+      const master = masterId ? mixer.decks[masterId] : null;
+      if (!slave.playing || !master?.playing || Math.abs(slave.bpm - master.bpm) > 0.01) continue;
+      const slavePhase = mixer.phase?.(slave) ?? 0;
+      const masterPhase = mixer.phase?.(master) ?? 0;
+      const delta = modulo(slavePhase - masterPhase + 0.5, 1) - 0.5;
+      const errorSeconds = delta * (60 / Math.max(1, slave.bpm));
+      slave._phaseErrorMs = errorSeconds * 1000;
+      slave._phaseCorrectionElapsed = (slave._phaseCorrectionElapsed ?? 0) + dt;
+      if (slave._phaseCorrectionElapsed > 0.18 && Math.abs(errorSeconds) > 0.028) {
+        slave._phaseCorrectionElapsed = 0;
+        const current = mixer.deckPosition?.(slaveId) ?? 0;
+        mixer.restartDeckAt?.(slaveId, Math.max(0, current - errorSeconds));
+      }
     }
     return result;
   };
@@ -660,6 +723,8 @@ export function installDjPerformanceRealism(game, ui) {
         motorOn: deck.motorOn,
         platterHeld: deck.platterHeld,
         cuePoints: [...deck.cuePoints],
+        cuePoint: deck.cuePoint,
+        cueGateActive: deck._cueGateActive === true,
         loopBeats: deck.loopBeats,
         loopStart: deck.loopStart,
         loopEnd: deck.loopEnd,
