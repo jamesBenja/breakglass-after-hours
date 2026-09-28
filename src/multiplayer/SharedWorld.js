@@ -177,6 +177,7 @@ export class SharedWorld {
     this.resources.clear();
     for (const resource of world.resources ?? []) this.resources.set(resource.id, resource);
     this.objects = new Map(Object.entries(world.objects ?? {}));
+    for (const trackId of this.djTracks.keys()) this.game.dj?.unregisterSessionTrack?.(trackId);
     this.djTracks.clear();
     for (const track of world.djTracks ?? []) this.registerDjTrack(track);
     this.patchWorldObjects();
@@ -654,5 +655,7 @@ export class SharedWorld {
     if (this.djPublishTimer) clearTimeout(this.djPublishTimer);
     if (this.lightingPublishTimer) clearTimeout(this.lightingPublishTimer);
     if (this.installationPublishTimer) clearTimeout(this.installationPublishTimer);
+    for (const trackId of this.djTracks.keys()) this.game.dj?.unregisterSessionTrack?.(trackId);
+    this.djTracks.clear();
   }
 }
