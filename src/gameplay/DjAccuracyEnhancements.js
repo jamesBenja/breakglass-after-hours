@@ -224,6 +224,317 @@ export function installDjAccuracyEnhancements(game, ui) {
   mixer._djAccuracyInstalled = true;
   applyAuditedMetadata(mixer);
 
+  const beatFx = (mixer._beatFx ??= {
+    enabled: false,
+    target: 'MASTER',
+    effect: 'ECHO',
+    beat: 0.5,
+    amount: 0.35,
+    nodes: null,
+    branch: [],
+    modulators: [],
+    impulse: null,
+  });
+
+  const fxTargetDeck = (target) =>
+    ({ CH1: 'C', CH2: 'A', CH3: 'B', CH4: 'D' })[target] ?? null;
+
+  const fxDestination = () => mixer.audio.sourceDestination?.('dj') ?? mixer.audio.master;
+
+  const stopFxBranch = () => {
+    if (!beatFx.nodes) return;
+    const { input } = beatFx.nodes;
+    const first = beatFx.branch[0];
+    if (first) {
+      try {
+        input.disconnect(first);
+      } catch {
+        // Branch may already have been disconnected.
+      }
+    }
+    for (const oscillator of beatFx.modulators.splice(0)) {
+      try {
+        oscillator.stop();
+      } catch {
+        // Oscillator may already be stopped.
+      }
+      try {
+        oscillator.disconnect();
+      } catch {
+        // Already disconnected.
+      }
+    }
+    for (const node of beatFx.branch.splice(0)) {
+      try {
+        node.disconnect();
+      } catch {
+        // Already disconnected.
+      }
+    }
+  };
+
+  const beatFxBpm = () => {
+    const targetDeck = fxTargetDeck(beatFx.target);
+    if (targetDeck && mixer.decks[targetDeck]) return mixer.decks[targetDeck].bpm;
+    const active = Object.values(mixer.decks).filter((deck) => deck.playing);
+    if (active.length) return active.reduce((sum, deck) => sum + deck.bpm, 0) / active.length;
+    return mixer.decks.A?.bpm ?? 128;
+  };
+
+  const createImpulse = () => {
+    if (beatFx.impulse || !mixer.context?.createBuffer) return beatFx.impulse;
+    const sampleRate = mixer.context.sampleRate || 48000;
+    const length = Math.floor(sampleRate * 1.8);
+    const impulse = mixer.context.createBuffer(2, length, sampleRate);
+    for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
+      const data = impulse.getChannelData(channel);
+      for (let index = 0; index < length; index += 1) {
+        const decay = Math.pow(1 - index / length, 2.8);
+        data[index] = (Math.random() * 2 - 1) * decay;
+      }
+    }
+    beatFx.impulse = impulse;
+    return impulse;
+  };
+
+  mixer.ensureBeatFxRack = () => {
+    if (beatFx.nodes) return beatFx.nodes;
+    const context = mixer.context;
+    if (!context?.createGain) return null;
+    const input = context.createGain();
+    const dry = context.createGain();
+    const wet = context.createGain();
+    const output = context.createGain();
+    input.connect(dry);
+    dry.connect(output);
+    wet.connect(output);
+    output.connect(fxDestination());
+    beatFx.nodes = { input, dry, wet, output };
+    mixer.configureBeatFx?.();
+    return beatFx.nodes;
+  };
+
+  mixer.configureBeatFx = () => {
+    const context = mixer.context;
+    const rack = beatFx.nodes;
+    if (!context || !rack) return false;
+    stopFxBranch();
+
+    const bpm = Math.max(40, beatFxBpm());
+    const beatSeconds = 60 / bpm;
+    const beatLength = Math.max(0.03, beatSeconds * Number(beatFx.beat || 0.5));
+    const amount = clamp(beatFx.amount, 0, 1);
+    const now = context.currentTime;
+    rack.wet.gain.setTargetAtTime(amount, now, 0.012);
+    const keepDry = ['DELAY', 'ECHO', 'PING PONG', 'SPIRAL', 'HELIX', 'REVERB'].includes(
+      beatFx.effect,
+    );
+    rack.dry.gain.setTargetAtTime(keepDry ? 1 : 1 - amount * 0.82, now, 0.012);
+
+    const connectBranch = (...nodes) => {
+      const valid = nodes.filter(Boolean);
+      if (!valid.length) return;
+      rack.input.connect(valid[0]);
+      for (let index = 0; index < valid.length - 1; index += 1) valid[index].connect(valid[index + 1]);
+      valid[valid.length - 1].connect(rack.wet);
+      beatFx.branch.push(...valid);
+    };
+
+    if (
+      ['DELAY', 'ECHO', 'PING PONG', 'SPIRAL', 'HELIX', 'ROLL', 'TRIPLET ROLL'].includes(
+        beatFx.effect,
+      ) &&
+      context.createDelay
+    ) {
+      const delay = context.createDelay(4);
+      const feedback = context.createGain();
+      const tone = context.createBiquadFilter?.();
+      if (tone) {
+        tone.type = beatFx.effect === 'SPIRAL' ? 'highpass' : 'lowpass';
+        tone.frequency.value = beatFx.effect === 'SPIRAL' ? 420 : 12500;
+      }
+      let time = beatLength;
+      if (beatFx.effect === 'TRIPLET ROLL') time *= 2 / 3;
+      if (beatFx.effect === 'ROLL') time = Math.max(0.035, time * 0.5);
+      if (beatFx.effect === 'HELIX') time = Math.min(2.4, time * 1.5);
+      delay.delayTime.value = Math.min(3.8, time);
+      feedback.gain.value =
+        beatFx.effect === 'DELAY'
+          ? 0.05
+          : beatFx.effect === 'ROLL' || beatFx.effect === 'TRIPLET ROLL'
+            ? 0.82
+            : beatFx.effect === 'HELIX'
+              ? 0.68
+              : 0.46;
+      delay.connect(feedback);
+      feedback.connect(delay);
+      connectBranch(delay, tone);
+    } else if (beatFx.effect === 'REVERB' && context.createConvolver) {
+      const convolver = context.createConvolver();
+      convolver.buffer = createImpulse();
+      connectBranch(convolver);
+    } else if (
+      ['FILTER', 'TRIPLET FILTER'].includes(beatFx.effect) &&
+      context.createBiquadFilter
+    ) {
+      const filter = context.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.Q.value = 7;
+      filter.frequency.value = 1200;
+      connectBranch(filter);
+      if (beatFx.effect === 'TRIPLET FILTER' && context.createOscillator && context.createGain) {
+        const lfo = context.createOscillator();
+        const depth = context.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 1 / Math.max(0.08, beatSeconds * 3);
+        depth.gain.value = 5200;
+        lfo.connect(depth);
+        depth.connect(filter.frequency);
+        lfo.start();
+        beatFx.modulators.push(lfo);
+        beatFx.branch.push(depth);
+      }
+    } else if (beatFx.effect === 'FLANGER' && context.createDelay) {
+      const delay = context.createDelay(0.05);
+      delay.delayTime.value = 0.008;
+      connectBranch(delay);
+      if (context.createOscillator && context.createGain) {
+        const lfo = context.createOscillator();
+        const depth = context.createGain();
+        lfo.frequency.value = 1 / Math.max(0.08, beatSeconds * 2);
+        depth.gain.value = 0.006;
+        lfo.connect(depth);
+        depth.connect(delay.delayTime);
+        lfo.start();
+        beatFx.modulators.push(lfo);
+        beatFx.branch.push(depth);
+      }
+    } else if (beatFx.effect === 'PHASER' && context.createBiquadFilter) {
+      const first = context.createBiquadFilter();
+      const second = context.createBiquadFilter();
+      first.type = 'allpass';
+      second.type = 'allpass';
+      first.frequency.value = 700;
+      second.frequency.value = 1400;
+      first.Q.value = 4;
+      second.Q.value = 5;
+      connectBranch(first, second);
+      if (context.createOscillator && context.createGain) {
+        const lfo = context.createOscillator();
+        const depth = context.createGain();
+        lfo.frequency.value = 1 / Math.max(0.08, beatSeconds * 2);
+        depth.gain.value = 600;
+        lfo.connect(depth);
+        depth.connect(first.frequency);
+        depth.connect(second.frequency);
+        lfo.start();
+        beatFx.modulators.push(lfo);
+        beatFx.branch.push(depth);
+      }
+    } else if (beatFx.effect === 'TRANS' && context.createGain) {
+      const gate = context.createGain();
+      gate.gain.value = 0.5;
+      connectBranch(gate);
+      if (context.createOscillator && context.createGain) {
+        const lfo = context.createOscillator();
+        const depth = context.createGain();
+        lfo.type = 'square';
+        lfo.frequency.value = 1 / Math.max(0.04, beatLength);
+        depth.gain.value = 0.5;
+        lfo.connect(depth);
+        depth.connect(gate.gain);
+        lfo.start();
+        beatFx.modulators.push(lfo);
+        beatFx.branch.push(depth);
+      }
+    } else if (beatFx.effect === 'MOBIUS' && context.createOscillator && context.createGain) {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(80, now);
+      oscillator.frequency.exponentialRampToValueAtTime(1760, now + Math.max(1, beatSeconds * 8));
+      gain.gain.value = 0.11;
+      oscillator.connect(gain);
+      gain.connect(rack.wet);
+      oscillator.start();
+      beatFx.modulators.push(oscillator);
+      beatFx.branch.push(gain);
+    } else {
+      rack.input.connect(rack.wet);
+      beatFx.branch.push(rack.wet);
+    }
+    return true;
+  };
+
+  mixer.routeBeatFx = () => {
+    const destination = fxDestination();
+    const rack = beatFx.enabled ? mixer.ensureBeatFxRack?.() : null;
+    const selectedDeck = fxTargetDeck(beatFx.target);
+    for (const deck of Object.values(mixer.decks)) {
+      const cross = deck.nodes?.cross;
+      if (!cross) continue;
+      try {
+        cross.disconnect();
+      } catch {
+        // Already disconnected during a routing change.
+      }
+      const effected =
+        beatFx.enabled && rack && (beatFx.target === 'MASTER' || deck.id === selectedDeck);
+      cross.connect(effected ? rack.input : destination);
+    }
+    return true;
+  };
+
+  mixer.setBeatFxTarget = (target) => {
+    if (!['CH1', 'CH2', 'CH3', 'CH4', 'MASTER'].includes(target)) return false;
+    beatFx.target = target;
+    mixer.routeBeatFx();
+    mixer.configureBeatFx?.();
+    return beatFx.target;
+  };
+
+  mixer.setBeatFxEffect = (effect) => {
+    const allowed = [
+      'DELAY',
+      'ECHO',
+      'PING PONG',
+      'SPIRAL',
+      'HELIX',
+      'REVERB',
+      'FLANGER',
+      'PHASER',
+      'FILTER',
+      'TRIPLET FILTER',
+      'TRANS',
+      'ROLL',
+      'TRIPLET ROLL',
+      'MOBIUS',
+    ];
+    if (!allowed.includes(effect)) return false;
+    beatFx.effect = effect;
+    mixer.configureBeatFx?.();
+    return beatFx.effect;
+  };
+
+  mixer.setBeatFxBeat = (beat) => {
+    beatFx.beat = clamp(beat, 0.125, 4);
+    mixer.configureBeatFx?.();
+    return beatFx.beat;
+  };
+
+  mixer.setBeatFxAmount = (amount) => {
+    beatFx.amount = clamp(amount, 0, 1);
+    mixer.configureBeatFx?.();
+    return beatFx.amount;
+  };
+
+  mixer.setBeatFxEnabled = (enabled) => {
+    beatFx.enabled = enabled === true;
+    if (beatFx.enabled) mixer.ensureBeatFxRack?.();
+    mixer.routeBeatFx();
+    return beatFx.enabled;
+  };
+
   mixer.ensureDeckNodes = (deck) => {
     if (deck.nodes || !mixer.context) return deck.nodes;
     const input = mixer.context.createGain();
@@ -249,12 +560,13 @@ export function installDjAccuracyEnhancements(game, ui) {
     high.connect(colorFilter);
     colorFilter.connect(level);
     level.connect(cross);
-    cross.connect(mixer.audio.master);
+    cross.connect(fxDestination());
     deck.mid ??= 0;
     deck.filter ??= 0;
     deck.nodes = { input, low, mid, high, colorFilter, level, cross };
     mixer.updateDeckNodes(deck);
     mixer.updateCrossfader();
+    if (beatFx.enabled) mixer.routeBeatFx?.();
     return deck.nodes;
   };
 
@@ -378,6 +690,13 @@ export function installDjAccuracyEnhancements(game, ui) {
   const baseSnapshot = mixer.snapshot.bind(mixer);
   mixer.snapshot = () => {
     const snapshot = baseSnapshot();
+    snapshot.beatFx = {
+      enabled: beatFx.enabled,
+      target: beatFx.target,
+      effect: beatFx.effect,
+      beat: beatFx.beat,
+      amount: beatFx.amount,
+    };
     for (const [deckId, state] of Object.entries(snapshot.decks ?? {})) {
       state.mid = mixer.decks[deckId]?.mid ?? 0;
       state.filter = mixer.decks[deckId]?.filter ?? 0;
