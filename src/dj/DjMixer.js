@@ -264,6 +264,8 @@ function createDeckState(id, trackId, crossSide, deviceMode) {
     timer: null,
     source: null,
     media: null,
+    mediaNode: null,
+    playGeneration: 0,
     nodes: null,
     voices: new Set(),
   };
@@ -366,7 +368,9 @@ export class DjMixer {
     const environment = this.audio.sourceGain?.('dj') ?? this.audio.environment?.gain ?? 1;
     for (const [deckId, deck] of Object.entries(this.decks)) {
       if (!deck.media) continue;
-      deck.media.volume = clamp(deck.level * this.nativeCrossGain(deckId) * environment * 0.92);
+      deck.media.volume = deck.mediaNode
+        ? 1
+        : clamp(deck.level * this.nativeCrossGain(deckId) * environment * 0.92);
     }
   }
 
@@ -572,6 +576,7 @@ export class DjMixer {
     media.preload = 'auto';
     media.loop = true;
     media.playsInline = true;
+    if (track?.session) media.crossOrigin = 'anonymous';
     media.src = url;
     media.playbackRate = deck.bpm / trackById(deck.trackId).bpm;
     const seek = () => {
@@ -585,14 +590,31 @@ export class DjMixer {
     };
     if (media.readyState >= 1) seek();
     else media.addEventListener?.('loadedmetadata', seek, { once: true });
+
+    let mediaNode = null;
+    if (track?.session && this.context?.createMediaElementSource) {
+      try {
+        mediaNode = this.context.createMediaElementSource(media);
+        mediaNode.connect(this.ensureDeckNodes(deck).input);
+      } catch {
+        mediaNode = null;
+      }
+    }
     deck.media = media;
+    deck.mediaNode = mediaNode;
     this.updateNativeDeckLevels();
     try {
       await media.play();
       seek();
       return true;
     } catch {
-      deck.media = null;
+      if (deck.mediaNode === mediaNode) deck.mediaNode = null;
+      try {
+        mediaNode?.disconnect?.();
+      } catch {
+        // Already disconnected.
+      }
+      if (deck.media === media) deck.media = null;
       media.pause();
       media.removeAttribute('src');
       media.load?.();
@@ -605,7 +627,10 @@ export class DjMixer {
     if (!deck || !this.context || deck.playing) return false;
     this.ensureDeckNodes(deck);
     const safeOffset = Math.max(0, Number(offset) || 0);
-    const baseBpm = Math.max(1, trackById(deck.trackId).bpm);
+    const track = trackById(deck.trackId);
+    const baseBpm = Math.max(1, track.bpm);
+    const generation = (Number(deck.playGeneration) || 0) + 1;
+    deck.playGeneration = generation;
     deck.playing = true;
     deck.transportOffset = safeOffset;
     deck.transportStartedAt = this.context.currentTime;
@@ -613,8 +638,18 @@ export class DjMixer {
     deck.step = Math.floor(safeOffset / sourceStepSeconds) % 16;
     deck.nextTime = this.context.currentTime;
 
-    const buffer = await this.audioBufferForTrack(deck.trackId);
-    if (!deck.playing) return false;
+    let mediaStarted = false;
+    let buffer = null;
+    if (track.session) mediaStarted = await this.playNativeMedia(deck, safeOffset);
+    else buffer = await this.audioBufferForTrack(deck.trackId);
+
+    if (!deck.playing || deck.playGeneration !== generation) return false;
+
+    if (!mediaStarted && !buffer && track.session) {
+      buffer = await this.audioBufferForTrack(deck.trackId);
+      if (!deck.playing || deck.playGeneration !== generation) return false;
+    }
+
     if (buffer) {
       const source = this.context.createBufferSource();
       source.buffer = buffer;
@@ -628,7 +663,21 @@ export class DjMixer {
       deck.source = source;
       const startOffset = buffer.duration > 0 ? safeOffset % buffer.duration : 0;
       source.start(0, startOffset);
-    } else if (!(await this.playNativeMedia(deck, safeOffset))) {
+    } else if (!mediaStarted && !track.session && !(await this.playNativeMedia(deck, safeOffset))) {
+      if (!deck.playing || deck.playGeneration !== generation) return false;
+      const schedule = () => {
+        if (!deck.playing || !this.context || this.context.state !== 'running') return;
+        deck.nextTime = Math.max(deck.nextTime, this.context.currentTime);
+        const interval = 60 / deck.bpm / 4;
+        while (deck.nextTime < this.context.currentTime + 0.1) {
+          this.pattern(deck, deck.step, deck.nextTime - this.context.currentTime);
+          deck.step = (deck.step + 1) % 16;
+          deck.nextTime += interval;
+        }
+      };
+      schedule();
+      deck.timer = this.timers.setInterval(schedule, 25);
+    } else if (!mediaStarted && !buffer) {
       const schedule = () => {
         if (!deck.playing || !this.context || this.context.state !== 'running') return;
         deck.nextTime = Math.max(deck.nextTime, this.context.currentTime);
@@ -690,6 +739,7 @@ export class DjMixer {
     const deck = this.decks[deckId];
     if (!deck) return;
     const position = this.deckPosition(deckId);
+    deck.playGeneration = (Number(deck.playGeneration) || 0) + 1;
     deck.playing = false;
     deck.transportOffset = position;
     deck.transportStartedAt = 0;
@@ -704,6 +754,14 @@ export class DjMixer {
       }
       deck.source.disconnect();
       deck.source = null;
+    }
+    if (deck.mediaNode) {
+      try {
+        deck.mediaNode.disconnect();
+      } catch {
+        // Already disconnected.
+      }
+      deck.mediaNode = null;
     }
     if (deck.media) {
       deck.media.pause();
