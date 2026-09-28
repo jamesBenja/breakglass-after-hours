@@ -135,5 +135,8 @@ test('stopping the booth stops every independent source', async () => {
   const { mixer } = harness();
   await Promise.all(Object.keys(mixer.decks).map((deckId) => mixer.playDeck(deckId)));
   mixer.stop();
-  assert.equal(Object.values(mixer.decks).some((deck) => deck.playing), false);
+  assert.equal(
+    Object.values(mixer.decks).some((deck) => deck.playing),
+    false,
+  );
 });

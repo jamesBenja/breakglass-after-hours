@@ -691,7 +691,9 @@ export class DjMixer {
         );
         const alignment = clamp(1 - distance * 2.4);
         const bpmDistance = Math.abs(left.deck.bpm - right.deck.bpm);
-        const pairQuality = clamp(0.94 - (1 - alignment) * 0.62 - Math.min(0.34, bpmDistance * 0.03));
+        const pairQuality = clamp(
+          0.94 - (1 - alignment) * 0.62 - Math.min(0.34, bpmDistance * 0.03),
+        );
         qualityWeighted += pairQuality * overlap;
         pairWeight += overlap;
       }
@@ -714,8 +716,7 @@ export class DjMixer {
       return;
     }
     const active = Object.values(this.decks).filter((deck) => deck.playing);
-    const activeBpm =
-      active.reduce((sum, deck) => sum + deck.bpm, 0) / Math.max(1, active.length);
+    const activeBpm = active.reduce((sum, deck) => sum + deck.bpm, 0) / Math.max(1, active.length);
     const interval = 60 / activeBpm / 4;
     const activeLabels = active.map((deck) => trackById(deck.trackId).label).join(' / ');
     const label = `DJ mix · ${activeLabels}`;

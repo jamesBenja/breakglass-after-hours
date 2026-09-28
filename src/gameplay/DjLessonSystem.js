@@ -55,8 +55,7 @@ export function analyzeDjMix(mixer, baseMetrics = {}) {
   const audibleTotal = audible.reduce((sum, item) => sum + item.gain, 0);
   const first = audible[0] ?? null;
   const second = audible[1] ?? null;
-  const overlap =
-    first && second ? clamp(Math.min(first.gain, second.gain) * 2.15) : 0;
+  const overlap = first && second ? clamp(Math.min(first.gain, second.gain) * 2.15) : 0;
 
   let beatAlignment = 1;
   let phraseAlignment = 1;
