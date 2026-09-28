@@ -230,6 +230,7 @@ export function installDjAccuracyEnhancements(game, ui) {
     const low = mixer.context.createBiquadFilter();
     const mid = mixer.context.createBiquadFilter();
     const high = mixer.context.createBiquadFilter();
+    const colorFilter = mixer.context.createBiquadFilter();
     const level = mixer.context.createGain();
     const cross = mixer.context.createGain();
     low.type = 'lowshelf';
@@ -239,14 +240,19 @@ export function installDjAccuracyEnhancements(game, ui) {
     mid.Q.value = 0.72;
     high.type = 'highshelf';
     high.frequency.value = 10000;
+    colorFilter.type = 'lowpass';
+    colorFilter.frequency.value = 20000;
+    colorFilter.Q.value = 0.82;
     input.connect(low);
     low.connect(mid);
     mid.connect(high);
-    high.connect(level);
+    high.connect(colorFilter);
+    colorFilter.connect(level);
     level.connect(cross);
     cross.connect(mixer.audio.master);
     deck.mid ??= 0;
-    deck.nodes = { input, low, mid, high, level, cross };
+    deck.filter ??= 0;
+    deck.nodes = { input, low, mid, high, colorFilter, level, cross };
     mixer.updateDeckNodes(deck);
     mixer.updateCrossfader();
     return deck.nodes;
@@ -254,12 +260,28 @@ export function installDjAccuracyEnhancements(game, ui) {
 
   mixer.updateDeckNodes = (deck) => {
     deck.mid ??= 0;
+    deck.filter ??= 0;
     if (deck.nodes && mixer.context) {
       const now = mixer.context.currentTime;
       deck.nodes.level.gain.setTargetAtTime(clamp(deck.level, 0, 1), now, 0.015);
       deck.nodes.low.gain.setTargetAtTime(eqDb(deck.low), now, 0.02);
       deck.nodes.mid.gain.setTargetAtTime(eqDb(deck.mid), now, 0.02);
       deck.nodes.high.gain.setTargetAtTime(eqDb(deck.high), now, 0.02);
+      if (deck.nodes.colorFilter) {
+        const amount = clamp(deck.filter, -1, 1);
+        if (amount < -0.015) {
+          deck.nodes.colorFilter.type = 'lowpass';
+          const frequency = 20000 * Math.pow(120 / 20000, Math.abs(amount));
+          deck.nodes.colorFilter.frequency.setTargetAtTime(frequency, now, 0.018);
+        } else if (amount > 0.015) {
+          deck.nodes.colorFilter.type = 'highpass';
+          const frequency = 20 * Math.pow(8500 / 20, amount);
+          deck.nodes.colorFilter.frequency.setTargetAtTime(frequency, now, 0.018);
+        } else {
+          deck.nodes.colorFilter.type = 'lowpass';
+          deck.nodes.colorFilter.frequency.setTargetAtTime(20000, now, 0.018);
+        }
+      }
     }
     mixer.updateNativeDeckLevels?.();
   };
@@ -273,7 +295,19 @@ export function installDjAccuracyEnhancements(game, ui) {
     return deck[band];
   };
 
-  for (const deck of Object.values(mixer.decks)) deck.mid ??= 0;
+  mixer.setFilter = (deckId, value) => {
+    const deck = mixer.decks[deckId];
+    if (!deck) return false;
+    deck.filter = clamp(value, -1, 1);
+    mixer.updateDeckNodes(deck);
+    mixer.updateVibe?.();
+    return deck.filter;
+  };
+
+  for (const deck of Object.values(mixer.decks)) {
+    deck.mid ??= 0;
+    deck.filter ??= 0;
+  }
 
   const baseSetBpm = mixer.setBpm.bind(mixer);
   mixer.setBpm = (deckId, bpm) => {
@@ -329,6 +363,7 @@ export function installDjAccuracyEnhancements(game, ui) {
     const deck = mixer.decks[deckId];
     if (deck) {
       deck.mid = 0;
+      deck.filter = 0;
       deck._jogBend = 0;
       const track = trackById(deck.trackId);
       if (track?.bpmAudited) {
@@ -345,6 +380,7 @@ export function installDjAccuracyEnhancements(game, ui) {
     const snapshot = baseSnapshot();
     for (const [deckId, state] of Object.entries(snapshot.decks ?? {})) {
       state.mid = mixer.decks[deckId]?.mid ?? 0;
+      state.filter = mixer.decks[deckId]?.filter ?? 0;
       const track = trackById(state.trackId);
       state.baseBpm = track.bpm;
       state.bpmAudited = track.bpmAudited === true;
