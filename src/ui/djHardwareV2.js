@@ -151,9 +151,8 @@ function createCdj(document, mixer, tracks, deckId, side, onChange, refresh, liv
   const snapshot = mixer.snapshot();
   const state = snapshot.decks[deckId];
   const track = trackById(tracks, state.trackId);
-  const active = state.deviceMode !== 'vinyl';
   const unit = document.createElement('section');
-  unit.className = 'dj-device cdj3000 ' + (active ? 'source-active' : 'source-idle');
+  unit.className = 'dj-device cdj3000 source-active';
   unit.dataset.device = side + '-cdj';
 
   const brand = document.createElement('header');
@@ -298,12 +297,10 @@ function createCdj(document, mixer, tracks, deckId, side, onChange, refresh, liv
   });
   sync.disabled = state.freeTime === true;
   setPressed(sync, Boolean(state.syncedTo));
-  const source = makeButton(document, active ? 'ON AIR' : 'SELECT', 'cdj-source-select', () => {
-    mixer.setDeviceMode?.(deckId, 'cdj');
-    onChange();
-    refresh();
-  });
-  setPressed(source, active);
+  const channel = deckId === 'A' ? 2 : 3;
+  const source = makeButton(document, 'CH ' + channel, 'cdj-source-select', () => {});
+  source.disabled = true;
+  setPressed(source, true);
   transport.append(cue, play, sync, source);
   unit.appendChild(transport);
 
@@ -344,9 +341,8 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
   const snapshot = mixer.snapshot();
   const state = snapshot.decks[deckId];
   const track = trackById(tracks, state.trackId);
-  const active = state.deviceMode === 'vinyl';
   const unit = document.createElement('section');
-  unit.className = 'dj-device sl1200 ' + (active ? 'source-active' : 'source-idle');
+  unit.className = 'dj-device sl1200 source-active';
   unit.dataset.device = side + '-vinyl';
 
   const brand = document.createElement('header');
@@ -354,7 +350,7 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
   const title = document.createElement('strong');
   title.textContent = 'SL-1200';
   const deckTag = document.createElement('span');
-  deckTag.textContent = deckId === 'A' ? 'LEFT PHONO' : 'RIGHT PHONO';
+  deckTag.textContent = side === 'left' ? 'LEFT PHONO · CH 1' : 'RIGHT PHONO · CH 4';
   brand.append(title, deckTag);
   unit.appendChild(brand);
 
@@ -473,12 +469,10 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
   });
   setPressed(rpm33, Math.abs(Number(state.vinylRpm || 33.333) - 33.333) < 1);
   setPressed(rpm45, Math.abs(Number(state.vinylRpm || 33.333) - 45) < 1);
-  const source = makeButton(document, active ? 'ON AIR' : 'SELECT', 'sl-source-select', () => {
-    mixer.setDeviceMode?.(deckId, 'vinyl');
-    onChange();
-    refresh();
-  });
-  setPressed(source, active);
+  const channel = deckId === 'C' ? 1 : 4;
+  const source = makeButton(document, 'CH ' + channel, 'sl-source-select', () => {});
+  source.disabled = true;
+  setPressed(source, true);
   controls.append(needle, motor, rpm33, rpm45, source);
   unit.appendChild(controls);
 
@@ -487,10 +481,10 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
 }
 
 function channelDefinition(number) {
-  if (number === 1) return { deckId: 'A', mode: 'vinyl', label: 'PHONO L' };
-  if (number === 2) return { deckId: 'A', mode: 'cdj', label: 'DIGITAL L' };
-  if (number === 3) return { deckId: 'B', mode: 'cdj', label: 'DIGITAL R' };
-  return { deckId: 'B', mode: 'vinyl', label: 'PHONO R' };
+  if (number === 1) return { deckId: 'C', label: 'PHONO L' };
+  if (number === 2) return { deckId: 'A', label: 'DIGITAL L' };
+  if (number === 3) return { deckId: 'B', label: 'DIGITAL R' };
+  return { deckId: 'D', label: 'PHONO R' };
 }
 
 function createA9(document, mixer, onChange, refresh, liveRefs) {
@@ -531,19 +525,15 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
   for (let number = 1; number <= 4; number += 1) {
     const definition = channelDefinition(number);
     const state = snapshot.decks[definition.deckId];
-    const active = (state.deviceMode === 'vinyl' ? 'vinyl' : 'cdj') === definition.mode;
     const strip = document.createElement('div');
-    strip.className = 'a9-channel ' + (active ? 'active' : 'inactive');
+    strip.className = 'a9-channel active';
     const top = document.createElement('div');
     top.className = 'a9-channel-top';
     const numberLabel = document.createElement('b');
     numberLabel.textContent = 'CH ' + number;
-    const input = makeButton(document, definition.label, 'a9-input-select', () => {
-      mixer.setDeviceMode?.(definition.deckId, definition.mode);
-      onChange();
-      refresh();
-    });
-    setPressed(input, active);
+    const input = makeButton(document, definition.label, 'a9-input-select', () => {});
+    input.disabled = true;
+    setPressed(input, true);
     top.append(numberLabel, input);
     strip.appendChild(top);
 
@@ -706,11 +696,19 @@ function startLiveUi(ui, mixer, refs, metricsRefs) {
       } else if (ref.type === 'a9') {
         const a = snapshot.decks?.A;
         const b = snapshot.decks?.B;
+        const c = snapshot.decks?.C;
+        const d = snapshot.decks?.D;
         const x = (clamp(snapshot.crossfader, -1, 1) + 1) / 2;
-        const gainA = Math.cos(x * Math.PI * 0.5) * (a?.playing ? Number(a.level) || 0 : 0);
-        const gainB = Math.sin(x * Math.PI * 0.5) * (b?.playing ? Number(b.level) || 0 : 0);
-        ref.leftMeter.style.height = Math.round(clamp(gainA, 0, 1) * 100) + '%';
-        ref.rightMeter.style.height = Math.round(clamp(gainB, 0, 1) * 100) + '%';
+        const leftCross = Math.cos(x * Math.PI * 0.5);
+        const rightCross = Math.sin(x * Math.PI * 0.5);
+        const gainA =
+          leftCross *
+          ((a?.playing ? Number(a.level) || 0 : 0) + (c?.playing ? Number(c.level) || 0 : 0));
+        const gainB =
+          rightCross *
+          ((b?.playing ? Number(b.level) || 0 : 0) + (d?.playing ? Number(d.level) || 0 : 0));
+        ref.leftMeter.style.height = Math.round(clamp(gainA * 0.5, 0, 1) * 100) + '%';
+        ref.rightMeter.style.height = Math.round(clamp(gainB * 0.5, 0, 1) * 100) + '%';
       }
     }
   };
@@ -749,7 +747,7 @@ export function installDjHardwareV2(game, ui) {
     const vibe = snapshot.metrics?.playing ? Math.round((snapshot.metrics.vibe ?? 0) * 100) : 0;
     ui.clearPanel(
       'DJ BOOTH · HARDWARE V2',
-      'CDJ-3000 · SL-1200 · DJM-A9. The hardware surface controls the existing Breakglass DJ engine; CDJ and vinyl are alternate sources for each deck side.',
+      'CDJ-3000 · SL-1200 · DJM-A9. Four independent players feed four independent mixer channels.',
     );
     ui.panelElement?.classList.add('dj-hardware-panel');
     ui.document.body?.classList.add('dj-hardware-active');
@@ -798,18 +796,18 @@ export function installDjHardwareV2(game, ui) {
     const rack = ui.document.createElement('div');
     rack.className = 'dj-hardware-rack';
     rack.append(
-      createTurntable(ui.document, activeMixer, tracks, 'A', 'left', changed, refresh, liveRefs),
+      createTurntable(ui.document, activeMixer, tracks, 'C', 'left', changed, refresh, liveRefs),
       createCdj(ui.document, activeMixer, tracks, 'A', 'left', changed, refresh, liveRefs),
       createA9(ui.document, activeMixer, changed, refresh, liveRefs),
       createCdj(ui.document, activeMixer, tracks, 'B', 'right', changed, refresh, liveRefs),
-      createTurntable(ui.document, activeMixer, tracks, 'B', 'right', changed, refresh, liveRefs),
+      createTurntable(ui.document, activeMixer, tracks, 'D', 'right', changed, refresh, liveRefs),
     );
     shell.appendChild(rack);
 
     const note = ui.document.createElement('div');
     note.className = 'dj-hardware-note';
     note.textContent =
-      'TIP · Tap the inactive CDJ or turntable SELECT control to route that source into its A9 side. On SL-1200s, hold and drag the platter to cue the record. Hold a CDJ hot cue for 0.65 s to clear it.';
+      'FOUR SOURCES · CH1 left SL-1200 · CH2 left CDJ-3000 · CH3 right CDJ-3000 · CH4 right SL-1200. Every player has its own track and transport. Hold and rotate a record to cue it by ear.';
     shell.appendChild(note);
 
     ui.buttons.appendChild(shell);
