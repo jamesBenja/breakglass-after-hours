@@ -210,6 +210,40 @@ export const DJ_TRACKS = [
   },
 ];
 
+const SESSION_DJ_TRACK_IDS = new Set();
+
+export function registerDjSessionTrack(track) {
+  if (!track?.id || !String(track.id).startsWith('session-')) return null;
+  const normalized = {
+    id: String(track.id).slice(0, 64),
+    label: String(track.label || track.filename || 'Uploaded track').slice(0, 80),
+    bpm: clamp(Number(track.bpm) || 120, 60, 200),
+    energy: clamp(Number(track.energy ?? 0.7)),
+    key: String(track.key || '—').slice(0, 12),
+    session: true,
+    url: track.url || null,
+    mime: track.mime || 'application/octet-stream',
+    size: Math.max(0, Number(track.size) || 0),
+    filename: String(track.filename || '').slice(0, 180),
+    uploadedBy: track.uploadedBy || null,
+    uploadedByName: String(track.uploadedByName || '').slice(0, 40),
+    createdAt: Number(track.createdAt) || Date.now(),
+  };
+  const index = DJ_TRACKS.findIndex((candidate) => candidate.id === normalized.id);
+  if (index >= 0) DJ_TRACKS[index] = normalized;
+  else DJ_TRACKS.push(normalized);
+  SESSION_DJ_TRACK_IDS.add(normalized.id);
+  return normalized;
+}
+
+export function unregisterDjSessionTrack(trackId) {
+  if (!SESSION_DJ_TRACK_IDS.has(trackId)) return false;
+  const index = DJ_TRACKS.findIndex((track) => track.id === trackId);
+  if (index >= 0) DJ_TRACKS.splice(index, 1);
+  SESSION_DJ_TRACK_IDS.delete(trackId);
+  return true;
+}
+
 const trackById = (id) => DJ_TRACKS.find((track) => track.id === id) ?? DJ_TRACKS[0];
 
 function createDeckState(id, trackId, crossSide, deviceMode) {
@@ -260,10 +294,44 @@ export class DjMixer {
     this.crossfader = -0.72;
     this.elapsed = 0;
     this.backgroundSnapshot = [];
+    this.sessionBuffers = new Map();
   }
 
   get context() {
     return this.audio.context;
+  }
+
+  tracks() {
+    return DJ_TRACKS;
+  }
+
+  registerSessionTrack(track) {
+    return registerDjSessionTrack(track);
+  }
+
+  unregisterSessionTrack(trackId) {
+    this.sessionBuffers.delete(trackId);
+    return unregisterDjSessionTrack(trackId);
+  }
+
+  audioBufferForTrack(trackId) {
+    const track = trackById(trackId);
+    if (!track?.session) return this.audio.assets?.audio?.(trackId, this.context) ?? null;
+    if (!track.url || !this.context) return null;
+    if (!this.sessionBuffers.has(track.id)) {
+      const request = fetch(track.url)
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.arrayBuffer();
+        })
+        .then((data) => this.context.decodeAudioData(data))
+        .catch(() => {
+          this.sessionBuffers.delete(track.id);
+          return null;
+        });
+      this.sessionBuffers.set(track.id, request);
+    }
+    return this.sessionBuffers.get(track.id);
   }
 
   ensureDeckNodes(deck) {
@@ -497,7 +565,8 @@ export class DjMixer {
   }
 
   async playNativeMedia(deck, offset = 0) {
-    const url = this.audio.assets?.mediaUrl?.(deck.trackId);
+    const track = trackById(deck.trackId);
+    const url = track?.session ? track.url : this.audio.assets?.mediaUrl?.(deck.trackId);
     if (!url || typeof Audio === 'undefined') return false;
     const media = new Audio();
     media.preload = 'auto';
@@ -544,9 +613,7 @@ export class DjMixer {
     deck.step = Math.floor(safeOffset / sourceStepSeconds) % 16;
     deck.nextTime = this.context.currentTime;
 
-    const buffer = this.audio.assets
-      ? await this.audio.assets.audio(deck.trackId, this.context)
-      : null;
+    const buffer = await this.audioBufferForTrack(deck.trackId);
     if (!deck.playing) return false;
     if (buffer) {
       const source = this.context.createBufferSource();
@@ -761,6 +828,7 @@ export class DjMixer {
 
   dispose() {
     this.stop();
+    this.sessionBuffers.clear();
     for (const deck of Object.values(this.decks)) {
       if (!deck.nodes) continue;
       for (const node of Object.values(deck.nodes)) node.disconnect();
