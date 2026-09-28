@@ -346,6 +346,32 @@ export function installDjPerformanceRealism(game, ui) {
     return deck.platterHeld;
   };
 
+  mixer.setJogHeld = (deckId, held) => {
+    const deck = mixer.decks[deckId];
+    if (!deck) return false;
+    ensureState(deck);
+    const next = held === true;
+    if (next && !deck._jogHeld) {
+      deck._transportFrozenAt = mixer.deckPosition?.(deckId) ?? 0;
+      deck._lastVinylScrubAt = scrubClock(mixer);
+      void mixer.prepareVinylScrub?.(deckId);
+    } else if (!next && deck._jogHeld) {
+      const resumeAt = Number.isFinite(deck._transportFrozenAt)
+        ? deck._transportFrozenAt
+        : (mixer.deckPosition?.(deckId) ?? 0);
+      deck.transportOffset = Math.max(0, resumeAt);
+      deck.transportStartedAt = deck.playing ? (mixer.context?.currentTime ?? 0) : 0;
+      if (deck.media && Number.isFinite(deck.media.duration) && deck.media.duration > 0) {
+        deck.media.currentTime = deck.transportOffset % deck.media.duration;
+      }
+      deck._transportFrozenAt = null;
+      stopVinylScrubVoice(mixer, deck);
+      if (deck.playing) mixer.restartDeckAt?.(deckId, resumeAt);
+    }
+    deck._jogHeld = next;
+    return deck._jogHeld;
+  };
+
   mixer.prepareVinylScrub = async (deckId) => {
     const deck = mixer.decks[deckId];
     if (!deck || !mixer.context) return null;
@@ -401,6 +427,45 @@ export function installDjPerformanceRealism(game, ui) {
         deck.media.currentTime = duration > 0 ? target % duration : target;
       } catch {
         // Media metadata may not be ready while the platter is being moved.
+      }
+    }
+
+    const now = scrubClock(mixer);
+    const elapsed = Math.max(1 / 120, now - (deck._lastVinylScrubAt ?? now - 1 / 60));
+    deck._lastVinylScrubAt = now;
+    const speed = Math.abs(delta) / elapsed;
+    const buffer = deck._vinylScrubBuffer || deck.source?.buffer || null;
+    if (buffer && Math.abs(delta) > 0.0005) {
+      playVinylScrubGrain(mixer, deck, buffer, target, delta, speed);
+    } else if (!buffer) {
+      void mixer.prepareVinylScrub?.(deckId);
+    }
+    return target;
+  };
+
+  mixer.scrubJog = (deckId, secondsDelta = 0) => {
+    const deck = mixer.decks[deckId];
+    if (!deck) return false;
+    ensureState(deck);
+    const delta = Number(secondsDelta) || 0;
+    const current = Number.isFinite(deck._transportFrozenAt)
+      ? deck._transportFrozenAt
+      : (mixer.deckPosition?.(deckId) ?? 0);
+    let target = Math.max(0, current + delta);
+    const duration = Number(
+      deck._vinylScrubBuffer?.duration ||
+        deck.source?.buffer?.duration ||
+        deck.media?.duration ||
+        0,
+    );
+    if (duration > 0) target = Math.min(target, Math.max(0, duration - 0.001));
+    deck._transportFrozenAt = target;
+    deck.transportOffset = target;
+    if (deck.media) {
+      try {
+        deck.media.currentTime = duration > 0 ? target % duration : target;
+      } catch {
+        // Metadata may not be ready while the jog is being moved.
       }
     }
 
@@ -528,6 +593,7 @@ export function installDjPerformanceRealism(game, ui) {
       ensureState(deck);
       stopVinylScrubVoice(mixer, deck);
       deck.platterHeld = false;
+      deck._jogHeld = false;
       deck._jogBend = 0;
       deck._transportFrozenAt = null;
     }
