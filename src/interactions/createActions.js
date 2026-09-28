@@ -42,6 +42,7 @@ export function createActions({
   saveState = () => {},
   canAct,
   requestSpectraConsoleAccess = () => true,
+  enterDjBoothView = () => true,
 }) {
   const panel = (title, text, actions = []) => {
     const sceneId = sceneManager.current.definition.id;
@@ -1262,6 +1263,7 @@ export function createActions({
       ]);
       return;
     }
+    enterDjBoothView();
     studioPlayback?.stop?.();
     audio.stop();
     const rig = sceneManager.current.lighting;
