@@ -474,7 +474,10 @@ export class Game {
       const definition = this.scenes.get(this.state.data.sceneId).definition;
       const sameLayout =
         !definition.layoutRevision || definition.layoutRevision === this.state.data.layoutRevision;
-      this.sceneManager.start(this.state.data.sceneId, sameLayout ? this.state.data.position : null);
+      this.sceneManager.start(
+        this.state.data.sceneId,
+        sameLayout ? this.state.data.position : null,
+      );
     }
     this.ui.ready(async (avatarProfile) => {
       this.state.data.avatar = normalizeAvatar(avatarProfile ?? this.state.data.avatar);
