@@ -75,10 +75,16 @@ test('God Mode teleport list includes live rooms, anchors and spawns with Spectr
 
   const destinations = collectGodModeTeleportDestinations(game);
   const spectra = destinations.find((destination) => destination.id === 'upstairs:anchor:console');
+  const djBooth = destinations.find((destination) => destination.id === 'downstairs:anchor:dj');
 
   assert.ok(spectra);
   assert.equal(spectra.featured, true);
   assert.equal(spectra.label, 'Spectra console');
+  assert.equal(spectra.shortcutLabel, 'Spectra Console');
+  assert.ok(djBooth);
+  assert.equal(djBooth.label, 'DJ booth');
+  assert.equal(djBooth.shortcutLabel, 'DJ Booth');
+  assert.equal(djBooth.shortcutRank, 1);
   assert.ok(destinations.some((destination) => destination.id === 'upstairs:room:mixing'));
   assert.ok(destinations.some((destination) => destination.id === 'downstairs:room:club'));
   assert.ok(destinations.some((destination) => destination.id === 'upstairs:spawn:start'));
