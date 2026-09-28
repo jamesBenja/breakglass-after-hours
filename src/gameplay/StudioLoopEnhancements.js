@@ -1099,7 +1099,11 @@ function buildPerformanceDiagnosticsPanel(game, ui) {
     async () => {
       const report = diagnostics.active ? diagnostics.report() : diagnostics.lastReport || diagnostics.report();
       try {
-        await globalThis.navigator?.clipboard?.writeText?.(report);
+        const writeText = globalThis.navigator?.clipboard?.writeText?.bind(
+          globalThis.navigator.clipboard,
+        );
+        if (typeof writeText !== 'function') throw new Error('clipboard unavailable');
+        await writeText(report);
         ui.warning?.('Spectra diagnostic report copied.');
       } catch {
         const textArea = ui.document?.createElement?.('textarea');
