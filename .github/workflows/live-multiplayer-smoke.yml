@@ -29,3 +29,23 @@ jobs:
         env:
           MULTIPLAYER_URL: wss://multiplayer-phase2-webrtc-production.up.railway.app
         run: node scripts/smoke-live-multiplayer.mjs
+      - name: Verify shared DJ upload endpoint
+        run: |
+          node --input-type=module <<'NODE'
+          const endpoint = new URL('https://multiplayer-phase2-webrtc-production.up.railway.app/dj-upload');
+          endpoint.searchParams.set('room', 'breakglass-main');
+          endpoint.searchParams.set('player', 'smoke-no-player');
+          endpoint.searchParams.set('token', 'smoke-no-token');
+          endpoint.searchParams.set('filename', 'smoke.mp3');
+          endpoint.searchParams.set('bpm', '120');
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'audio/mpeg' },
+            body: new Uint8Array([0x49, 0x44, 0x33]),
+          });
+          const body = await response.json();
+          if (response.status !== 401 || body?.error !== 'Upload authorization expired.') {
+            throw new Error(`Unexpected shared DJ upload response: ${response.status} ${JSON.stringify(body)}`);
+          }
+          console.log('Shared DJ upload endpoint is live and enforcing room authorization.');
+          NODE
