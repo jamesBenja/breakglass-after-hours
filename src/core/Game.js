@@ -6,6 +6,7 @@ import { normalizeAvatar } from '../avatar/profile.js';
 import { AudioEngine } from '../audio/AudioEngine.js';
 import { SpatialAudioSystem } from '../audio/SpatialAudioSystem.js';
 import { DjMixer } from '../dj/DjMixer.js';
+import { enterDjBoothPov, exitDjBoothPov } from '../gameplay/DjBoothView.js';
 import { BarServiceSystem } from '../gameplay/BarServiceSystem.js';
 import { LightingControlSystem } from '../gameplay/LightingControlSystem.js';
 import { MaddoxInteractionSystem } from '../gameplay/MaddoxInteractionSystem.js';
@@ -113,6 +114,7 @@ export class Game {
       if (this.keyboardPerformance?.active || this.keyboardPerformance?.recording) {
         this.keyboardPerformance.stop(false);
       }
+      exitDjBoothPov(this);
       this.input.clear();
     };
 
@@ -209,6 +211,7 @@ export class Game {
         this.input.clear();
       },
       onEnter: (level) => {
+        this._djBoothPov = null;
         this.syncMaddoxPresence(level, { entered: true });
         level.progressionGates?.sync?.(this.state.data);
         this.interactions.setLevel(level);
@@ -400,6 +403,7 @@ export class Game {
       saveState: () => this.save(),
       canAct,
       requestSpectraConsoleAccess: this.requestSpectraConsoleAccess,
+      enterDjBoothView: () => enterDjBoothPov(this),
     });
     this.interactions = new InteractionSystem((target) => {
       if (
