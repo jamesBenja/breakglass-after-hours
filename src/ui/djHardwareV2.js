@@ -380,10 +380,17 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
   platter.appendChild(record);
 
   let pointerId = null;
-  let lastX = 0;
+  let lastAngle = 0;
+  const platterAngle = (event) => {
+    const rect = platter.getBoundingClientRect();
+    const x = event.clientX - (rect.left + rect.width / 2);
+    const y = event.clientY - (rect.top + rect.height / 2);
+    return Math.atan2(y, x);
+  };
   platter.onpointerdown = (event) => {
+    event.preventDefault();
     pointerId = event.pointerId;
-    lastX = event.clientX;
+    lastAngle = platterAngle(event);
     platter.setPointerCapture?.(event.pointerId);
     mixer.setDeviceMode?.(deckId, 'vinyl');
     mixer.setPlatterHeld?.(deckId, true);
@@ -392,13 +399,15 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
   };
   platter.onpointermove = (event) => {
     if (pointerId !== event.pointerId || !mixer.decks[deckId]?.platterHeld) return;
-    const delta = event.clientX - lastX;
-    lastX = event.clientX;
-    const deck = mixer.decks[deckId];
-    const current = Number.isFinite(deck._transportFrozenAt)
-      ? deck._transportFrozenAt
-      : (mixer.deckPosition?.(deckId) ?? 0);
-    deck._transportFrozenAt = Math.max(0, current + delta * 0.025);
+    event.preventDefault();
+    const angle = platterAngle(event);
+    let angleDelta = angle - lastAngle;
+    if (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+    if (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+    lastAngle = angle;
+    const rpm = Math.max(1, Number(mixer.decks[deckId]?.vinylRpm) || 33.333);
+    const secondsPerRevolution = 60 / rpm;
+    mixer.scrubVinyl?.(deckId, (angleDelta / (Math.PI * 2)) * secondsPerRevolution);
     onChange();
   };
   const release = (event) => {
@@ -415,6 +424,7 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
   pitch.className = 'sl-pitch';
   const pitchInput = addRange(document, pitch, {
     label: 'PITCH',
+    className: 'dj-hardware-range sl-pitch-range',
     ariaLabel: 'SL-1200 ' + deckId + ' pitch',
     min: -8,
     max: 8,
@@ -427,6 +437,12 @@ function createTurntable(document, mixer, tracks, deckId, side, onChange, refres
       onChange();
     },
   });
+  const pitchZero = makeButton(document, '0', 'sl-pitch-zero', () => {
+    pitchInput.value = '0';
+    pitchInput.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  pitchZero.title = 'Reset pitch to 0%';
+  pitch.appendChild(pitchZero);
   deckSurface.append(platter, pitch);
   unit.appendChild(deckSurface);
 
@@ -557,6 +573,19 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
       value: state.low,
       onInput: (value) => {
         mixer.setEq(definition.deckId, 'low', value);
+        onChange();
+      },
+    });
+    addKnob(document, eq, {
+      label: 'FILTER',
+      ariaLabel: 'A9 channel ' + number + ' filter',
+      value: state.filter ?? 0,
+      format: (value) => {
+        if (Math.abs(value) < 0.02) return 'OFF';
+        return value < 0 ? 'LPF' : 'HPF';
+      },
+      onInput: (value) => {
+        mixer.setFilter?.(definition.deckId, value);
         onChange();
       },
     });
