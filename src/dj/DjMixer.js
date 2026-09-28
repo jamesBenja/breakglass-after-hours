@@ -212,10 +212,12 @@ export const DJ_TRACKS = [
 
 const trackById = (id) => DJ_TRACKS.find((track) => track.id === id) ?? DJ_TRACKS[0];
 
-function createDeckState(id, trackId) {
+function createDeckState(id, trackId, crossSide, deviceMode) {
   return {
     id,
     trackId,
+    crossSide,
+    deviceMode,
     playing: false,
     level: 0.82,
     low: 0,
@@ -234,7 +236,11 @@ function createDeckState(id, trackId) {
 }
 
 /**
- * Two WebAudio deck buses with constant-power crossfade, basic EQ and sync.
+ * Four independent WebAudio source buses feeding a four-channel DJ mixer.
+ *
+ * Deck A = left CDJ, B = right CDJ, C = left SL-1200, D = right SL-1200. The
+ * crossfader groups A/C on the left and B/D on the right while every channel keeps its own
+ * transport, track, EQ/filter state and level.
  *
  * Real catalogue files first try decodeAudioData so they get the full EQ path. Remote Drive
  * sources can deny CORS to fetch(); in that case a native HTMLAudio stream is used so the real
@@ -246,8 +252,10 @@ export class DjMixer {
     this.audio = audio;
     this.timers = timers;
     this.decks = {
-      A: createDeckState('A', 'got-you-dancin'),
-      B: createDeckState('B', 'in-flux-just-be'),
+      A: createDeckState('A', 'got-you-dancin', 'A', 'cdj'),
+      B: createDeckState('B', 'in-flux-just-be', 'B', 'cdj'),
+      C: createDeckState('C', 'atrakar', 'A', 'vinyl'),
+      D: createDeckState('D', 'dubki', 'B', 'vinyl'),
     };
     this.crossfader = -0.72;
     this.elapsed = 0;
@@ -282,7 +290,8 @@ export class DjMixer {
 
   nativeCrossGain(deckId) {
     const x = (clamp(this.crossfader, -1, 1) + 1) / 2;
-    return deckId === 'A' ? Math.cos(x * Math.PI * 0.5) : Math.sin(x * Math.PI * 0.5);
+    const side = this.decks[deckId]?.crossSide ?? (['A', 'C'].includes(deckId) ? 'A' : 'B');
+    return side === 'A' ? Math.cos(x * Math.PI * 0.5) : Math.sin(x * Math.PI * 0.5);
   }
 
   updateNativeDeckLevels() {
@@ -304,13 +313,16 @@ export class DjMixer {
   }
 
   updateCrossfader() {
-    const x = (clamp(this.crossfader, -1, 1) + 1) / 2;
-    const gainA = Math.cos(x * Math.PI * 0.5);
-    const gainB = Math.sin(x * Math.PI * 0.5);
-    if (this.decks.A.nodes && this.context)
-      this.decks.A.nodes.cross.gain.setTargetAtTime(gainA, this.context.currentTime, 0.018);
-    if (this.decks.B.nodes && this.context)
-      this.decks.B.nodes.cross.gain.setTargetAtTime(gainB, this.context.currentTime, 0.018);
+    if (this.context) {
+      for (const [deckId, deck] of Object.entries(this.decks)) {
+        if (!deck.nodes) continue;
+        deck.nodes.cross.gain.setTargetAtTime(
+          this.nativeCrossGain(deckId),
+          this.context.currentTime,
+          0.018,
+        );
+      }
+    }
     this.updateNativeDeckLevels();
   }
 
@@ -365,15 +377,17 @@ export class DjMixer {
   }
 
   sync(deckId) {
+    if (!['A', 'B'].includes(deckId)) return false;
     const deck = this.decks[deckId];
     const other = this.decks[deckId === 'A' ? 'B' : 'A'];
-    if (!deck || !other) return;
+    if (!deck || !other) return false;
     this.setBpm(deckId, other.bpm);
     if (other.playing && this.context) {
       deck.step = other.step;
       deck.nextTime = other.nextTime;
     }
     this.updateVibe();
+    return true;
   }
 
   oscillator(deck, freq, duration, when, type = 'sawtooth', volume = 0.055) {
@@ -653,27 +667,42 @@ export class DjMixer {
 
   metrics() {
     const active = Object.values(this.decks).filter((deck) => deck.playing);
-    if (!active.length) return { playing: false, vibe: 0, mixQuality: 0 };
-    let mixQuality = 0.82;
-    if (active.length === 2) {
-      const a = this.phase(this.decks.A);
-      const b = this.phase(this.decks.B);
-      const distance = Math.min(Math.abs(a - b), 1 - Math.abs(a - b));
-      const alignment = clamp(1 - distance * 2.4);
-      const centerExposure = 1 - Math.abs(this.crossfader);
-      mixQuality = 0.92 - centerExposure * (1 - alignment) * 0.78;
-      const bpmDistance = Math.abs(this.decks.A.bpm - this.decks.B.bpm);
-      mixQuality -= centerExposure * Math.min(0.35, bpmDistance * 0.035);
-      mixQuality = clamp(mixQuality);
+    if (!active.length) return { playing: false, vibe: 0, mixQuality: 0, energy: 0 };
+
+    const audible = active.map((deck) => ({
+      deck,
+      weight: this.nativeCrossGain(deck.id) * clamp(deck.level),
+    }));
+    const audibleTotal = audible.reduce((sum, item) => sum + item.weight, 0);
+    let pairWeight = 0;
+    let qualityWeighted = 0;
+
+    for (let leftIndex = 0; leftIndex < audible.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < audible.length; rightIndex += 1) {
+        const left = audible[leftIndex];
+        const right = audible[rightIndex];
+        const overlap = Math.min(left.weight, right.weight);
+        if (overlap <= 0.001) continue;
+        const phaseLeft = this.phase(left.deck);
+        const phaseRight = this.phase(right.deck);
+        const distance = Math.min(
+          Math.abs(phaseLeft - phaseRight),
+          1 - Math.abs(phaseLeft - phaseRight),
+        );
+        const alignment = clamp(1 - distance * 2.4);
+        const bpmDistance = Math.abs(left.deck.bpm - right.deck.bpm);
+        const pairQuality = clamp(0.94 - (1 - alignment) * 0.62 - Math.min(0.34, bpmDistance * 0.03));
+        qualityWeighted += pairQuality * overlap;
+        pairWeight += overlap;
+      }
     }
-    const x = (this.crossfader + 1) / 2;
-    const weightA = Math.cos(x * Math.PI * 0.5) * (this.decks.A.playing ? 1 : 0);
-    const weightB = Math.sin(x * Math.PI * 0.5) * (this.decks.B.playing ? 1 : 0);
-    const total = weightA + weightB || 1;
-    const energy =
-      (trackById(this.decks.A.trackId).energy * weightA +
-        trackById(this.decks.B.trackId).energy * weightB) /
-      total;
+
+    const mixQuality = pairWeight > 0 ? clamp(qualityWeighted / pairWeight) : 0.86;
+    const energyNumerator = audible.reduce(
+      (sum, item) => sum + trackById(item.deck.trackId).energy * item.weight,
+      0,
+    );
+    const energy = energyNumerator / Math.max(0.001, audibleTotal);
     const vibe = clamp(energy * (0.54 + mixQuality * 0.52));
     return { playing: true, vibe, mixQuality, energy };
   }
@@ -684,17 +713,11 @@ export class DjMixer {
       this.audio.clearExternalTransport?.('dj');
       return;
     }
+    const active = Object.values(this.decks).filter((deck) => deck.playing);
     const activeBpm =
-      this.decks.A.playing && this.decks.B.playing
-        ? (this.decks.A.bpm + this.decks.B.bpm) / 2
-        : this.decks.A.playing
-          ? this.decks.A.bpm
-          : this.decks.B.bpm;
+      active.reduce((sum, deck) => sum + deck.bpm, 0) / Math.max(1, active.length);
     const interval = 60 / activeBpm / 4;
-    const activeLabels = Object.values(this.decks)
-      .filter((deck) => deck.playing)
-      .map((deck) => trackById(deck.trackId).label)
-      .join(' / ');
+    const activeLabels = active.map((deck) => trackById(deck.trackId).label).join(' / ');
     const label = `DJ mix · ${activeLabels}`;
     if (this.audio.externalTransports?.has('dj'))
       this.audio.updateExternalTransport('dj', { label, interval, ...metrics });
@@ -708,8 +731,7 @@ export class DjMixer {
   }
 
   stop() {
-    this.stopDeck('A');
-    this.stopDeck('B');
+    for (const deckId of Object.keys(this.decks)) this.stopDeck(deckId);
     this.audio.clearExternalTransport?.('dj');
   }
 
@@ -722,6 +744,8 @@ export class DjMixer {
           id,
           {
             trackId: deck.trackId,
+            crossSide: deck.crossSide,
+            deviceMode: deck.deviceMode,
             playing: deck.playing,
             level: deck.level,
             low: deck.low,
