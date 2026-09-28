@@ -419,5 +419,6 @@ test('multiplayer HTTP server verifies God Mode and invitation links alongside D
     headers: { Authorization: 'Bearer resident-regression-token' },
   });
   assert.equal(resident.status, 200);
-  assert.deepEqual(await resident.json(), { ok: true, type: 'residentproducer' });
-});
+    assert.deepEqual(await resident.json(), { ok: true, type: 'residentproducer' });
+  },
+);
