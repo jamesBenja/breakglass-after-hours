@@ -102,7 +102,6 @@ test('SL-1200 platter scrub persists the cue position while stopped', () => {
   assert.equal(mixer.deckPosition('C'), 13.5);
 });
 
-
 test('CDJ jog backspin scrubs without changing the player into vinyl mode', () => {
   const { mixer } = harness();
   const deck = mixer.decks.A;

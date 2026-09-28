@@ -236,8 +236,7 @@ export function installDjAccuracyEnhancements(game, ui) {
     impulse: null,
   });
 
-  const fxTargetDeck = (target) =>
-    ({ CH1: 'C', CH2: 'A', CH3: 'B', CH4: 'D' })[target] ?? null;
+  const fxTargetDeck = (target) => ({ CH1: 'C', CH2: 'A', CH3: 'B', CH4: 'D' })[target] ?? null;
 
   const fxDestination = () => mixer.audio.sourceDestination?.('dj') ?? mixer.audio.master;
 
@@ -335,7 +334,8 @@ export function installDjAccuracyEnhancements(game, ui) {
       const valid = nodes.filter(Boolean);
       if (!valid.length) return;
       rack.input.connect(valid[0]);
-      for (let index = 0; index < valid.length - 1; index += 1) valid[index].connect(valid[index + 1]);
+      for (let index = 0; index < valid.length - 1; index += 1)
+        valid[index].connect(valid[index + 1]);
       valid[valid.length - 1].connect(rack.wet);
       beatFx.branch.push(...valid);
     };
@@ -373,10 +373,7 @@ export function installDjAccuracyEnhancements(game, ui) {
       const convolver = context.createConvolver();
       convolver.buffer = createImpulse();
       connectBranch(convolver);
-    } else if (
-      ['FILTER', 'TRIPLET FILTER'].includes(beatFx.effect) &&
-      context.createBiquadFilter
-    ) {
+    } else if (['FILTER', 'TRIPLET FILTER'].includes(beatFx.effect) && context.createBiquadFilter) {
       const filter = context.createBiquadFilter();
       filter.type = 'lowpass';
       filter.Q.value = 7;

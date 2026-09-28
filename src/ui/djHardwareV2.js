@@ -676,16 +676,11 @@ function createA9(document, mixer, onChange, refresh, liveRefs) {
   fxHeader.className = 'a9-fx-header';
   const fxLabel = document.createElement('strong');
   fxLabel.textContent = 'BEAT FX';
-  const fxOn = makeButton(
-    document,
-    snapshot.beatFx?.enabled ? 'ON' : 'OFF',
-    'a9-fx-on',
-    () => {
-      mixer.setBeatFxEnabled?.(!mixer.snapshot().beatFx?.enabled);
-      onChange();
-      refresh();
-    },
-  );
+  const fxOn = makeButton(document, snapshot.beatFx?.enabled ? 'ON' : 'OFF', 'a9-fx-on', () => {
+    mixer.setBeatFxEnabled?.(!mixer.snapshot().beatFx?.enabled);
+    onChange();
+    refresh();
+  });
   setPressed(fxOn, snapshot.beatFx?.enabled === true);
   fxHeader.append(fxLabel, fxOn);
 

@@ -690,9 +690,7 @@
   padding: 5px 7px;
   border: 1px solid #30343a;
   border-radius: 4px;
-  background:
-    linear-gradient(180deg, rgba(82, 117, 143, 0.08), transparent 45%),
-    #0b0d10;
+  background: linear-gradient(180deg, rgba(82, 117, 143, 0.08), transparent 45%), #0b0d10;
 }
 
 .a9-fx-header {
@@ -734,7 +732,11 @@
   border-radius: 4px;
   color: #d4e4ec;
   background: #10151a;
-  font: 800 6px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    800 6px/1.1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
 }
 
 .a9-fx-effect {
