@@ -1321,11 +1321,20 @@
     gap: 6px;
   }
 
+  #panel.dj-hardware-panel {
+    background: rgba(7, 8, 10, 0.28);
+    backdrop-filter: blur(1.5px);
+    -webkit-backdrop-filter: blur(1.5px);
+  }
+
   .dj-hardware-status {
     position: sticky;
     top: 0;
     grid-template-columns: 1fr repeat(4, auto);
     padding-right: 35px;
+    background: rgba(11, 12, 15, 0.62);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
   }
 
   .dj-hardware-status > strong {
@@ -1347,7 +1356,9 @@
     padding: 3px;
     border: 1px solid #30353c;
     border-radius: 7px;
-    background: rgba(9, 10, 12, 0.97);
+    background: rgba(9, 10, 12, 0.58);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
   }
 
   .dj-hardware-rack {
@@ -1374,6 +1385,40 @@
 
   .djm-a9.focused {
     grid-template-rows: auto auto 1fr auto;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 28%),
+      linear-gradient(
+        180deg,
+        rgba(17, 19, 22, 0.3) 0%,
+        rgba(17, 19, 22, 0.46) 42%,
+        rgba(17, 19, 22, 0.78) 100%
+      );
+  }
+
+  .djm-a9.focused .dj-device-brand {
+    background: rgba(8, 9, 11, 0.42);
+  }
+
+  .djm-a9.focused .a9-master-meters,
+  .djm-a9.focused .a9-bpm-reader,
+  .djm-a9.focused .a9-fx-panel {
+    background-color: rgba(8, 10, 13, 0.48);
+  }
+
+  .djm-a9.focused .a9-channel {
+    background: linear-gradient(
+      180deg,
+      rgba(25, 28, 32, 0.5),
+      rgba(16, 18, 21, 0.76)
+    );
+  }
+
+  .djm-a9.focused .a9-input-select {
+    background: rgba(17, 20, 24, 0.66);
+  }
+
+  .djm-a9.focused .a9-input-select.active {
+    background: rgba(24, 52, 66, 0.7);
   }
 
   .cdj-center {
