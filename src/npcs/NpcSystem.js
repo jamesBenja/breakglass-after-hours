@@ -1,5 +1,6 @@
 import { BoxGeometry, Mesh, MeshStandardMaterial, SphereGeometry, Vector3 } from 'three';
 import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import { createReferenceHuman } from '../avatar/ReferenceHuman.js';
 import {
   applyLightweightSocialGesture,
   DANCE_CIRCLE_RADIUS,
@@ -325,7 +326,8 @@ function addReferenceDetails(model, look) {
 export function createNpcCharacter(npc) {
   const look = { ...DEFAULT_LOOK, ...(CHARACTER_LOOKS[npc.id] ?? {}), ...(npc.appearance ?? {}) };
   const bodyWidth = look.bodyWidth ?? 0.94 + variation(npc.id, 2) * 0.13;
-  const model = createLightweightHuman({
+  const createHuman = npc.visualStyle === 'reference' ? createReferenceHuman : createLightweightHuman;
+  const model = createHuman({
     skin: look.skin,
     hair: look.hair,
     outfit: look.outfit ?? npc.color ?? DEFAULT_LOOK.outfit,
@@ -339,13 +341,16 @@ export function createNpcCharacter(npc) {
   model.body.scale.x = bodyWidth;
   model.leftArm.position.x *= bodyWidth;
   model.rightArm.position.x *= bodyWidth;
-  addReferenceDetails(model, look);
+  if (npc.visualStyle !== 'reference') addReferenceDetails(model, look);
 
   const accentMat = model.materials.accent;
   const darkMat = material(0x181a1e);
-  const accent = new Mesh(new BoxGeometry(0.24, 0.055, 0.025), accentMat);
-  accent.position.set(0, 0.115, 0.205);
-  model.body.add(accent);
+  let accent = null;
+  if (npc.visualStyle !== 'reference') {
+    accent = new Mesh(new BoxGeometry(0.24, 0.055, 0.025), accentMat);
+    accent.position.set(0, 0.115, 0.205);
+    model.body.add(accent);
+  }
 
   let prop = null;
   if (look.prop === 'camera') {
