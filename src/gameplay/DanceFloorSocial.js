@@ -12,12 +12,7 @@ export function isDanceFloorPosition(definition, position) {
   const z = coordinate(position, 'z', 2);
   if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
   return (definition.crowd?.zones ?? []).some(
-    (zone) =>
-      zone.kind === 'dance' &&
-      x >= zone.x1 &&
-      x <= zone.x2 &&
-      z >= zone.z1 &&
-      z <= zone.z2,
+    (zone) => zone.kind === 'dance' && x >= zone.x1 && x <= zone.x2 && z >= zone.z1 && z <= zone.z2,
   );
 }
 

@@ -4,10 +4,7 @@ import {
   CANONICAL_MULTIPLAYER_SERVER,
   liveBackendSelection,
 } from '../runtime/LiveBackendPolicy.js';
-import {
-  isDanceFloorPosition,
-  withinDanceCircle,
-} from '../gameplay/DanceFloorSocial.js';
+import { isDanceFloorPosition, withinDanceCircle } from '../gameplay/DanceFloorSocial.js';
 import { RemotePlayer } from './RemotePlayer.js';
 import { RealtimeMedia } from './RealtimeMedia.js';
 import { SharedWorld } from './SharedWorld.js';
