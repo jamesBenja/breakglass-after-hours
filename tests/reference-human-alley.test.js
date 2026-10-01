@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Group } from 'three';
+import { resolveImportedAnimationState } from '../src/avatar/ImportedHumanVisual.js';
 import { NpcSystem } from '../src/npcs/NpcSystem.js';
 import { alleyLevel } from '../src/world/alley.js';
 
@@ -10,6 +11,7 @@ test('imported human test stays isolated beside the normal alley spawn with a pr
   assert.equal(testNpc.visualStyle, 'reference');
   assert.equal(testNpc.importedAsset?.url, 'https://three.ws/avatars/michelle.glb');
   assert.equal(testNpc.importedAsset?.targetHeight, 1.78);
+  assert.equal(testNpc.importedAsset?.demoCycle, true);
   assert.equal(testNpc.interactive, false);
 
   const [spawnX, , spawnZ] = alleyLevel.spawns.start;
@@ -41,4 +43,29 @@ test('imported human test stays isolated beside the normal alley spawn with a pr
 
   npcs.update(0.16, { playing: false, energy: 0 });
   npcs.dispose();
+});
+
+
+test('imported human animation state follows NPC behavior before the temporary demo cycle', () => {
+  assert.equal(resolveImportedAnimationState({ time: 1 }), 'idle');
+  assert.equal(resolveImportedAnimationState({ moving: true, demoCycle: true, time: 10 }), 'walk');
+  assert.equal(resolveImportedAnimationState({ dancing: true, demoCycle: true, time: 1 }), 'dance');
+  assert.equal(
+    resolveImportedAnimationState({
+      socialGesture: 'highfive',
+      moving: true,
+      dancing: true,
+      demoCycle: true,
+      time: 8,
+    }),
+    'highfive',
+  );
+});
+
+test('alley animation demo exposes idle, walk, dance and high-five states', () => {
+  assert.equal(resolveImportedAnimationState({ demoCycle: true, time: 1 }), 'idle');
+  assert.equal(resolveImportedAnimationState({ demoCycle: true, time: 5 }), 'walk');
+  assert.equal(resolveImportedAnimationState({ demoCycle: true, time: 10 }), 'dance');
+  assert.equal(resolveImportedAnimationState({ demoCycle: true, time: 14 }), 'highfive');
+  assert.equal(resolveImportedAnimationState({ demoCycle: true, time: 17 }), 'idle');
 });
