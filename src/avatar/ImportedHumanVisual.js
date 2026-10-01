@@ -42,6 +42,16 @@ const SOCIAL_DANCE_GESTURES = new Set(['dance', 'grind', 'circle']);
 const _euler = new Euler();
 const _offsetQuat = new Quaternion();
 const _targetQuat = new Quaternion();
+const _armStart = new Vector3();
+const _armEnd = new Vector3();
+const _armDirection = new Vector3();
+const _desiredDirection = new Vector3();
+const _rootWorldQuaternion = new Quaternion();
+const _armWorldQuaternion = new Quaternion();
+const _parentWorldQuaternion = new Quaternion();
+const _worldDelta = new Quaternion();
+const _groupWorldPosition = new Vector3();
+const _groupWorldScale = new Vector3();
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
@@ -104,17 +114,59 @@ function captureRig(root) {
     rig.set(key, {
       node: match.object,
       restQuaternion: match.object.quaternion.clone(),
+      baseQuaternion: match.object.quaternion.clone(),
       restPosition: match.object.position.clone(),
     });
   }
   return rig;
 }
 
+function calibrateArmDown(root, rig, side) {
+  const arm = rig.get(`${side}arm`);
+  const forearm = rig.get(`${side}forearm`);
+  if (!arm?.node || !forearm?.node || !arm.node.parent) return false;
+
+  root.updateMatrixWorld(true);
+  arm.node.getWorldPosition(_armStart);
+  forearm.node.getWorldPosition(_armEnd);
+  _armDirection.subVectors(_armEnd, _armStart);
+  if (_armDirection.lengthSq() < 1e-8) return false;
+  _armDirection.normalize();
+
+  // Derive a relaxed hanging arm in the character's own frame instead of assuming Mixamo's
+  // authored local XYZ axes. A tiny outward bias keeps the hands clear of the thighs.
+  const outward = side === 'left' ? -0.08 : 0.08;
+  _desiredDirection.set(outward, -0.995, 0.02).normalize();
+  root.getWorldQuaternion(_rootWorldQuaternion);
+  _desiredDirection.applyQuaternion(_rootWorldQuaternion).normalize();
+
+  _worldDelta.setFromUnitVectors(_armDirection, _desiredDirection);
+  arm.node.getWorldQuaternion(_armWorldQuaternion);
+  _armWorldQuaternion.premultiply(_worldDelta);
+  arm.node.parent.getWorldQuaternion(_parentWorldQuaternion).invert();
+  arm.baseQuaternion.copy(_parentWorldQuaternion).multiply(_armWorldQuaternion);
+  return true;
+}
+
+function groundImportedVisual(controller, model, alpha = 1) {
+  if (!controller.scene) return;
+  controller.scene.updateMatrixWorld(true);
+  controller.groundBox.setFromObject(controller.scene, true);
+  if (!Number.isFinite(controller.groundBox.min.y)) return;
+
+  model.group.getWorldPosition(_groupWorldPosition);
+  model.group.getWorldScale(_groupWorldScale);
+  const scaleY = Math.max(1e-5, Math.abs(_groupWorldScale.y));
+  const worldError = _groupWorldPosition.y - controller.groundBox.min.y;
+  const localError = clamp(worldError / scaleY, -0.12, 0.12);
+  controller.mount.position.y += localError * alpha;
+}
+
 function setBoneTarget(entry, x = 0, y = 0, z = 0, alpha = 1) {
   if (!entry) return;
   _euler.set(x, y, z, 'XYZ');
   _offsetQuat.setFromEuler(_euler);
-  _targetQuat.copy(entry.restQuaternion).multiply(_offsetQuat);
+  _targetQuat.copy(entry.baseQuaternion ?? entry.restQuaternion).multiply(_offsetQuat);
   entry.node.quaternion.slerp(_targetQuat, alpha);
 }
 
@@ -130,8 +182,8 @@ function idlePose(time) {
       spine2: [breath * 0.016, 0, glance * 0.012],
       neck: [0, glance * 0.035, 0],
       head: [breath * 0.012, glance * 0.055, 0],
-      leftarm: [0.03 + breath * 0.015, 0, -1.08],
-      rightarm: [-0.03 - breath * 0.015, 0, 1.08],
+      leftarm: [0.03 + breath * 0.015, 0, -0.04],
+      rightarm: [-0.03 - breath * 0.015, 0, 0.04],
       leftforearm: [-0.12, 0, -0.03],
       rightforearm: [-0.12, 0, 0.03],
       leftupleg: [0, 0, 0.025],
@@ -156,8 +208,8 @@ function walkPose(time) {
       spine2: [0, gait * 0.035, 0],
       neck: [0, gait * 0.015, 0],
       head: [0, gait * 0.025, 0],
-      leftarm: [gait * 0.48, 0, -1.03],
-      rightarm: [-gait * 0.48, 0, 1.03],
+      leftarm: [gait * 0.48, 0, -0.03],
+      rightarm: [-gait * 0.48, 0, 0.03],
       leftforearm: [-0.18 - liftRight * 0.22, 0, -0.03],
       rightforearm: [-0.18 - liftLeft * 0.22, 0, 0.03],
       leftupleg: [-gait * 0.62, 0, 0.02],
@@ -184,8 +236,8 @@ function dancePose(time, energy = 0.8) {
       spine2: [pulse * 0.04, counter * 0.08, pulse * 0.075],
       neck: [-pulse * 0.035, counter * 0.06, 0],
       head: [-pulse * 0.055, counter * 0.095, -counter * 0.035],
-      leftarm: [-0.18 + counter * 0.38, pulse * 0.12, -0.62 - pulse * 0.28],
-      rightarm: [0.2 - pulse * 0.42, -counter * 0.12, 0.62 + counter * 0.28],
+      leftarm: [-0.18 + counter * 0.38, pulse * 0.12, -0.16 - pulse * 0.28],
+      rightarm: [0.2 - pulse * 0.42, -counter * 0.12, 0.16 + counter * 0.28],
       leftforearm: [-0.62 - Math.max(0, pulse) * 0.42, 0, -0.12],
       rightforearm: [-0.58 - Math.max(0, counter) * 0.46, 0, 0.12],
       leftupleg: [-pulse * 0.22, 0, 0.07],
@@ -208,9 +260,9 @@ function highFivePose(time, progress = 0.5) {
       spine2: [-0.02 * envelope, 0.04 * envelope, 0],
       neck: [-0.04 * envelope, 0.08 * envelope, 0],
       head: [-0.03 * envelope, 0.09 * envelope, 0],
-      leftarm: [0.02, 0, -1.08],
+      leftarm: [0.02, 0, -0.04],
       leftforearm: [-0.14, 0, -0.03],
-      rightarm: [-0.48 * envelope, -0.16 * envelope, 1.08 - 1.72 * envelope],
+      rightarm: [-0.48 * envelope, -0.16 * envelope, -1.45 * envelope],
       rightforearm: [-0.12 - 0.62 * envelope, 0, 0.06 + settle],
       righthand: [0.08 * envelope, 0, settle],
       leftupleg: [0, 0, 0.025],
@@ -282,6 +334,7 @@ export function attachImportedHumanVisual(
     mount,
     scene: null,
     rig: new Map(),
+    groundBox: new Box3(),
     disposed: false,
     demoCycle,
     update(
@@ -320,7 +373,9 @@ export function attachImportedHumanVisual(
         const rotation = pose.bones[key] ?? [0, 0, 0];
         setBoneTarget(this.rig.get(key), rotation[0], rotation[1], rotation[2], alpha);
       }
-      this.mount.position.y += (pose.bob - this.mount.position.y) * alpha;
+      // Ground after skinning each pose. This removes the visible hover that came from applying
+      // body bob independently of the feet and also compensates for bent-knee poses.
+      groundImportedVisual(this, model, Math.min(1, alpha * 1.35));
       return resolved;
     },
     dispose() {
@@ -370,6 +425,8 @@ export function attachImportedHumanVisual(
       });
 
       const rig = captureRig(scene);
+      calibrateArmDown(scene, rig, 'left');
+      calibrateArmDown(scene, rig, 'right');
       if (rig.size < 10 || !fitToHumanHeight(scene, targetHeight)) {
         disposeScene(scene);
         controller.state = 'fallback';
