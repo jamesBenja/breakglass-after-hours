@@ -29,6 +29,7 @@ import { InteractionSystem } from '../interactions/InteractionSystem.js';
 import { createActions } from '../interactions/createActions.js';
 import { DEVIN_ARCADE_GUIDE } from '../world/belowClubConfig.js';
 import { resolveDirectEntryLanding } from '../runtime/DirectEntry.js';
+import { isDanceFloorPosition } from '../gameplay/DanceFloorSocial.js';
 
 export function spectraConsoleTargetInReach(sceneManager, player) {
   const definition = sceneManager?.current?.definition;
@@ -361,6 +362,39 @@ export class Game {
 
     const canAct = () => this.started && !this.sceneManager.changing && !document.hidden;
 
+    this.isOnDanceFloor = () =>
+      isDanceFloorPosition(this.sceneManager.current?.definition, this.player.position);
+
+    this.performDanceMove = (kind) => {
+      if (kind === 'circle' && this.multiplayer?.joined) {
+        return this.multiplayer.startDanceCircle?.() === true;
+      }
+      if (this.multiplayer?.joined && this.multiplayer.sendEmote?.(kind)) return true;
+      if (kind === 'dance') {
+        this.player.dance(1.8);
+        return true;
+      }
+      return this.player.performMultiplayerGesture?.(kind) === true;
+    };
+
+    this.openDanceMenu = () => {
+      if (!this.isOnDanceFloor()) {
+        this.performDanceMove('dance');
+        return false;
+      }
+      ui.panel(
+        'DANCE FLOOR',
+        'Pick a move. Walk up to another real player for Dance together, Grind, or High five.',
+        [
+          ['Dance', () => this.performDanceMove('dance')],
+          ['Hands up', () => this.performDanceMove('handsup')],
+          ['Shake ass', () => this.performDanceMove('shake')],
+          ['Start a dance circle', () => this.performDanceMove('circle')],
+        ],
+      );
+      return true;
+    };
+
     this.requestSpectraConsoleAccess = async () => {
       const multiplayer = this.multiplayer;
       const world = multiplayer?.world;
@@ -602,7 +636,7 @@ export class Game {
         const cameraInput = this.input.cameraInput(dt);
         this.camera.orbit(cameraInput.orbit);
         this.camera.zoom(cameraInput.zoom);
-        if (this.input.consume('dance')) this.player.dance();
+        if (this.input.consume('dance')) this.openDanceMenu();
 
         let movement = movementOverride ?? this.camera.worldMovement(this.input.movement());
         if (this.keyboardPerformance.active) movement = { x: 0, z: 0 };
