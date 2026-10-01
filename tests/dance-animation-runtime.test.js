@@ -44,7 +44,6 @@ test('shake is a visibly different pose from the original idle stance', () => {
   player.dispose();
 });
 
-
 test('circle visibly raises the player arms and moves the body', () => {
   const player = new PlayerController();
   const preMultiplayerAnimate = player.animate.bind(player);
