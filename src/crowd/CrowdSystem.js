@@ -206,12 +206,49 @@ export class CrowdSystem {
     const x = Number(centerPosition?.x ?? centerPosition?.[0]);
     const z = Number(centerPosition?.z ?? centerPosition?.[2]);
     if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
+
+    const resolvedRadius = Math.max(0.5, Number(radius) || 4.6);
+    const resolvedDuration = Math.max(0.5, Number(duration) || 3.2);
+    const visible = Math.round(this.attendance);
+    const candidates = [];
+
+    for (let i = 0; i < visible; i++) {
+      const member = this.members[i];
+      if (!member) continue;
+      const onDanceFloor = this.danceZones.some((zone) =>
+        inside(zone, member.currentX, member.currentZ),
+      );
+      if (!onDanceFloor) continue;
+      const dx = member.currentX - x;
+      const dz = member.currentZ - z;
+      const distance = Math.hypot(dx, dz);
+      candidates.push({
+        index: i,
+        distance,
+        angle: Math.atan2(dx, dz),
+      });
+    }
+
+    candidates.sort((a, b) => a.distance - b.distance);
+    let selected = candidates.filter((candidate) => candidate.distance <= resolvedRadius * 1.35);
+    if (selected.length < Math.min(6, candidates.length)) selected = candidates.slice(0, 6);
+    selected = selected.slice(0, 10);
+
+    const slots = new Map();
+    for (const candidate of selected) {
+      slots.set(candidate.index, {
+        angle: candidate.angle,
+        radius: clamp(candidate.distance, 1.55, 2.35),
+      });
+    }
+
     this.danceCircle = {
       x,
       z,
-      radius: Math.max(0.5, Number(radius) || 4.6),
-      duration: Math.max(0.5, Number(duration) || 3.2),
-      remaining: Math.max(0.5, Number(duration) || 3.2),
+      radius: resolvedRadius,
+      duration: resolvedDuration,
+      remaining: resolvedDuration,
+      slots,
     };
     return true;
   }
@@ -260,18 +297,38 @@ export class CrowdSystem {
     let onFloor = 0;
     for (let i = 0; i < count; i++) {
       const member = this.members[i];
-      const wantsFloor = playing && member.engagement < this.danceShare;
-      const target = wantsFloor ? member.dance : member.social;
+      const circleSlot = this.danceCircle?.slots?.get(i) ?? null;
+      const wantsFloor = !!circleSlot || (playing && member.engagement < this.danceShare);
+      const target = circleSlot
+        ? {
+            x: this.danceCircle.x + Math.sin(circleSlot.angle) * circleSlot.radius,
+            z: this.danceCircle.z + Math.cos(circleSlot.angle) * circleSlot.radius,
+          }
+        : wantsFloor
+          ? member.dance
+          : member.social;
       const switching = wantsFloor !== member.onFloor;
       member.onFloor = wantsFloor;
       if (wantsFloor) onFloor++;
 
-      const migrationSpeed = switching ? (wantsFloor ? 1.05 : 2.15) : wantsFloor ? 0.45 : 0.7;
+      const migrationSpeed = circleSlot
+        ? 3.8
+        : switching
+          ? wantsFloor
+            ? 1.05
+            : 2.15
+          : wantsFloor
+            ? 0.45
+            : 0.7;
       const migration = 1 - Math.exp(-migrationSpeed * dt);
       member.currentX += (target.x - member.currentX) * migration;
       member.currentZ += (target.z - member.currentZ) * migration;
 
-      const localEnergy = wantsFloor ? clamp(energy * 0.45 + vibe * 0.72) : energy * 0.18;
+      const localEnergy = circleSlot
+        ? Math.max(0.92, clamp(energy * 0.45 + vibe * 0.72))
+        : wantsFloor
+          ? clamp(energy * 0.45 + vibe * 0.72)
+          : energy * 0.18;
       const speed = member.tempo * (1.25 + localEnergy * 2.9);
       const sway = Math.sin(this.elapsed * speed + member.phase);
       const side = Math.cos(this.elapsed * (speed * 0.72) + member.phase * 1.7);
@@ -282,10 +339,7 @@ export class CrowdSystem {
       const drift = wantsFloor ? 0.05 + bass * 0.04 : 0.018;
       const px = member.currentX + side * drift;
       const pz = member.currentZ + sway * drift * 0.55;
-      const circleDistance = this.danceCircle
-        ? Math.hypot(px - this.danceCircle.x, pz - this.danceCircle.z)
-        : Infinity;
-      const inCircle = wantsFloor && circleDistance <= (this.danceCircle?.radius ?? 0);
+      const inCircle = !!circleSlot;
       const circleProgress = inCircle
         ? 1 - this.danceCircle.remaining / Math.max(0.001, this.danceCircle.duration)
         : 0;
