@@ -28,7 +28,7 @@ test('named NPCs on the dance floor join a nearby dance circle', () => {
   npcs.dispose();
 });
 
-test('paired NPC social gestures face the initiating player and pause navigation', () => {
+test('paired NPC social gestures visibly animate, face the player, and pause navigation', () => {
   const root = new Group();
   const npcs = new NpcSystem(root, definition);
   const npc = npcs.get('floor-npc');
@@ -38,6 +38,17 @@ test('paired NPC social gestures face the initiating player and pause navigation
   assert.equal(npc.socialGesture, 'highfive');
   assert.equal(npc.navPath.length, 0);
   assert.ok(Number.isFinite(npc.group.rotation.y));
+
+  npcs.update(0.25, { playing: true, energy: 0.7, bass: 0.7 });
+  assert.ok(Math.abs(npc.rightArm.rotation.z) > 0.6, 'high five should raise the NPC arm');
+
+  assert.equal(npcs.triggerSocialGesture('floor-npc', 'dance', { x: 1, z: 2 }), true);
+  npcs.update(0.2, { playing: true, energy: 0.7, bass: 0.7 });
+  const danceMotion =
+    Math.abs(npc.body.rotation.y) +
+    Math.abs(npc.leftArm.rotation.x) +
+    Math.abs(npc.rightArm.rotation.x);
+  assert.ok(danceMotion > 0.55, 'paired dance should visibly move the NPC body and arms');
 
   npcs.dispose();
 });
