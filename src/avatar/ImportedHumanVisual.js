@@ -22,7 +22,9 @@ function disposeScene(root) {
   root?.traverse?.((object) => {
     if (!object.isMesh) return;
     object.geometry?.dispose?.();
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    const materials = Array.isArray(object.material)
+      ? object.material
+      : [object.material];
     for (const material of materials) {
       if (!material) continue;
       for (const key of TEXTURE_KEYS) material[key]?.dispose?.();
@@ -100,7 +102,9 @@ export function attachImportedHumanVisual(
   model.group.userData.importedVisualState = 'fallback';
 
   // Node-based unit tests intentionally exercise the fallback without making external requests.
-  if (typeof window === 'undefined' || typeof document === 'undefined') return controller;
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return controller;
+  }
 
   controller.state = 'loading';
   model.group.userData.importedVisualState = 'loading';
@@ -131,7 +135,9 @@ export function attachImportedHumanVisual(
         const mixer = new AnimationMixer(scene);
         const action = mixer.clipAction(clip);
         action.play();
-        mixer.setTime(Math.min(Math.max(0, poseTime), Math.max(0, clip.duration - 0.001)));
+        mixer.setTime(
+          Math.min(Math.max(0, poseTime), Math.max(0, clip.duration - 0.001)),
+        );
         mixer.update(0);
         action.paused = true;
         controller.mixer = mixer;
@@ -160,7 +166,10 @@ export function attachImportedHumanVisual(
       if (controller.disposed) return;
       controller.state = 'fallback';
       model.group.userData.importedVisualState = 'fallback-load-error';
-      console.warn('Imported human visual failed to load; keeping procedural fallback.', error);
+      console.warn(
+        'Imported human visual failed to load; keeping procedural fallback.',
+        error,
+      );
     },
   );
 
