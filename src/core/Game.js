@@ -375,10 +375,10 @@ export class Game {
 
     this.performDanceMove = (kind) => {
       if (kind === 'circle') {
-        this.animateClubDanceCircle();
         if (this.multiplayer?.joined) {
           return this.multiplayer.startDanceCircle?.() === true;
         }
+        this.animateClubDanceCircle();
         return this.player.performMultiplayerGesture?.('circle') === true;
       }
       if (this.multiplayer?.joined && this.multiplayer.sendEmote?.(kind)) return true;
