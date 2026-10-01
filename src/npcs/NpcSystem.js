@@ -768,11 +768,20 @@ export class NpcSystem {
         dancing: clubDance || socialDance,
         energy: poseEnergy,
       });
+      let socialProgress = null;
       if (socialGesture) {
         const duration = Math.max(0.001, npc.socialGestureDuration || 1);
-        const progress = 1 - npc.socialGestureRemaining / duration;
-        applyLightweightSocialGesture(npc, socialGesture, progress);
+        socialProgress = 1 - npc.socialGestureRemaining / duration;
+        applyLightweightSocialGesture(npc, socialGesture, socialProgress);
       }
+      npc.importedVisual?.update?.(dt, {
+        time: this.elapsed + npc.phase,
+        moving: npc.moving,
+        dancing: clubDance || socialDance,
+        socialGesture,
+        gestureProgress: socialProgress,
+        energy: poseEnergy,
+      });
 
       // Named characters subtly look around when idle instead of staring straight ahead.
       if (
