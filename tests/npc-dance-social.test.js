@@ -12,6 +12,8 @@ const definition = {
   },
   npcs: [
     { id: 'floor-npc', name: 'Floor NPC', role: 'guest', position: [1, 0, 0] },
+    { id: 'edge-npc', name: 'Edge NPC', role: 'guest', position: [0, 0, 2.9] },
+    { id: 'security-npc', name: 'Security NPC', role: 'security', position: [0.5, 0, 0.5] },
     { id: 'off-floor-npc', name: 'Off Floor NPC', role: 'guest', position: [7, 0, 0] },
   ],
 };
@@ -20,9 +22,15 @@ test('named NPCs on the dance floor join a nearby dance circle', () => {
   const root = new Group();
   const npcs = new NpcSystem(root, definition);
 
-  assert.equal(npcs.triggerDanceCircle({ x: 0, y: 0, z: 0 }), 1);
+  assert.equal(npcs.triggerDanceCircle({ x: 0, y: 0, z: 0 }), 2);
   assert.equal(npcs.get('floor-npc').socialGesture, 'circle');
   assert.ok(npcs.get('floor-npc').socialGestureRemaining > 0);
+  assert.equal(
+    npcs.get('edge-npc').socialGesture,
+    'circle',
+    'nearby social NPCs just outside the strict dance rectangle should still join',
+  );
+  assert.equal(npcs.get('security-npc').socialGesture, null);
   assert.equal(npcs.get('off-floor-npc').socialGesture, null);
 
   npcs.dispose();
@@ -65,7 +73,20 @@ test('generic club crowd retains a temporary circle-response state', () => {
 
   assert.equal(crowd.triggerDanceCircle({ x: 0, z: 0 }, 3, 1), true);
   assert.equal(crowd.danceCircle.radius, 3);
-  crowd.update(1.1, { playing: true, energy: 0.7, bass: 0.7, vibe: 0.7, mixQuality: 0.8 });
+  assert.equal(crowd.danceCircle.slots.size, 4, 'visible nearby crowd should be recruited');
+
+  const [firstIndex, firstSlot] = crowd.danceCircle.slots.entries().next().value;
+  const firstMember = crowd.members[firstIndex];
+  const targetX = Math.sin(firstSlot.angle) * firstSlot.radius;
+  const targetZ = Math.cos(firstSlot.angle) * firstSlot.radius;
+  const before = Math.hypot(firstMember.currentX - targetX, firstMember.currentZ - targetZ);
+
+  crowd.update(0.2, { playing: true, energy: 0.7, bass: 0.7, vibe: 0.7, mixQuality: 0.8 });
+  const after = Math.hypot(firstMember.currentX - targetX, firstMember.currentZ - targetZ);
+  assert.ok(after < before, 'recruited crowd should move toward an inward-facing ring position');
+  assert.equal(firstMember.onFloor, true);
+
+  crowd.update(0.9, { playing: true, energy: 0.7, bass: 0.7, vibe: 0.7, mixQuality: 0.8 });
   assert.equal(crowd.danceCircle, null);
 
   crowd.dispose();
