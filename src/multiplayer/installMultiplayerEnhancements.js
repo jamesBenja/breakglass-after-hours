@@ -16,7 +16,7 @@ const EXTRA_SHARED_STATIONS = new Set([
 
 export function installMultiplayerEnhancements(game, ui) {
   if (!game || game.multiplayer) return game?.multiplayer ?? null;
-  installMultiplayerEmoteAnimations();
+  installMultiplayerEmoteAnimations(game.player);
   const config = resolveMultiplayerConfig();
   const multiplayer = new MultiplayerClient({
     game,
