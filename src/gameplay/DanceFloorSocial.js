@@ -54,6 +54,25 @@ export function applyLightweightSocialGesture(model, kind, progress) {
     return true;
   }
 
+  if (kind === 'dance') {
+    const hip = Math.sin(p * Math.PI * 10);
+    const bounce = Math.abs(Math.sin(p * Math.PI * 8));
+    const arms = Math.sin(p * Math.PI * 5);
+    model.body.rotation.y += hip * 0.3;
+    model.body.rotation.z += hip * 0.09;
+    model.body.position.y += bounce * 0.055;
+    model.leftArm.rotation.x = 0.35 + arms * 0.55;
+    model.rightArm.rotation.x = -0.35 - arms * 0.55;
+    model.leftArm.rotation.z = -0.28 + hip * 0.22;
+    model.rightArm.rotation.z = 0.28 + hip * 0.22;
+    model.leftForearm.rotation.x = -0.48 - Math.max(0, arms) * 0.35;
+    model.rightForearm.rotation.x = -0.48 - Math.max(0, -arms) * 0.35;
+    model.leftKnee.rotation.x += 0.12 + Math.max(0, hip) * 0.28;
+    model.rightKnee.rotation.x += 0.12 + Math.max(0, -hip) * 0.28;
+    model.head.rotation.y -= hip * 0.12;
+    return true;
+  }
+
   if (kind === 'highfive') {
     const reach = Math.sin(p * Math.PI);
     const hold = p > 0.34 && p < 0.7 ? 1 : reach;
@@ -96,5 +115,5 @@ export function applyLightweightSocialGesture(model, kind, progress) {
     return true;
   }
 
-  return kind === 'dance';
+  return false;
 }
