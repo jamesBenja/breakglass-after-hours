@@ -288,6 +288,11 @@ export class SharedWorld {
       'setEcho',
       'setLoop',
       'setPreciseLoop',
+      'setBeatFxTarget',
+      'setBeatFxEffect',
+      'setBeatFxBeat',
+      'setBeatFxAmount',
+      'setBeatFxEnabled',
       'hotCue',
       'setHotCue',
       'triggerHotCue',
@@ -350,6 +355,7 @@ export class SharedWorld {
         dj.setBpm?.(deckId, target.bpm);
         dj.setLevel?.(deckId, target.level);
         dj.setEq?.(deckId, 'low', target.low);
+        dj.setEq?.(deckId, 'mid', target.mid);
         dj.setEq?.(deckId, 'high', target.high);
         dj.setFilter?.(deckId, target.filter);
         dj.setReverb?.(deckId, target.reverb);
@@ -388,6 +394,14 @@ export class SharedWorld {
             else dj.setLoop(deckId, deck.loopBeats);
           }
         }
+      }
+      const beatFx = state.beatFx;
+      if (beatFx) {
+        dj.setBeatFxTarget?.(beatFx.target);
+        dj.setBeatFxEffect?.(beatFx.effect);
+        dj.setBeatFxBeat?.(beatFx.beat);
+        dj.setBeatFxAmount?.(beatFx.amount);
+        dj.setBeatFxEnabled?.(beatFx.enabled);
       }
     } finally {
       this.applyingDj = false;

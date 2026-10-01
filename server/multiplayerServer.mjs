@@ -577,8 +577,33 @@ function jsonResponse(response, status, payload) {
 }
 
 function sanitizeDjState(value = {}) {
+  const beatFxEffects = new Set([
+    'DELAY',
+    'ECHO',
+    'PING PONG',
+    'SPIRAL',
+    'HELIX',
+    'REVERB',
+    'FLANGER',
+    'PHASER',
+    'FILTER',
+    'TRIPLET FILTER',
+    'TRANS',
+    'ROLL',
+    'TRIPLET ROLL',
+    'MOBIUS',
+  ]);
   const output = {
     crossfader: clamp(value.crossfader, -1, 1),
+    beatFx: {
+      enabled: value.beatFx?.enabled === true,
+      target: ['CH1', 'CH2', 'CH3', 'CH4', 'MASTER'].includes(value.beatFx?.target)
+        ? value.beatFx.target
+        : 'MASTER',
+      effect: beatFxEffects.has(value.beatFx?.effect) ? value.beatFx.effect : 'ECHO',
+      beat: clamp(value.beatFx?.beat, 0.125, 4),
+      amount: clamp(value.beatFx?.amount),
+    },
     metrics: {
       playing: value.metrics?.playing === true,
       vibe: clamp(value.metrics?.vibe),

@@ -237,6 +237,13 @@ test('multiplayer server owns shared resources, world state, chat and media sign
     type: 'dj_update',
     state: {
       crossfader: 0.25,
+      beatFx: {
+        enabled: true,
+        target: 'CH4',
+        effect: 'PING PONG',
+        beat: 0.75,
+        amount: 0.62,
+      },
       metrics: { playing: true, vibe: 0.8, mixQuality: 0.91, energy: 0.74 },
       decks: {
         A: { trackId: 'got-you-dancin', playing: true, bpm: 124, level: 0.9, position: 12.4 },
@@ -246,6 +253,7 @@ test('multiplayer server owns shared resources, world state, chat and media sign
           playing: true,
           bpm: 128,
           level: 0.78,
+          mid: -0.37,
           position: 4.5,
           deviceMode: 'vinyl',
         },
@@ -258,7 +266,15 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   assert.equal(djState.state.decks.A.trackId, 'got-you-dancin');
   assert.equal(djState.state.decks.C.trackId, uploadPayload.track.id);
   assert.equal(djState.state.decks.C.deviceMode, 'vinyl');
+  assert.equal(djState.state.decks.C.mid, -0.37);
   assert.equal(djState.state.decks.D.trackId, 'dubki');
+  assert.deepEqual(djState.state.beatFx, {
+    enabled: true,
+    target: 'CH4',
+    effect: 'PING PONG',
+    beat: 0.75,
+    amount: 0.62,
+  });
   assert.equal(djState.state.metrics.mixQuality, 0.91);
 
   b.send({
