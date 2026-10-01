@@ -33,7 +33,7 @@ function disposeScene(root) {
 
 function fitToHumanHeight(root, targetHeight) {
   root.updateMatrixWorld(true);
-  const initialBox = new Box3().setFromObject(root);
+  const initialBox = new Box3().setFromObject(root, true);
   const initialSize = initialBox.getSize(new Vector3());
   if (!Number.isFinite(initialSize.y) || initialSize.y <= 0.001) return false;
 
@@ -41,7 +41,7 @@ function fitToHumanHeight(root, targetHeight) {
   root.scale.multiplyScalar(scale);
   root.updateMatrixWorld(true);
 
-  const box = new Box3().setFromObject(root);
+  const box = new Box3().setFromObject(root, true);
   const center = box.getCenter(new Vector3());
   root.position.x -= center.x;
   root.position.z -= center.z;
@@ -126,13 +126,6 @@ export function attachImportedHumanVisual(
         object.frustumCulled = true;
       });
 
-      if (!fitToHumanHeight(scene, targetHeight)) {
-        disposeScene(scene);
-        controller.state = 'fallback';
-        model.group.userData.importedVisualState = 'fallback-invalid-bounds';
-        return;
-      }
-
       if (gltf.animations?.length) {
         const clip = gltf.animations[0];
         const mixer = new AnimationMixer(scene);
@@ -142,6 +135,16 @@ export function attachImportedHumanVisual(
         mixer.update(0);
         action.paused = true;
         controller.mixer = mixer;
+      }
+
+      // Fit after applying the frozen rig pose so the visible feet, not the bind pose, sit on grade.
+      if (!fitToHumanHeight(scene, targetHeight)) {
+        controller.mixer?.stopAllAction?.();
+        controller.mixer = null;
+        disposeScene(scene);
+        controller.state = 'fallback';
+        model.group.userData.importedVisualState = 'fallback-invalid-bounds';
+        return;
       }
 
       mount.add(scene);
