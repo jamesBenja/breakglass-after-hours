@@ -4,10 +4,12 @@ import { Group } from 'three';
 import { NpcSystem } from '../src/npcs/NpcSystem.js';
 import { alleyLevel } from '../src/world/alley.js';
 
-test('high-fidelity reference human is isolated beside the normal alley spawn', () => {
+test('imported human test stays isolated beside the normal alley spawn with a procedural fallback', () => {
   const testNpc = alleyLevel.npcs.find((npc) => npc.id === 'reference-human-test');
   assert.ok(testNpc, 'reference NPC should be present in the alley definition');
   assert.equal(testNpc.visualStyle, 'reference');
+  assert.equal(testNpc.importedAsset?.url, 'https://three.ws/avatars/michelle.glb');
+  assert.equal(testNpc.importedAsset?.targetHeight, 1.78);
   assert.equal(testNpc.interactive, false);
 
   const [spawnX, , spawnZ] = alleyLevel.spawns.start;
@@ -26,6 +28,9 @@ test('high-fidelity reference human is isolated beside the normal alley spawn', 
 
   assert.equal(model.group.userData.visualStyle, 'reference');
   assert.equal(model.group.userData.highFidelity, true);
+  assert.equal(model.importedVisual?.state, 'fallback');
+  assert.equal(model.group.userData.importedVisualState, 'fallback');
+  assert.equal(model.group.userData.importedVisualUrl, testNpc.importedAsset.url);
   assert.ok(model.head && model.leftHand && model.rightHand && model.leftKnee && model.rightKnee);
 
   let meshCount = 0;
