@@ -1,8 +1,22 @@
-import { Box3, Euler, Group, Quaternion, Vector3 } from 'three';
+import {
+  AnimationClip,
+  AnimationMixer,
+  Box3,
+  Group,
+  LoopRepeat,
+  Quaternion,
+  Vector3,
+} from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 export const DEFAULT_IMPORTED_HUMAN_URL = 'https://three.ws/avatars/michelle.glb';
+
+const AUTHORED_CLIPS = {
+  idle: 'https://three.ws/animations/clips/idle.json',
+  walk: 'https://three.ws/animations/clips/av-walk-feminine.json',
+  dance: 'https://three.ws/animations/clips/michelle-samba-dance.json',
+};
 
 const TEXTURE_KEYS = [
   'map',
@@ -38,20 +52,64 @@ const RIG_KEYS = [
   'rightfoot',
 ];
 
+const SOURCE_REST = {
+  head: [-0.11706881878098431, 9.438845082943482e-9, 3.72654613409334e-8, 0.993123804804428],
+  hips: [0.0010741148761599644, 6.537898515070053e-8, 7.022659074474357e-11, 0.9999994231384476],
+  leftarm: [-0.003089573263103852, 0.08018148459223169, -0.025041829737156785, 0.9964608827384491],
+  leftfoot: [0.5523737034239063, 0.0002518875693487157, 0.0036538113016644914, 0.8335885543726441],
+  leftforearm: [-2.6826767953574183e-7, 1.2816740072681333e-7, 0.012369379808617674, 0.9999234962951223],
+  lefthand: [-0.0012910117424963744, 0.002537815819541244, 0.010116448936771993, 0.9999447735952517],
+  leftleg: [-0.022987686472704008, -0.0006608912898930547, 0.00007960712093047862, 0.9997355266049326],
+  leftshoulder: [0.5181706903502131, 0.5134387363832796, -0.48299308003518876, 0.4843526489955184],
+  leftupleg: [-0.00004952055077835167, 0.0032567616062252223, 0.9999946186652781, -0.00039203576089550014],
+  neck: [0.2225107795455935, -2.3352293238692193e-7, -1.9647139012020554e-8, 0.974930229804142],
+  rightarm: [-0.003089570938390283, -0.08018164882954634, 0.025041835809991725, 0.9964608693782484],
+  rightfoot: [0.5523737112340288, -0.00025188760500252676, -0.0036538107149212758, 0.8335885491999105],
+  rightforearm: [-2.706717415294191e-7, 6.0675494372234465e-9, -0.012369382961452784, 0.9999234962561284],
+  righthand: [-0.0012910114923260908, -0.002537815924782367, -0.010116450486313036, 0.9999447735796301],
+  rightleg: [-0.022987685898989207, 0.0006609402907891899, -0.00007960698692017099, 0.9997355265857409],
+  rightshoulder: [0.5181706006117709, -0.5134387953473804, 0.4829931766210871, 0.4843525890882128],
+  rightupleg: [0.000049438593286575395, 0.003256759408127677, 0.9999946186765544, 0.0003920356017771739],
+  spine: [-0.018332562694809717, -1.4544833124647894e-7, 2.6976261645093277e-10, 0.9998319444511763],
+  spine1: [-0.03815628571181615, 2.0010687323521798e-8, 5.34807122500512e-9, 0.9992717837809081],
+  spine2: [-0.056998031890724846, 1.3546308636882866e-7, -8.861325315468363e-10, 0.9983742907149431],
+};
+
+const SOURCE_WORLD_REST = {
+  head: [-0.005402766806732544, -1.5440620455356296e-7, 8.34223242528311e-10, 0.9999854049488961],
+  hips: [0.0010741148761599644, 6.537898515070053e-8, 7.022659074474357e-11, 0.9999994231384476],
+  leftarm: [0.4889318420664182, 0.5108287295941205, -0.5108290884863605, 0.48893078190839623],
+  leftfoot: [-0.00007112359875637768, 0.5349085331963127, 0.8448985998862468, -0.004383145577274271],
+  leftforearm: [0.49521300584988104, 0.5047420653526237, -0.5047420379230214, 0.4952120815979495],
+  lefthand: [0.5009334720626235, 0.5016127781291206, -0.4977959877649929, 0.49964931327533474],
+  leftleg: [0.0006202111480182034, -0.020805293540463354, 0.9997832430476497, -0.00047118992773536965],
+  leftshoulder: [0.4605450937998788, 0.4559956590278878, -0.537559006794696, 0.5394409087622226],
+  leftupleg: [-0.00004987623525000119, 0.0021826506059020026, 0.9999975399461294, -0.00039198262713485737],
+  neck: [0.11170149382802401, -1.628868597421303e-7, -1.8309282630496044e-8, 0.9937418056399563],
+  rightarm: [0.48893190585215524, -0.510828798312402, 0.5108290283825504, 0.48893071200502375],
+  rightfoot: [0.00007112360405196955, 0.5349085398019146, 0.844898595705669, 0.004383145306035045],
+  rightforearm: [0.4952130023257164, -0.5047420673116668, 0.5047420415306929, 0.49521208229448166],
+  righthand: [0.5009334695181179, -0.5016127792807403, 0.49779599067075153, 0.49964931459617906],
+  rightleg: [-0.0006202113471683521, -0.020805295090456907, 0.9997832430151556, 0.00047119017271936915],
+  rightshoulder: [0.46054507521936333, -0.45599564278848104, 0.5375590232993736, 0.5394409245169026],
+  rightupleg: [0.000049925034443819034, 0.002182648459062353, 0.9999975399486299, 0.00039198198974856475],
+  spine: [-0.017258617754264162, -8.00818266828763e-8, 1.3823133775055108e-9, 0.9998510589648868],
+  spine1: [-0.055396652424023016, -5.997624651397324e-8, 3.32759956947242e-9, 0.9984644264570511],
+  spine2: [-0.11221710079276989, 7.513757486198981e-8, -8.485311473269302e-9, 0.9936837134066652],
+};
+
 const SOCIAL_DANCE_GESTURES = new Set(['dance', 'grind', 'circle']);
-const _euler = new Euler();
-const _offsetQuat = new Quaternion();
-const _targetQuat = new Quaternion();
-const _armStart = new Vector3();
-const _armEnd = new Vector3();
-const _armDirection = new Vector3();
-const _desiredDirection = new Vector3();
-const _rootWorldQuaternion = new Quaternion();
-const _armWorldQuaternion = new Quaternion();
-const _parentWorldQuaternion = new Quaternion();
-const _worldDelta = new Quaternion();
+
+const _sourceRest = new Quaternion();
+const _sourceWorldRest = new Quaternion();
+const _targetRest = new Quaternion();
+const _targetWorldRest = new Quaternion();
+const _leftCorrection = new Quaternion();
+const _rightCorrection = new Quaternion();
+const _sampleQuaternion = new Quaternion();
 const _groupWorldPosition = new Vector3();
 const _groupWorldScale = new Vector3();
+const _identityQuaternion = new Quaternion();
 
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
@@ -98,6 +156,14 @@ function normalizeBoneName(name) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+function worldRestQuaternion(node, root) {
+  const out = node.quaternion.clone();
+  for (let parent = node.parent; parent && parent !== root; parent = parent.parent) {
+    out.premultiply(parent.quaternion);
+  }
+  return out;
+}
+
 function captureRig(root) {
   const candidates = [];
   root.traverse((object) => {
@@ -114,38 +180,82 @@ function captureRig(root) {
     rig.set(key, {
       node: match.object,
       restQuaternion: match.object.quaternion.clone(),
-      baseQuaternion: match.object.quaternion.clone(),
-      restPosition: match.object.position.clone(),
+      restWorldQuaternion: worldRestQuaternion(match.object, root),
     });
   }
   return rig;
 }
 
-function calibrateArmDown(root, rig, side) {
-  const arm = rig.get(`${side}arm`);
-  const forearm = rig.get(`${side}forearm`);
-  if (!arm?.node || !forearm?.node || !arm.node.parent) return false;
+function retargetQuaternionClip(sourceClip, rig, name) {
+  const tracks = [];
 
-  root.updateMatrixWorld(true);
-  arm.node.getWorldPosition(_armStart);
-  forearm.node.getWorldPosition(_armEnd);
-  _armDirection.subVectors(_armEnd, _armStart);
-  if (_armDirection.lengthSq() < 1e-8) return false;
-  _armDirection.normalize();
+  for (const track of sourceClip.tracks) {
+    const dot = track.name.indexOf('.');
+    if (dot < 0) continue;
+    const property = track.name.slice(dot + 1);
+    if (property !== 'quaternion') continue;
 
-  // Derive a relaxed hanging arm in the character's own frame instead of assuming Mixamo's
-  // authored local XYZ axes. A tiny outward bias keeps the hands clear of the thighs.
-  const outward = side === 'left' ? -0.08 : 0.08;
-  _desiredDirection.set(outward, -0.995, 0.02).normalize();
-  root.getWorldQuaternion(_rootWorldQuaternion);
-  _desiredDirection.applyQuaternion(_rootWorldQuaternion).normalize();
+    const key = normalizeBoneName(track.name.slice(0, dot));
+    const entry = rig.get(key);
+    const sourceRest = SOURCE_REST[key];
+    const sourceWorldRest = SOURCE_WORLD_REST[key];
+    if (!entry || !sourceRest || !sourceWorldRest) continue;
 
-  _worldDelta.setFromUnitVectors(_armDirection, _desiredDirection);
-  arm.node.getWorldQuaternion(_armWorldQuaternion);
-  _armWorldQuaternion.premultiply(_worldDelta);
-  arm.node.parent.getWorldQuaternion(_parentWorldQuaternion).invert();
-  arm.baseQuaternion.copy(_parentWorldQuaternion).multiply(_armWorldQuaternion);
-  return true;
+    _sourceRest.fromArray(sourceRest);
+    _sourceWorldRest.fromArray(sourceWorldRest);
+    _targetRest.copy(entry.restQuaternion);
+    _targetWorldRest.copy(entry.restWorldQuaternion);
+
+    // World-delta preserving bind correction:
+    // q' = L * q * R
+    // L = Rt * WT^-1 * WS * Rs^-1
+    // R = WS^-1 * WT
+    _leftCorrection
+      .copy(_targetRest)
+      .multiply(_targetWorldRest.clone().invert())
+      .multiply(_sourceWorldRest)
+      .multiply(_sourceRest.clone().invert());
+    _rightCorrection.copy(_sourceWorldRest).invert().multiply(_targetWorldRest);
+
+    const next = track.clone();
+    next.name = `${entry.node.name}.quaternion`;
+    for (let index = 0; index < next.values.length; index += 4) {
+      _sampleQuaternion.set(
+        next.values[index],
+        next.values[index + 1],
+        next.values[index + 2],
+        next.values[index + 3],
+      );
+      _sampleQuaternion.premultiply(_leftCorrection).multiply(_rightCorrection).normalize();
+      next.values[index] = _sampleQuaternion.x;
+      next.values[index + 1] = _sampleQuaternion.y;
+      next.values[index + 2] = _sampleQuaternion.z;
+      next.values[index + 3] = _sampleQuaternion.w;
+    }
+    tracks.push(next);
+  }
+
+  if (tracks.length < 10) {
+    throw new Error(`Animation ${name} matched only ${tracks.length} humanoid bones`);
+  }
+
+  const clip = sourceClip.clone();
+  clip.name = name;
+  clip.tracks = tracks;
+  return clip;
+}
+
+async function loadAuthoredClips(rig) {
+  const results = await Promise.all(
+    Object.entries(AUTHORED_CLIPS).map(async ([state, url]) => {
+      const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
+      if (!response.ok) throw new Error(`${state} animation HTTP ${response.status}`);
+      const json = await response.json();
+      const sourceClip = AnimationClip.parse(json);
+      return [state, retargetQuaternionClip(sourceClip, rig, state)];
+    }),
+  );
+  return new Map(results);
 }
 
 function groundImportedVisual(controller, model, alpha = 1) {
@@ -158,119 +268,29 @@ function groundImportedVisual(controller, model, alpha = 1) {
   model.group.getWorldScale(_groupWorldScale);
   const scaleY = Math.max(1e-5, Math.abs(_groupWorldScale.y));
   const worldError = _groupWorldPosition.y - controller.groundBox.min.y;
-  const localError = clamp(worldError / scaleY, -0.12, 0.12);
+  const localError = clamp(worldError / scaleY, -0.1, 0.1);
   controller.mount.position.y += localError * alpha;
 }
 
-function setBoneTarget(entry, x = 0, y = 0, z = 0, alpha = 1) {
-  if (!entry) return;
-  _euler.set(x, y, z, 'XYZ');
-  _offsetQuat.setFromEuler(_euler);
-  _targetQuat.copy(entry.baseQuaternion ?? entry.restQuaternion).multiply(_offsetQuat);
-  entry.node.quaternion.slerp(_targetQuat, alpha);
+function applyRelativeBoneOffset(entry, axis, angle, weight) {
+  if (!entry || weight <= 0) return;
+  const offset = new Quaternion().setFromAxisAngle(axis, angle);
+  const weighted = _identityQuaternion.clone().slerp(offset, clamp(weight));
+  entry.node.quaternion.multiply(weighted).normalize();
 }
 
-function idlePose(time) {
-  const breath = Math.sin(time * 1.65);
-  const glance = Math.sin(time * 0.47);
-  return {
-    bob: Math.abs(breath) * 0.006,
-    bones: {
-      hips: [0, breath * 0.018, 0],
-      spine: [breath * 0.012, -glance * 0.018, 0],
-      spine1: [breath * 0.018, glance * 0.022, 0],
-      spine2: [breath * 0.016, 0, glance * 0.012],
-      neck: [0, glance * 0.035, 0],
-      head: [breath * 0.012, glance * 0.055, 0],
-      leftarm: [0.03 + breath * 0.015, 0, -0.04],
-      rightarm: [-0.03 - breath * 0.015, 0, 0.04],
-      leftforearm: [-0.12, 0, -0.03],
-      rightforearm: [-0.12, 0, 0.03],
-      leftupleg: [0, 0, 0.025],
-      rightupleg: [0, 0, -0.025],
-      leftleg: [0.035, 0, 0],
-      rightleg: [0.01, 0, 0],
-    },
-  };
-}
-
-function walkPose(time) {
-  const gait = Math.sin(time * 7.2);
-  const opposite = Math.sin(time * 7.2 + Math.PI);
-  const liftLeft = Math.max(0, gait);
-  const liftRight = Math.max(0, opposite);
-  return {
-    bob: Math.abs(Math.sin(time * 7.2)) * 0.024,
-    bones: {
-      hips: [0, gait * 0.055, gait * 0.018],
-      spine: [0, -gait * 0.07, -gait * 0.012],
-      spine1: [0, -gait * 0.045, 0],
-      spine2: [0, gait * 0.035, 0],
-      neck: [0, gait * 0.015, 0],
-      head: [0, gait * 0.025, 0],
-      leftarm: [gait * 0.48, 0, -0.03],
-      rightarm: [-gait * 0.48, 0, 0.03],
-      leftforearm: [-0.18 - liftRight * 0.22, 0, -0.03],
-      rightforearm: [-0.18 - liftLeft * 0.22, 0, 0.03],
-      leftupleg: [-gait * 0.62, 0, 0.02],
-      rightupleg: [gait * 0.62, 0, -0.02],
-      leftleg: [liftLeft * 0.52, 0, 0],
-      rightleg: [liftRight * 0.52, 0, 0],
-      leftfoot: [-liftLeft * 0.18, 0, 0],
-      rightfoot: [-liftRight * 0.18, 0, 0],
-    },
-  };
-}
-
-function dancePose(time, energy = 0.8) {
-  const e = clamp(energy, 0.35, 1);
-  const pulse = Math.sin(time * (3.2 + e * 1.4));
-  const counter = Math.cos(time * 2.35 + 0.7);
-  const bounce = Math.abs(Math.sin(time * (4.1 + e)));
-  return {
-    bob: bounce * (0.018 + e * 0.03),
-    bones: {
-      hips: [counter * 0.045, pulse * (0.18 + e * 0.08), pulse * 0.065],
-      spine: [pulse * 0.04, -counter * 0.11, counter * 0.07],
-      spine1: [-pulse * 0.055, counter * 0.12, -counter * 0.055],
-      spine2: [pulse * 0.04, counter * 0.08, pulse * 0.075],
-      neck: [-pulse * 0.035, counter * 0.06, 0],
-      head: [-pulse * 0.055, counter * 0.095, -counter * 0.035],
-      leftarm: [-0.18 + counter * 0.38, pulse * 0.12, -0.16 - pulse * 0.28],
-      rightarm: [0.2 - pulse * 0.42, -counter * 0.12, 0.16 + counter * 0.28],
-      leftforearm: [-0.62 - Math.max(0, pulse) * 0.42, 0, -0.12],
-      rightforearm: [-0.58 - Math.max(0, counter) * 0.46, 0, 0.12],
-      leftupleg: [-pulse * 0.22, 0, 0.07],
-      rightupleg: [pulse * 0.22, 0, -0.07],
-      leftleg: [bounce * 0.18, 0, 0],
-      rightleg: [(1 - bounce) * 0.14, 0, 0],
-    },
-  };
-}
-
-function highFivePose(time, progress = 0.5) {
+function applyHighFiveOverlay(rig, progress) {
   const envelope = Math.sin(clamp(progress) * Math.PI);
-  const settle = Math.sin(time * 9) * 0.035 * envelope;
-  return {
-    bob: 0,
-    bones: {
-      hips: [0, -0.035 * envelope, 0],
-      spine: [-0.04 * envelope, 0.06 * envelope, 0],
-      spine1: [-0.03 * envelope, 0.05 * envelope, 0],
-      spine2: [-0.02 * envelope, 0.04 * envelope, 0],
-      neck: [-0.04 * envelope, 0.08 * envelope, 0],
-      head: [-0.03 * envelope, 0.09 * envelope, 0],
-      leftarm: [0.02, 0, -0.04],
-      leftforearm: [-0.14, 0, -0.03],
-      rightarm: [-0.48 * envelope, -0.16 * envelope, -1.45 * envelope],
-      rightforearm: [-0.12 - 0.62 * envelope, 0, 0.06 + settle],
-      righthand: [0.08 * envelope, 0, settle],
-      leftupleg: [0, 0, 0.025],
-      rightupleg: [0, 0, -0.025],
-      leftleg: [0.02, 0, 0],
-      rightleg: [0.02, 0, 0],
-    },
-  };
+  if (envelope <= 0.001) return;
+
+  // The social high-five remains a lightweight overlay for now; the locomotion/dance body motion
+  // underneath comes from authored animation. Keeping this isolated avoids reintroducing the
+  // hand-authored shoulder/elbow problem into walking.
+  applyRelativeBoneOffset(rig.get('rightarm'), new Vector3(0, 0, 1), -0.85, envelope);
+  applyRelativeBoneOffset(rig.get('rightarm'), new Vector3(1, 0, 0), -0.5, envelope);
+  applyRelativeBoneOffset(rig.get('rightforearm'), new Vector3(1, 0, 0), -0.72, envelope);
+  applyRelativeBoneOffset(rig.get('righthand'), new Vector3(0, 0, 1), 0.16, envelope);
+  applyRelativeBoneOffset(rig.get('spine2'), new Vector3(0, 1, 0), 0.08, envelope);
 }
 
 export function resolveImportedAnimationState({
@@ -299,19 +319,35 @@ function demoGestureProgress(time) {
   return clamp((phase - 13) / 2);
 }
 
-function poseForState(state, { time, energy, gestureProgress }) {
-  if (state === 'walk') return walkPose(time);
-  if (state === 'dance') return dancePose(time, energy);
-  if (state === 'highfive') return highFivePose(time, gestureProgress);
-  return idlePose(time);
+function setAuthoredState(controller, requestedState) {
+  const authoredState = requestedState === 'highfive' ? 'idle' : requestedState;
+  if (controller.activeAuthoredState === authoredState) return;
+
+  const next = controller.actions.get(authoredState);
+  if (!next) return;
+
+  next.reset();
+  next.enabled = true;
+  next.setLoop(LoopRepeat, Infinity);
+  next.setEffectiveWeight(1);
+  next.setEffectiveTimeScale(authoredState === 'walk' ? 1.05 : 1);
+  next.fadeIn(0.22);
+  next.play();
+
+  if (controller.activeAction && controller.activeAction !== next) {
+    controller.activeAction.fadeOut(0.22);
+  }
+
+  controller.activeAction = next;
+  controller.activeAuthoredState = authoredState;
 }
 
 /**
  * Mount a real skinned GLB over an existing procedural NPC rig.
  *
- * The procedural rig stays alive underneath as a zero-risk fallback. It is hidden only after the
- * imported asset has loaded, scaled and produced a valid bounding box. If loading fails, the
- * existing NPC remains visible and fully functional.
+ * The old procedural NPC stays visible until BOTH the model and authored animation clips are ready.
+ * If either load fails, the existing character remains in place rather than exposing a T-pose or a
+ * partially-retargeted rig.
  */
 export function attachImportedHumanVisual(
   model,
@@ -334,6 +370,10 @@ export function attachImportedHumanVisual(
     mount,
     scene: null,
     rig: new Map(),
+    mixer: null,
+    actions: new Map(),
+    activeAction: null,
+    activeAuthoredState: null,
     groundBox: new Box3(),
     disposed: false,
     demoCycle,
@@ -345,7 +385,6 @@ export function attachImportedHumanVisual(
         dancing = false,
         socialGesture = null,
         gestureProgress = null,
-        energy = 0,
       } = {},
     ) {
       const resolved = resolveImportedAnimationState({
@@ -357,30 +396,29 @@ export function attachImportedHumanVisual(
       });
       this.animationState = resolved;
       model.group.userData.importedAnimationState = resolved;
-      if (this.state !== 'ready' || !this.rig.size) return resolved;
+      if (this.state !== 'ready' || !this.mixer || !this.actions.size) return resolved;
 
-      const progress =
-        gestureProgress == null && this.demoCycle
-          ? demoGestureProgress(time)
-          : (gestureProgress ?? 0.5);
-      const pose = poseForState(resolved, {
-        time,
-        energy,
-        gestureProgress: progress,
-      });
-      const alpha = 1 - Math.exp(-Math.max(0, dt) * 10.5);
-      for (const key of RIG_KEYS) {
-        const rotation = pose.bones[key] ?? [0, 0, 0];
-        setBoneTarget(this.rig.get(key), rotation[0], rotation[1], rotation[2], alpha);
+      setAuthoredState(this, resolved);
+      this.mixer.update(Math.max(0, dt));
+
+      if (resolved === 'highfive') {
+        const progress =
+          gestureProgress == null && this.demoCycle
+            ? demoGestureProgress(time)
+            : (gestureProgress ?? 0.5);
+        applyHighFiveOverlay(this.rig, progress);
       }
-      // Ground after skinning each pose. This removes the visible hover that came from applying
-      // body bob independently of the feet and also compensates for bent-knee poses.
-      groundImportedVisual(this, model, Math.min(1, alpha * 1.35));
+
+      groundImportedVisual(this, model, 1);
       return resolved;
     },
     dispose() {
       this.disposed = true;
       setVisible(fallbackMeshes, true);
+      this.mixer?.stopAllAction?.();
+      this.actions.clear();
+      this.activeAction = null;
+      this.activeAuthoredState = null;
       if (this.scene) disposeScene(this.scene);
       this.scene?.removeFromParent?.();
       this.scene = null;
@@ -393,20 +431,21 @@ export function attachImportedHumanVisual(
   model.group.userData.importedVisualUrl = url;
   model.group.userData.importedVisualState = 'fallback';
   model.group.userData.importedAnimationState = 'idle';
+  model.group.userData.importedAnimationSource = 'authored-clips';
 
   // Node-based unit tests intentionally exercise the fallback without making external requests.
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return controller;
   }
 
-  controller.state = 'loading';
-  model.group.userData.importedVisualState = 'loading';
+  controller.state = 'loading-model';
+  model.group.userData.importedVisualState = 'loading-model';
 
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   loader.load(
     url,
-    (gltf) => {
+    async (gltf) => {
       if (controller.disposed) {
         disposeScene(gltf.scene);
         return;
@@ -425,8 +464,6 @@ export function attachImportedHumanVisual(
       });
 
       const rig = captureRig(scene);
-      calibrateArmDown(scene, rig, 'left');
-      calibrateArmDown(scene, rig, 'right');
       if (rig.size < 10 || !fitToHumanHeight(scene, targetHeight)) {
         disposeScene(scene);
         controller.state = 'fallback';
@@ -434,18 +471,48 @@ export function attachImportedHumanVisual(
         return;
       }
 
-      mount.add(scene);
-      controller.scene = scene;
-      controller.rig = rig;
-      controller.state = 'ready';
-      model.group.userData.visualStyle = 'imported';
-      model.group.userData.importedVisualState = 'ready';
-      model.group.userData.importedRigBones = rig.size;
+      controller.state = 'loading-animation';
+      model.group.userData.importedVisualState = 'loading-animation';
 
-      // Put the model into a natural idle before revealing it, so the source GLB's bind/T-pose
-      // never flashes on screen.
-      controller.update(1, { time: 0, energy: 0 });
-      setVisible(fallbackMeshes, false);
+      try {
+        const clips = await loadAuthoredClips(rig);
+        if (controller.disposed) {
+          disposeScene(scene);
+          return;
+        }
+
+        mount.add(scene);
+        const mixer = new AnimationMixer(scene);
+        const actions = new Map();
+        for (const [state, clip] of clips) {
+          const action = mixer.clipAction(clip);
+          action.enabled = true;
+          action.clampWhenFinished = false;
+          action.setLoop(LoopRepeat, Infinity);
+          actions.set(state, action);
+        }
+
+        controller.scene = scene;
+        controller.rig = rig;
+        controller.mixer = mixer;
+        controller.actions = actions;
+        controller.state = 'ready';
+
+        model.group.userData.visualStyle = 'imported';
+        model.group.userData.importedVisualState = 'ready';
+        model.group.userData.importedRigBones = rig.size;
+        model.group.userData.importedAuthoredClips = [...clips.keys()];
+
+        setAuthoredState(controller, 'idle');
+        mixer.update(1 / 60);
+        groundImportedVisual(controller, model, 1);
+        setVisible(fallbackMeshes, false);
+      } catch (error) {
+        disposeScene(scene);
+        controller.state = 'fallback';
+        model.group.userData.importedVisualState = 'fallback-animation-load-error';
+        console.warn('Imported human animations failed to load; keeping procedural fallback.', error);
+      }
     },
     undefined,
     (error) => {
