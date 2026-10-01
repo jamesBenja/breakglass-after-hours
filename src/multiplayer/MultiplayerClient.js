@@ -482,14 +482,16 @@ export class MultiplayerClient {
 
     const remote = targetId ? this.remotePlayers.get(targetId) : null;
     if (remote) this.faceRemote(remote);
+
+    const localApplied =
+      kind === 'dance'
+        ? (this.game.player.performMultiplayerGesture?.('dance') ?? false)
+        : (this.game.player.performMultiplayerGesture?.(kind) ?? false);
     const sent = this.send({ type: 'emote', kind, targetId });
-    if (!sent) return false;
 
-    if (kind === 'dance') this.game.player.dance(1.8);
-    else this.game.player.performMultiplayerGesture?.(kind);
-
-    if (remote && ['dance', 'grind', 'highfive'].includes(kind)) remote.emote(kind);
-    return true;
+    // The local move should always be visible, even if the realtime relay briefly drops a frame.
+    if (sent && remote && ['dance', 'grind', 'highfive'].includes(kind)) remote.emote(kind);
+    return sent || localApplied;
   }
 
   handleEmote(message) {
