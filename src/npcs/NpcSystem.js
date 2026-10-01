@@ -1,5 +1,6 @@
 import { BoxGeometry, Mesh, MeshStandardMaterial, SphereGeometry, Vector3 } from 'three';
 import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import { attachImportedHumanVisual } from '../avatar/ImportedHumanVisual.js';
 import { createReferenceHuman } from '../avatar/ReferenceHuman.js';
 import {
   applyLightweightSocialGesture,
@@ -401,6 +402,9 @@ export class NpcSystem {
       model.group.scale.set(heightScale, heightScale, heightScale);
       if (Number.isFinite(npc.rotationY)) model.group.rotation.y = npc.rotationY;
       root.add(model.group);
+      const importedVisual = npc.importedAsset
+        ? attachImportedHumanVisual(model, npc.importedAsset)
+        : null;
       const route = (npc.route ?? []).map((point) => new Vector3().fromArray(point));
       const interactive =
         npc.interactive !== false &&
@@ -411,6 +415,7 @@ export class NpcSystem {
       if (nameplate) model.group.add(nameplate.sprite);
       return {
         ...model,
+        importedVisual,
         id: npc.id,
         name: npc.name ?? npc.id,
         role: npc.role ?? 'guest',
@@ -830,6 +835,7 @@ export class NpcSystem {
   dispose() {
     for (const npc of this.npcs) {
       npc.nameplate?.dispose?.();
+      npc.importedVisual?.dispose?.();
       npc.group.removeFromParent();
     }
     this.npcs = [];
