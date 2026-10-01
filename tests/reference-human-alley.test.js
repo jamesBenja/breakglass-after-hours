@@ -45,7 +45,6 @@ test('imported human test stays isolated beside the normal alley spawn with a pr
   npcs.dispose();
 });
 
-
 test('imported human animation state follows NPC behavior before the temporary demo cycle', () => {
   assert.equal(resolveImportedAnimationState({ time: 1 }), 'idle');
   assert.equal(resolveImportedAnimationState({ moving: true, demoCycle: true, time: 10 }), 'walk');
