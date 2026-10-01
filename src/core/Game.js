@@ -365,9 +365,21 @@ export class Game {
     this.isOnDanceFloor = () =>
       isDanceFloorPosition(this.sceneManager.current?.definition, this.player.position);
 
+    this.animateClubDanceCircle = (centerPosition = this.player.position) => {
+      const level = this.sceneManager.current;
+      if (!isDanceFloorPosition(level?.definition, centerPosition)) return false;
+      level.npcs?.triggerDanceCircle?.(centerPosition);
+      level.crowd?.triggerDanceCircle?.(centerPosition);
+      return true;
+    };
+
     this.performDanceMove = (kind) => {
-      if (kind === 'circle' && this.multiplayer?.joined) {
-        return this.multiplayer.startDanceCircle?.() === true;
+      if (kind === 'circle') {
+        if (this.multiplayer?.joined) {
+          return this.multiplayer.startDanceCircle?.() === true;
+        }
+        this.animateClubDanceCircle();
+        return this.player.performMultiplayerGesture?.('circle') === true;
       }
       if (this.multiplayer?.joined && this.multiplayer.sendEmote?.(kind)) return true;
       if (kind === 'dance') {
@@ -384,7 +396,7 @@ export class Game {
       }
       ui.panel(
         'DANCE FLOOR',
-        'Pick a move. Walk up to another real player for Dance together, Grind, or High five.',
+        'Pick a move. Walk up to another player or named club NPC for Dance together, Grind, or High five.',
         [
           ['Dance', () => this.performDanceMove('dance')],
           ['Hands up', () => this.performDanceMove('handsup')],

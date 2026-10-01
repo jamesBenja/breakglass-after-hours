@@ -2,6 +2,7 @@ import { showLiveArchivePlayer } from '../archive/LiveArchivePlayer.js';
 import { LIVE_FROM_BREAKGLASS, liveArchiveById } from '../archive/liveArchive.js';
 import { TAPE_ARCHIVE, tapeArchiveById } from '../archive/tapeArchive.js';
 import { DJ_TRACKS } from '../dj/DjMixer.js';
+import { isDanceFloorPosition } from '../gameplay/DanceFloorSocial.js';
 import { progressionHint } from '../gameplay/guidance.js';
 import {
   MIXING_CHALLENGES,
@@ -1700,6 +1701,27 @@ export function createActions({
       }
 
       const characterActions = [];
+      const npc = level.npcs?.get?.(id);
+      const socialNpc =
+        player &&
+        npc &&
+        isDanceFloorPosition(level.definition, player.position) &&
+        isDanceFloorPosition(level.definition, npc.group.position);
+      const performNpcSocial = (kind) => {
+        if (!socialNpc) return false;
+        const dx = npc.group.position.x - player.position.x;
+        const dz = npc.group.position.z - player.position.z;
+        if (Math.hypot(dx, dz) > 0.01) player.object.rotation.y = Math.atan2(dx, dz);
+        level.npcs?.triggerSocialGesture?.(id, kind, player.position);
+        if (kind === 'dance') player.dance(1.8);
+        else player.performMultiplayerGesture?.(kind);
+        return true;
+      };
+      if (socialNpc) {
+        characterActions.push(['Dance together', () => performNpcSocial('dance')]);
+        characterActions.push(['Grind', () => performNpcSocial('grind')]);
+        characterActions.push(['High five', () => performNpcSocial('highfive')]);
+      }
       if (id === 'nora' && photos) characterActions.push(['Pose for a photo', takeNoraPhoto]);
       if (id === 'jace' && sceneManager.current.definition.id === 'upstairs') {
         const storageUnlocked = state?.data?.tapeArchiveAccessGranted === true;
@@ -1783,7 +1805,7 @@ export function createActions({
       }
       panel(dialogue.title, dialogue.text, [
         ...characterActions,
-        ...(player ? [['Dance', () => player.dance(80 / 60)]] : []),
+        ...(player && !socialNpc ? [['Dance', () => player.dance(80 / 60)]] : []),
       ]);
     },
   };

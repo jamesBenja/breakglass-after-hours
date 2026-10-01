@@ -421,6 +421,8 @@ export class MultiplayerClient {
       return false;
     }
 
+    this.game.animateClubDanceCircle?.(centerPosition);
+
     for (const remote of this.remotePlayers.values()) {
       if (remote.sceneId !== sceneId) continue;
       if (!isDanceFloorPosition(definition, remote.object.position)) continue;

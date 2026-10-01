@@ -72,6 +72,7 @@ export class CrowdSystem {
     this.lastVibe = 0;
     this.lastMixQuality = 0;
     this.elapsed = 0;
+    this.danceCircle = null;
     this.zones = config.zones ?? [];
     this.danceZones = this.zones.filter((zone) => zone.kind === 'dance');
     this.socialZones = this.zones.filter((zone) => zone.kind !== 'dance');
@@ -201,6 +202,20 @@ export class CrowdSystem {
     return clamp(1 - pressure * 0.14, 0.34, 1);
   }
 
+  triggerDanceCircle(centerPosition, radius = 4.6, duration = 3.2) {
+    const x = Number(centerPosition?.x ?? centerPosition?.[0]);
+    const z = Number(centerPosition?.z ?? centerPosition?.[2]);
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
+    this.danceCircle = {
+      x,
+      z,
+      radius: Math.max(0.5, Number(radius) || 4.6),
+      duration: Math.max(0.5, Number(duration) || 3.2),
+      remaining: Math.max(0.5, Number(duration) || 3.2),
+    };
+    return true;
+  }
+
   setInstance(mesh, index, x, y, z, yaw, sx, sy, sz, pitch = 0, roll = 0) {
     this.position.set(x, y, z);
     this.euler.set(pitch, yaw, roll, 'YXZ');
@@ -212,6 +227,10 @@ export class CrowdSystem {
 
   update(dt, metrics = {}) {
     this.elapsed += dt;
+    if (this.danceCircle) {
+      this.danceCircle.remaining = Math.max(0, this.danceCircle.remaining - dt);
+      if (this.danceCircle.remaining <= 0) this.danceCircle = null;
+    }
     const energy = clamp(metrics.energy ?? (metrics.playing ? 0.5 : 0));
     const bass = clamp(metrics.bass ?? energy);
     const beat = clamp(metrics.beat ?? 0);
@@ -263,7 +282,18 @@ export class CrowdSystem {
       const drift = wantsFloor ? 0.05 + bass * 0.04 : 0.018;
       const px = member.currentX + side * drift;
       const pz = member.currentZ + sway * drift * 0.55;
-      const yaw = side * (wantsFloor ? 0.34 + localEnergy * 0.3 : 0.09);
+      const circleDistance = this.danceCircle
+        ? Math.hypot(px - this.danceCircle.x, pz - this.danceCircle.z)
+        : Infinity;
+      const inCircle = wantsFloor && circleDistance <= (this.danceCircle?.radius ?? 0);
+      const circleProgress = inCircle
+        ? 1 - this.danceCircle.remaining / Math.max(0.001, this.danceCircle.duration)
+        : 0;
+      const circlePulse = inCircle ? Math.sin(circleProgress * Math.PI * 10) : 0;
+      const circleBounce = inCircle ? Math.abs(Math.sin(circleProgress * Math.PI * 7)) : 0;
+      const yaw = inCircle
+        ? Math.atan2(this.danceCircle.x - px, this.danceCircle.z - pz)
+        : side * (wantsFloor ? 0.34 + localEnergy * 0.3 : 0.09);
       const scale = member.scale;
       const rightX = Math.cos(yaw);
       const rightZ = -Math.sin(yaw);
@@ -271,12 +301,13 @@ export class CrowdSystem {
       const forwardZ = Math.cos(yaw);
       const gait = wantsFloor ? sway * (0.18 + localEnergy * 0.62) : side * 0.09;
       const cheerRaise = cheer * 1.05;
+      const circleRaise = inCircle ? 0.82 + Math.max(0, circlePulse) * 0.55 : 0;
 
       this.setInstance(
         this.body,
         i,
         px,
-        0.76 * scale + bob,
+        0.76 * scale + bob + circleBounce * 0.035,
         pz,
         yaw,
         scale * member.shoulder,
@@ -315,10 +346,10 @@ export class CrowdSystem {
       const shoulderOffset = 0.275 * scale * member.shoulder;
       const upperArmY = 1.08 * scale + bob + cheer * 0.05;
       const forearmY = 0.87 * scale + bob + cheer * 0.08;
-      const leftArmPitch = -gait - cheerRaise;
-      const rightArmPitch = gait - cheerRaise * (0.65 + seeded(i, 52) * 0.35);
-      const leftElbow = -0.1 - Math.max(0, -gait) * 0.42 - cheerRaise * 0.15;
-      const rightElbow = -0.1 - Math.max(0, gait) * 0.42 - cheerRaise * 0.18;
+      const leftArmPitch = -gait - cheerRaise - circleRaise;
+      const rightArmPitch = gait - cheerRaise * (0.65 + seeded(i, 52) * 0.35) - circleRaise * 0.92;
+      const leftElbow = -0.1 - Math.max(0, -gait) * 0.42 - cheerRaise * 0.15 - circleRaise * 0.24;
+      const rightElbow = -0.1 - Math.max(0, gait) * 0.42 - cheerRaise * 0.18 - circleRaise * 0.24;
       this.setInstance(
         this.leftArm,
         i,
