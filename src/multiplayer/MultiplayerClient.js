@@ -4,6 +4,7 @@ import {
   CANONICAL_MULTIPLAYER_SERVER,
   liveBackendSelection,
 } from '../runtime/LiveBackendPolicy.js';
+import { isDanceFloorPosition, withinDanceCircle } from '../gameplay/DanceFloorSocial.js';
 import { RemotePlayer } from './RemotePlayer.js';
 import { RealtimeMedia } from './RealtimeMedia.js';
 import { SharedWorld } from './SharedWorld.js';
@@ -414,6 +415,45 @@ export class MultiplayerClient {
     remote.facePosition(player.position);
   }
 
+  animateDanceCircle(centerPosition, sceneId, centerRemote = null) {
+    const definition = this.game.sceneManager.current?.definition;
+    if (definition?.id !== sceneId || !isDanceFloorPosition(definition, centerPosition)) {
+      return false;
+    }
+
+    for (const remote of this.remotePlayers.values()) {
+      if (remote.sceneId !== sceneId) continue;
+      if (!isDanceFloorPosition(definition, remote.object.position)) continue;
+      if (!withinDanceCircle(centerPosition, remote.object.position)) continue;
+      remote.emote('circle');
+      if (remote !== centerRemote) remote.facePosition(centerPosition);
+    }
+
+    const player = this.game.player;
+    if (
+      isDanceFloorPosition(definition, player.position) &&
+      withinDanceCircle(centerPosition, player.position)
+    ) {
+      player.performMultiplayerGesture?.('circle');
+      if (centerRemote) {
+        const dx = centerPosition.x - player.position.x;
+        const dz = centerPosition.z - player.position.z;
+        if (Math.hypot(dx, dz) > 0.01) player.object.rotation.y = Math.atan2(dx, dz);
+      }
+    }
+    return true;
+  }
+
+  startDanceCircle() {
+    if (!this.joined) return false;
+    const definition = this.game.sceneManager.current?.definition;
+    const player = this.game.player;
+    if (!isDanceFloorPosition(definition, player.position)) return false;
+
+    this.animateDanceCircle(player.position, definition.id);
+    return this.send({ type: 'emote', kind: 'circle', targetId: null });
+  }
+
   showInteraction(target) {
     const remote = this.remotePlayers.get(target.multiplayerId);
     if (!remote) return false;
@@ -428,6 +468,7 @@ export class MultiplayerClient {
           this.sendEmote('dance', remote.id);
         },
       ],
+      ['Grind', () => this.sendEmote('grind', remote.id)],
       ['High five', () => this.sendEmote('highfive', remote.id)],
     ]);
     return true;
@@ -435,13 +476,17 @@ export class MultiplayerClient {
 
   sendEmote(kind, targetId = null) {
     if (!this.joined) return false;
+    if (kind === 'circle' && !targetId) return this.startDanceCircle();
+
     const remote = targetId ? this.remotePlayers.get(targetId) : null;
     if (remote) this.faceRemote(remote);
     const sent = this.send({ type: 'emote', kind, targetId });
     if (!sent) return false;
+
     if (kind === 'dance') this.game.player.dance(1.8);
     else this.game.player.performMultiplayerGesture?.(kind);
-    if (kind === 'highfive') remote?.emote('highfive');
+
+    if (remote && ['dance', 'grind', 'highfive'].includes(kind)) remote.emote(kind);
     return true;
   }
 
@@ -450,19 +495,33 @@ export class MultiplayerClient {
     const remote = this.remotePlayers.get(message.fromId);
     if (!remote) return;
     remote.emote(message.kind);
+
+    if (message.kind === 'circle' && !message.targetId) {
+      this.animateDanceCircle(remote.object.position, remote.sceneId, remote);
+      return;
+    }
+
+    const paired = ['dance', 'grind', 'highfive'].includes(message.kind);
     if (message.targetId === this.localId) {
       this.faceRemote(remote);
       const labels = {
         wave: 'waves at you',
         dance: 'starts dancing with you',
+        grind: 'grinds with you',
         highfive: 'high-fives you',
       };
       this.ui.warning?.(
         `${remote.avatar.displayName} ${labels[message.kind] ?? 'interacts with you'}.`,
       );
       if (message.kind === 'dance') this.game.player.dance(1.8);
-      else if (message.kind === 'highfive')
-        this.game.player.performMultiplayerGesture?.('highfive');
+      else if (paired) this.game.player.performMultiplayerGesture?.(message.kind);
+    } else if (paired && message.targetId) {
+      const target = this.remotePlayers.get(message.targetId);
+      if (target) {
+        target.emote(message.kind);
+        target.facePosition(remote.object.position);
+        remote.facePosition(target.object.position);
+      }
     }
   }
 

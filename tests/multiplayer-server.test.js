@@ -171,6 +171,18 @@ test('multiplayer server owns shared resources, world state, chat and media sign
   assert.equal(emote.targetId, welcomeA.id);
   assert.equal(emote.kind, 'highfive');
 
+  b.send({ type: 'emote', kind: 'grind', targetId: welcomeA.id });
+  const grind = await a.next('emote');
+  assert.equal(grind.fromId, welcomeB.id);
+  assert.equal(grind.targetId, welcomeA.id);
+  assert.equal(grind.kind, 'grind');
+
+  b.send({ type: 'emote', kind: 'circle' });
+  const circle = await a.next('emote');
+  assert.equal(circle.fromId, welcomeB.id);
+  assert.equal(circle.targetId, null);
+  assert.equal(circle.kind, 'circle');
+
   a.send({
     type: 'resource_claim',
     requestId: 'claim-a',

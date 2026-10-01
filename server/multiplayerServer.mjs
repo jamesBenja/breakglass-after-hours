@@ -361,7 +361,11 @@ function updateState(socket, message) {
 function emote(socket, message) {
   const player = socket.player;
   if (!player) return;
-  const kind = ['wave', 'dance', 'highfive'].includes(message.kind) ? message.kind : null;
+  const kind = ['wave', 'dance', 'highfive', 'handsup', 'shake', 'grind', 'circle'].includes(
+    message.kind,
+  )
+    ? message.kind
+    : null;
   if (!kind) return;
   const room = roomFor(player.roomId);
   const targetId =
