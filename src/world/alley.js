@@ -137,6 +137,12 @@ export const alleyLevel = {
       position: [-24.8, 0, 0.65],
       role: 'guest',
       visualStyle: 'reference',
+      importedAsset: {
+        url: 'https://three.ws/avatars/michelle.glb',
+        targetHeight: 1.78,
+        poseTime: 0.25,
+        yaw: 0,
+      },
       interactive: false,
       rotationY: -Math.PI / 2,
       appearance: {
