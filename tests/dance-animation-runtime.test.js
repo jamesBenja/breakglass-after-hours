@@ -43,3 +43,23 @@ test('shake is a visibly different pose from the original idle stance', () => {
 
   player.dispose();
 });
+
+
+test('circle visibly raises the player arms and moves the body', () => {
+  const player = new PlayerController();
+  const preMultiplayerAnimate = player.animate.bind(player);
+  player.animate = (dt) => preMultiplayerAnimate(dt);
+  installMultiplayerEmoteAnimations(player);
+
+  assert.equal(player.performMultiplayerGesture('circle'), true);
+  player.animate(0.22);
+
+  assert.ok(Math.abs(player.leftArm.rotation.z) > 0.9, 'circle should raise the left arm');
+  assert.ok(Math.abs(player.rightArm.rotation.z) > 0.9, 'circle should raise the right arm');
+  assert.ok(
+    Math.abs(player.body.rotation.y) + Math.abs(player.body.rotation.z) > 0.04,
+    'circle should visibly move the torso',
+  );
+
+  player.dispose();
+});
