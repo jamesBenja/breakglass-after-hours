@@ -347,12 +347,9 @@ export class CrowdSystem {
       const upperArmY = 1.08 * scale + bob + cheer * 0.05;
       const forearmY = 0.87 * scale + bob + cheer * 0.08;
       const leftArmPitch = -gait - cheerRaise - circleRaise;
-      const rightArmPitch =
-        gait - cheerRaise * (0.65 + seeded(i, 52) * 0.35) - circleRaise * 0.92;
-      const leftElbow =
-        -0.1 - Math.max(0, -gait) * 0.42 - cheerRaise * 0.15 - circleRaise * 0.24;
-      const rightElbow =
-        -0.1 - Math.max(0, gait) * 0.42 - cheerRaise * 0.18 - circleRaise * 0.24;
+      const rightArmPitch = gait - cheerRaise * (0.65 + seeded(i, 52) * 0.35) - circleRaise * 0.92;
+      const leftElbow = -0.1 - Math.max(0, -gait) * 0.42 - cheerRaise * 0.15 - circleRaise * 0.24;
+      const rightElbow = -0.1 - Math.max(0, gait) * 0.42 - cheerRaise * 0.18 - circleRaise * 0.24;
       this.setInstance(
         this.leftArm,
         i,

@@ -39,7 +39,6 @@ export function withinDanceCircle(center, position, radius = DANCE_CIRCLE_RADIUS
   return Math.hypot(x - centerX, z - centerZ) <= radius;
 }
 
-
 export function applyLightweightSocialGesture(model, kind, progress) {
   if (!model || !kind) return false;
   const p = Math.max(0, Math.min(1, Number(progress) || 0));
