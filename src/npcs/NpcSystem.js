@@ -1,5 +1,12 @@
 import { BoxGeometry, Mesh, MeshStandardMaterial, SphereGeometry, Vector3 } from 'three';
 import { createLightweightHuman, poseLightweightHuman } from '../avatar/LightweightHuman.js';
+import {
+  applyLightweightSocialGesture,
+  DANCE_CIRCLE_RADIUS,
+  isDanceFloorPosition,
+  socialGestureDuration,
+  withinDanceCircle,
+} from '../gameplay/DanceFloorSocial.js';
 import { createWorldNameplate } from '../ui/WorldNameplate.js';
 import { dialogues } from './dialogues.js';
 import { NpcNavigator } from './NpcNavigator.js';
@@ -416,6 +423,9 @@ export class NpcSystem {
         servePulse: 0,
         handoffPulse: 0,
         handoffKind: null,
+        socialGesture: null,
+        socialGestureDuration: 0,
+        socialGestureRemaining: 0,
         moving: false,
         navPath: [],
         navPathIndex: 0,
@@ -478,6 +488,40 @@ export class NpcSystem {
 
   dialogue(id) {
     return dialogues[id] ?? null;
+  }
+
+  faceNpcToPosition(npc, position) {
+    if (!npc?.group || !position) return false;
+    const x = Number(position.x ?? position[0]);
+    const z = Number(position.z ?? position[2]);
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
+    const dx = x - npc.group.position.x;
+    const dz = z - npc.group.position.z;
+    if (Math.hypot(dx, dz) > 0.01) npc.group.rotation.y = Math.atan2(dx, dz);
+    return true;
+  }
+
+  triggerSocialGesture(id, kind, targetPosition = null) {
+    const npc = this.get(id);
+    const duration = socialGestureDuration(kind);
+    if (!npc || !duration) return false;
+    npc.socialGesture = kind;
+    npc.socialGestureDuration = duration;
+    npc.socialGestureRemaining = duration;
+    this.resetNavigation(npc);
+    if (targetPosition) this.faceNpcToPosition(npc, targetPosition);
+    return true;
+  }
+
+  triggerDanceCircle(centerPosition, radius = DANCE_CIRCLE_RADIUS) {
+    if (!isDanceFloorPosition(this.definition, centerPosition)) return 0;
+    let count = 0;
+    for (const npc of this.npcs) {
+      if (!isDanceFloorPosition(this.definition, npc.group.position)) continue;
+      if (!withinDanceCircle(centerPosition, npc.group.position, radius)) continue;
+      if (this.triggerSocialGesture(npc.id, 'circle', centerPosition)) count += 1;
+    }
+    return count;
   }
 
   resetNavigation(npc, { preserveRetry = false } = {}) {
@@ -643,10 +687,19 @@ export class NpcSystem {
       npc.photoPulse = Math.max(0, npc.photoPulse - dt);
       npc.servePulse = Math.max(0, npc.servePulse - dt);
       npc.handoffPulse = Math.max(0, npc.handoffPulse - dt);
+      npc.socialGestureRemaining = Math.max(0, npc.socialGestureRemaining - dt);
       if (npc.handoffPulse <= 0) npc.handoffKind = null;
+      if (npc.socialGestureRemaining <= 0) {
+        npc.socialGesture = null;
+        npc.socialGestureDuration = 0;
+      }
       npc.moving = false;
       const companion = npc.companionId ? this.get(npc.companionId) : null;
-      const canWalk = npc.photoPulse <= 0 && npc.servePulse <= 0 && npc.handoffPulse <= 0;
+      const canWalk =
+        npc.photoPulse <= 0 &&
+        npc.servePulse <= 0 &&
+        npc.handoffPulse <= 0 &&
+        npc.socialGestureRemaining <= 0;
       if (companion && canWalk) {
         const target = companion.group.position.clone().add(npc.companionOffset);
         const distance = Math.hypot(
@@ -691,18 +744,29 @@ export class NpcSystem {
 
       const clubDance =
         metrics.playing && ['dancer', 'photographer', 'host', 'artist'].includes(npc.role);
+      const socialGesture = npc.socialGestureRemaining > 0 ? npc.socialGesture : null;
+      const socialDance = ['dance', 'grind', 'circle'].includes(socialGesture);
+      const poseEnergy = socialGesture
+        ? Math.max(0.82, clamp(energy * 0.72 + bass * 0.28))
+        : clamp(energy * 0.72 + bass * 0.28);
       poseLightweightHuman(npc, {
         time: this.elapsed,
         phase: npc.phase,
         moving: npc.moving,
-        dancing: clubDance,
-        energy: clamp(energy * 0.72 + bass * 0.28),
+        dancing: clubDance || socialDance,
+        energy: poseEnergy,
       });
+      if (socialGesture) {
+        const duration = Math.max(0.001, npc.socialGestureDuration || 1);
+        const progress = 1 - npc.socialGestureRemaining / duration;
+        applyLightweightSocialGesture(npc, socialGesture, progress);
+      }
 
       // Named characters subtly look around when idle instead of staring straight ahead.
       if (
         !npc.moving &&
         !clubDance &&
+        !socialGesture &&
         npc.photoPulse <= 0 &&
         npc.servePulse <= 0 &&
         npc.handoffPulse <= 0
