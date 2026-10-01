@@ -375,11 +375,14 @@ export class Game {
 
     this.performDanceMove = (kind) => {
       if (kind === 'circle') {
-        if (this.multiplayer?.joined) {
-          return this.multiplayer.startDanceCircle?.() === true;
-        }
-        this.animateClubDanceCircle();
-        return this.player.performMultiplayerGesture?.('circle') === true;
+        // Make the local response unconditional and immediate. Multiplayer is propagation, not
+        // the authority for whether the person who pressed the button actually starts dancing.
+        const environmentStarted = this.animateClubDanceCircle();
+        const playerStarted = this.player.performMultiplayerGesture?.('circle') === true;
+        const multiplayerStarted = this.multiplayer?.joined
+          ? this.multiplayer.startDanceCircle?.() === true
+          : false;
+        return playerStarted || environmentStarted || multiplayerStarted;
       }
       if (this.multiplayer?.joined && this.multiplayer.sendEmote?.(kind)) return true;
       if (kind === 'dance') {
