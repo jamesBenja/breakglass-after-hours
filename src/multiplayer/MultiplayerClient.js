@@ -400,6 +400,8 @@ export class MultiplayerClient {
     const sceneId = this.game.sceneManager.current?.definition?.id;
     if (!sceneId) return [];
     const targets = [];
+    this.game.animateClubDanceCircle?.(centerPosition);
+
     for (const remote of this.remotePlayers.values()) {
       if (remote.sceneId === sceneId) targets.push(remote.interactionTarget());
     }
