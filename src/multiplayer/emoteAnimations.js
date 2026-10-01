@@ -1,15 +1,7 @@
+import { socialGestureDuration } from '../gameplay/DanceFloorSocial.js';
 import { PlayerController } from '../player/PlayerController.js';
 
 let installed = false;
-
-const durations = {
-  wave: 1.35,
-  highfive: 1.05,
-  handsup: 2.5,
-  shake: 2.4,
-  grind: 2.2,
-  circle: 3.2,
-};
 
 export function installMultiplayerEmoteAnimations() {
   if (installed) return;
@@ -18,10 +10,11 @@ export function installMultiplayerEmoteAnimations() {
   const baseAnimate = PlayerController.prototype.animate;
 
   PlayerController.prototype.performMultiplayerGesture = function performMultiplayerGesture(kind) {
-    if (!durations[kind] || this.seated) return false;
+    const duration = socialGestureDuration(kind);
+    if (!duration || this.seated) return false;
     this.multiplayerGesture = kind;
-    this.multiplayerGestureDuration = durations[kind];
-    this.multiplayerGestureRemaining = durations[kind];
+    this.multiplayerGestureDuration = duration;
+    this.multiplayerGestureRemaining = duration;
     return true;
   };
 
