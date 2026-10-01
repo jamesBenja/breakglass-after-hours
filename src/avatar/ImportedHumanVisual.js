@@ -263,12 +263,7 @@ function poseForState(state, { time, energy, gestureProgress }) {
  */
 export function attachImportedHumanVisual(
   model,
-  {
-    url = DEFAULT_IMPORTED_HUMAN_URL,
-    targetHeight = 1.78,
-    yaw = 0,
-    demoCycle = false,
-  } = {},
+  { url = DEFAULT_IMPORTED_HUMAN_URL, targetHeight = 1.78, yaw = 0, demoCycle = false } = {},
 ) {
   const fallbackMeshes = [];
   model.group.traverse((object) => {
@@ -312,7 +307,9 @@ export function attachImportedHumanVisual(
       if (this.state !== 'ready' || !this.rig.size) return resolved;
 
       const progress =
-        gestureProgress == null && this.demoCycle ? demoGestureProgress(time) : gestureProgress ?? 0.5;
+        gestureProgress == null && this.demoCycle
+          ? demoGestureProgress(time)
+          : (gestureProgress ?? 0.5);
       const pose = poseForState(resolved, {
         time,
         energy,
