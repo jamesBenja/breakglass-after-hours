@@ -326,7 +326,8 @@ function addReferenceDetails(model, look) {
 export function createNpcCharacter(npc) {
   const look = { ...DEFAULT_LOOK, ...(CHARACTER_LOOKS[npc.id] ?? {}), ...(npc.appearance ?? {}) };
   const bodyWidth = look.bodyWidth ?? 0.94 + variation(npc.id, 2) * 0.13;
-  const createHuman = npc.visualStyle === 'reference' ? createReferenceHuman : createLightweightHuman;
+  const createHuman =
+    npc.visualStyle === 'reference' ? createReferenceHuman : createLightweightHuman;
   const model = createHuman({
     skin: look.skin,
     hair: look.hair,
