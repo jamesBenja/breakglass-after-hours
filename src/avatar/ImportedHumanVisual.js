@@ -22,9 +22,7 @@ function disposeScene(root) {
   root?.traverse?.((object) => {
     if (!object.isMesh) return;
     object.geometry?.dispose?.();
-    const materials = Array.isArray(object.material)
-      ? object.material
-      : [object.material];
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
     for (const material of materials) {
       if (!material) continue;
       for (const key of TEXTURE_KEYS) material[key]?.dispose?.();
@@ -61,12 +59,7 @@ function fitToHumanHeight(root, targetHeight) {
  */
 export function attachImportedHumanVisual(
   model,
-  {
-    url = DEFAULT_IMPORTED_HUMAN_URL,
-    targetHeight = 1.78,
-    yaw = 0,
-    poseTime = 0.25,
-  } = {},
+  { url = DEFAULT_IMPORTED_HUMAN_URL, targetHeight = 1.78, yaw = 0, poseTime = 0.25 } = {},
 ) {
   const fallbackMeshes = [];
   model.group.traverse((object) => {
@@ -135,9 +128,7 @@ export function attachImportedHumanVisual(
         const mixer = new AnimationMixer(scene);
         const action = mixer.clipAction(clip);
         action.play();
-        mixer.setTime(
-          Math.min(Math.max(0, poseTime), Math.max(0, clip.duration - 0.001)),
-        );
+        mixer.setTime(Math.min(Math.max(0, poseTime), Math.max(0, clip.duration - 0.001)));
         mixer.update(0);
         action.paused = true;
         controller.mixer = mixer;
@@ -166,10 +157,7 @@ export function attachImportedHumanVisual(
       if (controller.disposed) return;
       controller.state = 'fallback';
       model.group.userData.importedVisualState = 'fallback-load-error';
-      console.warn(
-        'Imported human visual failed to load; keeping procedural fallback.',
-        error,
-      );
+      console.warn('Imported human visual failed to load; keeping procedural fallback.', error);
     },
   );
 
