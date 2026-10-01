@@ -515,9 +515,10 @@ export class NpcSystem {
 
   triggerDanceCircle(centerPosition, radius = DANCE_CIRCLE_RADIUS) {
     if (!isDanceFloorPosition(this.definition, centerPosition)) return 0;
+    const socialRoles = new Set(['guest', 'dancer', 'photographer', 'host', 'artist']);
     let count = 0;
     for (const npc of this.npcs) {
-      if (!isDanceFloorPosition(this.definition, npc.group.position)) continue;
+      if (!npc.interactive || !socialRoles.has(npc.role)) continue;
       if (!withinDanceCircle(centerPosition, npc.group.position, radius)) continue;
       if (this.triggerSocialGesture(npc.id, 'circle', centerPosition)) count += 1;
     }
