@@ -374,7 +374,7 @@ export class CrowdSystem {
         this.head,
         i,
         px,
-        1.47 * scale + bob,
+        1.47 * scale + bob + circleBounce * 0.035,
         pz,
         yaw + side * 0.025,
         scale * 0.94,
@@ -389,7 +389,7 @@ export class CrowdSystem {
         this.hair,
         i,
         px,
-        hairY * scale + bob,
+        hairY * scale + bob + circleBounce * 0.035,
         pz - forwardZ * 0.032,
         yaw,
         scale * (member.hairStyle === 3 ? 1.08 : 1),
@@ -398,8 +398,8 @@ export class CrowdSystem {
       );
 
       const shoulderOffset = 0.275 * scale * member.shoulder;
-      const upperArmY = 1.08 * scale + bob + cheer * 0.05;
-      const forearmY = 0.87 * scale + bob + cheer * 0.08;
+      const upperArmY = 1.08 * scale + bob + cheer * 0.05 + circleBounce * 0.035;
+      const forearmY = 0.87 * scale + bob + cheer * 0.08 + circleBounce * 0.035;
       const leftArmPitch = -gait - cheerRaise - circleRaise;
       const rightArmPitch = gait - cheerRaise * (0.65 + seeded(i, 52) * 0.35) - circleRaise * 0.92;
       const leftElbow = -0.1 - Math.max(0, -gait) * 0.42 - cheerRaise * 0.15 - circleRaise * 0.24;
@@ -458,7 +458,7 @@ export class CrowdSystem {
       );
 
       const hip = 0.12 * scale;
-      const legY = 0.29 * scale + bob * 0.15;
+      const legY = 0.29 * scale + bob * 0.15 + circleBounce * 0.012;
       const legSwing = switching ? gait * 0.7 : wantsFloor ? gait * 0.35 : gait * 0.18;
       this.setInstance(
         this.leftLeg,
