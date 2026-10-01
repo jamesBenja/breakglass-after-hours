@@ -1,5 +1,6 @@
 import { AnimationMixer, Box3, Group, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 export const DEFAULT_IMPORTED_HUMAN_URL = 'https://three.ws/avatars/michelle.glb';
 
@@ -103,6 +104,7 @@ export function attachImportedHumanVisual(
   model.group.userData.importedVisualState = 'loading';
 
   const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
   loader.load(
     url,
     (gltf) => {
