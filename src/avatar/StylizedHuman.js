@@ -7,6 +7,7 @@ import {
   SphereGeometry,
   TorusGeometry,
 } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const material = (color, options = {}) =>
   new MeshStandardMaterial({
@@ -30,25 +31,41 @@ const capsule = (radius, length, mat, segments = 10) =>
 
 const box = (w, h, d, mat) => cast(new Mesh(new BoxGeometry(w, h, d), mat));
 
+function mergeStaticMeshes(meshes, mat) {
+  const geometries = meshes.map((mesh) => {
+    mesh.updateMatrix();
+    const geometry = mesh.geometry.clone();
+    geometry.applyMatrix4(mesh.matrix);
+    return geometry;
+  });
+  const mergedGeometry = mergeGeometries(geometries, false);
+  for (const geometry of geometries) geometry.dispose();
+  for (const mesh of meshes) mesh.geometry.dispose();
+  return cast(new Mesh(mergedGeometry, mat));
+}
+
 function createHand(skin, side) {
   const hand = new Group();
+  const pieces = [];
+
   const palm = sphere(0.047, skin, 12, 9);
   palm.scale.set(0.78, 1.08, 0.52);
-  hand.add(palm);
+  pieces.push(palm);
 
   for (let i = 0; i < 4; i++) {
     const finger = capsule(0.0075, 0.045 - i * 0.002, skin, 7);
     finger.scale.set(0.82, 1, 0.7);
     finger.position.set((i - 1.5) * 0.016, -0.05, 0.005);
     finger.rotation.z = (i - 1.5) * 0.025;
-    hand.add(finger);
+    pieces.push(finger);
   }
 
   const thumb = capsule(0.0095, 0.035, skin, 7);
   thumb.position.set(side * 0.039, -0.012, 0.008);
   thumb.rotation.z = side * 0.72;
-  hand.add(thumb);
+  pieces.push(thumb);
 
+  hand.add(mergeStaticMeshes(pieces, skin));
   return hand;
 }
 
@@ -135,7 +152,7 @@ function createCargoLeg(trousers, shoes, accent, side, cargo = true) {
   const outsole = box(0.165, 0.022, 0.28, accent);
   outsole.position.set(0, -0.055, 0.035);
 
-  foot.add(sole, upper, toe, outsole);
+  foot.add(mergeStaticMeshes([sole, upper, toe], shoes), outsole);
   foot.rotation.y = side * 0.018;
 
   knee.add(kneeShape, calf, cuff, foot);
@@ -148,13 +165,14 @@ function createHair(mat, style) {
   const root = new Group();
   if (style === 'bald') return root;
 
+  const pieces = [];
   const cap = sphere(0.184, mat, 18, 12);
   cap.scale.set(0.98, style === 'buzz' ? 0.26 : 0.46, 0.96);
   cap.position.set(0, 0.145, -0.018);
-  root.add(cap);
+  pieces.push(cap);
 
   if (style === 'short' || style === 'textured') {
-    for (const [x, y, z, s] of [
+    for (const [x, y, z, curlScale] of [
       [-0.12, 0.14, 0.01, 0.95],
       [-0.055, 0.17, 0.025, 1.05],
       [0.02, 0.18, 0.03, 1.06],
@@ -165,10 +183,10 @@ function createHair(mat, style) {
       [0.08, 0.11, 0.07, 0.9],
       [0.145, 0.08, 0.02, 0.84],
     ]) {
-      const curl = sphere(0.058 * s, mat, 10, 7);
+      const curl = sphere(0.058 * curlScale, mat, 10, 7);
       curl.scale.set(1, 0.88, 0.95);
       curl.position.set(x, y, z);
-      root.add(curl);
+      pieces.push(curl);
     }
   }
 
@@ -176,15 +194,16 @@ function createHair(mat, style) {
     const back = capsule(0.115, style === 'long' ? 0.46 : 0.245, mat, 10);
     back.scale.set(1.22, 1, 0.5);
     back.position.set(0, style === 'long' ? -0.16 : -0.06, -0.105);
-    root.add(back);
+    pieces.push(back);
 
     for (const side of [-1, 1]) {
       const sideHair = capsule(0.044, style === 'long' ? 0.36 : 0.21, mat, 8);
       sideHair.position.set(side * 0.158, style === 'long' ? -0.12 : -0.045, 0.008);
-      root.add(sideHair);
+      pieces.push(sideHair);
     }
   }
 
+  root.add(mergeStaticMeshes(pieces, mat));
   return root;
 }
 
