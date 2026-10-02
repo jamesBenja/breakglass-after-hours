@@ -251,6 +251,9 @@ export function createStylizedHuman({
 
   const chest = new Group();
   chest.position.y = 0.115;
+  const lodDetails = new Group();
+  lodDetails.name = 'stylized-lod-details';
+  chest.add(lodDetails);
 
   const torso = capsule(0.185, 0.235, outfitMaterial, 13);
   torso.scale.set(1.02, 1, 0.73);
@@ -267,7 +270,8 @@ export function createStylizedHuman({
   const chestPatch = box(0.09, 0.025, 0.012, accentMaterial);
   chestPatch.position.set(0.055, 0.09, 0.145);
 
-  chest.add(torso, upperChest, collar, chestPatch);
+  chest.add(torso, upperChest, collar);
+  lodDetails.add(chestPatch);
 
   if (outerwear) {
     const leftPanel = box(0.115, 0.34, 0.028, accentMaterial);
@@ -283,7 +287,7 @@ export function createStylizedHuman({
     const rightLap = leftLap.clone();
     rightLap.position.x = 0.055;
     rightLap.rotation.z = 0.32;
-    chest.add(leftPanel, rightPanel, leftLap, rightLap);
+    lodDetails.add(leftPanel, rightPanel, leftLap, rightLap);
   }
 
   if (necklace) {
@@ -291,7 +295,7 @@ export function createStylizedHuman({
     chain.position.set(0, 0.12, 0.16);
     chain.rotation.x = Math.PI / 2;
     chain.scale.y = 0.85;
-    chest.add(chain);
+    lodDetails.add(chain);
   }
 
   if (bag) {
@@ -303,7 +307,7 @@ export function createStylizedHuman({
     const bagBody = box(0.115, 0.085, 0.045, outfitMaterial);
     bagBody.position.set(0.15, -0.16, 0.15);
     bagBody.rotation.z = -0.12;
-    chest.add(strap, bagBody);
+    lodDetails.add(strap, bagBody);
   }
   body.add(pelvis, waist, chest);
 
@@ -406,6 +410,7 @@ export function createStylizedHuman({
     neck,
     head,
     hair: hairModel,
+    lodDetails,
     leftArm: left.shoulder,
     rightArm: right.shoulder,
     leftForearm: left.elbow,
