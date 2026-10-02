@@ -13,10 +13,10 @@
     "preview": "vite preview --host 127.0.0.1",
     "start": "node server/multiplayerServer.mjs",
     "multiplayer:server": "node server/multiplayerServer.mjs",
-    "test": "node scripts/inspect-avatar-rigs.mjs",
+    "test": "node --test",
     "media:check": "node scripts/verify-media.mjs",
     "format": "prettier --write src tests scripts server index.html vite.config.js",
-    "format:check": "node scripts/inspect-avatar-rigs.mjs"
+    "format:check": "prettier --check src tests scripts server index.html vite.config.js"
   },
   "dependencies": {
     "three": "0.160.0",
