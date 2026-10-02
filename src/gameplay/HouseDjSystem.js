@@ -31,6 +31,7 @@ export const HOUSE_DJS = [
 ];
 
 export const HOUSE_DJ_IDS = HOUSE_DJS.map((dj) => dj.id);
+export const HOUSE_DJ_ROTATION_SECONDS = 20 * 60;
 
 function person(dj) {
   const model = createNpcCharacter({
@@ -69,7 +70,7 @@ export class HouseDjSystem {
     this.performer = null;
     this.desk = null;
     this.playerHold = 0;
-    this.rotationTimer = 160 + Math.random() * 100;
+    this.rotationTimer = HOUSE_DJ_ROTATION_SECONDS;
     this.starting = false;
     this.elapsed = 0;
     this.programIndex = 0;
@@ -389,7 +390,7 @@ export class HouseDjSystem {
     this.nextMixAt = Infinity;
     this.game.dj.stop();
     if (wasPlaying) this.stopHouseAudio();
-    this.rotationTimer = 160 + Math.random() * 100;
+    this.rotationTimer = HOUSE_DJ_ROTATION_SECONDS;
     this.applyLook();
     this.game.save();
     if (wasPlaying || this.game.sceneManager.current?.definition?.id === 'downstairs')
@@ -535,11 +536,15 @@ export class HouseDjSystem {
     )
       void this.start();
 
-    if (!downstairs) return;
-    this.rotationTimer -= dt;
-    if (!this.sharedFollower && this.rotationTimer <= 0 && this.isHouseAudio()) {
-      void this.select(this.next());
-      return;
+    // House-DJ slots are building-wide. Only the multiplayer authority advances the clock,
+    // but it keeps counting wherever that player is in Breakglass. Pause the slot while a player
+    // has actually taken over the booth so each resident DJ gets about 20 minutes of house-set time.
+    if (!this.sharedFollower && this.isHouseAudio()) {
+      this.rotationTimer = Math.max(0, this.rotationTimer - dt);
+      if (this.rotationTimer <= 0) {
+        void this.select(this.next());
+        return;
+      }
     }
   }
 
