@@ -430,6 +430,10 @@ export class NpcSystem {
         name: npc.name ?? npc.id,
         role: npc.role ?? 'guest',
         interactive,
+        socialParticipant: npc.socialParticipant === true,
+        motionProfile: npc.motionProfile ?? 'neutral',
+        lodDistance: Number(npc.lodDistance) || 9.5,
+        lodFar: false,
         nameplate,
         radius: npc.radius ?? 1.25,
         route,
@@ -474,14 +478,14 @@ export class NpcSystem {
 
   interactionTargets() {
     return this.npcs
-      .filter((npc) => npc.interactive)
+      .filter((npc) => npc.interactive || npc.socialParticipant)
       .map((npc) => ({
         id: npc.id,
         npcId: npc.id,
         name: npc.name,
         position: npc.group.position.toArray(),
         radius: npc.radius,
-        action: 'dialogue',
+        action: npc.socialParticipant && !npc.interactive ? 'clubSocial' : 'dialogue',
       }));
   }
 
@@ -539,7 +543,7 @@ export class NpcSystem {
     const socialRoles = new Set(['guest', 'dancer', 'photographer', 'host', 'artist']);
     let count = 0;
     for (const npc of this.npcs) {
-      if (!npc.interactive || !socialRoles.has(npc.role)) continue;
+      if ((!npc.interactive && !npc.socialParticipant) || !socialRoles.has(npc.role)) continue;
       if (!withinDanceCircle(centerPosition, npc.group.position, radius)) continue;
       if (this.triggerSocialGesture(npc.id, 'circle', centerPosition)) count += 1;
     }
@@ -704,8 +708,21 @@ export class NpcSystem {
         : (audioState ?? { playing: false, energy: 0, bass: 0 });
     const energy = clamp(metrics.energy ?? 0);
     const bass = clamp(metrics.bass ?? energy);
+    const playerPosition = metrics.playerPosition ?? null;
 
     for (const npc of this.npcs) {
+      if (npc.lodDetails && playerPosition) {
+        const px = Number(playerPosition.x ?? playerPosition[0]);
+        const pz = Number(playerPosition.z ?? playerPosition[2]);
+        if (Number.isFinite(px) && Number.isFinite(pz)) {
+          const far =
+            Math.hypot(px - npc.group.position.x, pz - npc.group.position.z) > npc.lodDistance;
+          if (far !== npc.lodFar) {
+            npc.lodFar = far;
+            npc.lodDetails.visible = !far;
+          }
+        }
+      }
       npc.photoPulse = Math.max(0, npc.photoPulse - dt);
       npc.servePulse = Math.max(0, npc.servePulse - dt);
       npc.handoffPulse = Math.max(0, npc.handoffPulse - dt);
@@ -777,6 +794,7 @@ export class NpcSystem {
         moving: npc.moving,
         dancing: clubDance || socialDance,
         energy: poseEnergy,
+        motionProfile: npc.motionProfile,
       });
       let socialProgress = null;
       if (socialGesture) {
