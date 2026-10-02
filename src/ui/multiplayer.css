@@ -35,7 +35,349 @@
   opacity: 0.46;
 }
 
-body.ui-minimal #multiplayerPresence {
+.live-social-dock {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 28;
+  width: min(340px, calc(100vw - 20px));
+  pointer-events: auto;
+  font-family: system-ui, sans-serif;
+}
+
+.live-social-quickbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.live-social-toggle,
+.party-phone-toggle {
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(8, 8, 11, 0.62);
+  color: #f4f4f4;
+  backdrop-filter: blur(8px);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.party-phone-toggle {
+  border-color: rgba(114, 227, 156, 0.38);
+}
+
+.live-social-panel {
+  clear: both;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: min(58vh, 510px);
+  margin-top: 6px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 13px;
+  background: rgba(7, 7, 10, 0.72);
+  color: #f2f2f2;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.24);
+}
+
+.live-social-dock.collapsed .live-social-panel {
+  display: none;
+}
+
+.live-social-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.live-social-header strong {
+  font-size: 9px;
+  letter-spacing: 0.11em;
+}
+
+.live-social-header button {
+  min-height: 29px;
+  padding: 4px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(30, 30, 35, 0.72);
+  color: #eee;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.live-social-header button.active {
+  background: rgba(43, 120, 76, 0.72);
+  border-color: rgba(114, 227, 156, 0.55);
+}
+
+.live-social-header button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.live-chat-log {
+  min-height: 62px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 5px 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.live-chat-line {
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.live-chat-line strong {
+  color: rgba(255, 228, 181, 0.9);
+}
+
+.live-chat-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px;
+}
+
+.live-chat-form input {
+  min-width: 0;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.32);
+  color: #fff;
+}
+
+.live-chat-form button {
+  min-height: 32px;
+  padding: 4px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(105, 76, 41, 0.68);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 850;
+}
+
+.live-media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.live-media-grid:empty {
+  display: none;
+}
+
+.live-media-tile {
+  position: relative;
+  min-height: 34px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.live-media-tile.voice-private {
+  border-color: rgba(114, 227, 156, 0.7);
+  box-shadow: 0 0 0 1px rgba(114, 227, 156, 0.22);
+}
+
+.live-media-tile video {
+  display: block;
+  width: 100%;
+  max-height: 112px;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.live-media-tile > small {
+  display: block;
+  padding: 3px 5px;
+  font-size: 8px;
+}
+
+.live-media-status {
+  opacity: 0.58;
+}
+
+.party-phone-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 42;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(2px);
+  font-family: system-ui, sans-serif;
+}
+
+.party-phone {
+  width: min(330px, calc(100vw - 28px));
+  max-height: min(650px, calc(100vh - 36px));
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 30px;
+  background: linear-gradient(180deg, rgba(21, 22, 26, 0.98), rgba(7, 8, 10, 0.98));
+  color: #f6f6f6;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.58);
+}
+
+.party-phone-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 15px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.party-phone-header strong {
+  font-size: 10px;
+  letter-spacing: 0.13em;
+}
+
+.party-phone-close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.party-phone-screen {
+  min-height: 290px;
+  max-height: min(560px, calc(100vh - 110px));
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.party-phone-copy,
+.party-phone-empty,
+.party-phone-screen > p {
+  margin: 0 0 13px;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.party-phone-screen h3 {
+  margin: 18px 0 6px;
+  font-size: 22px;
+}
+
+.party-phone-roster {
+  display: grid;
+  gap: 8px;
+}
+
+.party-phone-contact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.party-phone-contact strong,
+.party-phone-contact small {
+  display: block;
+}
+
+.party-phone-contact strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.party-phone-contact small {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.party-phone-contact-actions,
+.party-phone-call-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.party-phone-contact-actions button,
+.party-phone-call-actions button,
+.party-phone-hangup {
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.party-phone-contact-actions .facetime,
+.party-phone-call-actions .answer {
+  background: rgba(42, 132, 76, 0.84);
+}
+
+.party-phone-call-actions .decline,
+.party-phone-screen .decline,
+.party-phone-hangup {
+  background: rgba(155, 43, 43, 0.86);
+}
+
+.party-phone-video-stage {
+  position: relative;
+  aspect-ratio: 9 / 13;
+  overflow: hidden;
+  margin: 8px 0 14px;
+  border-radius: 19px;
+  background: #050505;
+}
+
+.party-phone-remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.party-phone-local-video {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 30%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 11px;
+  transform: scaleX(-1);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.35);
+}
+
+.party-phone-hangup {
+  display: block;
+  width: 100%;
+}
+
+body.ui-minimal #multiplayerPresence,
+body.ui-minimal .live-social-dock {
   opacity: 0.2;
 }
 
@@ -45,5 +387,70 @@ body.ui-minimal #multiplayerPresence {
     right: max(7px, env(safe-area-inset-right));
     padding: 5px 7px;
     font-size: 8px;
+  }
+
+  .live-social-dock {
+    left: 50%;
+    right: auto;
+    top: calc(max(8px, env(safe-area-inset-top)) + 42px);
+    bottom: auto;
+    width: min(94vw, 330px);
+    transform: translateX(-50%);
+  }
+
+  .live-social-quickbar {
+    justify-content: center;
+  }
+
+  .live-social-panel {
+    max-height: 48vh;
+    padding: 7px;
+    background: rgba(7, 7, 10, 0.72);
+  }
+
+  .live-chat-log {
+    max-height: 105px;
+  }
+
+  .live-media-tile video {
+    max-height: 86px;
+  }
+
+  .party-phone-shell {
+    align-items: end;
+    padding: 8px max(8px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom));
+  }
+
+  .party-phone {
+    width: min(420px, 96vw);
+    max-height: min(78vh, 650px);
+    border-radius: 24px 24px 18px 18px;
+  }
+
+  .party-phone-screen {
+    min-height: 240px;
+    max-height: calc(78vh - 64px);
+  }
+}
+
+/* Portrait phone HUD: one explicit top stack. Landscape remains unchanged. */
+@media (orientation: portrait) and (max-width: 720px) {
+  #multiplayerPresence {
+    top: max(7px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+  }
+
+  .live-social-dock {
+    left: 50%;
+    right: auto;
+    top: calc(max(8px, env(safe-area-inset-top)) + 128px);
+    bottom: auto;
+    width: min(94vw, 330px);
+    transform: translateX(-50%);
+  }
+
+  .live-social-quickbar {
+    justify-content: center;
+    gap: 8px;
   }
 }

@@ -11,6 +11,12 @@ export class CollisionWorld {
     this.allowAirborne = allowAirborne;
     this.boundary = boundary;
     this.lastTarget = null;
+    this.navigationRevision = 0;
+  }
+
+  markNavigationChanged() {
+    this.navigationRevision = (Number(this.navigationRevision) || 0) + 1;
+    return this.navigationRevision;
   }
 
   heightAt(surface, x, z) {

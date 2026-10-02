@@ -1,0 +1,97 @@
+[
+  {
+    "path": "public/assets/audio/catalog/boogieman/rotations/adjust.mp3",
+    "tempo": 136.0,
+    "duration": 269.405
+  },
+  {
+    "path": "public/assets/audio/catalog/boogieman/rotations/den-naben.mp3",
+    "tempo": 107.67,
+    "duration": 357.856
+  },
+  {
+    "path": "public/assets/audio/catalog/boogieman/rotations/devils-mountain.mp3",
+    "tempo": 89.1,
+    "duration": 299.627
+  },
+  {
+    "path": "public/assets/audio/catalog/boogieman/rotations/fences.mp3",
+    "tempo": 117.45,
+    "duration": 408.0
+  },
+  {
+    "path": "public/assets/audio/catalog/boogieman/rotations/she.mp3",
+    "tempo": 129.2,
+    "duration": 297.166
+  },
+  {
+    "path": "public/assets/audio/catalog/boogieman/rotations/the-roll.mp3",
+    "tempo": 117.45,
+    "duration": 214.816
+  },
+  {
+    "path": "public/assets/audio/catalog/boogieman/rotations/water-is-boiling-outro.mp3",
+    "tempo": 123.05,
+    "duration": 183.285
+  },
+  {
+    "path": "public/assets/audio/catalog/boogieman/rotations/water-is-boiling.mp3",
+    "tempo": 99.38,
+    "duration": 202.848
+  },
+  {
+    "path": "public/assets/audio/catalog/dance-beyond-genre/ancillary-things.mp3",
+    "tempo": 143.55,
+    "duration": 186.864
+  },
+  {
+    "path": "public/assets/audio/catalog/dance-beyond-genre/team-break.mp3",
+    "tempo": 95.7,
+    "duration": 225.12
+  },
+  {
+    "path": "public/assets/audio/catalog/got-you-dancin/airtime-express.mp3",
+    "tempo": 99.38,
+    "duration": 310.4
+  },
+  {
+    "path": "public/assets/audio/catalog/got-you-dancin/body-check.mp3",
+    "tempo": 103.36,
+    "duration": 230.769
+  },
+  {
+    "path": "public/assets/audio/catalog/got-you-dancin/drop-in.mp3",
+    "tempo": 92.29,
+    "duration": 185.143
+  },
+  {
+    "path": "public/assets/audio/catalog/got-you-dancin/etcetera.mp3",
+    "tempo": 92.29,
+    "duration": 183.429
+  },
+  {
+    "path": "public/assets/audio/catalog/got-you-dancin/play-ball-people.mp3",
+    "tempo": 143.55,
+    "duration": 208.286
+  },
+  {
+    "path": "public/assets/audio/catalog/james-benjamin/chi-town-drop.mp3",
+    "tempo": 136.0,
+    "duration": 264.888
+  },
+  {
+    "path": "public/assets/audio/catalog/james-benjamin/gairage.mp3",
+    "tempo": 152.0,
+    "duration": 263.232
+  },
+  {
+    "path": "public/assets/audio/catalog/james-benjamin/guestlist-andy-s.mp3",
+    "tempo": 143.55,
+    "duration": 229.878
+  },
+  {
+    "path": "public/assets/audio/catalog/james-benjamin/hit-the-floor.mp3",
+    "tempo": 129.2,
+    "duration": 301.872
+  }
+]

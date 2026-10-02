@@ -1,0 +1,216 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { DjMixer } from '../src/dj/DjMixer.js';
+
+function audioParam(value = 0) {
+  return {
+    value,
+    setTargetAtTime(next) {
+      this.value = next;
+    },
+  };
+}
+
+function node() {
+  return {
+    gain: audioParam(1),
+    frequency: audioParam(0),
+    connect() {},
+    disconnect() {},
+  };
+}
+
+function harness() {
+  const sources = [];
+  const context = {
+    currentTime: 10,
+    state: 'running',
+    createGain: node,
+    createBiquadFilter: node,
+    createStereoPanner() {
+      return {
+        pan: audioParam(0),
+        connect() {},
+        disconnect() {},
+      };
+    },
+    async decodeAudioData() {
+      return { duration: 180 };
+    },
+    createBufferSource() {
+      const source = {
+        buffer: null,
+        loop: false,
+        playbackRate: { value: 1 },
+        connect() {},
+        disconnect() {},
+        start() {},
+        stop() {},
+        onended: null,
+      };
+      sources.push(source);
+      return source;
+    },
+  };
+  const destination = node();
+  const audio = {
+    context,
+    master: destination,
+    environment: { gain: 1 },
+    externalTransports: new Map(),
+    sourceDestination: () => destination,
+    sourceGain: () => 1,
+    assets: {
+      audio: async () => ({ duration: 240 }),
+    },
+    setExternalTransport() {},
+    updateExternalTransport() {},
+    clearExternalTransport() {},
+  };
+  return { mixer: new DjMixer(audio, globalThis), sources };
+}
+
+test('DJ booth exposes four independent physical sources', () => {
+  const { mixer } = harness();
+  assert.deepEqual(Object.keys(mixer.decks), ['A', 'B', 'C', 'D']);
+  assert.equal(mixer.decks.A.deviceMode, 'cdj');
+  assert.equal(mixer.decks.B.deviceMode, 'cdj');
+  assert.equal(mixer.decks.C.deviceMode, 'vinyl');
+  assert.equal(mixer.decks.D.deviceMode, 'vinyl');
+  assert.equal(mixer.decks.A.crossSide, 'A');
+  assert.equal(mixer.decks.C.crossSide, 'A');
+  assert.equal(mixer.decks.B.crossSide, 'B');
+  assert.equal(mixer.decks.D.crossSide, 'B');
+});
+
+test('all four DJ sources can load and play different tracks simultaneously', async () => {
+  const { mixer } = harness();
+  mixer.load('A', 'got-you-dancin');
+  mixer.load('B', 'in-flux-just-be');
+  mixer.load('C', 'atrakar');
+  mixer.load('D', 'dubki');
+
+  const started = await Promise.all([
+    mixer.playDeck('A'),
+    mixer.playDeck('B'),
+    mixer.playDeck('C'),
+    mixer.playDeck('D'),
+  ]);
+
+  assert.deepEqual(started, [true, true, true, true]);
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(mixer.decks).map(([id, deck]) => [id, deck.trackId])),
+    {
+      A: 'got-you-dancin',
+      B: 'in-flux-just-be',
+      C: 'atrakar',
+      D: 'dubki',
+    },
+  );
+  assert.equal(Object.values(mixer.decks).filter((deck) => deck.playing).length, 4);
+  assert.equal(new Set(Object.values(mixer.decks).map((deck) => deck.source)).size, 4);
+});
+
+test('changing one channel does not mutate any other player', () => {
+  const { mixer } = harness();
+  mixer.load('A', 'got-you-dancin');
+  mixer.load('C', 'atrakar');
+  mixer.setLevel('C', 0.31);
+  mixer.setEq('C', 'low', -0.8);
+
+  assert.equal(mixer.decks.C.trackId, 'atrakar');
+  assert.equal(mixer.decks.C.level, 0.31);
+  assert.equal(mixer.decks.C.low, -0.8);
+  assert.equal(mixer.decks.A.trackId, 'got-you-dancin');
+  assert.equal(mixer.decks.A.level, 0.82);
+  assert.equal(mixer.decks.A.low, 0);
+});
+
+test('channel pan feeds both master sides at center and biases the stereo master correctly', () => {
+  const { mixer } = harness();
+  mixer.setCrossfader(-1);
+  mixer.decks.C.playing = true;
+
+  let master = mixer.masterLevels();
+  assert.ok(master.left > 0);
+  assert.equal(master.left, master.right);
+
+  mixer.setPan('C', -1);
+  master = mixer.masterLevels();
+  assert.ok(master.left > 0);
+  assert.equal(master.right, 0);
+
+  mixer.setPan('C', 1);
+  master = mixer.masterLevels();
+  assert.equal(master.left, 0);
+  assert.ok(master.right > 0);
+});
+
+test('pan is independent for all four mixer channels', () => {
+  const { mixer } = harness();
+  mixer.setPan('C', -0.4);
+  mixer.setPan('A', 0.25);
+  assert.equal(mixer.decks.C.pan, -0.4);
+  assert.equal(mixer.decks.A.pan, 0.25);
+  assert.equal(mixer.decks.B.pan, 0);
+  assert.equal(mixer.decks.D.pan, 0);
+});
+
+test('crossfader groups both left players separately from both right players', () => {
+  const { mixer } = harness();
+  mixer.setCrossfader(-1);
+  assert.equal(mixer.nativeCrossGain('A'), 1);
+  assert.equal(mixer.nativeCrossGain('C'), 1);
+  assert.ok(mixer.nativeCrossGain('B') < 1e-9);
+  assert.ok(mixer.nativeCrossGain('D') < 1e-9);
+
+  mixer.setCrossfader(1);
+  assert.ok(mixer.nativeCrossGain('A') < 1e-9);
+  assert.ok(mixer.nativeCrossGain('C') < 1e-9);
+  assert.equal(mixer.nativeCrossGain('B'), 1);
+  assert.equal(mixer.nativeCrossGain('D'), 1);
+});
+
+test('stopping the booth stops every independent source', async () => {
+  const { mixer } = harness();
+  await Promise.all(Object.keys(mixer.decks).map((deckId) => mixer.playDeck(deckId)));
+  mixer.stop();
+  assert.equal(
+    Object.values(mixer.decks).some((deck) => deck.playing),
+    false,
+  );
+});
+
+test('session-uploaded tracks use the same DJ deck audio path as built-in tracks', async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    arrayBuffer: async () => new ArrayBuffer(16),
+  });
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const { mixer, sources } = harness();
+  const track = mixer.registerSessionTrack({
+    id: 'session-test-track',
+    label: 'My Shared Track',
+    bpm: 128,
+    energy: 0.72,
+    url: 'https://multiplayer.example/dj-track/test/session-test-track',
+    mime: 'audio/mpeg',
+    session: true,
+  });
+  t.after(() => mixer.unregisterSessionTrack(track.id));
+
+  assert.equal(
+    mixer.tracks().some((candidate) => candidate.id === track.id),
+    true,
+  );
+  mixer.load('C', track.id);
+  assert.equal(mixer.decks.C.bpm, 128);
+  assert.equal(await mixer.playDeck('C'), true);
+  assert.equal(mixer.decks.C.trackId, track.id);
+  assert.equal(mixer.decks.C.source, sources.at(-1));
+  assert.equal(mixer.decks.C.source.buffer.duration, 180);
+});

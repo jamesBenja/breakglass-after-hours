@@ -1,12 +1,15 @@
 name: Live Multiplayer Smoke
 
+# Keep this workflow tied to the same endpoint used by the Phase 2 browser preview.
 on:
   push:
     branches:
       - feat/live-multiplayer-foundation
+      - feat/multiplayer-phase-2-shared-world
     paths:
       - src/multiplayer/**
       - src/avatar/**
+      - server/**
       - scripts/smoke-live-multiplayer.mjs
       - .github/workflows/live-multiplayer-smoke.yml
   workflow_dispatch:
@@ -23,4 +26,45 @@ jobs:
       - run: npm install --global pnpm@11.19.0
       - run: pnpm install --frozen-lockfile
       - name: Verify production WebSocket room
+        env:
+          MULTIPLAYER_URL: wss://multiplayer-phase2-webrtc-production.up.railway.app
         run: node scripts/smoke-live-multiplayer.mjs
+      - name: Verify shared DJ upload endpoint
+        run: |
+          node --input-type=module <<'NODE'
+          const endpoint = new URL('https://multiplayer-phase2-webrtc-production.up.railway.app/dj-upload');
+          endpoint.searchParams.set('room', 'breakglass-main');
+          endpoint.searchParams.set('player', 'smoke-no-player');
+          endpoint.searchParams.set('token', 'smoke-no-token');
+          endpoint.searchParams.set('filename', 'smoke.mp3');
+          endpoint.searchParams.set('bpm', '120');
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'audio/mpeg' },
+            body: new Uint8Array([0x49, 0x44, 0x33]),
+          });
+          const body = await response.json();
+          if (response.status !== 401 || body?.error !== 'Upload authorization expired.') {
+            throw new Error(`Unexpected shared DJ upload response: ${response.status} ${JSON.stringify(body)}`);
+          }
+          console.log('Shared DJ upload endpoint is live and enforcing room authorization.');
+          NODE
+
+      - name: Verify live access-verification routes
+        run: |
+          node --input-type=module <<'NODE'
+          const base = 'https://multiplayer-phase2-webrtc-production.up.railway.app';
+          for (const [path, expected] of [
+            ['/god-mode/verify', { ok: false }],
+            ['/invite/verify', { ok: false, type: null }],
+          ]) {
+            const response = await fetch(base + path, {
+              headers: { Authorization: 'Bearer definitely-not-valid' },
+            });
+            const body = await response.json();
+            if (response.status !== 401 || body?.ok !== expected.ok || body?.type !== expected.type) {
+              throw new Error(`Unexpected ${path} response: ${response.status} ${JSON.stringify(body)}`);
+            }
+          }
+          console.log('God Mode and invitation verification routes are live.');
+          NODE

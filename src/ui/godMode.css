@@ -1,0 +1,102 @@
+#godModeIndicator {
+  position: fixed;
+  z-index: 14;
+  left: 50%;
+  top: 58px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 5px 4px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 999px;
+  background: rgba(8, 8, 10, 0.78);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+  color: rgba(255, 255, 255, 0.84);
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.god-mode-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+}
+
+.god-mode-teleport {
+  width: 190px;
+  max-width: 38vw;
+  min-height: 22px;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.88);
+  color-scheme: dark;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.god-mode-teleport:hover,
+.god-mode-teleport:focus-visible {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.god-mode-teleport option,
+.god-mode-teleport optgroup {
+  background: #111216;
+  color: #fff;
+}
+
+#godModeIndicator .god-mode-exit {
+  min-height: 22px;
+  padding: 3px 7px;
+  border-color: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#godModeIndicator .god-mode-exit:hover,
+#godModeIndicator .god-mode-exit:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+#gate:not([hidden]) ~ #godModeIndicator {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  #godModeIndicator {
+    left: max(8px, env(safe-area-inset-left));
+    top: max(8px, env(safe-area-inset-top));
+    transform: none;
+    max-width: calc(
+      100vw - max(16px, env(safe-area-inset-left)) - max(16px, env(safe-area-inset-right))
+    );
+    min-height: 26px;
+  }
+
+  .god-mode-teleport {
+    width: 154px;
+    max-width: 42vw;
+    font-size: 8px;
+  }
+}

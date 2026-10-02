@@ -17,7 +17,7 @@ const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 
 /**
  * Nora takes real rendered in-game photos. The six newest captures are also mounted as actual
- * textures in frames on the north wall of Take A Break, so the saved club night becomes visible
+ * textures in frames in Nora's photo room beside Take A Break, so the saved club night becomes visible
  * inside the world instead of only in a menu.
  */
 export class PhotoSystem {
@@ -28,8 +28,8 @@ export class PhotoSystem {
     this.player = player;
     this.ui = ui;
     this.saveState = saveState;
-    this.width = 384;
-    this.height = 288;
+    this.width = 512;
+    this.height = 384;
     this.textureLoader = new TextureLoader();
     this.wall = null;
     this.wallSlots = [];
@@ -43,28 +43,28 @@ export class PhotoSystem {
     const frameMaterial = new MeshStandardMaterial({ color: 0x161318, roughness: 0.82 });
     const matteMaterial = new MeshStandardMaterial({ color: 0xe7ded0, roughness: 0.92 });
     const positions = [
-      [-9.18, 2.28, 3.7],
-      [-8.13, 2.28, 3.7],
-      [-7.08, 2.28, 3.7],
-      [-9.18, 1.32, 3.7],
-      [-8.13, 1.32, 3.7],
-      [-7.08, 1.32, 3.7],
+      [8.9, 2.28, -2.1],
+      [8.9, 2.28, -1.05],
+      [8.9, 2.28, 0.0],
+      [8.9, 1.32, -2.1],
+      [8.9, 1.32, -1.05],
+      [8.9, 1.32, 0.0],
     ];
     for (let i = 0; i < positions.length; i++) {
       const [x, y, z] = positions[i];
       const frame = new Mesh(new BoxGeometry(0.94, 0.73, 0.055), frameMaterial);
       frame.position.set(x, y, z);
-      frame.rotation.y = Math.PI;
+      frame.rotation.y = -Math.PI / 2;
       frame.castShadow = true;
       group.add(frame);
       const matte = new Mesh(new PlaneGeometry(0.82, 0.61), matteMaterial);
-      matte.position.set(x, y, z - 0.031);
-      matte.rotation.y = Math.PI;
+      matte.position.set(x - 0.031, y, z);
+      matte.rotation.y = -Math.PI / 2;
       group.add(matte);
       const material = new MeshBasicMaterial({ color: 0x242027, toneMapped: false });
       const plane = new Mesh(new PlaneGeometry(0.76, 0.55), material);
-      plane.position.set(x, y, z - 0.038);
-      plane.rotation.y = Math.PI;
+      plane.position.set(x - 0.038, y, z);
+      plane.rotation.y = -Math.PI / 2;
       plane.renderOrder = 2;
       group.add(plane);
       this.wallSlots.push({ plane, material, photoId: null });
@@ -138,17 +138,52 @@ export class PhotoSystem {
     };
   }
 
-  cameraFor(level, photographerId) {
+  cameraForTarget(
+    level,
+    photographerId,
+    targetPosition,
+    { fov = 46, minDistance = 2.9, targetHeight = 1.02 } = {},
+  ) {
     const source = level.npcs?.positionOf?.(photographerId);
-    if (!source) return null;
-    const camera = new PerspectiveCamera(52, this.width / this.height, 0.08, 80);
-    camera.position.copy(source).add(new Vector3(0, 1.55, 0));
-    const target = this.player.position.clone().add(new Vector3(0, 1.05, 0));
-    const direction = target.clone().sub(camera.position);
-    if (direction.lengthSq() < 0.1) camera.position.add(new Vector3(0, 0, 1.6));
-    camera.lookAt(target);
+    if (!source || !targetPosition) return null;
+    const target = targetPosition.clone
+      ? targetPosition.clone()
+      : new Vector3().fromArray(targetPosition);
+    const camera = new PerspectiveCamera(fov, this.width / this.height, 0.08, 90);
+    const lookAt = target.clone().add(new Vector3(0, targetHeight, 0));
+    camera.position.copy(source).add(new Vector3(0, 1.5, 0));
+
+    // Nora can stand very close to a subject in normal gameplay. For the actual exposure, keep
+    // the camera far enough back that a full avatar remains readable instead of becoming a crop
+    // of somebody's shoulder, head, or Nora's own camera prop.
+    const away = camera.position.clone().sub(lookAt);
+    away.y = 0;
+    let distance = away.length();
+    if (distance < 0.08) {
+      const photographer = level.npcs?.get?.(photographerId);
+      const rotation = photographer?.group?.rotation?.y ?? 0;
+      away.set(-Math.sin(rotation), 0, -Math.cos(rotation));
+      distance = 1;
+    }
+    if (distance < minDistance) {
+      away.normalize().multiplyScalar(minDistance);
+      camera.position.x = lookAt.x + away.x;
+      camera.position.z = lookAt.z + away.z;
+    }
+
+    camera.lookAt(lookAt);
+    camera.userData.photographerId = photographerId;
+    camera.userData.photoTarget = target.toArray();
     camera.updateMatrixWorld(true);
     return camera;
+  }
+
+  cameraFor(level, photographerId) {
+    return this.cameraForTarget(level, photographerId, this.player.position, {
+      fov: 46,
+      minDistance: 2.9,
+      targetHeight: 1.02,
+    });
   }
 
   renderDataUrl(level, camera) {
@@ -158,7 +193,45 @@ export class PhotoSystem {
     const pixels = new Uint8Array(this.width * this.height * 4);
     const previousTarget = this.renderer.getRenderTarget();
     const previousVisible = this.player.object.visible;
-    const flash = new PointLight(0xfff4df, 12, 6.5, 2);
+    const previousRotation = this.player.object.rotation.y;
+    const hiddenForPhoto = [];
+    const hideForPhoto = (object) => {
+      if (!object?.visible) return;
+      hiddenForPhoto.push(object);
+      object.visible = false;
+    };
+
+    // Gameplay nameplates and Nora's own body/camera are useful while playing, but they should
+    // never be baked into the photograph. The photographer is identified explicitly by cameras
+    // created above, with a proximity fallback for older callers.
+    const photographerId = camera.userData?.photographerId;
+    const photographer = photographerId ? level.npcs?.get?.(photographerId) : null;
+    if (photographer?.group) hideForPhoto(photographer.group);
+    else {
+      for (const npc of level.npcs?.npcs ?? []) {
+        const dx = npc.group.position.x - camera.position.x;
+        const dz = npc.group.position.z - camera.position.z;
+        if (Math.hypot(dx, dz) < 0.7) {
+          hideForPhoto(npc.group);
+          break;
+        }
+      }
+    }
+    level.scene.traverse((object) => {
+      const worldNameplate = object.name?.startsWith?.('nameplate:');
+      const multiplayerNameplate =
+        object.isSprite === true && object.parent?.name?.startsWith?.('remote-player:');
+      if (worldNameplate || multiplayerNameplate) hideForPhoto(object);
+    });
+
+    // The avatar face texture is mounted on the front of the player's head. Rotate only for the
+    // exposure, then restore immediately, so portraits show the actual avatar and uploaded face
+    // without changing the player's movement or camera direction.
+    const dx = camera.position.x - this.player.position.x;
+    const dz = camera.position.z - this.player.position.z;
+    if (Math.hypot(dx, dz) > 0.05) this.player.object.rotation.y = Math.atan2(dx, dz);
+
+    const flash = new PointLight(0xfff4df, 14, 7.5, 2);
     flash.position.copy(camera.position);
     level.scene.add(flash);
     this.player.object.visible = true;
@@ -170,6 +243,8 @@ export class PhotoSystem {
     } finally {
       this.renderer.setRenderTarget(previousTarget);
       this.player.object.visible = previousVisible;
+      this.player.object.rotation.y = previousRotation;
+      for (const object of hiddenForPhoto) object.visible = true;
       flash.removeFromParent();
       target.dispose();
     }
@@ -187,7 +262,7 @@ export class PhotoSystem {
       image.data.set(pixels.subarray(sourceOffset, sourceOffset + this.width * 4), targetOffset);
     }
     context.putImageData(image, 0, 0);
-    return canvas.toDataURL('image/jpeg', 0.72);
+    return canvas.toDataURL('image/jpeg', 0.8);
   }
 
   async capture(photographerId = 'nora') {
