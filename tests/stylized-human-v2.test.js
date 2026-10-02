@@ -59,6 +59,11 @@ test('alley exposes one isolated stylized reference NPC near the normal spawn', 
   assert.equal(npc.visualStyle, 'stylized');
   assert.equal(npc.importedAsset, undefined);
   assert.equal(npc.interactive, false);
+  assert.equal(
+    alleyLevel.npcs.filter((entry) => entry.importedAsset).length,
+    0,
+    'photoreal imported-human experiments should stay out of the live alley',
+  );
 
   const [spawnX, , spawnZ] = alleyLevel.spawns.start;
   const [npcX, , npcZ] = npc.position;
