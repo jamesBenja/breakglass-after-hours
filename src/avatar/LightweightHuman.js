@@ -7,6 +7,13 @@ import {
   SphereGeometry,
 } from 'three';
 
+const MOTION_PROFILES = {
+  neutral: { tempo: 1, stride: 1, sway: 1, bounce: 1, head: 1 },
+  loose: { tempo: 0.94, stride: 1.08, sway: 1.32, bounce: 1.08, head: 1.2 },
+  compact: { tempo: 1.06, stride: 0.82, sway: 0.72, bounce: 0.76, head: 0.7 },
+  bouncy: { tempo: 1.12, stride: 0.96, sway: 1.08, bounce: 1.42, head: 1.05 },
+};
+
 const material = (color, options = {}) =>
   new MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.025, ...options });
 
@@ -232,13 +239,7 @@ export function poseLightweightHuman(
     motionProfile = 'neutral',
   } = {},
 ) {
-  const profiles = {
-    neutral: { tempo: 1, stride: 1, sway: 1, bounce: 1, head: 1 },
-    loose: { tempo: 0.94, stride: 1.08, sway: 1.32, bounce: 1.08, head: 1.2 },
-    compact: { tempo: 1.06, stride: 0.82, sway: 0.72, bounce: 0.76, head: 0.7 },
-    bouncy: { tempo: 1.12, stride: 0.96, sway: 1.08, bounce: 1.42, head: 1.05 },
-  };
-  const profile = profiles[motionProfile] ?? profiles.neutral;
+  const profile = MOTION_PROFILES[motionProfile] ?? MOTION_PROFILES.neutral;
   const gait = Math.sin(time * (moving ? 7.3 : 2.4) * profile.tempo + phase);
   const amount =
     (moving ? 0.48 : dancing ? 0.14 + energy * 0.24 : 0) *
