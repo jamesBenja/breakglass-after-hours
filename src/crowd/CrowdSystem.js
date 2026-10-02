@@ -62,6 +62,8 @@ function pointInZone(zone, avoid, index, salt) {
 export class CrowdSystem {
   constructor(root, config = {}) {
     this.config = config;
+    this.visualStyle = config.visualStyle ?? 'legacy';
+    const stylized = this.visualStyle === 'stylized-v2';
     this.max = Math.max(0, config.max ?? 84);
     this.min = Math.min(this.max, Math.max(0, config.min ?? 14));
     this.idle = Math.min(this.max, Math.max(this.min, config.idle ?? 26));
@@ -88,32 +90,48 @@ export class CrowdSystem {
     const skinMaterial = new MeshStandardMaterial({ roughness: 0.8, metalness: 0.02 });
     const hairMaterial = new MeshStandardMaterial({ roughness: 0.9, metalness: 0.01 });
     const legMaterial = new MeshStandardMaterial({ roughness: 0.84, metalness: 0.025 });
-    this.body = new InstancedMesh(new CapsuleGeometry(0.205, 0.51, 3, 6), bodyMaterial, this.max);
-    this.head = new InstancedMesh(new SphereGeometry(0.19, 9, 7), skinMaterial, this.max);
-    this.hair = new InstancedMesh(new SphereGeometry(0.195, 8, 6), hairMaterial, this.max);
+    this.body = new InstancedMesh(
+      new CapsuleGeometry(stylized ? 0.185 : 0.205, stylized ? 0.52 : 0.51, 3, 6),
+      bodyMaterial,
+      this.max,
+    );
+    this.head = new InstancedMesh(
+      new SphereGeometry(stylized ? 0.168 : 0.19, 9, 7),
+      skinMaterial,
+      this.max,
+    );
+    this.hair = new InstancedMesh(
+      new SphereGeometry(stylized ? 0.174 : 0.195, 8, 6),
+      hairMaterial,
+      this.max,
+    );
     this.leftArm = new InstancedMesh(
-      new CapsuleGeometry(0.052, 0.22, 3, 5),
+      new CapsuleGeometry(stylized ? 0.047 : 0.052, 0.22, 3, 5),
       bodyMaterial.clone(),
       this.max,
     );
     this.rightArm = new InstancedMesh(
-      new CapsuleGeometry(0.052, 0.22, 3, 5),
+      new CapsuleGeometry(stylized ? 0.047 : 0.052, 0.22, 3, 5),
       bodyMaterial.clone(),
       this.max,
     );
     this.leftForearm = new InstancedMesh(
-      new CapsuleGeometry(0.045, 0.19, 3, 5),
+      new CapsuleGeometry(stylized ? 0.041 : 0.045, 0.19, 3, 5),
       skinMaterial.clone(),
       this.max,
     );
     this.rightForearm = new InstancedMesh(
-      new CapsuleGeometry(0.045, 0.19, 3, 5),
+      new CapsuleGeometry(stylized ? 0.041 : 0.045, 0.19, 3, 5),
       skinMaterial.clone(),
       this.max,
     );
-    this.leftLeg = new InstancedMesh(new CapsuleGeometry(0.068, 0.35, 3, 5), legMaterial, this.max);
+    this.leftLeg = new InstancedMesh(
+      new CapsuleGeometry(stylized ? 0.062 : 0.068, 0.35, 3, 5),
+      legMaterial,
+      this.max,
+    );
     this.rightLeg = new InstancedMesh(
-      new CapsuleGeometry(0.068, 0.35, 3, 5),
+      new CapsuleGeometry(stylized ? 0.062 : 0.068, 0.35, 3, 5),
       legMaterial.clone(),
       this.max,
     );
@@ -164,6 +182,8 @@ export class CrowdSystem {
         tempo: 0.8 + seeded(i, 10) * 0.7,
         scale: 0.87 + seeded(i, 11) * 0.28,
         shoulder: 0.9 + seeded(i, 19) * 0.22,
+        posture: 0.82 + seeded(i, 27) * 0.36,
+        groove: 0.82 + seeded(i, 35) * 0.4,
         hairStyle: Math.floor(seeded(i, 41) * 4),
       };
       this.members.push(member);
@@ -329,7 +349,7 @@ export class CrowdSystem {
         : wantsFloor
           ? clamp(energy * 0.45 + vibe * 0.72)
           : energy * 0.18;
-      const speed = member.tempo * (1.25 + localEnergy * 2.9);
+      const speed = member.tempo * member.groove * (1.25 + localEnergy * 2.9);
       const sway = Math.sin(this.elapsed * speed + member.phase);
       const side = Math.cos(this.elapsed * (speed * 0.72) + member.phase * 1.7);
       const cheer = wantsFloor && mixQuality > 0.82 ? beat : 0;
@@ -367,8 +387,8 @@ export class CrowdSystem {
         scale * member.shoulder,
         scale,
         scale * 0.9,
-        wantsFloor ? sway * 0.028 : 0,
-        wantsFloor ? side * 0.036 : 0,
+        wantsFloor ? sway * 0.028 * member.posture : 0,
+        wantsFloor ? side * 0.036 * member.posture : 0,
       );
       this.setInstance(
         this.head,
