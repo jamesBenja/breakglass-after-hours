@@ -1,11 +1,44 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HOUSE_DJS, HouseDjSystem } from '../src/gameplay/HouseDjSystem.js';
+import {
+  HOUSE_DJS,
+  HOUSE_DJ_ROTATION_SECONDS,
+  HouseDjSystem,
+} from '../src/gameplay/HouseDjSystem.js';
 
 test('house DJ roster remains intact through orientation pass', () => {
   assert.ok(HOUSE_DJS.length >= 10);
   assert.ok(HOUSE_DJS.some((dj) => dj.id === 'lunice'));
   assert.ok(HOUSE_DJS.some((dj) => dj.id === 'kaytranada'));
+});
+
+
+
+test('house DJ rotation is 20 minutes and advances building-wide', () => {
+  assert.equal(HOUSE_DJ_ROTATION_SECONDS, 20 * 60);
+
+  const externalTransports = new Map([['house-dj', { owner: 'house-dj' }]]);
+  const game = {
+    state: { data: { houseDjId: 'lunice' } },
+    audio: {
+      context: { state: 'running', currentTime: 0 },
+      externalTransports,
+    },
+    dj: { metrics: () => ({ playing: false }) },
+    sceneManager: { current: { definition: { id: 'upstairs' } } },
+    scenes: new Map(),
+    save() {},
+  };
+  const system = new HouseDjSystem(game, { panel() {} });
+  system.rotationTimer = 0.01;
+
+  let selected = null;
+  system.select = async (id) => {
+    selected = id;
+  };
+
+  system.update(0.02);
+  assert.equal(selected, 'kaytranada');
 });
 
 test('house DJ snapshots and recreates decoded playback after Safari backgrounding', async () => {
