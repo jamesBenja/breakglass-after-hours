@@ -403,6 +403,7 @@ export function attachImportedHumanVisual(
     yaw = 0,
     demoCycle = false,
     clipSet = 'feminine',
+    animationMode = 'authored',
   } = {},
 ) {
   const fallbackMeshes = [];
@@ -429,6 +430,7 @@ export function attachImportedHumanVisual(
     groundBox: new Box3(),
     disposed: false,
     demoCycle,
+    animationMode,
     update(
       dt,
       {
@@ -448,6 +450,7 @@ export function attachImportedHumanVisual(
       });
       this.animationState = resolved;
       model.group.userData.importedAnimationState = resolved;
+      if (this.state === 'ready-static') return 'idle';
       if (this.state !== 'ready' || !this.mixer || !this.actions.size) return resolved;
 
       setAuthoredState(this, resolved);
@@ -483,7 +486,9 @@ export function attachImportedHumanVisual(
   model.group.userData.importedVisualUrl = url;
   model.group.userData.importedVisualState = 'fallback';
   model.group.userData.importedAnimationState = 'idle';
-  model.group.userData.importedAnimationSource = 'authored-clips';
+  model.group.userData.importedAnimationMode = animationMode;
+  model.group.userData.importedAnimationSource =
+    animationMode === 'static' ? 'source-pose' : 'authored-clips';
 
   // Node-based unit tests intentionally exercise the fallback without making external requests.
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -520,6 +525,23 @@ export function attachImportedHumanVisual(
         disposeScene(scene);
         controller.state = 'fallback';
         model.group.userData.importedVisualState = 'fallback-invalid-rig';
+        return;
+      }
+
+      // Some otherwise-good humanoid GLBs are authored in a deliberate non-neutral pose.
+      // Retargeting a canonical locomotion library onto that pose can preserve a large shoulder
+      // twist as the new "rest" frame. Keep the high-quality mesh in its coherent source pose
+      // instead of exposing mangled limbs or dropping all the way to the procedural fallback.
+      if (animationMode === 'static') {
+        mount.add(scene);
+        controller.scene = scene;
+        controller.rig = rig;
+        controller.state = 'ready-static';
+        model.group.userData.visualStyle = 'imported';
+        model.group.userData.importedVisualState = 'ready-static';
+        model.group.userData.importedRigBones = rig.size;
+        groundImportedVisual(controller, model, 1);
+        setVisible(fallbackMeshes, false);
         return;
       }
 
