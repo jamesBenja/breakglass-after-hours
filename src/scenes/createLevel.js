@@ -92,7 +92,7 @@ export async function createLevel(definition, builders, assets) {
 
       const npcPositions = snapshotNpcPositions(npcs);
       const crowdPositions = crowd ? snapshotCrowdPositions(crowd) : null;
-      npcs.update(dt, metrics);
+      npcs.update(dt, playerPosition ? { ...metrics, playerPosition } : metrics);
       constrainNpcPositions(collision, npcs, npcPositions);
       crowd?.update(dt, metrics);
       if (crowd && constrainCrowdPositions(collision, crowd, crowdPositions)) {
