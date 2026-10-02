@@ -4,11 +4,20 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 export const DEFAULT_IMPORTED_HUMAN_URL = 'https://three.ws/avatars/michelle.glb';
 
-const AUTHORED_CLIPS = {
-  idle: 'https://three.ws/animations/clips/idle.json',
-  walk: 'https://three.ws/animations/clips/av-walk-feminine.json',
-  dance: 'https://three.ws/animations/clips/michelle-samba-dance.json',
+const AUTHORED_CLIP_SETS = {
+  feminine: {
+    idle: 'https://three.ws/animations/clips/idle.json',
+    walk: 'https://three.ws/animations/clips/av-walk-feminine.json',
+    dance: 'https://three.ws/animations/clips/michelle-samba-dance.json',
+  },
+  neutral: {
+    idle: 'https://three.ws/animations/clips/idle.json',
+    walk: 'https://three.ws/animations/clips/walk.json',
+    dance: 'https://three.ws/animations/clips/av-dance-shuffle.json',
+  },
 };
+
+const SOURCE_CLIP_PROMISES = new Map();
 
 const TEXTURE_KEYS = [
   'map',
@@ -271,13 +280,24 @@ function retargetQuaternionClip(sourceClip, rig, name) {
   return clip;
 }
 
-async function loadAuthoredClips(rig) {
+function sourceClipForUrl(url) {
+  if (!SOURCE_CLIP_PROMISES.has(url)) {
+    SOURCE_CLIP_PROMISES.set(
+      url,
+      fetch(url, { mode: 'cors', credentials: 'omit' }).then(async (response) => {
+        if (!response.ok) throw new Error(`animation HTTP ${response.status}: ${url}`);
+        return AnimationClip.parse(await response.json());
+      }),
+    );
+  }
+  return SOURCE_CLIP_PROMISES.get(url);
+}
+
+async function loadAuthoredClips(rig, clipSet = 'feminine') {
+  const urls = AUTHORED_CLIP_SETS[clipSet] ?? AUTHORED_CLIP_SETS.feminine;
   const results = await Promise.all(
-    Object.entries(AUTHORED_CLIPS).map(async ([state, url]) => {
-      const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
-      if (!response.ok) throw new Error(`${state} animation HTTP ${response.status}`);
-      const json = await response.json();
-      const sourceClip = AnimationClip.parse(json);
+    Object.entries(urls).map(async ([state, url]) => {
+      const sourceClip = await sourceClipForUrl(url);
       return [state, retargetQuaternionClip(sourceClip, rig, state)];
     }),
   );
@@ -377,7 +397,13 @@ function setAuthoredState(controller, requestedState) {
  */
 export function attachImportedHumanVisual(
   model,
-  { url = DEFAULT_IMPORTED_HUMAN_URL, targetHeight = 1.78, yaw = 0, demoCycle = false } = {},
+  {
+    url = DEFAULT_IMPORTED_HUMAN_URL,
+    targetHeight = 1.78,
+    yaw = 0,
+    demoCycle = false,
+    clipSet = 'feminine',
+  } = {},
 ) {
   const fallbackMeshes = [];
   model.group.traverse((object) => {
@@ -501,7 +527,7 @@ export function attachImportedHumanVisual(
       model.group.userData.importedVisualState = 'loading-animation';
 
       try {
-        const clips = await loadAuthoredClips(rig);
+        const clips = await loadAuthoredClips(rig, clipSet);
         if (controller.disposed) {
           disposeScene(scene);
           return;
@@ -528,6 +554,7 @@ export function attachImportedHumanVisual(
         model.group.userData.importedVisualState = 'ready';
         model.group.userData.importedRigBones = rig.size;
         model.group.userData.importedAuthoredClips = [...clips.keys()];
+        model.group.userData.importedClipSet = clipSet;
 
         setAuthoredState(controller, 'idle');
         mixer.update(1 / 60);
