@@ -219,9 +219,9 @@ export const alleyLevel = {
       role: 'guest',
       visualStyle: 'reference',
       importedAsset: {
-        url: 'https://three.ws/avatars/default.glb',
-        targetHeight: 1.76,
-        clipSet: 'neutral',
+        url: 'https://three.ws/avatars/selfie-girl.glb',
+        targetHeight: 1.7,
+        clipSet: 'feminine',
       },
       companionId: 'realistic-guest-male',
       companionOffset: [1.05, 0, 0.7],
