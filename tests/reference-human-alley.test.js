@@ -27,9 +27,7 @@ test('realistic NPC cohort stays beside the alley spawn with procedural fallback
   assert.equal(cohort.length, 4);
   assert.equal(new Set(cohort.map((npc) => npc.importedAsset.url)).size, 4);
   assert.ok(
-    cohort.every(
-      (npc) => Math.hypot(npc.position[0] - spawnX, npc.position[2] - spawnZ) < 10,
-    ),
+    cohort.every((npc) => Math.hypot(npc.position[0] - spawnX, npc.position[2] - spawnZ) < 10),
     'all realistic NPCs should remain within the initial alley view',
   );
   assert.ok(
@@ -53,9 +51,7 @@ test('realistic NPC cohort stays beside the alley spawn with procedural fallback
   assert.equal(model.importedVisual?.state, 'fallback');
   assert.equal(model.group.userData.importedVisualState, 'fallback');
   assert.equal(model.group.userData.importedVisualUrl, testNpc.importedAsset.url);
-  assert.ok(
-    model.head && model.leftHand && model.rightHand && model.leftKnee && model.rightKnee,
-  );
+  assert.ok(model.head && model.leftHand && model.rightHand && model.leftKnee && model.rightKnee);
 
   let meshCount = 0;
   model.group.traverse((object) => {
@@ -69,14 +65,8 @@ test('realistic NPC cohort stays beside the alley spawn with procedural fallback
 
 test('imported human animation state follows real NPC behavior', () => {
   assert.equal(resolveImportedAnimationState({ time: 1 }), 'idle');
-  assert.equal(
-    resolveImportedAnimationState({ moving: true, demoCycle: true, time: 10 }),
-    'walk',
-  );
-  assert.equal(
-    resolveImportedAnimationState({ dancing: true, demoCycle: true, time: 1 }),
-    'dance',
-  );
+  assert.equal(resolveImportedAnimationState({ moving: true, demoCycle: true, time: 10 }), 'walk');
+  assert.equal(resolveImportedAnimationState({ dancing: true, demoCycle: true, time: 1 }), 'dance');
   assert.equal(
     resolveImportedAnimationState({
       socialGesture: 'highfive',
