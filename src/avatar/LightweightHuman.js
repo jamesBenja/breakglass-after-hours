@@ -9,9 +9,27 @@ import {
 
 const MOTION_PROFILES = {
   neutral: { tempo: 1, stride: 1, sway: 1, bounce: 1, head: 1 },
-  loose: { tempo: 0.94, stride: 1.08, sway: 1.32, bounce: 1.08, head: 1.2 },
-  compact: { tempo: 1.06, stride: 0.82, sway: 0.72, bounce: 0.76, head: 0.7 },
-  bouncy: { tempo: 1.12, stride: 0.96, sway: 1.08, bounce: 1.42, head: 1.05 },
+  loose: {
+    tempo: 0.94,
+    stride: 1.08,
+    sway: 1.32,
+    bounce: 1.08,
+    head: 1.2,
+  },
+  compact: {
+    tempo: 1.06,
+    stride: 0.82,
+    sway: 0.72,
+    bounce: 0.76,
+    head: 0.7,
+  },
+  bouncy: {
+    tempo: 1.12,
+    stride: 0.96,
+    sway: 1.08,
+    bounce: 1.42,
+    head: 1.05,
+  },
 };
 
 const material = (color, options = {}) =>
