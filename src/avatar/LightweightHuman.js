@@ -222,14 +222,31 @@ export function createLightweightHuman({
 
 export function poseLightweightHuman(
   model,
-  { time = 0, phase = 0, moving = false, dancing = false, energy = 0, reach = 0 } = {},
+  {
+    time = 0,
+    phase = 0,
+    moving = false,
+    dancing = false,
+    energy = 0,
+    reach = 0,
+    motionProfile = 'neutral',
+  } = {},
 ) {
-  const gait = Math.sin(time * (moving ? 7.3 : 2.4) + phase);
-  const amount = moving ? 0.48 : dancing ? 0.14 + energy * 0.24 : 0;
+  const profiles = {
+    neutral: { tempo: 1, stride: 1, sway: 1, bounce: 1, head: 1 },
+    loose: { tempo: 0.94, stride: 1.08, sway: 1.32, bounce: 1.08, head: 1.2 },
+    compact: { tempo: 1.06, stride: 0.82, sway: 0.72, bounce: 0.76, head: 0.7 },
+    bouncy: { tempo: 1.12, stride: 0.96, sway: 1.08, bounce: 1.42, head: 1.05 },
+  };
+  const profile = profiles[motionProfile] ?? profiles.neutral;
+  const gait = Math.sin(time * (moving ? 7.3 : 2.4) * profile.tempo + phase);
+  const amount =
+    (moving ? 0.48 : dancing ? 0.14 + energy * 0.24 : 0) *
+    (moving ? profile.stride : profile.sway);
   const bob = moving
     ? Math.abs(gait) * 0.018
     : dancing
-      ? Math.abs(gait) * (0.012 + energy * 0.025)
+      ? Math.abs(gait) * (0.012 + energy * 0.025) * profile.bounce
       : 0;
 
   model.body.position.y = 1.05 + bob;
@@ -247,8 +264,15 @@ export function poseLightweightHuman(
   model.leftKnee.rotation.x = Math.max(0, gait) * amount * 0.75;
   model.rightKnee.rotation.x = Math.max(0, -gait) * amount * 0.75;
   model.body.rotation.y = moving ? -gait * 0.045 : dancing ? gait * 0.055 : 0;
-  model.body.rotation.z = dancing ? Math.cos(time * 2.6 + phase) * energy * 0.055 : 0;
-  model.head.rotation.y = Math.sin(time * 0.9 + phase) * (dancing ? 0.075 : 0.03);
-  model.head.rotation.x = dancing ? -Math.sin(time * 1.8 + phase) * energy * 0.035 : 0;
+  model.body.rotation.z = dancing
+    ? Math.cos(time * 2.6 * profile.tempo + phase) * energy * 0.055 * profile.sway
+    : 0;
+  model.head.rotation.y =
+    Math.sin(time * 0.9 * profile.tempo + phase) *
+    (dancing ? 0.075 : 0.03) *
+    profile.head;
+  model.head.rotation.x = dancing
+    ? -Math.sin(time * 1.8 * profile.tempo + phase) * energy * 0.035 * profile.head
+    : 0;
   model.chest.scale.y = 1 + Math.sin(time * 1.5 + phase) * 0.008;
 }
