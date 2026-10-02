@@ -222,7 +222,7 @@ export const alleyLevel = {
         url: 'https://three.ws/avatars/selfie-girl.glb',
         targetHeight: 1.7,
         clipSet: 'feminine',
-        animationMode: 'static',
+        animationMode: 'bind-authored',
       },
       companionId: 'realistic-guest-male',
       companionOffset: [1.05, 0, 0.7],

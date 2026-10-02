@@ -199,6 +199,22 @@ function worldRestQuaternion(node, root) {
   return out;
 }
 
+export function poseImportedSkeletonsToBind(root) {
+  if (!root?.traverse) return 0;
+
+  const seen = new Set();
+  root.traverse((object) => {
+    const skeleton = object?.isSkinnedMesh ? object.skeleton : null;
+    if (!skeleton?.bones?.length || seen.has(skeleton)) return;
+    if (skeleton.boneInverses?.length !== skeleton.bones.length) return;
+    seen.add(skeleton);
+    skeleton.pose();
+  });
+
+  if (seen.size) root.updateMatrixWorld(true);
+  return seen.size;
+}
+
 function captureRig(root) {
   const candidates = [];
   root.traverse((object) => {
@@ -488,7 +504,11 @@ export function attachImportedHumanVisual(
   model.group.userData.importedAnimationState = 'idle';
   model.group.userData.importedAnimationMode = animationMode;
   model.group.userData.importedAnimationSource =
-    animationMode === 'static' ? 'source-pose' : 'authored-clips';
+    animationMode === 'static'
+      ? 'source-pose'
+      : animationMode === 'bind-authored'
+        ? 'skin-bind-retarget'
+        : 'authored-clips';
 
   // Node-based unit tests intentionally exercise the fallback without making external requests.
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -519,6 +539,17 @@ export function attachImportedHumanVisual(
         object.receiveShadow = true;
         object.frustumCulled = true;
       });
+
+      if (animationMode === 'bind-authored') {
+        const posedSkeletons = poseImportedSkeletonsToBind(scene);
+        if (!posedSkeletons) {
+          disposeScene(scene);
+          controller.state = 'fallback';
+          model.group.userData.importedVisualState = 'fallback-bind-pose-unavailable';
+          return;
+        }
+        model.group.userData.importedBindPoseSkeletons = posedSkeletons;
+      }
 
       const rig = captureRig(scene);
       if (rig.size < 10 || !fitToHumanHeight(scene, targetHeight)) {
