@@ -38,6 +38,10 @@ test('realistic NPC cohort stays beside the alley spawn with procedural fallback
     cohort.some((npc) => npc.companionId),
     'cohort should exercise companion-follow behavior through the same NPC system',
   );
+  const posedNpc = cohort.find(
+    (npc) => npc.importedAsset.url === 'https://three.ws/avatars/selfie-girl.glb',
+  );
+  assert.equal(posedNpc?.importedAsset.animationMode, 'static');
 
   const root = new Group();
   const npcs = new NpcSystem(root, {
