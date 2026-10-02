@@ -5,13 +5,15 @@ import { resolveImportedAnimationState } from '../src/avatar/ImportedHumanVisual
 import { NpcSystem } from '../src/npcs/NpcSystem.js';
 import { alleyLevel } from '../src/world/alley.js';
 
-test('imported human test stays isolated beside the normal alley spawn with a procedural fallback', () => {
+test('realistic NPC cohort stays beside the alley spawn with procedural fallbacks', () => {
   const testNpc = alleyLevel.npcs.find((npc) => npc.id === 'reference-human-test');
   assert.ok(testNpc, 'reference NPC should be present in the alley definition');
   assert.equal(testNpc.visualStyle, 'reference');
   assert.equal(testNpc.importedAsset?.url, 'https://three.ws/avatars/michelle.glb');
   assert.equal(testNpc.importedAsset?.targetHeight, 1.78);
-  assert.equal(testNpc.importedAsset?.demoCycle, true);
+  assert.equal(testNpc.importedAsset?.demoCycle, undefined);
+  assert.equal(testNpc.importedAsset?.clipSet, 'feminine');
+  assert.equal(testNpc.route.length, 2);
   assert.equal(testNpc.interactive, false);
 
   const [spawnX, , spawnZ] = alleyLevel.spawns.start;
@@ -19,6 +21,19 @@ test('imported human test stays isolated beside the normal alley spawn with a pr
   assert.ok(
     Math.hypot(npcX - spawnX, npcZ - spawnZ) < 4,
     'reference NPC should be immediately visible from the normal spawn',
+  );
+
+  const cohort = alleyLevel.npcs.filter((npc) => npc.importedAsset);
+  assert.equal(cohort.length, 4);
+  assert.equal(new Set(cohort.map((npc) => npc.importedAsset.url)).size, 4);
+  assert.ok(
+    cohort.every((npc) => Math.hypot(npc.position[0] - spawnX, npc.position[2] - spawnZ) < 10),
+    'all realistic NPCs should remain within the initial alley view',
+  );
+  assert.ok(cohort.some((npc) => npc.route?.length > 1), 'cohort should exercise route-driven walking');
+  assert.ok(
+    cohort.some((npc) => npc.companionId),
+    'cohort should exercise companion-follow behavior through the same NPC system',
   );
 
   const root = new Group();
@@ -45,7 +60,7 @@ test('imported human test stays isolated beside the normal alley spawn with a pr
   npcs.dispose();
 });
 
-test('imported human animation state follows NPC behavior before the temporary demo cycle', () => {
+test('imported human animation state follows real NPC behavior', () => {
   assert.equal(resolveImportedAnimationState({ time: 1 }), 'idle');
   assert.equal(resolveImportedAnimationState({ moving: true, demoCycle: true, time: 10 }), 'walk');
   assert.equal(resolveImportedAnimationState({ dancing: true, demoCycle: true, time: 1 }), 'dance');
@@ -61,7 +76,7 @@ test('imported human animation state follows NPC behavior before the temporary d
   );
 });
 
-test('alley animation demo exposes idle, walk, dance and high-five states', () => {
+test('legacy demo cycle still remains available for isolated animation diagnostics', () => {
   assert.equal(resolveImportedAnimationState({ demoCycle: true, time: 1 }), 'idle');
   assert.equal(resolveImportedAnimationState({ demoCycle: true, time: 5 }), 'walk');
   assert.equal(resolveImportedAnimationState({ demoCycle: true, time: 10 }), 'dance');
