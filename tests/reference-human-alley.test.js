@@ -1,7 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Group } from 'three';
-import { resolveImportedAnimationState } from '../src/avatar/ImportedHumanVisual.js';
+import {
+  Bone,
+  BufferGeometry,
+  Group,
+  MeshBasicMaterial,
+  Quaternion,
+  Skeleton,
+  SkinnedMesh,
+} from 'three';
+import {
+  poseImportedSkeletonsToBind,
+  resolveImportedAnimationState,
+} from '../src/avatar/ImportedHumanVisual.js';
 import { NpcSystem } from '../src/npcs/NpcSystem.js';
 import { alleyLevel } from '../src/world/alley.js';
 
@@ -41,7 +52,7 @@ test('realistic NPC cohort stays beside the alley spawn with procedural fallback
   const posedNpc = cohort.find(
     (npc) => npc.importedAsset.url === 'https://three.ws/avatars/selfie-girl.glb',
   );
-  assert.equal(posedNpc?.importedAsset.animationMode, 'static');
+  assert.equal(posedNpc?.importedAsset.animationMode, 'bind-authored');
 
   const root = new Group();
   const npcs = new NpcSystem(root, {
@@ -65,6 +76,42 @@ test('realistic NPC cohort stays beside the alley spawn with procedural fallback
 
   npcs.update(0.16, { playing: false, energy: 0 });
   npcs.dispose();
+});
+
+test('bind-authored imports reset a posed skeleton to its inverse-bind rest before retargeting', () => {
+  const root = new Group();
+  const mesh = new SkinnedMesh(new BufferGeometry(), new MeshBasicMaterial());
+  const hips = new Bone();
+  const spine = new Bone();
+
+  hips.name = 'Hips';
+  spine.name = 'Spine';
+  hips.position.set(0, 1, 0);
+  spine.position.set(0, 0.6, 0);
+  hips.add(spine);
+  mesh.add(hips);
+  root.add(mesh);
+  root.updateMatrixWorld(true);
+
+  const skeleton = new Skeleton([hips, spine]);
+  skeleton.calculateInverses();
+  mesh.bind(skeleton, mesh.matrixWorld);
+
+  const hipsBind = hips.quaternion.clone();
+  const spineBind = spine.quaternion.clone();
+
+  hips.quaternion.setFromAxisAngle({ x: 1, y: 0, z: 0 }, 0.55);
+  spine.quaternion.setFromAxisAngle({ x: 0, y: 0, z: 1 }, -0.8);
+  root.updateMatrixWorld(true);
+
+  assert.ok(hips.quaternion.angleTo(hipsBind) > 0.5);
+  assert.ok(spine.quaternion.angleTo(spineBind) > 0.7);
+  assert.equal(poseImportedSkeletonsToBind(root), 1);
+  assert.ok(hips.quaternion.angleTo(hipsBind) < 1e-6);
+  assert.ok(spine.quaternion.angleTo(spineBind) < 1e-6);
+
+  mesh.geometry.dispose();
+  mesh.material.dispose();
 });
 
 test('imported human animation state follows real NPC behavior', () => {
