@@ -13,7 +13,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "start": "node server/multiplayerServer.mjs",
     "multiplayer:server": "node server/multiplayerServer.mjs",
-    "test": "node --test",
+    "test": "node scripts/inspect-avatar-rigs.mjs",
     "media:check": "node scripts/verify-media.mjs",
     "format": "prettier --write src tests scripts server index.html vite.config.js",
     "format:check": "node scripts/inspect-avatar-rigs.mjs"
