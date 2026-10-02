@@ -260,8 +260,7 @@ export function poseLightweightHuman(
   const profile = MOTION_PROFILES[motionProfile] ?? MOTION_PROFILES.neutral;
   const gait = Math.sin(time * (moving ? 7.3 : 2.4) * profile.tempo + phase);
   const amount =
-    (moving ? 0.48 : dancing ? 0.14 + energy * 0.24 : 0) *
-    (moving ? profile.stride : profile.sway);
+    (moving ? 0.48 : dancing ? 0.14 + energy * 0.24 : 0) * (moving ? profile.stride : profile.sway);
   const bob = moving
     ? Math.abs(gait) * 0.018
     : dancing
@@ -287,9 +286,7 @@ export function poseLightweightHuman(
     ? Math.cos(time * 2.6 * profile.tempo + phase) * energy * 0.055 * profile.sway
     : 0;
   model.head.rotation.y =
-    Math.sin(time * 0.9 * profile.tempo + phase) *
-    (dancing ? 0.075 : 0.03) *
-    profile.head;
+    Math.sin(time * 0.9 * profile.tempo + phase) * (dancing ? 0.075 : 0.03) * profile.head;
   model.head.rotation.x = dancing
     ? -Math.sin(time * 1.8 * profile.tempo + phase) * energy * 0.035 * profile.head
     : 0;
