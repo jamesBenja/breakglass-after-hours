@@ -53,7 +53,7 @@ test('stylized human v2 keeps the lightweight NPC animation contract', () => {
   assert.ok(size.x < 0.9, 'stylized rig should avoid the oversized legacy silhouette');
 });
 
-test('alley exposes one isolated stylized reference NPC near the normal spawn', () => {
+test('alley exposes a six-person stylized yard cohort with varied silhouettes', () => {
   const npc = alleyLevel.npcs.find((entry) => entry.id === 'stylized-human-test');
   assert.ok(npc);
   assert.equal(npc.visualStyle, 'stylized');
@@ -65,6 +65,16 @@ test('alley exposes one isolated stylized reference NPC near the normal spawn', 
     'photoreal imported-human experiments should stay out of the live alley',
   );
 
+  const cohort = alleyLevel.npcs.filter((entry) => entry.visualStyle === 'stylized');
+  assert.equal(cohort.length, 6);
+  assert.equal(new Set(cohort.map((entry) => entry.appearance.hairStyle)).size, 5);
+  assert.ok(cohort.some((entry) => entry.appearance.outerwear));
+  assert.ok(cohort.some((entry) => entry.appearance.bag === false));
+  assert.ok(cohort.some((entry) => entry.appearance.cargo === false));
+  assert.ok(cohort.some((entry) => entry.appearance.necklace));
+  assert.ok(cohort.some((entry) => entry.route?.length > 1));
+  assert.ok(cohort.some((entry) => entry.companionId));
+
   const [spawnX, , spawnZ] = alleyLevel.spawns.start;
   const [npcX, , npcZ] = npc.position;
   assert.ok(Math.hypot(npcX - spawnX, npcZ - spawnZ) < 4);
@@ -74,8 +84,29 @@ test('alley exposes one isolated stylized reference NPC near the normal spawn', 
   assert.equal(model.group.name, 'npc:stylized-human-test');
 
   const root = new Group();
-  const system = new NpcSystem(root, { ...alleyLevel, npcs: [npc] });
+  const system = new NpcSystem(root, { ...alleyLevel, npcs: cohort });
   assert.equal(system.get('stylized-human-test')?.group.userData.stylizedHuman, true);
-  system.update(0.16, { playing: false, energy: 0, bass: 0 });
+
+  let meshCount = 0;
+  root.traverse((object) => {
+    if (object.isMesh) meshCount += 1;
+  });
+  assert.ok(meshCount < 420, 'six-person stylized cohort should stay within the yard mesh budget');
+
+  const walker = system.get('stylized-human-test');
+  const startX = walker.group.position.x;
+  const startZ = walker.group.position.z;
+  for (let i = 0; i < 80; i++) {
+    system.update(0.1, { playing: false, energy: 0, bass: 0 });
+  }
+  assert.ok(
+    Math.hypot(walker.group.position.x - startX, walker.group.position.z - startZ) > 0.5,
+    'stylized cohort should exercise real route-driven movement',
+  );
+
+  const follower = system.get('smoker-2');
+  assert.equal(follower.companionId, 'smoker-1');
+  assert.ok(follower.group.userData.stylizedHuman);
+
   system.dispose();
 });

@@ -7,6 +7,7 @@ import {
   SphereGeometry,
   TorusGeometry,
 } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const material = (color, options = {}) =>
   new MeshStandardMaterial({
@@ -30,25 +31,41 @@ const capsule = (radius, length, mat, segments = 10) =>
 
 const box = (w, h, d, mat) => cast(new Mesh(new BoxGeometry(w, h, d), mat));
 
+function mergeStaticMeshes(meshes, mat) {
+  const geometries = meshes.map((mesh) => {
+    mesh.updateMatrix();
+    const geometry = mesh.geometry.clone();
+    geometry.applyMatrix4(mesh.matrix);
+    return geometry;
+  });
+  const mergedGeometry = mergeGeometries(geometries, false);
+  for (const geometry of geometries) geometry.dispose();
+  for (const mesh of meshes) mesh.geometry.dispose();
+  return cast(new Mesh(mergedGeometry, mat));
+}
+
 function createHand(skin, side) {
   const hand = new Group();
+  const pieces = [];
+
   const palm = sphere(0.047, skin, 12, 9);
   palm.scale.set(0.78, 1.08, 0.52);
-  hand.add(palm);
+  pieces.push(palm);
 
   for (let i = 0; i < 4; i++) {
     const finger = capsule(0.0075, 0.045 - i * 0.002, skin, 7);
     finger.scale.set(0.82, 1, 0.7);
     finger.position.set((i - 1.5) * 0.016, -0.05, 0.005);
     finger.rotation.z = (i - 1.5) * 0.025;
-    hand.add(finger);
+    pieces.push(finger);
   }
 
   const thumb = capsule(0.0095, 0.035, skin, 7);
   thumb.position.set(side * 0.039, -0.012, 0.008);
   thumb.rotation.z = side * 0.72;
-  hand.add(thumb);
+  pieces.push(thumb);
 
+  hand.add(mergeStaticMeshes(pieces, skin));
   return hand;
 }
 
@@ -86,20 +103,23 @@ function createArm(outfit, skin, side) {
   return { shoulder, elbow, hand };
 }
 
-function createCargoLeg(trousers, shoes, accent, side) {
+function createCargoLeg(trousers, shoes, accent, side, cargo = true) {
   const hip = new Group();
 
   const thigh = capsule(0.09, 0.29, trousers, 11);
   thigh.position.y = -0.205;
   thigh.scale.set(1.08, 1, 0.96);
 
-  const cargoPocket = box(0.14, 0.12, 0.04, trousers);
-  cargoPocket.position.set(side * 0.075, -0.19, 0.082);
-  cargoPocket.rotation.z = side * 0.03;
-  const cargoFlap = box(0.145, 0.026, 0.047, accent);
-  cargoFlap.position.set(side * 0.075, -0.135, 0.086);
-  cargoFlap.rotation.z = side * 0.03;
-  hip.add(thigh, cargoPocket, cargoFlap);
+  hip.add(thigh);
+  if (cargo) {
+    const cargoPocket = box(0.14, 0.12, 0.04, trousers);
+    cargoPocket.position.set(side * 0.075, -0.19, 0.082);
+    cargoPocket.rotation.z = side * 0.03;
+    const cargoFlap = box(0.145, 0.026, 0.047, accent);
+    cargoFlap.position.set(side * 0.075, -0.135, 0.086);
+    cargoFlap.rotation.z = side * 0.03;
+    hip.add(cargoPocket, cargoFlap);
+  }
 
   const knee = new Group();
   knee.position.y = -0.405;
@@ -132,7 +152,7 @@ function createCargoLeg(trousers, shoes, accent, side) {
   const outsole = box(0.165, 0.022, 0.28, accent);
   outsole.position.set(0, -0.055, 0.035);
 
-  foot.add(sole, upper, toe, outsole);
+  foot.add(mergeStaticMeshes([sole, upper, toe], shoes), outsole);
   foot.rotation.y = side * 0.018;
 
   knee.add(kneeShape, calf, cuff, foot);
@@ -145,13 +165,14 @@ function createHair(mat, style) {
   const root = new Group();
   if (style === 'bald') return root;
 
+  const pieces = [];
   const cap = sphere(0.184, mat, 18, 12);
   cap.scale.set(0.98, style === 'buzz' ? 0.26 : 0.46, 0.96);
   cap.position.set(0, 0.145, -0.018);
-  root.add(cap);
+  pieces.push(cap);
 
   if (style === 'short' || style === 'textured') {
-    for (const [x, y, z, s] of [
+    for (const [x, y, z, curlScale] of [
       [-0.12, 0.14, 0.01, 0.95],
       [-0.055, 0.17, 0.025, 1.05],
       [0.02, 0.18, 0.03, 1.06],
@@ -162,10 +183,10 @@ function createHair(mat, style) {
       [0.08, 0.11, 0.07, 0.9],
       [0.145, 0.08, 0.02, 0.84],
     ]) {
-      const curl = sphere(0.058 * s, mat, 10, 7);
+      const curl = sphere(0.058 * curlScale, mat, 10, 7);
       curl.scale.set(1, 0.88, 0.95);
       curl.position.set(x, y, z);
-      root.add(curl);
+      pieces.push(curl);
     }
   }
 
@@ -173,15 +194,16 @@ function createHair(mat, style) {
     const back = capsule(0.115, style === 'long' ? 0.46 : 0.245, mat, 10);
     back.scale.set(1.22, 1, 0.5);
     back.position.set(0, style === 'long' ? -0.16 : -0.06, -0.105);
-    root.add(back);
+    pieces.push(back);
 
     for (const side of [-1, 1]) {
       const sideHair = capsule(0.044, style === 'long' ? 0.36 : 0.21, mat, 8);
       sideHair.position.set(side * 0.158, style === 'long' ? -0.12 : -0.045, 0.008);
-      root.add(sideHair);
+      pieces.push(sideHair);
     }
   }
 
+  root.add(mergeStaticMeshes(pieces, mat));
   return root;
 }
 
@@ -193,6 +215,10 @@ export function createStylizedHuman({
   hair = 0x241b18,
   accent = 0x766056,
   hairStyle = 'textured',
+  bag = true,
+  cargo = true,
+  outerwear = false,
+  necklace = false,
   scale = 1,
 } = {}) {
   const group = new Group();
@@ -241,16 +267,44 @@ export function createStylizedHuman({
   const chestPatch = box(0.09, 0.025, 0.012, accentMaterial);
   chestPatch.position.set(0.055, 0.09, 0.145);
 
-  // A small cross-body strap adds a clubwear silhouette without increasing rig complexity.
-  const strap = box(0.028, 0.42, 0.012, accentMaterial);
-  strap.position.set(-0.025, 0.0, 0.155);
-  strap.rotation.z = -0.36;
+  chest.add(torso, upperChest, collar, chestPatch);
 
-  const bag = box(0.115, 0.085, 0.045, outfitMaterial);
-  bag.position.set(0.15, -0.16, 0.15);
-  bag.rotation.z = -0.12;
+  if (outerwear) {
+    const leftPanel = box(0.115, 0.34, 0.028, accentMaterial);
+    leftPanel.position.set(-0.07, -0.015, 0.145);
+    leftPanel.rotation.z = 0.035;
+    const rightPanel = leftPanel.clone();
+    rightPanel.position.x = 0.07;
+    rightPanel.rotation.z = -0.035;
 
-  chest.add(torso, upperChest, collar, chestPatch, strap, bag);
+    const leftLap = box(0.055, 0.18, 0.022, outfitMaterial);
+    leftLap.position.set(-0.055, 0.09, 0.168);
+    leftLap.rotation.z = -0.32;
+    const rightLap = leftLap.clone();
+    rightLap.position.x = 0.055;
+    rightLap.rotation.z = 0.32;
+    chest.add(leftPanel, rightPanel, leftLap, rightLap);
+  }
+
+  if (necklace) {
+    const chain = cast(new Mesh(new TorusGeometry(0.083, 0.0045, 5, 18), accentMaterial));
+    chain.position.set(0, 0.12, 0.16);
+    chain.rotation.x = Math.PI / 2;
+    chain.scale.y = 0.85;
+    chest.add(chain);
+  }
+
+  if (bag) {
+    // A small cross-body strap adds a clubwear silhouette without increasing rig complexity.
+    const strap = box(0.028, 0.42, 0.012, accentMaterial);
+    strap.position.set(-0.025, 0.0, 0.155);
+    strap.rotation.z = -0.36;
+
+    const bagBody = box(0.115, 0.085, 0.045, outfitMaterial);
+    bagBody.position.set(0.15, -0.16, 0.15);
+    bagBody.rotation.z = -0.12;
+    chest.add(strap, bagBody);
+  }
   body.add(pelvis, waist, chest);
 
   const neck = capsule(0.055, 0.075, skinMaterial, 10);
@@ -337,8 +391,8 @@ export function createStylizedHuman({
   left.shoulder.rotation.z = -0.028;
   right.shoulder.rotation.z = 0.028;
 
-  const leftLeg = createCargoLeg(trouserMaterial, shoeMaterial, accentMaterial, -1);
-  const rightLeg = createCargoLeg(trouserMaterial, shoeMaterial, accentMaterial, 1);
+  const leftLeg = createCargoLeg(trouserMaterial, shoeMaterial, accentMaterial, -1, cargo);
+  const rightLeg = createCargoLeg(trouserMaterial, shoeMaterial, accentMaterial, 1, cargo);
   leftLeg.hip.position.set(-0.105, 0.79, 0);
   rightLeg.hip.position.set(0.105, 0.79, 0);
 

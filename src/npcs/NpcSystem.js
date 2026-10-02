@@ -342,6 +342,10 @@ export function createNpcCharacter(npc) {
     shoes: look.shoes ?? 0x14161a,
     accent: look.accent,
     hairStyle: look.hairStyle,
+    bag: look.bag,
+    cargo: look.cargo,
+    outerwear: look.outerwear,
+    necklace: look.necklace,
   });
   const group = model.group;
   group.name = `npc:${npc.id}`;
