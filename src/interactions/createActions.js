@@ -1657,6 +1657,42 @@ export function createActions({
     installation: installationPanel,
     progressionDoor: progressionDoorPanel,
     travel: (target) => sceneManager.request(target.target),
+    clubSocial: (target) => {
+      const level = sceneManager.current;
+      const id = target.npcId ?? target.id;
+      const npc = level.npcs?.get?.(id);
+      if (
+        !player ||
+        !npc?.socialParticipant ||
+        !isDanceFloorPosition(level.definition, player.position) ||
+        !isDanceFloorPosition(level.definition, npc.group.position)
+      ) {
+        return;
+      }
+
+      const perform = (kind) => {
+        const dx = npc.group.position.x - player.position.x;
+        const dz = npc.group.position.z - player.position.z;
+        if (Math.hypot(dx, dz) > 0.01) player.object.rotation.y = Math.atan2(dx, dz);
+        level.npcs?.triggerSocialGesture?.(id, kind, player.position);
+        if (kind === 'dance') player.dance(1.8);
+        else player.performMultiplayerGesture?.(kind);
+      };
+
+      panel('DANCE FLOOR', 'They catch your eye through the crowd.', [
+        ['Dance together', () => perform('dance')],
+        ['Grind', () => perform('grind')],
+        ['High five', () => perform('highfive')],
+        [
+          'Start a dance circle',
+          () => {
+            level.npcs?.triggerDanceCircle?.(player.position);
+            level.crowd?.triggerDanceCircle?.(player.position);
+            player.performMultiplayerGesture?.('circle');
+          },
+        ],
+      ]);
+    },
     dialogue: (target) => {
       const id = target.npcId ?? target.id;
       const dialogue = sceneManager.current.npcs?.dialogue?.(id);
