@@ -342,15 +342,7 @@ export function createStylizedHuman({
   leftLeg.hip.position.set(-0.105, 0.79, 0);
   rightLeg.hip.position.set(0.105, 0.79, 0);
 
-  group.add(
-    body,
-    neck,
-    head,
-    left.shoulder,
-    right.shoulder,
-    leftLeg.hip,
-    rightLeg.hip,
-  );
+  group.add(body, neck, head, left.shoulder, right.shoulder, leftLeg.hip, rightLeg.hip);
   group.scale.setScalar(scale);
 
   return {
