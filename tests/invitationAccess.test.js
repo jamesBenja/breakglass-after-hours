@@ -57,10 +57,7 @@ test('all invitation types use isolated saves, including participant / explorer'
   const ids = Object.keys(INVITATION_PROFILES);
   const keys = ids.map(invitationSaveKey);
   assert.equal(invitationSaveKey(), undefined);
-  assert.equal(
-    invitationSaveKey('participant'),
-    'breakglass.after-hours.invite.participant.v1',
-  );
+  assert.equal(invitationSaveKey('participant'), 'breakglass.after-hours.invite.participant.v1');
   assert.equal(new Set(keys).size, ids.length);
   for (const key of keys) assert.match(key, /^breakglass\.after-hours\.invite\./);
 });
