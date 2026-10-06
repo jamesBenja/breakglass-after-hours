@@ -193,7 +193,7 @@ export async function resolveInvitationAccess({ fetchRef = globalThis.fetch } = 
 
 export function invitationSaveKey(profile) {
   const id = typeof profile === 'string' ? profile : profile?.id;
-  if (!id || id === 'participant') return undefined;
+  if (!id) return undefined;
   return `breakglass.after-hours.invite.${id}.v1`;
 }
 
