@@ -1,3 +1,4 @@
+import { TakeABreakImmersiveSystem } from '../gameplay/TakeABreakImmersiveSystem.js';
 import { levels } from '../world/levels.js';
 import { createLevel } from './createLevel.js';
 import { buildBelowBlockout, buildBelowFixtures } from './geometry/belowBlockout.js';
@@ -29,9 +30,23 @@ const downstairsWithMaddox = {
   },
 };
 
-export const createBelowScene = (assets) =>
-  createLevel(
+export const createBelowScene = async (assets) => {
+  const level = await createLevel(
     downstairsWithMaddox,
     { architecture: buildBelowBlockout, fixtures: buildFurnishedBelowFixtures },
     assets,
   );
+  const immersive = new TakeABreakImmersiveSystem(level.gameplay);
+  const baseUpdate = level.update.bind(level);
+  const baseDispose = level.dispose.bind(level);
+  level.takeABreakImmersive = immersive;
+  level.update = (dt, audio, playerPosition = null) => {
+    baseUpdate(dt, audio, playerPosition);
+    immersive.update(dt, audio, playerPosition);
+  };
+  level.dispose = () => {
+    immersive.dispose();
+    baseDispose();
+  };
+  return level;
+};

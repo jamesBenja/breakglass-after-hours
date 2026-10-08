@@ -28,11 +28,24 @@ export class AudioEngine {
     this.generation = 0;
     this.hatBuffer = null;
     this.externalTransports = new Map();
+    this.continuousHums = new Map();
+    this.assetVoices = new Map();
+    this.assetGenerations = new Map();
+    this.sourceBuses = new Map();
+    this.sourceEnvironments = new Map();
+    this.prioritySource = null;
+    this.priorityDuck = 0.32;
+    this._nativeMediaResumePending = false;
+    this._contextResumePending = false;
   }
 
   get activeExternalTransport() {
     const values = [...this.externalTransports.values()];
-    return values[values.length - 1] ?? null;
+    for (let index = values.length - 1; index >= 0; index--) {
+      const transport = values[index];
+      if (this.sourceGain(transport.owner) > 0.001) return transport;
+    }
+    return null;
   }
 
   get label() {
@@ -40,7 +53,7 @@ export class AudioEngine {
   }
 
   get playing() {
-    return this.trackId !== null || this.externalTransports.size > 0 || this.nativeMedia.size > 0;
+    return this.trackId !== null || this.activeExternalTransport !== null;
   }
 
   setExternalTransport(owner, label, interval = 0.125, metrics = {}) {
@@ -86,9 +99,75 @@ export class AudioEngine {
     };
     this.setParam(this.environmentGain?.gain, this.environment.gain, 0.08);
     this.setParam(this.environmentFilter?.frequency, this.environment.lowpassHz, 0.08);
-    for (const media of this.nativeMedia.values()) {
-      media.element.volume = clamp(media.baseVolume * this.environment.gain);
+    for (const [owner, media] of this.nativeMedia) {
+      media.element.volume = clamp(media.baseVolume * this.sourceGain(owner));
     }
+  }
+
+  ensureSourceBus(owner) {
+    if (!owner || !this.context || !this.master) return null;
+    let bus = this.sourceBuses.get(owner);
+    if (bus) return bus;
+
+    const filter = this.context.createBiquadFilter?.() ?? null;
+    const gain = this.context.createGain();
+    const input = filter ?? gain;
+    if (filter) {
+      filter.type = 'lowpass';
+      filter.Q.value = 0.45;
+      filter.connect(gain);
+    }
+    gain.connect(this.master);
+    bus = { input, filter, gain };
+    this.sourceBuses.set(owner, bus);
+    this.applySourceEnvironment(owner);
+    return bus;
+  }
+
+  sourceDestination(owner) {
+    return this.ensureSourceBus(owner)?.input ?? this.master;
+  }
+
+  sourceGain(owner) {
+    const environment = this.sourceEnvironments.get(owner) ?? {
+      gain: 1,
+      lowpassHz: 20000,
+      label: 'local source',
+    };
+    const priority = this.prioritySource && owner !== this.prioritySource ? this.priorityDuck : 1;
+    return clamp(environment.gain * priority, 0, 1.2);
+  }
+
+  applySourceEnvironment(owner) {
+    const bus = this.sourceBuses.get(owner);
+    const environment = this.sourceEnvironments.get(owner) ?? {
+      gain: 1,
+      lowpassHz: 20000,
+      label: 'local source',
+    };
+    if (bus) {
+      this.setParam(bus.gain?.gain, this.sourceGain(owner), 0.08);
+      this.setParam(bus.filter?.frequency, environment.lowpassHz, 0.08);
+    }
+    const media = this.nativeMedia.get(owner);
+    if (media) media.element.volume = clamp(media.baseVolume * this.sourceGain(owner));
+  }
+
+  setSourceEnvironment(owner, { gain = 1, lowpassHz = 20000, label = 'local source' } = {}) {
+    if (!owner) return;
+    this.sourceEnvironments.set(owner, {
+      gain: clamp(Number(gain) || 0, 0, 1.2),
+      lowpassHz: clamp(Number(lowpassHz) || 20000, 280, 22000),
+      label,
+    });
+    this.applySourceEnvironment(owner);
+  }
+
+  setPrioritySource(owner = null, duck = 0.32) {
+    this.prioritySource = owner || null;
+    this.priorityDuck = clamp(Number(duck) || 0.32, 0.08, 1);
+    for (const sourceOwner of this.sourceBuses.keys()) this.applySourceEnvironment(sourceOwner);
+    for (const sourceOwner of this.nativeMedia.keys()) this.applySourceEnvironment(sourceOwner);
   }
 
   async init() {
@@ -117,7 +196,9 @@ export class AudioEngine {
         this.environmentGain.connect(this.context.destination);
       }
     }
-    if (this.context.state === 'suspended') await this.context.resume();
+    if (this.context.state !== 'running' && this.context.state !== 'closed') {
+      await this.context.resume();
+    }
   }
 
   /** Serializable signal snapshot for lighting, crowd energy and future multiplayer sync. */
@@ -166,6 +247,88 @@ export class AudioEngine {
     };
   }
 
+  startContinuousHum(owner, { frequency = 124, volume = 0.022, type = 'triangle' } = {}) {
+    if (!owner || !this.context || !this.master) return false;
+    this.stopContinuousHum(owner, 0);
+
+    const time = this.context.currentTime;
+    const masterGain = this.context.createGain();
+    const base = this.context.createOscillator();
+    const harmonic = this.context.createOscillator();
+    const baseGain = this.context.createGain();
+    const harmonicGain = this.context.createGain();
+
+    base.type = type;
+    base.frequency.value = Math.max(40, Number(frequency) || 124);
+    harmonic.type = 'sine';
+    harmonic.frequency.value = base.frequency.value * 2.01;
+
+    baseGain.gain.value = 0.82;
+    harmonicGain.gain.value = 0.18;
+
+    if (masterGain.gain?.setValueAtTime) {
+      masterGain.gain.setValueAtTime(0.0001, time);
+      masterGain.gain.exponentialRampToValueAtTime(
+        Math.max(0.0002, Number(volume) || 0.022),
+        time + 0.08,
+      );
+    } else {
+      masterGain.gain.value = Math.max(0.0002, Number(volume) || 0.022);
+    }
+
+    base.connect(baseGain);
+    harmonic.connect(harmonicGain);
+    baseGain.connect(masterGain);
+    harmonicGain.connect(masterGain);
+    masterGain.connect(this.master);
+
+    const hum = {
+      sources: [base, harmonic],
+      nodes: [baseGain, harmonicGain, masterGain],
+      masterGain,
+    };
+    this.continuousHums.set(owner, hum);
+
+    let ended = 0;
+    const cleanup = () => {
+      ended += 1;
+      if (ended < hum.sources.length) return;
+      for (const source of hum.sources) source.disconnect?.();
+      for (const node of hum.nodes) node.disconnect?.();
+    };
+    base.onended = cleanup;
+    harmonic.onended = cleanup;
+    base.start(time);
+    harmonic.start(time);
+    return true;
+  }
+
+  stopContinuousHum(owner, fadeSeconds = 0.09) {
+    const hum = this.continuousHums.get(owner);
+    if (!hum) return false;
+    this.continuousHums.delete(owner);
+
+    const time = this.context?.currentTime ?? 0;
+    const fade = Math.max(0, Number(fadeSeconds) || 0);
+    const gain = hum.masterGain?.gain;
+    if (gain?.cancelScheduledValues) gain.cancelScheduledValues(time);
+    if (gain?.setValueAtTime && gain?.exponentialRampToValueAtTime && fade > 0) {
+      gain.setValueAtTime(Math.max(0.0001, gain.value || 0.0001), time);
+      gain.exponentialRampToValueAtTime(0.0001, time + fade);
+    } else if (gain) {
+      gain.value = 0.0001;
+    }
+
+    for (const source of hum.sources) {
+      try {
+        source.stop(time + fade + 0.015);
+      } catch {
+        source.disconnect?.();
+      }
+    }
+    return true;
+  }
+
   tone(freq = 220, duration = 0.18, type = 'sine', volume = 0.1, when = 0) {
     if (!this.context) return;
     const source = this.context.createOscillator();
@@ -183,14 +346,14 @@ export class AudioEngine {
     source.stop(time + duration + 0.03);
   }
 
-  kick(when = 0) {
+  kick(when = 0, volume = 0.22) {
     if (!this.context) return;
     const source = this.context.createOscillator();
     const gain = this.context.createGain();
     const time = this.context.currentTime + when;
     source.frequency.setValueAtTime(130, time);
     source.frequency.exponentialRampToValueAtTime(45, time + 0.18);
-    gain.gain.setValueAtTime(0.22, time);
+    gain.gain.setValueAtTime(clamp(Number(volume) || 0.22, 0.001, 0.3), time);
     gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
     source.connect(gain);
     gain.connect(this.master);
@@ -205,7 +368,7 @@ export class AudioEngine {
     );
   }
 
-  hat(when = 0) {
+  hat(when = 0, volume = 0.07) {
     if (!this.context) return;
     if (!this.hatBuffer) {
       const length = Math.floor(this.context.sampleRate * 0.04);
@@ -219,7 +382,7 @@ export class AudioEngine {
     source.buffer = this.hatBuffer;
     filter.type = 'highpass';
     filter.frequency.value = 6500;
-    gain.gain.value = 0.07;
+    gain.gain.value = clamp(Number(volume) || 0.07, 0.001, 0.16);
     source.connect(filter);
     filter.connect(gain);
     gain.connect(this.master);
@@ -277,26 +440,29 @@ export class AudioEngine {
 
   async playAsset(
     id,
-    { owner = 'archive', label = id, loop = true, vibe = 0.28, baseVolume = 0.82 } = {},
+    { owner = 'archive', label = id, loop = true, vibe = 0.28, baseVolume = 0.82, offset = 0 } = {},
   ) {
     if (!this.context || !this.assets?.entry?.(id)) return false;
-    this.stop();
-    const generation = this.generation;
+    this.stopAsset(owner);
+    const generation = (this.assetGenerations.get(owner) ?? 0) + 1;
+    this.assetGenerations.set(owner, generation);
     const buffer = await this.assets.audio(id, this.context);
-    if (generation !== this.generation) return false;
+    if (generation !== this.assetGenerations.get(owner)) return false;
     this.setExternalTransport(owner, label, 0.25, { vibe, mixQuality: 0.92 });
     if (buffer) {
       const source = this.context.createBufferSource();
       source.buffer = buffer;
       source.loop = loop;
-      source.connect(this.master);
+      source.connect(this.sourceDestination(owner));
       source.onended = () => {
         source.disconnect();
-        this.voices.delete(source);
+        if (this.assetVoices.get(owner) === source) this.assetVoices.delete(owner);
         if (!loop) this.clearExternalTransport(owner);
       };
-      this.voices.set(source, []);
-      source.start();
+      this.assetVoices.set(owner, source);
+      const startOffset =
+        buffer.duration > 0 ? Math.max(0, Number(offset) || 0) % buffer.duration : 0;
+      source.start(0, startOffset);
       return true;
     }
 
@@ -310,10 +476,23 @@ export class AudioEngine {
     element.loop = loop;
     element.playsInline = true;
     element.src = url;
-    element.volume = clamp(baseVolume * this.environment.gain);
+    element.volume = clamp(baseVolume * this.sourceGain(owner));
+    const seek = () => {
+      if (!(offset > 0)) return;
+      try {
+        const duration = Number(element.duration);
+        element.currentTime =
+          Number.isFinite(duration) && duration > 0 ? Number(offset) % duration : Number(offset);
+      } catch {
+        // Remote media may not expose seeking until metadata is available.
+      }
+    };
+    if (element.readyState >= 1) seek();
+    else element.addEventListener?.('loadedmetadata', seek, { once: true });
     try {
       await element.play();
-      this.nativeMedia.set(owner, { element, baseVolume });
+      seek();
+      this.nativeMedia.set(owner, { element, baseVolume, owner, resumeAfterSuspend: false });
       element.onended = () => {
         this.nativeMedia.delete(owner);
         this.clearExternalTransport(owner);
@@ -329,17 +508,31 @@ export class AudioEngine {
   }
 
   stopAsset(owner = 'archive') {
+    this.assetGenerations.set(owner, (this.assetGenerations.get(owner) ?? 0) + 1);
+    const source = this.assetVoices.get(owner);
+    if (source) {
+      source.onended = null;
+      try {
+        source.stop();
+      } catch {
+        // Already ended.
+      }
+      source.disconnect?.();
+      this.assetVoices.delete(owner);
+    }
     const media = this.nativeMedia.get(owner);
     if (media) {
       media.element.pause();
       media.element.removeAttribute('src');
       media.element.load?.();
       this.nativeMedia.delete(owner);
+      if (!this.nativeMedia.size) this._nativeMediaResumePending = false;
     }
     this.clearExternalTransport(owner);
   }
 
   stop() {
+    for (const owner of [...this.continuousHums.keys()]) this.stopContinuousHum(owner, 0);
     this.generation++;
     if (this.timer !== null) this.timers.clearInterval(this.timer);
     this.timer = null;
@@ -355,34 +548,146 @@ export class AudioEngine {
       nodes.forEach((node) => node.disconnect());
     }
     this.voices.clear();
-    for (const [owner, media] of this.nativeMedia) {
-      media.element.pause();
-      media.element.removeAttribute('src');
-      media.element.load?.();
-      this.clearExternalTransport(owner);
+    for (const owner of new Set([...this.assetVoices.keys(), ...this.nativeMedia.keys()])) {
+      this.stopAsset(owner);
     }
-    this.nativeMedia.clear();
+    this.externalTransports.clear();
+    this._nativeMediaResumePending = false;
+    this._contextResumePending = false;
   }
 
   async suspend() {
+    this._nativeMediaResumePending = false;
+    this._contextResumePending = false;
+    for (const media of this.nativeMedia.values()) {
+      media.resumeAfterSuspend = media.element.paused !== true;
+      if (media.resumeAfterSuspend) media.element.volume = 0;
+    }
+
+    if (this.context?.state === 'running') {
+      this.setParam(this.environmentGain?.gain, 0.0001, 0.012);
+      // Give the output a very short fade before iOS tears down the app audio route. This removes
+      // the sharp discontinuity/click heard when Safari is backgrounded in the middle of the club.
+      if (typeof document !== 'undefined') {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, 32));
+      }
+    }
+
+    for (const media of this.nativeMedia.values()) {
+      if (media.resumeAfterSuspend) media.element.pause();
+    }
     if (this.context?.state === 'running') await this.context.suspend();
-    for (const media of this.nativeMedia.values()) media.element.pause();
+  }
+
+  async recoverAfterMicrophoneCapture() {
+    const audioSession = globalThis.navigator?.audioSession;
+    if (audioSession) {
+      try {
+        audioSession.type = 'playback';
+      } catch {
+        // Older Safari versions do not expose a writable Audio Session API.
+      }
+    }
+
+    this.setPrioritySource(null);
+
+    // Do not suspend a healthy AudioContext after microphone capture. Cycling the shared
+    // context here can strand Safari in an interrupted/inaudible output route even though
+    // recording completed successfully. If the context is already non-running, request a
+    // resume and let the next explicit playback gesture retry if the browser defers it.
+    const context = this.context;
+    if (
+      context &&
+      context.state !== 'running' &&
+      context.state !== 'closed' &&
+      typeof context.resume === 'function'
+    ) {
+      try {
+        await context.resume();
+      } catch {
+        // The normal gesture recovery path will retry on the next user playback action.
+      }
+    }
+
+    const hardSet = (parameter, value) => {
+      if (!parameter) return;
+      const now = this.context?.currentTime ?? 0;
+      parameter.cancelScheduledValues?.(now);
+      if (typeof parameter.setValueAtTime === 'function') parameter.setValueAtTime(value, now);
+      else parameter.value = value;
+    };
+
+    hardSet(this.environmentGain?.gain, this.environment.gain);
+    hardSet(this.environmentFilter?.frequency, this.environment.lowpassHz);
+
+    for (const [owner, bus] of this.sourceBuses) {
+      const environment = this.sourceEnvironments.get(owner) ?? {
+        gain: 1,
+        lowpassHz: 20000,
+      };
+      hardSet(bus.gain?.gain, this.sourceGain(owner));
+      hardSet(bus.filter?.frequency, environment.lowpassHz);
+    }
+    for (const [owner, media] of this.nativeMedia) {
+      media.element.volume = clamp(media.baseVolume * this.sourceGain(owner));
+    }
+
+    return this.context?.state === 'running';
   }
 
   async resume() {
-    if (this.context?.state === 'suspended') await this.context.resume();
-    for (const media of this.nativeMedia.values()) {
+    let contextRetryNeeded = false;
+    const context = this.context;
+    if (context && context.state !== 'running' && context.state !== 'closed') {
       try {
-        await media.element.play();
+        // Safari can report an iOS-specific `interrupted` state after backgrounding. Calling
+        // resume() from visibilitychange may fail until the next real user gesture, but that must
+        // not prevent native media from being restarted in the meantime.
+        await context.resume();
       } catch {
-        // Browser can require another user gesture; gameplay can continue silently.
+        contextRetryNeeded = true;
       }
     }
+
+    if (context?.state === 'running') {
+      this.setParam(this.environmentGain?.gain, this.environment.gain, 0.06);
+    } else if (context && context.state !== 'closed') {
+      contextRetryNeeded = true;
+    }
+
+    let mediaRetryNeeded = false;
+    for (const [owner, media] of this.nativeMedia) {
+      if (media.resumeAfterSuspend !== true) continue;
+      try {
+        media.element.volume = 0;
+        await media.element.play();
+        media.resumeAfterSuspend = false;
+        this.applySourceEnvironment(owner);
+      } catch {
+        // iOS can also require a gesture for HTMLMediaElement playback. Preserve that playback
+        // intent so touchstart/pointerdown can retry instead of silently losing the house DJ.
+        mediaRetryNeeded = true;
+      }
+    }
+
+    this._nativeMediaResumePending = mediaRetryNeeded;
+    this._contextResumePending = contextRetryNeeded;
+    return !(contextRetryNeeded || mediaRetryNeeded);
   }
 
   async dispose() {
     this.stop();
     this.externalTransports.clear();
+    this.continuousHums.clear();
+    this.assetVoices.clear();
+    this.assetGenerations.clear();
+    for (const bus of this.sourceBuses.values()) {
+      bus.input?.disconnect?.();
+      bus.filter?.disconnect?.();
+      bus.gain?.disconnect?.();
+    }
+    this.sourceBuses.clear();
+    this.sourceEnvironments.clear();
     this.master?.disconnect();
     this.environmentFilter?.disconnect();
     this.environmentGain?.disconnect();

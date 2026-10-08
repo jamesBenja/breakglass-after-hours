@@ -13,10 +13,12 @@ const seeded = (index, salt = 0) => {
   return x - Math.floor(x);
 };
 
+const setVisible = (object, visible) => {
+  if (object) object.visible = visible;
+};
+
 /**
- * Small ambient system for the founders' rooftop hangout. It keeps the throwback readable without
- * scripting the NPC dialogue: cigarette smoke drifts above the group and, every so often, a harmless
- * bit of studio junk arcs over the parapet into the alley dumpster below.
+ * Rooftop ambience plus physical one-shot animations used by the roof interactions.
  */
 export class RoofSystem {
   constructor(root, config = {}) {
@@ -26,9 +28,13 @@ export class RoofSystem {
     this.throwCount = 0;
     this.throwAge = Infinity;
     this.throwDuration = 1.45;
-    this.nextThrow = 5.5;
+    this.nextThrow = 7.5;
     this.start = new Vector3();
     this.end = new Vector3();
+    this.activeJunk = null;
+    this.gentrificationAge = -1;
+    this.gentrificationDuration = 3.2;
+    this.acKickAge = -1;
 
     this.group = new Group();
     this.group.name = 'roof-throwback-ambience';
@@ -39,11 +45,24 @@ export class RoofSystem {
       roughness: 0.88,
       metalness: 0.04,
     });
-    this.junk = new Mesh(new BoxGeometry(0.18, 0.12, 0.22), this.junkMaterial);
-    this.junk.name = 'roof-junk-in-flight';
-    this.junk.visible = false;
-    this.junk.castShadow = true;
-    this.group.add(this.junk);
+
+    this.throwables = {
+      box: new Mesh(new BoxGeometry(0.38, 0.32, 0.42), this.junkMaterial),
+      lumber: new Mesh(new BoxGeometry(0.13, 0.13, 1.15), this.junkMaterial),
+      chair: new Group(),
+    };
+    const chairSeat = new Mesh(new BoxGeometry(0.55, 0.08, 0.55), this.junkMaterial);
+    const chairBack = new Mesh(new BoxGeometry(0.55, 0.65, 0.08), this.junkMaterial);
+    chairBack.position.set(0, 0.33, 0.24);
+    this.throwables.chair.add(chairSeat, chairBack);
+    for (const [kind, object] of Object.entries(this.throwables)) {
+      object.name = `roof-${kind}-in-flight`;
+      object.visible = false;
+      object.traverse?.((child) => {
+        if (child.isMesh) child.castShadow = true;
+      });
+      this.group.add(object);
+    }
 
     this.smokeGeometry = new SphereGeometry(0.11, 7, 5);
     this.smoke = [];
@@ -71,38 +90,113 @@ export class RoofSystem {
     }
   }
 
-  beginThrow() {
+  sceneObject(name) {
+    return this.root.parent?.getObjectByName?.(name) ?? null;
+  }
+
+  beginThrow({ source = null, kind = 'box', player = false } = {}) {
     const sources = this.config.throwSources ?? [[0, 1.1, 2.8]];
     const target = this.config.dumpster ?? [1.4, -2.8, 7.0];
-    const source = sources[this.throwCount % sources.length];
-    this.start.fromArray(source);
+    const selected = source ?? sources[this.throwCount % sources.length];
+    this.start.fromArray(selected);
     this.end.fromArray(target);
     this.throwAge = 0;
     this.throwCount += 1;
-    this.junk.visible = true;
-    this.junk.scale.set(
-      0.7 + seeded(this.throwCount, 12) * 0.7,
-      0.65 + seeded(this.throwCount, 13) * 0.8,
-      0.7 + seeded(this.throwCount, 14) * 0.7,
+
+    for (const object of Object.values(this.throwables)) object.visible = false;
+    this.activeJunk = this.throwables[kind] ?? this.throwables.box;
+    this.activeJunk.visible = true;
+    this.activeJunk.position.copy(this.start);
+    this.activeJunk.rotation.set(0, 0, 0);
+    this.junkMaterial.color.setHex(
+      kind === 'lumber' ? 0xa17d53 : kind === 'chair' ? 0x5f676f : 0x85745f,
     );
-    const palette = [0x85745f, 0x5f676f, 0x6e533f, 0x9a8d72];
-    this.junkMaterial.color.setHex(palette[this.throwCount % palette.length]);
-    this.nextThrow = 9 + seeded(this.throwCount, 77) * 8;
+    this.nextThrow = player ? 13 : 9 + seeded(this.throwCount, 77) * 8;
+  }
+
+  throwInteractive(kind, source) {
+    this.beginThrow({ kind, source, player: true });
+  }
+
+  kickAc() {
+    this.acKickAge = 0;
+  }
+
+  syncGentrification(done) {
+    if (this.gentrificationAge >= 0) return;
+    const oldSkyline = this.sceneObject('roof-skyline-old');
+    const newSkyline = this.sceneObject('roof-skyline-gentrified');
+    if (done) {
+      setVisible(oldSkyline, false);
+      setVisible(newSkyline, true);
+      if (newSkyline) {
+        newSkyline.position.y = 0;
+        newSkyline.rotation.z = 0;
+      }
+    } else {
+      setVisible(oldSkyline, true);
+      setVisible(newSkyline, false);
+    }
+  }
+
+  startGentrification() {
+    const oldSkyline = this.sceneObject('roof-skyline-old');
+    const newSkyline = this.sceneObject('roof-skyline-gentrified');
+    if (!oldSkyline || !newSkyline) return false;
+    this.gentrificationAge = 0;
+    oldSkyline.visible = true;
+    oldSkyline.position.y = 0;
+    oldSkyline.rotation.z = 0;
+    newSkyline.visible = true;
+    newSkyline.position.y = -8;
+    return true;
   }
 
   update(dt) {
     this.elapsed += dt;
     this.nextThrow -= dt;
-    if (this.nextThrow <= 0 && !this.junk.visible) this.beginThrow();
+    if (this.nextThrow <= 0 && !this.activeJunk?.visible) this.beginThrow();
 
-    if (this.junk.visible) {
+    if (this.activeJunk?.visible) {
       this.throwAge += dt;
       const t = Math.min(1, this.throwAge / this.throwDuration);
-      this.junk.position.lerpVectors(this.start, this.end, t);
-      this.junk.position.y += Math.sin(Math.PI * t) * 2.25;
-      this.junk.rotation.x += dt * 5.4;
-      this.junk.rotation.z += dt * 3.8;
-      if (t >= 1) this.junk.visible = false;
+      this.activeJunk.position.lerpVectors(this.start, this.end, t);
+      this.activeJunk.position.y += Math.sin(Math.PI * t) * 2.25;
+      this.activeJunk.rotation.x += dt * 5.4;
+      this.activeJunk.rotation.z += dt * 3.8;
+      if (t >= 1) {
+        this.activeJunk.visible = false;
+        this.activeJunk = null;
+      }
+    }
+
+    if (this.acKickAge >= 0) {
+      this.acKickAge += dt;
+      const ac = this.sceneObject('roof-ac-unit');
+      if (ac) {
+        ac.rotation.z = Math.sin(this.acKickAge * 38) * Math.max(0, 0.055 - this.acKickAge * 0.04);
+      }
+      if (this.acKickAge > 1.3) {
+        if (ac) ac.rotation.z = 0;
+        this.acKickAge = -1;
+      }
+    }
+
+    if (this.gentrificationAge >= 0) {
+      this.gentrificationAge += dt;
+      const t = Math.min(1, this.gentrificationAge / this.gentrificationDuration);
+      const oldSkyline = this.sceneObject('roof-skyline-old');
+      const newSkyline = this.sceneObject('roof-skyline-gentrified');
+      if (oldSkyline) {
+        oldSkyline.rotation.z = t * 0.72;
+        oldSkyline.position.y = -t * 7;
+      }
+      if (newSkyline) newSkyline.position.y = -8 + t * 8;
+      if (t >= 1) {
+        setVisible(oldSkyline, false);
+        if (newSkyline) newSkyline.position.y = 0;
+        this.gentrificationAge = -1;
+      }
     }
 
     for (let i = 0; i < this.smoke.length; i++) {
@@ -121,12 +215,20 @@ export class RoofSystem {
   }
 
   snapshot() {
-    return { throws: this.throwCount, nextThrow: Math.max(0, this.nextThrow) };
+    return {
+      throws: this.throwCount,
+      nextThrow: Math.max(0, this.nextThrow),
+      gentrifying: this.gentrificationAge >= 0,
+    };
   }
 
   dispose() {
     this.group.removeFromParent();
-    this.junk.geometry.dispose();
+    for (const object of Object.values(this.throwables)) {
+      object.traverse?.((child) => {
+        if (child.isMesh) child.geometry?.dispose?.();
+      });
+    }
     this.junkMaterial.dispose();
     this.smokeGeometry.dispose();
     for (const smoke of this.smoke) smoke.material.dispose();

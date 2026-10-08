@@ -1,4 +1,4 @@
-import { ExtrudeGeometry, Group, Mesh, Shape } from 'three';
+import { ExtrudeGeometry, Group, Mesh, MeshBasicMaterial, Shape } from 'three';
 import { buildStudioEquipment } from './upstairsFixtures.js';
 import { buildSelectableStudioGear } from './studioGearProps.js';
 import { at } from '../../world/upstairs/plan.js';
@@ -40,7 +40,7 @@ function floorMaterialFor(room) {
   if (room.id === 'live-room') return liveRoomFloorMaterial();
   if (room.id === 'dead-room') return deadRoomFloorMaterial();
   if (room.id === 'bar-kitchen') return kitchenFloorMaterial();
-  if (['circulation', 'emergency-hall', 'east-hall', 'entry', 'clark-stair'].includes(room.id))
+  if (['circulation', 'emergency-hall', 'east-hall', 'below-stair', 'clark-exit'].includes(room.id))
     return corridorFloorMaterial();
   if (room.id === 'storage') return darkFloorMaterial();
   return studioFloorMaterial();
@@ -247,7 +247,6 @@ function buildLandmarks(root, definition) {
   }
 
   for (const [px, pz] of [
-    [720, 986],
     [725, 947],
     [713, 898],
     [671, 898],
@@ -305,12 +304,41 @@ function buildLandmarks(root, definition) {
     box(root, 0.03, 0.04, 0.64, trim, x - 0.008, 1.42, z);
   }
 
-  const [ex, , ez] = at(720, 1038);
-  box(root, 1.9, 2.2, 0.06, dark, ex, 1.1, ez);
-  box(root, 1.9, 0.11, 0.07, trim, ex, 2.15, ez - 0.02);
-  label(root, 'MAIN ENTRY', ex, 2.65, ez, 0.36, '#d8f0df');
-  const [cx, , cz] = at(144, 958);
-  label(root, '↓ BELOW', cx, 2.0, cz, 0.46, '#ead1f0');
+  // Hidden endgame key at the top of the existing Live Room jump route. It is shaped like a
+  // miniature condo tower so the pickup reads before the player knows what it unlocks.
+  const gentrificationKey = new Group();
+  gentrificationKey.name = 'gentrification-key';
+  gentrificationKey.position.set(1.7, 3.12, 1.5);
+  gentrificationKey.rotation.y = -0.28;
+  root.add(gentrificationKey);
+  const keyGold = new MeshBasicMaterial({ color: 0xffc83d });
+  box(gentrificationKey, 0.34, 0.72, 0.12, keyGold, 0, 0.38, 0);
+  box(gentrificationKey, 0.54, 0.12, 0.12, keyGold, 0.1, 0.08, 0);
+  box(gentrificationKey, 0.12, 0.22, 0.12, keyGold, 0.31, -0.02, 0);
+  for (const [x, y] of [
+    [-0.08, 0.52],
+    [0.08, 0.52],
+    [-0.08, 0.34],
+    [0.08, 0.34],
+  ])
+    box(gentrificationKey, 0.07, 0.09, 0.015, mat(0xfff1a8, 0.25, 0.05), x, y, -0.068);
+  label(gentrificationKey, 'GOLD KEY', 0, 1.05, 0, 0.18, '#ffd861');
+
+  const [entryX, , entryZ] = at(544, 1110);
+  label(root, 'MAIN ENTRY — STUDIOS', entryX, 2.68, entryZ, 0.4, '#d8f0df');
+
+  const [belowX, , belowZ] = at(720, 1004);
+  label(root, 'STAIRS ↓ BELOW BREAKGLASS', belowX, 2.35, belowZ, 0.42, '#ead1f0');
+  const stairRail = mat(0x454b50, 0.52, 0.18);
+  for (const pz of [986, 1004, 1022, 1038]) {
+    for (const px of [699, 741]) {
+      const [x, , z] = at(px, pz);
+      box(root, 0.06, 0.9, 0.06, stairRail, x, 0.45, z);
+    }
+  }
+
+  const [clarkX, , clarkZ] = at(144, 958);
+  label(root, 'EXIT TO CLARK', clarkX, 2.1, clarkZ, 0.42, '#d8f0df');
 
   const [sx, , sz] = at(620, 535);
   box(root, 3.8, 2.2, 0.11, dark, sx, 1.72, sz);

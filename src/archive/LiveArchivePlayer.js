@@ -1,9 +1,21 @@
-export function showLiveArchivePlayer(ui, session, onClose = () => {}) {
+function emitSharedArchive(detail) {
+  if (typeof CustomEvent !== 'function' || !globalThis.dispatchEvent) return;
+  globalThis.dispatchEvent(new CustomEvent('breakglass:live-archive', { detail }));
+}
+
+export function showLiveArchivePlayer(
+  ui,
+  session,
+  onClose = () => {},
+  { remote = false, startSeconds = 0 } = {},
+) {
   if (!ui?.document || !session) return false;
   ui.clearPanel(
     'LIVE ROOM · LIVE FROM BREAKGLASS',
     `${session.label} · ${session.source}. Loaded from the historic Neve archive station.`,
   );
+
+  if (!remote) emitSharedArchive({ action: 'play', sessionId: session.id, position: startSeconds });
 
   if (!session.youtubeId) {
     const note = ui.document.createElement('p');
@@ -13,7 +25,8 @@ export function showLiveArchivePlayer(ui, session, onClose = () => {}) {
   } else {
     const frame = ui.document.createElement('iframe');
     frame.title = session.label;
-    frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(session.youtubeId)}?autoplay=1&playsinline=1&rel=0`;
+    const start = Math.max(0, Math.floor(Number(startSeconds) || 0));
+    frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(session.youtubeId)}?autoplay=1&playsinline=1&rel=0&start=${start}`;
     frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
     frame.allowFullscreen = true;
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
@@ -31,7 +44,10 @@ export function showLiveArchivePlayer(ui, session, onClose = () => {}) {
 
   const close = ui.document.createElement('button');
   close.textContent = 'Close screening';
-  close.onclick = () => onClose();
+  close.onclick = () => {
+    if (!remote) emitSharedArchive({ action: 'stop', sessionId: session.id });
+    onClose();
+  };
   ui.buttons.appendChild(close);
   return true;
 }
