@@ -1,6 +1,7 @@
 import {
   CANONICAL_MULTIPLAYER_SERVER,
   liveVerificationServer,
+  fetchAccessWithRetry,
 } from '../runtime/LiveBackendPolicy.js';
 
 const TOKEN_STORAGE_KEY = 'breakglass.invitation.token';
@@ -167,11 +168,11 @@ export async function resolveInvitationAccess({ fetchRef = globalThis.fetch } = 
   if (!token) return { ...invitationProfile('participant'), verified: false, source: 'default' };
 
   try {
-    const response = await fetchRef(`${verificationServer()}/invite/verify`, {
+    const response = await fetchAccessWithRetry(`${verificationServer()}/invite/verify`, {
       method: 'GET',
       cache: 'no-store',
       headers: { Authorization: `Bearer ${token}` },
-    });
+    }, fetchRef);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.ok !== true || !INVITATION_PROFILES[payload.type]) {
       forgetInvitation();
@@ -186,7 +187,8 @@ export async function resolveInvitationAccess({ fetchRef = globalThis.fetch } = 
       source: linkToken ? 'link' : 'stored',
     };
   } catch {
-    if (linkToken) stripInvitationToken();
+    // Keep the link token through a temporary cold-start or network outage.
+    // Otherwise a single Railway 502 could permanently discard a valid invitation.
     return { ...invitationProfile('participant'), verified: false, source: 'unavailable' };
   }
 }
