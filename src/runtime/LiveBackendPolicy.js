@@ -37,3 +37,37 @@ export function liveVerificationServer({ search = '', production = true } = {}) 
   const selection = liveBackendSelection({ search, production });
   return selection.server;
 }
+
+/**
+ * Railway Free may wake a sleeping auth server on the first request. Its proxy
+ * can briefly return 502/503 or fail a CORS preflight during the cold start.
+ * Retry only transient failures; a real 401 is authoritative and must not retry.
+ */
+export async function fetchAccessWithRetry(
+  url,
+  options = {},
+  fetchRef = globalThis.fetch,
+  retryDelaysMs = [450, 1000, 2000, 3200, 4800],
+) {
+  let lastError = new Error('Breakglass access verification temporarily unavailable.');
+  for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
+    try {
+      const response = await fetchRef(url, options);
+      if (
+        response.status !== 0 &&
+        response.status !== 408 &&
+        response.status !== 429 &&
+        !(response.status >= 500 && response.status <= 599)
+      ) {
+        return response;
+      }
+      lastError = new Error(`Verification backend unavailable (HTTP ${response.status}).`);
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < retryDelaysMs.length) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelaysMs[attempt]));
+    }
+  }
+  throw lastError;
+}

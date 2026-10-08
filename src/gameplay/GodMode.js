@@ -2,6 +2,7 @@ import { MIXING_CHALLENGE_IDS } from '../studio/MixingChallenge.js';
 import {
   CANONICAL_MULTIPLAYER_SERVER,
   liveVerificationServer,
+  fetchAccessWithRetry,
 } from '../runtime/LiveBackendPolicy.js';
 
 export const GOD_MODE_SAVE_KEY = 'breakglass.after-hours.god.v1';
@@ -79,7 +80,7 @@ export async function resolveGodModeAccess() {
   if (!token) return { enabled: false, reason: 'none' };
 
   try {
-    const response = await fetch(`${verificationServer()}/god-mode/verify`, {
+    const response = await fetchAccessWithRetry(`${verificationServer()}/god-mode/verify`, {
       method: 'GET',
       cache: 'no-store',
       headers: { Authorization: `Bearer ${token}` },
@@ -101,7 +102,7 @@ export async function resolveGodModeAccess() {
   } catch {
     // Fail closed, but retain a previously valid token so a temporary server outage does not
     // permanently revoke the browser. The next successful load will verify it again.
-    if (linkToken) stripAccessTokenFromLocation();
+    // Keep the link token so a cold-start failure never destroys access.
     return { enabled: false, reason: 'unavailable' };
   }
 }
