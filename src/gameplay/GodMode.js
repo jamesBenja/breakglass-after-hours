@@ -80,14 +80,11 @@ export async function resolveGodModeAccess() {
   if (!token) return { enabled: false, reason: 'none' };
 
   try {
-    const response = await fetchAccessWithRetry(
-      `${verificationServer()}/god-mode/verify`,
-      {
-        method: 'GET',
-        cache: 'no-store',
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
+    const response = await fetchAccessWithRetry(`${verificationServer()}/god-mode/verify`, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!response.ok) {
       forgetToken(token);
       if (linkToken) stripAccessTokenFromLocation();
