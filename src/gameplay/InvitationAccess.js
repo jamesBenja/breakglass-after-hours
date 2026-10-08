@@ -168,11 +168,15 @@ export async function resolveInvitationAccess({ fetchRef = globalThis.fetch } = 
   if (!token) return { ...invitationProfile('participant'), verified: false, source: 'default' };
 
   try {
-    const response = await fetchAccessWithRetry(`${verificationServer()}/invite/verify`, {
-      method: 'GET',
-      cache: 'no-store',
-      headers: { Authorization: `Bearer ${token}` },
-    }, fetchRef);
+    const response = await fetchAccessWithRetry(
+      `${verificationServer()}/invite/verify`,
+      {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${token}` },
+      },
+      fetchRef,
+    );
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.ok !== true || !INVITATION_PROFILES[payload.type]) {
       forgetInvitation();
