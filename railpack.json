@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "install": {
+      "commands": [
+        "npm install --omit=dev --ignore-scripts --no-audit --no-fund"
+      ]
+    },
+    "build": {
+      "inputs": [
+        {
+          "step": "install"
+        }
+      ],
+      "commands": [
+        "echo 'Breakglass multiplayer server requires no compile step'"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "node server/multiplayerServer.mjs"
+  }
+}

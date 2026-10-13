@@ -48,7 +48,7 @@ for (const pass of ['A', 'B'])
     camera.configure(level.cameraOffset, player.position, world);
     follow(player, world, mainRoute, camera);
     follow(player, world, [...mainRoute].reverse(), camera);
-    follow(player, world, ['eastJunction', ...loopRoute, 'eastJunction', 'entry'], camera);
+    follow(player, world, ['eastJunction', ...loopRoute, 'entryPassage', 'entry'], camera);
     follow(player, world, secondaryRoute, camera);
     player.dispose();
   });
@@ -58,6 +58,7 @@ for (const pass of ['A', 'B'])
     const level = createUpstairsDefinition(pass),
       world = new CollisionWorld(level.navigation);
     for (const door of level.doors) {
+      if (door.exterior) continue;
       const position = new Vector3(
         door.center[0] + door.normal[0] * 0.7,
         0,
@@ -222,7 +223,7 @@ test('optional overlook reaches the wall ledge while the Neve Suite remains open
   follow(
     player,
     world,
-    ['live', 'galleryNE', 'galleryE', 'gallerySE', 'eastJunction', 'entry'],
+    ['live', 'galleryNE', 'galleryE', 'gallerySE', 'entryPassage', 'entry'],
     camera,
   );
   assert.equal(player.grounded, true);

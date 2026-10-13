@@ -87,11 +87,11 @@ test('bar cuts off heavily intoxicated player and intoxication decays over time'
   assert.ok(h.state.data.intoxication > 0.88);
 });
 
-test('bar service only intercepts its downstairs interactions', () => {
+test('bar service keeps bartenders downstairs but supports studio coffee upstairs', () => {
   const h = harness();
   assert.equal(h.system.handle({ npcId: 'nora' }), false);
   assert.equal(h.system.handle({ action: 'coffee' }), true);
   h.system.sceneManager.current.definition.id = 'upstairs';
   assert.equal(h.system.handle({ npcId: 'courtney' }), false);
-  assert.equal(h.system.handle({ action: 'coffee' }), false);
+  assert.equal(h.system.handle({ action: 'coffee' }), true);
 });

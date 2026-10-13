@@ -60,7 +60,14 @@
   text-transform: uppercase;
 }
 
-.kombat-exit {
+.kombat-top-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.kombat-exit,
+.kombat-roster-button {
   flex: 0 0 auto;
   min-height: 38px;
   padding: 7px 9px;
@@ -72,17 +79,120 @@
   touch-action: manipulation;
 }
 
+.kombat-roster-button {
+  border-color: #5c7284;
+  background: #142029;
+}
+
+.kombat-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #4a314d;
+  border-radius: 10px;
+  background: #08070b;
+  box-shadow: inset 0 0 45px rgba(224, 63, 171, 0.08);
+}
+
 .kombat-canvas {
   display: block;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  border: 1px solid #4a314d;
-  border-radius: 10px;
   background: #08070b;
-  box-shadow: inset 0 0 45px rgba(224, 63, 171, 0.08);
   touch-action: none;
+}
+
+.kombat-selection {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 14px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(116, 49, 126, 0.28), transparent 44%),
+    linear-gradient(#100b15, #050407);
+  -webkit-overflow-scrolling: touch;
+}
+
+.kombat-roster-intro {
+  display: grid;
+  gap: 4px;
+  margin: 0 auto 12px;
+  text-align: center;
+}
+
+.kombat-roster-intro strong {
+  font-size: clamp(18px, 4vw, 30px);
+  letter-spacing: 0.08em;
+}
+
+.kombat-roster-intro span {
+  color: #c5abc6;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.kombat-roster {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: min(980px, 100%);
+  margin: 0 auto;
+  padding-bottom: 8px;
+}
+
+.kombat-fighter-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  gap: 3px 9px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #553b59;
+  border-radius: 10px;
+  background: rgba(25, 18, 28, 0.92);
+  color: #f7f2f7;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.kombat-fighter-card i {
+  grid-row: 1 / 4;
+  width: 36px;
+  height: 100%;
+  min-height: 64px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 7px;
+}
+
+.kombat-fighter-card strong {
+  font-size: 11px;
+  letter-spacing: 0.055em;
+}
+
+.kombat-fighter-card span {
+  color: #c8b7c8;
+  font-size: 9px;
+  line-height: 1.25;
+}
+
+.kombat-fighter-card small {
+  overflow: hidden;
+  color: #e2bbd4;
+  font-size: 8px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kombat-fighter-card:hover,
+.kombat-fighter-card:focus-visible {
+  border-color: #d16bb0;
+  background: #2d1b30;
 }
 
 .kombat-status {
@@ -152,8 +262,6 @@
   background: #514157;
 }
 
-/* Phone layout: four large utility controls above three large attacks. Keeping the controls
-   inside the dynamic viewport prevents Safari's bottom chrome from covering them. */
 @media (max-width: 759px), (hover: none) and (pointer: coarse) {
   .underground-kombat {
     grid-template-rows: auto minmax(0, 1fr) auto auto;
@@ -166,6 +274,34 @@
 
   .kombat-topbar span {
     display: none;
+  }
+
+  .kombat-top-actions {
+    gap: 4px;
+  }
+
+  .kombat-exit,
+  .kombat-roster-button {
+    min-height: 34px;
+    padding: 6px 7px;
+    font-size: 8px;
+  }
+
+  .kombat-selection {
+    padding: 8px;
+  }
+
+  .kombat-roster {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .kombat-fighter-card {
+    padding: 7px;
+  }
+
+  .kombat-fighter-card i {
+    min-height: 52px;
   }
 
   .kombat-status {
@@ -182,7 +318,7 @@
 
   .kombat-controls button {
     min-height: 52px;
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .kombat-controls button[data-action='left'] {
@@ -230,6 +366,10 @@
     min-height: 230px;
   }
 
+  .kombat-roster {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .kombat-controls {
     width: min(760px, 88vw);
     justify-self: center;
@@ -237,6 +377,12 @@
 
   .kombat-controls button {
     min-height: 46px;
+  }
+}
+
+@media (min-width: 1120px) {
+  .kombat-roster {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -263,9 +409,41 @@
     display: none;
   }
 
-  .kombat-exit {
+  .kombat-exit,
+  .kombat-roster-button {
     min-height: 32px;
     padding: 5px 8px;
+  }
+
+  .kombat-selection {
+    padding: 6px;
+  }
+
+  .kombat-roster-intro {
+    margin-bottom: 6px;
+  }
+
+  .kombat-roster-intro strong {
+    font-size: 15px;
+  }
+
+  .kombat-roster {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .kombat-fighter-card {
+    grid-template-columns: 28px minmax(0, 1fr);
+    padding: 5px;
+  }
+
+  .kombat-fighter-card i {
+    width: 26px;
+    min-height: 40px;
+  }
+
+  .kombat-fighter-card span {
+    display: none;
   }
 
   .kombat-controls {
@@ -275,6 +453,6 @@
 
   .kombat-controls button {
     min-height: 40px;
-    font-size: 9px;
+    font-size: 8px;
   }
 }

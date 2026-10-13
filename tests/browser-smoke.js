@@ -147,7 +147,15 @@ ui.ready(async () => {
     await clickAction('Play Night Bus');
     assert(game.audio.trackId === 'night-bus', 'Spectra console plays Night Bus');
     const context = game.audio.context;
-    await route(mainRoute.slice(15));
+    await route([
+      'mixing',
+      'mixingAisleSouth',
+      'gallerySW',
+      'galleryS',
+      'gallerySE',
+      'eastJunction',
+      'belowStairsBottom',
+    ]);
     travel('downstairs');
     assert(
       game.audio.context === context && game.audio.trackId === 'night-bus',
@@ -183,8 +191,7 @@ ui.ready(async () => {
     await walkTo(-2.5, -2.25);
     await walkTo(-5.9, -2.25);
     travel('upstairs');
-    await route([...mainRoute].reverse().slice(1));
-    await route(['eastJunction', ...loopRoute, 'eastJunction', 'entry']);
+    await route(['eastJunction', ...loopRoute, 'entryPassage', 'entry']);
 
     await route(secondaryRoute);
     if (game.sceneManager.current.definition.pass === 'B') {

@@ -1,6 +1,7 @@
 import { CanvasTexture, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { PlayerController } from '../player/PlayerController.js';
 import { normalizeAvatar } from '../avatar/profile.js';
+import { RemoteMaddox } from './RemoteMaddox.js';
 
 const shortestAngle = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
 
@@ -41,15 +42,16 @@ export class RemotePlayer {
     this.object.name = `remote-player:${id}`;
     this.targetPosition = new Vector3();
     this.lastTargetPosition = new Vector3();
+    this.interpolatedPosition = new Vector3();
+    this.collisionProbe = new Vector3();
     this.targetRotationY = 0;
     this.sceneId = null;
     this.moving = false;
     this.dancing = false;
     this.seated = false;
     this.grounded = true;
-    this.gesture = null;
-    this.gestureRemaining = 0;
     this.lastPacketAt = performance.now();
+    this.maddox = null;
 
     const label = makeNameSprite(this.avatar.displayName);
     this.nameSprite = label.sprite;
@@ -73,6 +75,7 @@ export class RemotePlayer {
 
   applyState(state = {}, { immediate = false } = {}) {
     const sceneId = typeof state.sceneId === 'string' ? state.sceneId : (this.sceneId ?? 'alley');
+    const changedScene = this.sceneId !== null && sceneId !== this.sceneId;
     this.attach(sceneId);
     const position = Array.isArray(state.position) ? state.position : [0, 0, 0];
     this.lastTargetPosition.copy(this.targetPosition);
@@ -87,21 +90,57 @@ export class RemotePlayer {
     this.seated = state.seated === true;
     this.grounded = state.grounded !== false;
     this.lastPacketAt = performance.now();
-    if (immediate) {
+    if (!this.maddox && state.maddox?.unlocked === true) {
+      this.maddox = new RemoteMaddox({
+        ownerId: this.id,
+        ownerName: this.avatar.displayName,
+        scenes: this.scenes,
+      });
+    }
+    this.maddox?.applyState(state.maddox, sceneId, { immediate: immediate || changedScene });
+    if (immediate || changedScene) {
+      // Scene transitions are intentional teleports between different coordinate systems. Snap
+      // them instead of interpolating a remote avatar through every wall between the two rooms.
       this.object.position.copy(this.targetPosition);
       this.object.rotation.y = this.targetRotationY;
     }
   }
 
   emote(kind) {
-    this.gesture = kind;
-    this.gestureRemaining = kind === 'dance' ? 1.6 : 0.85;
-    if (kind === 'dance') this.controller.dance(1.6);
+    if (kind === 'dance') {
+      this.controller.dance(1.8);
+      return;
+    }
+    this.controller.performMultiplayerGesture?.(kind);
+  }
+
+  facePosition(position) {
+    if (!position) return;
+    const dx = Number(position.x ?? position[0]) - this.object.position.x;
+    const dz = Number(position.z ?? position[2]) - this.object.position.z;
+    if (Math.hypot(dx, dz) > 0.01) {
+      const facing = Math.atan2(dx, dz);
+      this.targetRotationY = facing;
+      this.object.rotation.y = facing;
+    }
   }
 
   update(dt) {
     const positionBlend = 1 - Math.exp(-13 * dt);
-    this.object.position.lerp(this.targetPosition, positionBlend);
+    this.interpolatedPosition.copy(this.object.position).lerp(this.targetPosition, positionBlend);
+    const level = this.scenes.get(this.sceneId);
+    const collision = level?.collision;
+    if (collision) {
+      const dx = this.interpolatedPosition.x - this.object.position.x;
+      const dz = this.interpolatedPosition.z - this.object.position.z;
+      this.collisionProbe.copy(this.object.position);
+      this.collisionProbe.y = this.interpolatedPosition.y;
+      collision.move(this.collisionProbe, dx, dz, { grounded: this.grounded });
+      if (!this.grounded) this.collisionProbe.y = this.interpolatedPosition.y;
+      this.object.position.copy(this.collisionProbe);
+    } else {
+      this.object.position.copy(this.interpolatedPosition);
+    }
     this.object.rotation.y +=
       shortestAngle(this.object.rotation.y, this.targetRotationY) * (1 - Math.exp(-16 * dt));
 
@@ -119,15 +158,7 @@ export class RemotePlayer {
     if (this.dancing)
       this.controller.danceRemaining = Math.max(this.controller.danceRemaining, 0.18);
     this.controller.animate(dt);
-
-    this.gestureRemaining = Math.max(0, this.gestureRemaining - dt);
-    if (this.gestureRemaining > 0 && this.gesture !== 'dance') {
-      const pulse = Math.sin((1 - this.gestureRemaining / 0.85) * Math.PI * 3);
-      this.controller.rightArm.rotation.z = -0.55 - Math.abs(pulse) * 1.05;
-      this.controller.rightArm.rotation.x += pulse * 0.22;
-    } else if (this.gestureRemaining <= 0) {
-      this.gesture = null;
-    }
+    this.maddox?.update(dt);
 
     // If updates stop arriving, do not leave a remote avatar walking forever.
     if (packetAge > 0.8) {
@@ -150,6 +181,7 @@ export class RemotePlayer {
   }
 
   dispose() {
+    this.maddox?.dispose();
     this.nameTexture.dispose();
     this.nameMaterial.dispose();
     this.controller.dispose();

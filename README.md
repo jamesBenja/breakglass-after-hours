@@ -19,6 +19,25 @@ pnpm dev
 
 Do not open the new `index.html` directly from disk: it is a Vite module entry point.
 
+## Canonical live game
+
+The public playtest has one canonical game build. The deployment source is
+`feat/multiplayer-phase-2-shared-world`, and the GitHub Pages workflow is the only workflow
+allowed to publish the front end.
+
+Normal entry, guestlist, DJ, producer, resident producer, promoter and God Mode all load the same
+compiled game. Those profiles may change permissions, save namespace or initial spawn, but they
+must never select a different branch, bundle, spatial pass or multiplayer backend.
+
+Production deliberately ignores the development-only `pass`, `server`, `room` and `offline`
+query overrides. Every public entry therefore uses Pass B, the canonical Breakglass multiplayer
+room and the canonical production relay/auth server. Local development retains those overrides
+for regression testing.
+
+All gameplay changes intended for players must ultimately merge into
+`feat/multiplayer-phase-2-shared-world`. Feature branches are work-in-progress only and are not
+separate playable versions.
+
 ## Controls
 
 | Key | Action |

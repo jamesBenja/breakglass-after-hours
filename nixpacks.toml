@@ -1,0 +1,8 @@
+[phases.install]
+cmds = ["npm install --omit=dev --ignore-scripts --no-audit --no-fund"]
+
+[phases.build]
+cmds = ["echo 'Breakglass multiplayer server requires no compile step'"]
+
+[start]
+cmd = "node server/multiplayerServer.mjs"

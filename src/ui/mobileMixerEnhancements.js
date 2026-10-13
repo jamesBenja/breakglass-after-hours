@@ -17,6 +17,7 @@ function clearMobileMixerClasses(document) {
     'mixer-collapsed',
     'dj-mobile-active',
     'studio-mobile-active',
+    'spectra-console-active',
   );
 }
 
@@ -366,141 +367,15 @@ Hud.prototype.djMixer = function mobileDjMixer(mixer, tracks, { onChange = () =>
   shell.appendChild(cross);
 };
 
-Hud.prototype.studioMixer = function mobileStudioMixer(
-  session,
-  { onMix = () => {}, onPlay = () => {}, onStop = () => {}, onRecordVocal } = {},
-) {
-  if (!isTouchDevice())
-    return baseStudioMixer.call(this, session, { onMix, onPlay, onStop, onRecordVocal });
-
-  session._mobileFocusStem ??= session.stems[0]?.id;
-  const { body } = buildShell(
-    this,
-    'studio',
-    'SPECTRA CONSOLE',
-    `${session.name} · ${session.stems.length} channels. Pick one strip, mix it, then switch channels without losing the room view.`,
-  );
-
-  const transport = this.document.createElement('div');
-  transport.className = 'mobile-studio-transport';
-  transport.append(
-    makeButton(this.document, 'PLAY', 'primary', onPlay),
-    makeButton(this.document, 'STOP', '', onStop),
-  );
-  if (onRecordVocal)
-    transport.append(makeButton(this.document, 'REC VOX', 'record', onRecordVocal));
-  body.appendChild(transport);
-
-  const tabs = this.document.createElement('div');
-  tabs.className = 'mobile-stem-tabs';
-  const stripHost = this.document.createElement('div');
-  stripHost.className = 'mobile-stem-focus';
-  body.append(tabs, stripHost);
-
-  const renderTabs = () => {
-    tabs.replaceChildren();
-    for (const stem of session.stems) {
-      const button = makeButton(
-        this.document,
-        stem.label,
-        stem.id === session._mobileFocusStem ? 'active' : '',
-        () => {
-          session._mobileFocusStem = stem.id;
-          renderTabs();
-          renderStrip();
-        },
-      );
-      tabs.appendChild(button);
-    }
-  };
-
-  const renderStrip = () => {
-    stripHost.replaceChildren();
-    const stem =
-      session.stems.find((candidate) => candidate.id === session._mobileFocusStem) ??
-      session.stems[0];
-    if (!stem) return;
-
-    const header = this.document.createElement('div');
-    header.className = 'mobile-stem-heading';
-    const name = this.document.createElement('strong');
-    name.textContent = stem.label;
-    const switches = this.document.createElement('div');
-    switches.className = 'mobile-stem-switches';
-    const mute = makeButton(
-      this.document,
-      stem.mute ? 'UNMUTE' : 'MUTE',
-      stem.mute ? 'active' : '',
-      () => {
-        session.toggleMute(stem.id);
-        onMix();
-        renderStrip();
-      },
+Hud.prototype.studioMixer = function mobileStudioMixer(session, options = {}) {
+  const result = baseStudioMixer.call(this, session, options);
+  if (isTouchDevice()) {
+    clearMobileMixerClasses(this.document);
+    this.document.body?.classList.add(
+      'mixer-active',
+      'studio-mobile-active',
+      'spectra-console-active',
     );
-    const solo = makeButton(
-      this.document,
-      stem.solo ? 'UNSOLO' : 'SOLO',
-      stem.solo ? 'active' : '',
-      () => {
-        session.toggleSolo(stem.id);
-        onMix();
-        renderStrip();
-      },
-    );
-    switches.append(mute, solo);
-    header.append(name, switches);
-    stripHost.appendChild(header);
-
-    const controls = this.document.createElement('div');
-    controls.className = 'mobile-stem-controls';
-    addRange(this.document, controls, {
-      label: 'LEVEL',
-      min: 0,
-      max: 1,
-      step: 0.01,
-      value: stem.level,
-      format: (value) => `${Math.round(value * 100)}`,
-      onInput: (value) => {
-        session.setLevel(stem.id, value);
-        onMix();
-      },
-    });
-    addRange(this.document, controls, {
-      label: 'PAN',
-      min: -1,
-      max: 1,
-      step: 0.01,
-      value: stem.pan ?? 0,
-      onInput: (value) => {
-        session.setPan(stem.id, value);
-        onMix();
-      },
-    });
-    addRange(this.document, controls, {
-      label: 'LOW',
-      min: -1,
-      max: 1,
-      step: 0.01,
-      value: stem.low ?? 0,
-      onInput: (value) => {
-        session.setEq(stem.id, 'low', value);
-        onMix();
-      },
-    });
-    addRange(this.document, controls, {
-      label: 'HIGH',
-      min: -1,
-      max: 1,
-      step: 0.01,
-      value: stem.high ?? 0,
-      onInput: (value) => {
-        session.setEq(stem.id, 'high', value);
-        onMix();
-      },
-    });
-    stripHost.appendChild(controls);
-  };
-
-  renderTabs();
-  renderStrip();
+  }
+  return result;
 };

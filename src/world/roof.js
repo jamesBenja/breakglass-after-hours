@@ -19,7 +19,7 @@ export const roofLevel = {
   provenance: {
     status: 'GAME memory-space inspired by the studio founders era',
     reference: 'Breakglass building roof / founding-days stories',
-    note: 'Atmospheric throwback scene. Specific stories are intentionally kept broad until verified anecdotes are attached.',
+    note: 'Atmospheric memory-space. Founder stories are non-verbatim; specific building details such as Sandor’s freight-elevator tape marks come from firsthand project direction.',
   },
   background: 0x10161c,
   fog: [28, 84],
@@ -42,6 +42,7 @@ export const roofLevel = {
     start: HATCH_APPROACH,
     hatch: HATCH_APPROACH,
     stairs: HATCH_APPROACH,
+    freightElevator: [-6.0, 0, 3.05],
   },
   intro: [
     'THE ROOF',
@@ -56,12 +57,39 @@ export const roofLevel = {
       obstacle('roof-east-parapet', 7.88, 8.25, -5.2, 5.2),
       obstacle('roof-bulkhead', -7.1, -4.3, -4.68, -2.22, 0, 2.5),
       obstacle('roof-table', -1.1, 1.1, -0.13, 0.83, 0, 0.9),
+      obstacle('roof-ac-unit', 4.35, 6.35, -3.3, -1.8, 0, 1.25),
     ],
   },
   anchors: {
     hatch: anchor('Hidden hatch back to the studio', HATCH_APPROACH, 1.55, 'travel', {
       target: 'upstairs@roofReturn',
     }),
+    throwChair: anchor('Folding chair · throw off roof', [4.2, 0, 3.05], 1.25, 'roofThrow', {
+      throwId: 'chair',
+      throwKind: 'chair',
+      objectName: 'roof-throw-chair',
+      throwSource: [4.2, 1.0, 3.05],
+    }),
+    throwBox: anchor('Cardboard box · throw off roof', [5.55, 0, 3.35], 1.25, 'roofThrow', {
+      throwId: 'box',
+      throwKind: 'box',
+      objectName: 'roof-throw-box',
+      throwSource: [5.55, 0.8, 3.35],
+    }),
+    throwLumber: anchor('Building material · throw off roof', [6.55, 0, 2.55], 1.35, 'roofThrow', {
+      throwId: 'lumber',
+      throwKind: 'lumber',
+      objectName: 'roof-throw-lumber',
+      throwSource: [6.55, 0.65, 2.55],
+    }),
+    roofAc: anchor('Rattling roof air conditioner', [5.35, 0, -2.55], 1.65, 'roofAc'),
+    gentrificationTrigger: anchor(
+      'Gold skyline lock',
+      [7.15, 0, 1.05],
+      1.4,
+      'gentrificationTrigger',
+    ),
+    escapeHatch: anchor('Old freight elevator hatch', [-6.45, 0, 3.35], 1.6, 'freightElevator'),
   },
   maddox: {
     name: 'Maddox',
@@ -104,14 +132,7 @@ export const roofLevel = {
       role: 'founder',
       position: [1.55, 0, 1.0],
       rotationY: -2.55,
-      appearance: {
-        prop: 'founder',
-        skin: 0xb78667,
-        hair: 0x31241e,
-        outfit: 0x35383d,
-        accent: 0x765c46,
-        hairStyle: 'short',
-      },
+      appearance: { prop: 'founder' },
     },
   ],
   roofSystem: {

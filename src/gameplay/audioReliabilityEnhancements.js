@@ -2,6 +2,151 @@ import { AudioEngine } from '../audio/AudioEngine.js';
 
 let prototypeInstalled = false;
 
+export function isIOSAudioHost(navigatorTarget = globalThis.navigator) {
+  if (!navigatorTarget) return false;
+  const userAgent = String(navigatorTarget.userAgent || '');
+  const platform = String(navigatorTarget.platform || '');
+  return (
+    /iPad|iPhone|iPod/i.test(userAgent) ||
+    (platform === 'MacIntel' && Number(navigatorTarget.maxTouchPoints) > 1)
+  );
+}
+
+export function createIOSForegroundAudioWake({
+  game,
+  ui,
+  windowTarget = globalThis.window,
+  documentTarget = globalThis.document,
+  navigatorTarget = globalThis.navigator,
+  timers = globalThis,
+} = {}) {
+  if (
+    !game?.audio ||
+    !windowTarget?.addEventListener ||
+    !documentTarget?.addEventListener ||
+    !isIOSAudioHost(navigatorTarget)
+  )
+    return null;
+
+  const audio = game.audio;
+  let armed = false;
+  let timer = null;
+  let wakePromise = null;
+
+  const clearTimer = () => {
+    if (timer == null) return;
+    timers.clearTimeout?.(timer);
+    timer = null;
+  };
+
+  const setArmed = (value) => {
+    armed = value === true;
+    audio._foregroundWakePending = armed;
+  };
+
+  const wake = () => {
+    if (!armed || documentTarget.hidden || !audio.context) return Promise.resolve(false);
+    if (wakePromise) return wakePromise;
+
+    wakePromise = (async () => {
+      try {
+        // The normal visibility handler runs first and may already be restoring the context and
+        // persistent transports. Let that finish, then deliberately perform one extra device cycle.
+        // This reproduces the Safari tab-switch cycle that reliably wakes an otherwise running
+        // but inaudible iOS audio route after returning to the app.
+        if (game.audioPlaybackResumePromise) {
+          try {
+            await game.audioPlaybackResumePromise;
+          } catch {
+            // The forced cycle below is the fallback if the first visibility resume failed.
+          }
+        }
+
+        if (documentTarget.hidden || !audio.context) return false;
+
+        if (audio.context.state !== 'running') {
+          const firstResume = game.resumeAudioPlayback?.() ?? audio.resume?.();
+          if (firstResume) await Promise.resolve(firstResume);
+        }
+
+        if (documentTarget.hidden || !audio.context) return false;
+
+        if (audio.context.state === 'running') {
+          try {
+            await audio.suspend?.();
+          } catch {
+            // Continue to the explicit resume attempt even if Safari rejects the suspend request.
+          }
+        }
+
+        const result = await audio.resume?.();
+        const running = audio.context?.state === 'running';
+        if (running) setArmed(false);
+        return running && result !== false;
+      } catch (error) {
+        setArmed(true);
+        ui?.warning?.('Audio recovery: ' + error.message);
+        return false;
+      } finally {
+        wakePromise = null;
+      }
+    })();
+
+    return wakePromise;
+  };
+
+  const schedule = (delay = 120) => {
+    if (!armed || documentTarget.hidden) return;
+    clearTimer();
+    timer = timers.setTimeout?.(() => {
+      timer = null;
+      void wake();
+    }, delay);
+  };
+
+  const onVisibility = () => {
+    if (documentTarget.hidden) {
+      clearTimer();
+      setArmed(true);
+      return;
+    }
+    if (armed) schedule(140);
+  };
+
+  const onFocus = () => {
+    if (armed && !documentTarget.hidden) schedule(20);
+  };
+
+  const onPageShow = (event) => {
+    if (event?.persisted) setArmed(true);
+    if (armed && !documentTarget.hidden) schedule(20);
+  };
+
+  const onPageHide = () => {
+    clearTimer();
+    setArmed(true);
+  };
+
+  documentTarget.addEventListener('visibilitychange', onVisibility);
+  windowTarget.addEventListener('focus', onFocus, true);
+  windowTarget.addEventListener('pageshow', onPageShow, true);
+  windowTarget.addEventListener('pagehide', onPageHide, true);
+
+  return {
+    get armed() {
+      return armed;
+    },
+    wake,
+    dispose() {
+      clearTimer();
+      documentTarget.removeEventListener?.('visibilitychange', onVisibility);
+      windowTarget.removeEventListener?.('focus', onFocus, true);
+      windowTarget.removeEventListener?.('pageshow', onPageShow, true);
+      windowTarget.removeEventListener?.('pagehide', onPageHide, true);
+      setArmed(false);
+    },
+  };
+}
 function primeOutput(engine) {
   const context = engine.context;
   if (!context || engine._outputPrimed) return engine._outputPrimed === true;
@@ -80,9 +225,10 @@ function installPrototypeReliability() {
     this._outputPrimed = false;
     const pending = baseResume.call(this);
     primeOutput(this);
-    return Promise.resolve(pending).then(() => {
+    return Promise.resolve(pending).then((result) => {
       primeOutput(this);
       this._audioReady = this.context?.state === 'running' && this._outputPrimed === true;
+      return result;
     });
   };
 
@@ -118,9 +264,28 @@ export function installAudioReliabilityEnhancements(game, ui) {
   game._audioReliabilityInstalled = true;
 
   const audio = game.audio;
+  const foregroundWake = createIOSForegroundAudioWake({ game, ui });
   const arm = () => {
-    if (audio._audioReady && audio.context?.state === 'running') return;
-    void audio.unlock().catch((error) => ui?.warning?.(`Audio: ${error.message}`));
+    if (foregroundWake?.armed) {
+      void foregroundWake.wake();
+      return;
+    }
+    const nativeResumePending = audio._nativeMediaResumePending === true;
+    const contextResumePending = audio._contextResumePending === true;
+    const playbackRecoveryPending = game.audioPlaybackRecoveryPending === true;
+    if (
+      audio._audioReady &&
+      audio.context?.state === 'running' &&
+      !nativeResumePending &&
+      !contextResumePending &&
+      !playbackRecoveryPending
+    )
+      return;
+
+    const recovering =
+      nativeResumePending || contextResumePending || playbackRecoveryPending || audio.context;
+    const request = recovering ? (game.resumeAudioPlayback?.() ?? audio.resume()) : audio.unlock();
+    void Promise.resolve(request).catch((error) => ui?.warning?.(`Audio: ${error.message}`));
   };
 
   // touchstart matters on iPhone: it occurs earlier in the gesture than click/touchend and gives
@@ -162,6 +327,7 @@ export function installAudioReliabilityEnhancements(game, ui) {
     window.removeEventListener('touchstart', arm, true);
     window.removeEventListener('pointerdown', arm, true);
     window.removeEventListener('keydown', arm, true);
+    foregroundWake?.dispose();
     return baseDispose();
   };
 }

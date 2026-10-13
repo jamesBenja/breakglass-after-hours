@@ -4,7 +4,6 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
-  PerspectiveCamera,
   PlaneGeometry,
   SRGBColorSpace,
   TextureLoader,
@@ -253,13 +252,19 @@ export class PartyLifePhotoSystem {
         return { saved: false, reason: 'scene-changed' };
       const camera = this.game.photos.cameraFor(level, photographerId);
       if (!camera) return { saved: false, reason: 'photographer-not-here' };
-      return this.saveCapture(
+      const result = this.saveCapture(
         level,
         photographerId,
         camera,
         ['portrait', level.definition.id],
         ['player', ...joined],
       );
+      if (result?.saved) {
+        this.ui.photoReview?.(result.photo, {
+          onRetake: () => this.capturePortrait(photographerId),
+        });
+      }
+      return result;
     } finally {
       this.busy = false;
     }
@@ -278,16 +283,12 @@ export class PartyLifePhotoSystem {
       await delay(170);
       if (this.game.sceneManager.current !== level)
         return { saved: false, reason: 'scene-changed' };
-      const camera = new PerspectiveCamera(56, 4 / 3, 0.08, 90);
-      camera.position.copy(source).add(new Vector3(0, 1.55, 0));
-      const direction = lookAt
-        .clone()
-        .add(new Vector3(0, 1.05, 0))
-        .sub(camera.position);
-      if (direction.length() < 2.2)
-        camera.position.add(direction.clone().normalize().multiplyScalar(-2.3));
-      camera.lookAt(lookAt.clone().add(new Vector3(0, 1.0, 0)));
-      camera.updateMatrixWorld(true);
+      const camera = this.game.photos.cameraForTarget(level, 'nora', lookAt, {
+        fov: 50,
+        minDistance: 3.0,
+        targetHeight: 1.0,
+      });
+      if (!camera) return { saved: false, reason: 'photographer-not-here' };
       return this.saveCapture(level, 'nora', camera, ['autonomous', level.definition.id, ...tags]);
     } finally {
       this.busy = false;
@@ -320,7 +321,7 @@ export class PartyLifePhotoSystem {
       const crowd = level.crowd?.snapshot?.();
       if ((crowd?.attendance ?? 0) > 18) {
         choices.push({ position: [0, 0, 0.4], tags: ['dancefloor', 'crowd'] });
-        choices.push({ position: [-8.1, 0, 1.55], tags: ['take-a-break', 'crowd'] });
+        choices.push({ position: [7.65, 0, 3.65], tags: ['take-a-break', 'crowd'] });
       }
       for (const id of ['courtney', 'simla', 'devin']) {
         const position = level.npcs?.positionOf?.(id);

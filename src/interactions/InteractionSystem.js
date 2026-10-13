@@ -13,9 +13,15 @@ export class InteractionSystem {
   }
 
   unlocked(anchor) {
-    if (!anchor.requires) return true;
-    const value = this.state?.data?.[anchor.requires] ?? this.state?.[anchor.requires];
-    return value === true;
+    if (anchor.requires) {
+      const value = this.state?.data?.[anchor.requires] ?? this.state?.[anchor.requires];
+      if (value !== true) return false;
+    }
+    if (anchor.requiresNot) {
+      const value = this.state?.data?.[anchor.requiresNot] ?? this.state?.[anchor.requiresNot];
+      if (value === true) return false;
+    }
+    return true;
   }
 
   candidates() {

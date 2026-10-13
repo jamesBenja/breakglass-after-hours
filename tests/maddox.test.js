@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Group } from 'three';
 import { MaddoxSystem } from '../src/pets/MaddoxSystem.js';
 import {
+  BELLY_AFFECTION_THRESHOLD,
   MaddoxInteractionSystem,
   ROOF_AFFECTION_THRESHOLD,
 } from '../src/gameplay/MaddoxInteractionSystem.js';
@@ -68,5 +69,41 @@ test('petting Maddox enough unlocks the roof secret and starts guide behavior', 
   assert.equal(maddox.snapshot().leading, true);
   assert.ok(saves >= ROOF_AFFECTION_THRESHOLD);
   assert.equal(panels.at(-1).title, 'MADDOX KNOWS A WAY UP');
+  maddox.dispose();
+});
+
+test('continued petting unlocks Maddox howl, side flop and repeatable belly rubs', () => {
+  const root = new Group();
+  const maddox = new MaddoxSystem(root, { start: [0, 0, 0] });
+  const state = {
+    data: {
+      maddoxPets: 0,
+      maddoxAffection: ROOF_AFFECTION_THRESHOLD,
+      roofSecretUnlocked: true,
+      maddoxCompanion: false,
+      maddoxBellyUnlocked: false,
+      maddoxBellyRubs: 0,
+    },
+  };
+  const panels = [];
+  const tones = [];
+  const interaction = new MaddoxInteractionSystem({
+    state,
+    ui: { panel: (title, text, actions = []) => panels.push({ title, text, actions }) },
+    sceneManager: { current: { maddox, definition: { id: 'upstairs', maddox: {} } } },
+    audio: { tone: (...args) => tones.push(args) },
+  });
+
+  while (state.data.maddoxAffection < BELLY_AFFECTION_THRESHOLD) interaction.pet();
+  assert.equal(state.data.maddoxBellyUnlocked, true);
+  assert.equal(maddox.snapshot().state, 'belly');
+  assert.equal(panels.at(-1).title, 'MADDOX · BELLY RUBS');
+  assert.equal(tones.length, 3);
+
+  interaction.bellyRub();
+  assert.equal(state.data.maddoxBellyRubs, 1);
+  assert.equal(maddox.snapshot().state, 'belly');
+  for (let i = 0; i < 45; i++) maddox.update(1 / 60);
+  assert.ok(maddox.root.rotation.z < -0.8);
   maddox.dispose();
 });

@@ -7,6 +7,10 @@ export const dialogues = {
     title: 'JAMES',
     text: '“Make something upstairs, test it downstairs. That is basically the building.”',
   },
+  killy: {
+    title: 'KILLY · LIGHTING',
+    text: '“I love lasers and especially haze. Hope I don’t set off another fire alarm…”',
+  },
   jace: {
     title: 'JACE · STUDIO GUIDE',
     text: '“The rooms make more sense once you walk the signal path. Live Room, machines, console, then listen.”',
@@ -27,10 +31,42 @@ export const dialogues = {
   simla: { title: 'SIMLA · BAR', text: '“Hydrate too. You have a whole night ahead of you.”' },
   devin: {
     title: 'DEVIN · SOUND SYSTEM TECH',
-    text: '“I’m listening. Something in this corner is bothering me. Also, do you have any candy?”',
+    text: '“Listen from the middle. The four hangs should image evenly, and the center sub should feel like it is coming from everywhere and nowhere. I keep walking the room until it locks in.”',
+    soundPrompt: 'What are you listening for?',
+    soundText:
+      '“Coverage first, then timing. If one corner pulls your ear, or the center gets lumpy, I want to know why before I touch anything. The room should feel powerful without one box announcing itself.”',
+    arcadePrompt: 'Do you like old arcade games?',
+    arcadeText:
+      '“Wait — yes. Old fighting cabinets especially. Come on, come on. Mortal Kombat is right by the Clark stairs. The sound can wait thirty seconds.”',
+    takeCandyPrompt: 'Take a candy from Devin',
+    takeCandyText:
+      '“Yeah, obviously. Take one. Sound-system sugar is part of the tuning protocol.”',
+    giveCandyPrompt: 'Give Devin a candy',
+    giveCandyText:
+      '“For me? Perfect. This buys at least another ten minutes of obsessive system tuning.”',
   },
-  bouncer: {
-    title: 'DOOR',
-    text: '“You’re good. Head in when you’re ready. And please keep it down if you come back outside.”',
+  dave: {
+    title: 'DAVE · FOUNDER',
+    text: '“You found the roof. Grab a spot — the building looks different from up here.”',
+  },
+  david: {
+    title: 'DAVID · FURNITURE DEALER',
+    text: '“Half the building is furniture if you know which wall to move.”',
+  },
+  dave: {
+    title: 'DAVE · BREAKGLASS FOUNDER',
+    text: '“We spent a lot of time up here when the studio was young. The roof was part smoke break, part meeting room.”',
+  },
+  beaver: {
+    title: 'BEAVER · BACK ALLEY BBQ',
+    text: '“Hot dogs, tacos, beer. Keep the alley chill and eat something.”',
+  },
+  sam: {
+    title: 'SAM · SECURITY',
+    text: '“You’re good. Head in when you’re ready. If you come back outside, keep the alley chill for the neighbours.”',
+  },
+  malaika: {
+    title: 'MALAIKA / DJ FLLEUR',
+    text: '“Get in the photo. Nora has the camera — I’ll make sure everybody actually looks alive.”',
   },
 };
