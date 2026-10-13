@@ -371,9 +371,10 @@ export class DjMixer {
     const environment = this.audio.sourceGain?.('dj') ?? this.audio.environment?.gain ?? 1;
     for (const [deckId, deck] of Object.entries(this.decks)) {
       if (!deck.media) continue;
-      deck.media.volume = deck.mediaNode
+      const volume = deck.mediaNode
         ? 1
         : clamp(deck.level * this.nativeCrossGain(deckId) * environment * 0.92);
+      if (Math.abs(deck.media.volume - volume) > 0.001) deck.media.volume = volume;
     }
   }
 
@@ -894,7 +895,12 @@ export class DjMixer {
   update(dt) {
     this.elapsed += dt;
     this.updateNativeDeckLevels();
-    this.updateVibe();
+    // Vibe is game feedback, not an audio-rate control. Avoid rebuilding its transport
+    // metrics and map on every render frame while four independent tracks are playing.
+    if (this.elapsed >= 0.12) {
+      this.elapsed %= 0.12;
+      this.updateVibe();
+    }
   }
 
   stop() {
