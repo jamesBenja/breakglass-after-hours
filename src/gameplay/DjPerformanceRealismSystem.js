@@ -54,10 +54,7 @@ function applyPlaybackRate(mixer, deck) {
   const sourceRate = deck.platterHeld || !deck.motorOn ? 0.001 : rate;
   // WebAudio and HTMLMedia playback-rate writes are transport operations. Repeating them at
   // 60/120fps can cause audible resampling glitches on a second concurrently playing deck.
-  if (
-    deck.source?.playbackRate &&
-    Math.abs(deck.source.playbackRate.value - sourceRate) > 0.00001
-  )
+  if (deck.source?.playbackRate && Math.abs(deck.source.playbackRate.value - sourceRate) > 0.00001)
     deck.source.playbackRate.value = sourceRate;
   if (deck.media) {
     if (Math.abs(deck.media.playbackRate - rate) > 0.00001) deck.media.playbackRate = rate;
