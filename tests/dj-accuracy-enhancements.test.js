@@ -130,3 +130,71 @@ test('A9 Beat FX exposes channel routing, effect, beat and depth state', () => {
     amount: 0.63,
   });
 });
+
+test('two playing CDJs never restart to chase minor phase drift between frames', () => {
+  const { mixer, context } = harness();
+  const master = mixer.decks.A;
+  const slave = mixer.decks.B;
+  master.playing = true;
+  slave.playing = true;
+  master.transportStartedAt = context.currentTime;
+  slave.transportStartedAt = context.currentTime;
+  master.transportOffset = 5;
+  slave.transportOffset = 5.11;
+  slave.bpm = master.bpm;
+  slave._syncMaster = 'A';
+
+  let restarts = 0;
+  mixer.restartDeckAt = () => {
+    restarts += 1;
+    return true;
+  };
+  for (let frame = 0; frame < 120; frame += 1) {
+    context.currentTime += 1 / 60;
+    mixer.update(1 / 60);
+  }
+
+  assert.equal(restarts, 0, 'continuous DJ playback must not be torn down by the update loop');
+  assert.ok(Math.abs(slave._phaseErrorMs) > 28, 'phase meter still exposes drift');
+  assert.equal(master.playing, true);
+  assert.equal(slave.playing, true);
+});
+
+test('native playback rate and volume are not reassigned on every frame', () => {
+  const { mixer, context } = harness();
+  const deck = mixer.decks.B;
+  const media = { paused: false };
+  let playbackWrites = 0;
+  let volumeWrites = 0;
+  let playbackRate = 1;
+  let volume = 1;
+  Object.defineProperty(media, 'playbackRate', {
+    get: () => playbackRate,
+    set: (next) => {
+      playbackWrites += 1;
+      playbackRate = next;
+    },
+  });
+  Object.defineProperty(media, 'volume', {
+    get: () => volume,
+    set: (next) => {
+      volumeWrites += 1;
+      volume = next;
+    },
+  });
+  deck.media = media;
+  deck.playing = true;
+  deck.transportStartedAt = context.currentTime;
+  mixer.update(1 / 60);
+  const initialRateWrites = playbackWrites;
+  const initialVolumeWrites = volumeWrites;
+  for (let frame = 0; frame < 120; frame += 1) {
+    context.currentTime += 1 / 60;
+    mixer.update(1 / 60);
+  }
+
+  assert.equal(playbackWrites, initialRateWrites);
+  assert.equal(volumeWrites, initialVolumeWrites);
+  mixer.setBpm('B', deck.bpm + 1);
+  assert.ok(playbackWrites > initialRateWrites, 'user tempo changes must still take effect');
+});

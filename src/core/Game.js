@@ -64,6 +64,8 @@ export class Game {
     this.localAudioPriorityKey = '';
     this.lastStudioUiFrame = 0;
     this.mobileStudioLowPower = false;
+    this.renderSceneId = null;
+    this.renderPixelRatio = Math.min(devicePixelRatio, 1.5);
     let storage = options.storage;
     if (!('storage' in options)) {
       try {
@@ -98,7 +100,7 @@ export class Game {
     this.input = new InputController();
     this.camera = new FollowCamera(innerWidth / innerHeight);
     this.renderer = new WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer.setPixelRatio(this.renderPixelRatio);
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFSoftShadowMap;
@@ -480,7 +482,7 @@ export class Game {
     }, this.state);
     this.onResize = () => {
       this.camera.resize(innerWidth, innerHeight);
-      this.renderer.setPixelRatio(this.mobileStudioLowPower ? 1 : Math.min(devicePixelRatio, 2));
+      this.renderer.setPixelRatio(this.mobileStudioLowPower ? 1 : this.renderPixelRatio);
       this.renderer.setSize(innerWidth, innerHeight);
     };
     this.onVisibility = () => {
@@ -618,9 +620,14 @@ export class Game {
     // When a studio instrument/console is covering the mobile screen, the Web Audio graph and its
     // timers keep running independently. Cap the 3D/game loop to ~30fps so Safari has more CPU
     // headroom for audio instead of rendering an obscured world at 60/120fps.
-    if (mobileStudioUi !== this.mobileStudioLowPower) {
+    const sceneId = this.sceneManager.current?.definition?.id ?? null;
+    if (mobileStudioUi !== this.mobileStudioLowPower || sceneId !== this.renderSceneId) {
       this.mobileStudioLowPower = mobileStudioUi;
-      this.renderer.setPixelRatio(mobileStudioUi ? 1 : Math.min(devicePixelRatio, 2));
+      this.renderSceneId = sceneId;
+      // The studio floor has far more separate furniture and light/shadow meshes than Below.
+      // Limit HiDPI fill-rate there without changing world/collision/NPC/audio simulation.
+      this.renderPixelRatio = Math.min(devicePixelRatio, sceneId === 'upstairs' ? 1.25 : 1.75);
+      this.renderer.setPixelRatio(mobileStudioUi ? 1 : this.renderPixelRatio);
       this.renderer.shadowMap.enabled = !mobileStudioUi;
       this.renderer.setSize(innerWidth, innerHeight);
     }

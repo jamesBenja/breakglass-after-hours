@@ -24,7 +24,8 @@ export async function createLevel(definition, builders, assets) {
   const key = new DirectionalLight(0xffffff, 2);
   key.position.set(8, 18, 10);
   key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
+  const shadowResolution = definition.id === 'upstairs' ? 1024 : 2048;
+  key.shadow.mapSize.set(shadowResolution, shadowResolution);
   key.shadow.camera.left = key.shadow.camera.bottom = -24;
   key.shadow.camera.right = key.shadow.camera.top = 24;
   key.shadow.camera.far = 65;

@@ -51,12 +51,15 @@ function applyPlaybackRate(mixer, deck) {
   const rpmMultiplier = deck.deviceMode === 'vinyl' ? deck.vinylRpm / 33.333 : 1;
   const bend = 1 + clamp(deck._jogBend, -0.06, 0.06);
   const rate = Math.max(0.001, nominal * rpmMultiplier * bend);
-  if (deck.source?.playbackRate)
-    deck.source.playbackRate.value = deck.platterHeld || !deck.motorOn ? 0.001 : rate;
+  const sourceRate = deck.platterHeld || !deck.motorOn ? 0.001 : rate;
+  // WebAudio and HTMLMedia playback-rate writes are transport operations. Repeating them at
+  // 60/120fps can cause audible resampling glitches on a second concurrently playing deck.
+  if (deck.source?.playbackRate && Math.abs(deck.source.playbackRate.value - sourceRate) > 0.00001)
+    deck.source.playbackRate.value = sourceRate;
   if (deck.media) {
-    deck.media.playbackRate = rate;
-    if (deck.platterHeld || !deck.motorOn) deck.media.pause();
-    else if (deck.playing && deck.media.paused) void deck.media.play().catch(() => {});
+    if (Math.abs(deck.media.playbackRate - rate) > 0.00001) deck.media.playbackRate = rate;
+    if ((deck.platterHeld || !deck.motorOn) && !deck.media.paused) deck.media.pause();
+    // Native-media transport is started by playDeck/recovery. Never call play() every frame.
   }
 }
 
@@ -694,9 +697,10 @@ export function installDjPerformanceRealism(game, ui) {
       if (b && !b._syncMaster) b._phaseErrorMs = 0;
     }
 
-    // Any synced player can follow any active fixed-grid master, including either turntable.
-    // Correct only when drift is audible; WebAudio itself is stable so this is chiefly for
-    // media fallback and mobile stalls.
+    // SYNC explicitly aligns phase when pressed or when the player starts. Do not seek/restart
+    // playing decks inside the animation loop: a small measured phase error (particularly with
+    // HTMLMediaElement clocks) previously restarted the slave every ~180ms and sounded like a
+    // broken beat. Leave the audio transport continuous and report drift for the phase meter.
     for (const [slaveId, slave] of Object.entries(mixer.decks)) {
       const masterId = slave._syncMaster;
       const master = masterId ? mixer.decks[masterId] : null;
@@ -704,14 +708,7 @@ export function installDjPerformanceRealism(game, ui) {
       const slavePhase = mixer.phase?.(slave) ?? 0;
       const masterPhase = mixer.phase?.(master) ?? 0;
       const delta = modulo(slavePhase - masterPhase + 0.5, 1) - 0.5;
-      const errorSeconds = delta * (60 / Math.max(1, slave.bpm));
-      slave._phaseErrorMs = errorSeconds * 1000;
-      slave._phaseCorrectionElapsed = (slave._phaseCorrectionElapsed ?? 0) + dt;
-      if (slave._phaseCorrectionElapsed > 0.18 && Math.abs(errorSeconds) > 0.028) {
-        slave._phaseCorrectionElapsed = 0;
-        const current = mixer.deckPosition?.(slaveId) ?? 0;
-        mixer.restartDeckAt?.(slaveId, Math.max(0, current - errorSeconds));
-      }
+      slave._phaseErrorMs = delta * (60 / Math.max(1, slave.bpm)) * 1000;
     }
     return result;
   };
